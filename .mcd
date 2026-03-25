@@ -1,0 +1,194 @@
+# 🧠 Contexto del Usuario – Juan José Aranda
+
+## 👤 Perfil General
+
+* Nombre: Juan José Aranda
+* Ubicación: Santiago, Chile
+* Formación: Ingeniería Civil Industrial (Universidad de Chile)
+* Postulación: Magíster en Data Science
+* Profesión: Machine Learning Engineer
+
+## 🏢 Experiencia Actual
+
+* Empresa: Bancame (startup chilena fintech)
+* Rol: Machine Learning Engineer
+* Enfoque:
+
+  * Evaluación de leads según perfil de riesgo
+  * Modelos para:
+
+    * inmobiliarias
+    * microcréditos (avances, DPP, BNPL)
+* Tipo de problemas:
+
+  * clasificación binaria (aprobación / rechazo)
+  * scoring de riesgo
+  * trabajo con datos limitados / ruidosos
+* Exposición a:
+
+  * decisiones con impacto financiero real
+  * modelos productivos (no solo experimentales)
+
+## 🚀 Intereses Principales
+
+* Inteligencia Artificial aplicada a negocios
+* Emprendimiento tecnológico
+* Sistemas de recomendación
+* Fintech y modelos de riesgo
+* Optimización de procesos con IA
+* Desarrollo de productos digitales escalables (SaaS / APIs)
+
+## 💡 Forma de Pensar
+
+* Orientado a impacto real y monetización
+* Prefiere soluciones prácticas sobre teoría innecesaria
+* Busca iterar rápido y validar con mercado
+* Interesado en ventajas competitivas (data, nicho, execution speed)
+* Mentalidad "hacker":
+
+  * scraping
+  * automatización
+  * uso intensivo de AI para acelerar desarrollo
+
+## 🧪 Experiencia Técnica
+
+* Machine Learning (enfoque en clasificación)
+* Modelos de riesgo / scoring
+* Feature engineering en contextos reales
+* Uso de LLMs para:
+
+  * generación de features
+  * apoyo en decisiones
+* Sistemas de recomendación
+* Trabajo en entornos productivos
+* GCP
+
+## 📚 Contexto de Tesis
+
+* Tema: Impacto de LLMs en sistemas de recomendación
+* Enfoque:
+
+  * Predicción de clics (clasificación binaria)
+  * LLMs como complemento a modelos tradicionales
+* Intereses clave:
+
+  * escenarios con pocos datos
+  * generación de features con LLMs
+  * retail media
+
+---
+
+# 🦷 Proyecto Actual: molaris.ai
+
+## 🎯 Objetivo
+
+Construir un asistente virtual para clínicas dentales que:
+
+* automatice atención al cliente
+* aumente reservas
+* mejore conversión de pacientes
+
+## 🧩 Problemas que resuelve
+
+* pérdida de pacientes por respuestas lentas
+* mala gestión de leads (WhatsApp, formularios)
+* baja conversión de consultas a citas
+* procesos manuales repetitivos
+
+## 🤖 Funcionalidades esperadas
+
+* chatbot para WhatsApp / web
+* agendamiento automático
+* respuestas a FAQs
+* **lead scoring de pacientes** (alto potencial de tratamiento)
+* priorización de pacientes
+* recordatorios automáticos
+* seguimiento post-consulta
+
+## 🧠 Ventaja Competitiva (CLAVE)
+
+El usuario puede integrar:
+
+* modelos de scoring (tipo fintech) aplicados a pacientes
+* estimación de:
+
+  * probabilidad de agendamiento
+  * probabilidad de conversión a tratamiento
+  * valor esperado del paciente
+
+Esto permite que molaris.ai NO sea solo un chatbot,
+sino un sistema de **optimización de ingresos para clínicas**.
+
+## 💰 Modelo de negocio
+
+* SaaS mensual
+* potencial API futura
+* B2B (clínicas dentales)
+
+## 🚀 Visión
+
+Escalar desde:
+
+* clínicas dentales
+  → sector salud
+  → cualquier industria basada en leads + conversión
+
+---
+
+# 🧠 Cómo debe responder Claude
+
+## 🎯 Estilo de respuesta
+
+* Directo, claro, sin relleno
+* Enfocado en ejecución
+* Propuestas accionables
+* Pensamiento estratégico + técnico
+
+## ⚙️ Enfoque
+
+* Priorizar MVPs rápidos
+* Evitar sobreingeniería
+* Sugerir herramientas modernas (LLMs, APIs)
+* Pensar en escalabilidad
+
+## 📈 En negocio
+
+* Enfatizar ROI
+* Proponer pricing
+* Identificar clientes reales
+* Validación rápida con mercado
+
+## 🧑‍💻 En técnico
+
+* Arquitecturas simples primero
+* Ejemplos concretos (input/output)
+* Iteraciones rápidas
+
+---
+
+# ⚡ Notas Importantes
+
+* El usuario quiere construir y monetizar rápido
+* Tiene experiencia en problemas reales de riesgo
+* Puede construir modelos con impacto financiero
+* Está en una posición única para crear:
+
+  * scoring APIs
+  * decision systems
+  * optimization engines
+
+---
+
+# 🧭 Prioridades Actuales
+
+1. Construir MVP de molaris.ai
+2. Conseguir primeras clínicas
+3. Validar conversión y valor
+4. Incorporar inteligencia (scoring)
+5. Escalar producto
+
+---
+
+# 🔥 Mentalidad
+
+"Construir algo simple que genere dinero rápido, y luego hacerlo inteligente"
