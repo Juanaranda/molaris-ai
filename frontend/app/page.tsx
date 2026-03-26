@@ -132,7 +132,7 @@ export default function Home() {
           Implementamos molaris.ai en tu clínica en menos de 48 horas.
         </p>
         <a
-          href="https://wa.me/56912345678"
+          href="https://wa.me/56966865887"
           className="inline-block bg-green-500 text-white font-semibold px-8 py-3 rounded-full hover:bg-green-600 transition-colors"
         >
           Hablar con el equipo por WhatsApp

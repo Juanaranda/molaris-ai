@@ -1,33 +1,86 @@
-import Anthropic from "@anthropic-ai/sdk";
+import Groq from "groq-sdk";
 import { config } from "../../config/env";
 import { buildSystemPrompt } from "./promptBuilder";
-import { galanaConfig } from "../../config/clinics/galana";
+import { getHistory, appendToHistory } from "./sessionStore";
+import type { Clinic } from "@prisma/client";
 
-const client = new Anthropic({ apiKey: config.anthropicApiKey });
+const client = new Groq({ apiKey: config.groqApiKey });
 
-// Mapa de clínicas disponibles
-const clinicConfigs: Record<string, typeof galanaConfig> = {
-  galana: galanaConfig,
-};
-
-interface AIRequestParams {
-  message: string;
-  clinicId?: string;
-  sessionId?: string;
+export interface PatientContextUpdate {
+  patientName?: string;
+  serviceInterest?: string;
+  urgency?: string;
+  intent?: string;
+  score?: number;
+  notes?: string;
 }
 
-export async function getAIResponse({ message, clinicId = "galana" }: AIRequestParams): Promise<string> {
-  const clinic = clinicConfigs[clinicId] ?? galanaConfig;
+export interface AIRequestParams {
+  message: string;
+  clinic: Clinic;
+  sessionId: string;
+}
+
+export interface AIResponse {
+  reply: string;
+  context: PatientContextUpdate | null;
+}
+
+export async function getAIResponse({
+  message,
+  clinic,
+  sessionId,
+}: AIRequestParams): Promise<AIResponse> {
   const systemPrompt = buildSystemPrompt(clinic);
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 500,
-    system: systemPrompt,
-    messages: [{ role: "user", content: message }],
+  appendToHistory(sessionId, "user", message);
+  const history = getHistory(sessionId);
+
+  const response = await client.chat.completions.create({
+    model: "llama-3.3-70b-versatile",
+    max_tokens: 600,
+    messages: [
+      { role: "system", content: systemPrompt },
+      ...history,
+    ],
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "update_patient_context",
+          description: "Extrae y actualiza el perfil del paciente basado en la conversación.",
+          parameters: {
+            type: "object",
+            properties: {
+              patientName: { type: "string", description: "Nombre del paciente si lo mencionó" },
+              serviceInterest: { type: "string", description: "Tratamiento o servicio de interés" },
+              urgency: { type: "string", enum: ["high", "medium", "low"], description: "Urgencia detectada" },
+              intent: { type: "string", enum: ["ready_to_book", "evaluating", "just_browsing"], description: "Intención de agendar" },
+              score: { type: "number", description: "Score de lead del 0 al 100" },
+              notes: { type: "string", description: "Información adicional relevante" },
+            },
+          },
+        },
+      },
+    ],
+    tool_choice: "auto",
   });
 
-  const block = response.content[0];
-  if (block.type !== "text") throw new Error("Unexpected response type");
-  return block.text;
+  const msg = response.choices[0]?.message;
+  const replyText = msg?.content ?? "";
+
+  appendToHistory(sessionId, "assistant", replyText);
+
+  // Extraer contexto del tool call si lo hubo
+  let context: PatientContextUpdate | null = null;
+  const toolCall = msg?.tool_calls?.[0];
+  if (toolCall?.function?.arguments) {
+    try {
+      context = JSON.parse(toolCall.function.arguments) as PatientContextUpdate;
+    } catch {
+      // ignorar si falla el parse
+    }
+  }
+
+  return { reply: replyText, context };
 }

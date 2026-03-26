@@ -13,6 +13,12 @@ out/
 **/.env
 **/.env.local
 
+# Prisma generated client
+backend/src/generated/
+
+# Claude memory (local only)
+.claude/
+
 # Misc
 .DS_Store
 *.log

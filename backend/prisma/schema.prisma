@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── CLÍNICA (TENANT) ────────────────────────────────────────────────────────
+model Clinic {
+  id        String   @id @default(cuid())
+  slug      String   @unique          // ej: "galana"
+  name      String
+  phone     String?
+  whatsapp  String?
+  instagram String?
+  location  String?
+  config    Json                      // servicios, horarios, tono (reemplaza galana.ts)
+  apiKey    String   @unique @default(cuid())
+  plan      String   @default("starter")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patients  Patient[]
+  sessions  Session[]
+
+  @@map("clinics")
+}
+
+// ─── PACIENTE ────────────────────────────────────────────────────────────────
+model Patient {
+  id        String   @id @default(cuid())
+  clinicId  String
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+  name      String?
+  phone     String?
+  email     String?
+  channel   String?  // "whatsapp" | "web" | "instagram"
+  createdAt DateTime @default(now())
+
+  sessions  Session[]
+
+  @@map("patients")
+}
+
+// ─── SESIÓN (CONVERSACIÓN) ───────────────────────────────────────────────────
+model Session {
+  id        String   @id @default(cuid())
+  clinicId  String
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+  patientId String?
+  patient   Patient? @relation(fields: [patientId], references: [id])
+  channel   String   @default("web")
+  status    String   @default("open")  // "open" | "booked" | "closed"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages  Message[]
+  context   PatientContext?
+
+  @@map("sessions")
+}
+
+// ─── MENSAJES ────────────────────────────────────────────────────────────────
+model Message {
+  id        String   @id @default(cuid())
+  sessionId String
+  session   Session  @relation(fields: [sessionId], references: [id])
+  role      String   // "user" | "assistant"
+  content   String
+  createdAt DateTime @default(now())
+
+  @@map("messages")
+}
+
+// ─── CONTEXTO / LEAD SCORE ───────────────────────────────────────────────────
+model PatientContext {
+  id              String   @id @default(cuid())
+  sessionId       String   @unique
+  session         Session  @relation(fields: [sessionId], references: [id])
+  patientName     String?
+  serviceInterest String?  // ej: "implante dental"
+  urgency         String?  // "high" | "medium" | "low"
+  intent          String?  // "ready_to_book" | "evaluating" | "just_browsing"
+  score           Int?     // 0-100
+  notes           String?  // info adicional extraída
+  updatedAt       DateTime @updatedAt
+
+  @@map("patient_contexts")
+}
