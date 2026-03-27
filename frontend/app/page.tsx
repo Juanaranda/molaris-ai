@@ -4,11 +4,11 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-white text-gray-900 font-sans">
       {/* NAV */}
-      <nav className="flex items-center justify-between px-8 py-5 border-b border-gray-100">
+      <nav className="flex items-center justify-between px-4 sm:px-8 py-4 sm:py-5 border-b border-gray-100">
         <span className="text-xl font-bold tracking-tight">
           molaris<span className="text-blue-600">.ai</span>
         </span>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
           <a
             href="#pricing"
             className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
@@ -17,7 +17,7 @@ export default function Home() {
           </a>
           <a
             href="#demo"
-            className="bg-blue-600 text-white text-sm font-medium px-5 py-2 rounded-full hover:bg-blue-700 transition-colors"
+            className="bg-blue-600 text-white text-sm font-medium px-4 sm:px-5 py-2 rounded-full hover:bg-blue-700 transition-colors"
           >
             Ver demo
           </a>
@@ -25,33 +25,33 @@ export default function Home() {
       </nav>
 
       {/* HERO */}
-      <section className="max-w-4xl mx-auto px-8 pt-24 pb-16 text-center">
-        <p className="text-blue-600 text-sm font-semibold uppercase tracking-widest mb-4">
+      <section className="max-w-4xl mx-auto px-4 sm:px-8 pt-14 sm:pt-24 pb-12 sm:pb-16 text-center">
+        <p className="text-blue-600 text-xs sm:text-sm font-semibold uppercase tracking-widest mb-4">
           IA para clínicas dentales
         </p>
-        <h1 className="text-5xl font-extrabold leading-tight tracking-tight mb-6">
+        <h1 className="text-4xl sm:text-5xl font-extrabold leading-tight tracking-tight mb-5 sm:mb-6">
           Más pacientes.<br />
           Menos trabajo manual.
         </h1>
-        <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-10">
+        <p className="text-base sm:text-lg text-gray-500 max-w-2xl mx-auto mb-8 sm:mb-10">
           molaris.ai automatiza la atención, responde consultas 24/7 y convierte
           más leads en citas — con inteligencia artificial entrenada para tu clínica.
         </p>
         <a
           href="#demo"
-          className="inline-block bg-blue-600 text-white font-semibold px-8 py-3 rounded-full hover:bg-blue-700 transition-colors text-base"
+          className="inline-block bg-blue-600 text-white font-semibold px-7 sm:px-8 py-3 rounded-full hover:bg-blue-700 transition-colors text-sm sm:text-base"
         >
           Probar ahora →
         </a>
       </section>
 
       {/* PROBLEMA */}
-      <section className="bg-gray-50 py-16">
-        <div className="max-w-4xl mx-auto px-8">
-          <h2 className="text-2xl font-bold text-center mb-10">
+      <section className="bg-gray-50 py-12 sm:py-16">
+        <div className="max-w-4xl mx-auto px-4 sm:px-8">
+          <h2 className="text-xl sm:text-2xl font-bold text-center mb-8 sm:mb-10">
             ¿Te suena familiar?
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
             {[
               {
                 icon: "💬",
@@ -71,7 +71,7 @@ export default function Home() {
             ].map((item) => (
               <div
                 key={item.title}
-                className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm"
+                className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-100 shadow-sm"
               >
                 <div className="text-3xl mb-3">{item.icon}</div>
                 <h3 className="font-semibold text-base mb-2">{item.title}</h3>
@@ -83,9 +83,9 @@ export default function Home() {
       </section>
 
       {/* FEATURES */}
-      <section className="max-w-4xl mx-auto px-8 py-16">
-        <h2 className="text-2xl font-bold text-center mb-10">Qué hace molaris.ai</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      <section className="max-w-4xl mx-auto px-4 sm:px-8 py-12 sm:py-16">
+        <h2 className="text-xl sm:text-2xl font-bold text-center mb-8 sm:mb-10">Qué hace molaris.ai</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           {[
             {
               icon: "🤖",
@@ -110,9 +110,9 @@ export default function Home() {
           ].map((f) => (
             <div
               key={f.title}
-              className="flex gap-4 p-6 rounded-2xl border border-gray-100 hover:border-blue-200 transition-colors"
+              className="flex gap-4 p-5 sm:p-6 rounded-2xl border border-gray-100 hover:border-blue-200 transition-colors"
             >
-              <span className="text-2xl">{f.icon}</span>
+              <span className="text-2xl shrink-0">{f.icon}</span>
               <div>
                 <h3 className="font-semibold mb-1">{f.title}</h3>
                 <p className="text-gray-500 text-sm">{f.desc}</p>
@@ -123,10 +123,10 @@ export default function Home() {
       </section>
 
       {/* DEMO */}
-      <section id="demo" className="bg-gray-50 py-16">
-        <div className="max-w-xl mx-auto px-8">
-          <h2 className="text-2xl font-bold text-center mb-2">Pruébalo ahora</h2>
-          <p className="text-gray-500 text-center text-sm mb-8">
+      <section id="demo" className="bg-gray-50 py-12 sm:py-16">
+        <div className="max-w-xl mx-auto px-4 sm:px-8">
+          <h2 className="text-xl sm:text-2xl font-bold text-center mb-2">Pruébalo ahora</h2>
+          <p className="text-gray-500 text-center text-sm mb-6 sm:mb-8">
             Demo en vivo del asistente de Galana Clínica Dental
           </p>
           <ChatDemo />
@@ -134,14 +134,14 @@ export default function Home() {
       </section>
 
       {/* PRICING */}
-      <section id="pricing" className="max-w-5xl mx-auto px-8 py-20">
-        <h2 className="text-2xl font-bold text-center mb-3">Planes y precios</h2>
-        <p className="text-gray-500 text-center text-sm mb-12">
+      <section id="pricing" className="max-w-5xl mx-auto px-4 sm:px-8 py-14 sm:py-20">
+        <h2 className="text-xl sm:text-2xl font-bold text-center mb-3">Planes y precios</h2>
+        <p className="text-gray-500 text-center text-sm mb-10 sm:mb-12">
           Sin contratos largos. Cancela cuando quieras.
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 items-stretch">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-6 items-stretch">
           {/* Starter */}
-          <div className="flex flex-col rounded-2xl border border-gray-200 p-7">
+          <div className="flex flex-col rounded-2xl border border-gray-200 p-6 sm:p-7">
             <p className="text-sm font-semibold text-gray-500 uppercase tracking-widest mb-4">Starter</p>
             <div className="mb-1">
               <span className="text-4xl font-extrabold tracking-tight">$49</span>
@@ -169,8 +169,8 @@ export default function Home() {
           </div>
 
           {/* Pro — destacado */}
-          <div className="flex flex-col rounded-2xl border-2 border-blue-600 p-7 relative shadow-lg">
-            <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs font-semibold px-4 py-1 rounded-full">
+          <div className="flex flex-col rounded-2xl border-2 border-blue-600 p-6 sm:p-7 relative shadow-lg">
+            <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs font-semibold px-4 py-1 rounded-full whitespace-nowrap">
               Más popular
             </span>
             <p className="text-sm font-semibold text-blue-600 uppercase tracking-widest mb-4">Pro</p>
@@ -201,7 +201,7 @@ export default function Home() {
           </div>
 
           {/* Enterprise */}
-          <div className="flex flex-col rounded-2xl border border-gray-200 p-7">
+          <div className="flex flex-col rounded-2xl border border-gray-200 p-6 sm:p-7">
             <p className="text-sm font-semibold text-gray-500 uppercase tracking-widest mb-4">Enterprise</p>
             <div className="mb-1">
               <span className="text-4xl font-extrabold tracking-tight">Custom</span>
@@ -231,14 +231,14 @@ export default function Home() {
       </section>
 
       {/* CTA */}
-      <section className="max-w-2xl mx-auto px-8 py-20 text-center">
-        <h2 className="text-3xl font-bold mb-4">¿Tienes una clínica dental?</h2>
-        <p className="text-gray-500 mb-8">
+      <section className="max-w-2xl mx-auto px-4 sm:px-8 py-14 sm:py-20 text-center">
+        <h2 className="text-2xl sm:text-3xl font-bold mb-4">¿Tienes una clínica dental?</h2>
+        <p className="text-gray-500 mb-8 text-sm sm:text-base">
           Implementamos molaris.ai en tu clínica en menos de 48 horas.
         </p>
         <a
           href="https://wa.me/56966865887"
-          className="inline-block bg-green-500 text-white font-semibold px-8 py-3 rounded-full hover:bg-green-600 transition-colors"
+          className="inline-block bg-green-500 text-white font-semibold px-6 sm:px-8 py-3 rounded-full hover:bg-green-600 transition-colors text-sm sm:text-base"
         >
           Hablar con el equipo por WhatsApp
         </a>
