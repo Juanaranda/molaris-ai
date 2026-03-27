@@ -3,8 +3,16 @@ export type PricingType = "fixed" | "variable";
 export interface Service {
   name: string;
   pricingType: PricingType;
-  price?: string;       // solo para servicios con precio fijo
-  priceNote?: string;   // nota visible al paciente cuando es variable
+  price?: string;
+  priceNote?: string;
+}
+
+export interface Doctor {
+  name: string;
+  specialty: string;
+  services: string[];       // nombres de servicios que atiende
+  workDays: number[];       // días que trabaja: 1=Lun, 2=Mar, 3=Mié, 4=Jue, 5=Vie, 6=Sáb
+  box?: string | null;      // box asignado (null = sin asignación fija, usa pool de la clínica)
 }
 
 export const galanaConfig = {
@@ -63,7 +71,66 @@ export const galanaConfig = {
       priceNote: "El costo varía según la posición e impactación de la muela.",
     },
   ] as Service[],
-  bookingUrl: process.env.GALANA_BOOKING_URL ?? null, // se configura cuando esté disponible (ej: Reservo)
+  bookingUrl: process.env.GALANA_BOOKING_URL ?? null,
+  slotDurationMin: 45,
+  doctors: [
+    {
+      name: "Dra. Ana Aranda",
+      specialty: "Odontología General",
+      workDays: [1, 2, 3, 4, 5], // Lun-Vie
+      box: null,
+      services: [
+        "Limpieza dental",
+        "Blanqueamiento dental",
+        "Carillas dentales",
+        "Extracción de muela del juicio",
+        "Urgencias dentales",
+      ],
+    },
+    {
+      name: "Dra. Ivonne Poblete",
+      specialty: "Odontología General",
+      workDays: [1, 3, 5, 6], // Lun, Mié, Vie, Sáb
+      box: null,
+      services: [
+        "Limpieza dental",
+        "Blanqueamiento dental",
+        "Urgencias dentales",
+      ],
+    },
+    {
+      name: "Dr. Pedro Engel",
+      specialty: "Odontología General",
+      workDays: [2, 4, 6], // Mar, Jue, Sáb
+      box: null,
+      services: [
+        "Limpieza dental",
+        "Extracción de muela del juicio",
+        "Urgencias dentales",
+      ],
+    },
+    {
+      name: "Dr. Juan Garcés",
+      specialty: "Endodoncia",
+      workDays: [2, 4], // Mar, Jue
+      box: null,
+      services: [
+        "Endodoncia (tratamiento de conducto)",
+        "Urgencias dentales",
+      ],
+    },
+    {
+      name: "Dra. Jacqueline Pérez",
+      specialty: "Ortodoncia",
+      workDays: [1, 3, 5], // Lun, Mié, Vie
+      box: null,
+      services: [
+        "Ortodoncia (brackets / alineadores)",
+      ],
+    },
+  ] as Doctor[],
+  // Galana tiene 2 boxes. Todos los doctores rotan — ninguno tiene box fijo.
+  boxes: ["Box 1", "Box 2"],
   tone: "profesional pero cercano, lenguaje chileno natural",
 };
 

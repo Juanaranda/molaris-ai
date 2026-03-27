@@ -7,10 +7,17 @@ interface Service {
   priceNote?: string;
 }
 
+interface Doctor {
+  name: string;
+  specialty: string;
+  services: string[];
+}
+
 interface ClinicConfig {
   tone: string;
   schedule: { weekdays: string; saturday: string; sunday: string };
   services: Service[];
+  doctors?: Doctor[];
   bookingUrl?: string | null;
 }
 
@@ -51,6 +58,18 @@ ${variable.map((s) => `  - ${s.name}`).join("\n")}
 Si preguntan precio variable: no des cifras. Di que depende del caso y ofrece agendar evaluación de diagnóstico.
 Si preguntan limpieza o urgencia: indica que el precio es a consultar y ofrece agendar.
 Nunca digas "no sé el precio" a secas — siempre redirige a agendar.
+
+## Equipo médico
+${
+  cfg.doctors && cfg.doctors.length > 0
+    ? cfg.doctors
+        .map((d) => `- ${d.name} (${d.specialty}): atiende ${d.services.join(", ")}`)
+        .join("\n")
+    : "- Equipo de profesionales disponible"
+}
+
+Cuando el paciente consulte por un tratamiento, menciona al especialista correspondiente.
+Ejemplo: si preguntan por endodoncia → "Contamos con el Dr. Juan Garcés, especialista en endodoncia."
 
 ## Horarios
 - ${cfg.schedule.weekdays}
