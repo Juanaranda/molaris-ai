@@ -2,11 +2,26 @@
 
 import { useState, useRef, useEffect } from "react";
 import { AvailabilityPicker } from "./AvailabilityPicker";
+import { parsePreferredDate } from "@/lib/dateParser";
+
+const GALANA_DOCTORS = [
+  "Dra. Ana Aranda",
+  "Dra. Ivonne Poblete",
+  "Dr. Pedro Engel",
+  "Dr. Juan Garcés",
+  "Dra. Jacqueline Pérez",
+];
+
+function extractMentionedDoctor(text: string): string | undefined {
+  return GALANA_DOCTORS.find((d) => text.includes(d));
+}
 
 interface Message {
   role: "user" | "assistant";
   text: string;
   showPicker?: boolean;
+  preferredDate?: string;
+  doctorFilter?: string;
 }
 
 interface LeadContext {
@@ -54,19 +69,30 @@ export function ChatDemo() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  function handleSlotSelected(slot: {
+  async function handleSlotSelected(slot: {
     date: string;
     dayName: string;
     time: string;
     doctor: string;
     box: string | null;
   }) {
-    // Ocultar picker y agregar confirmación como mensaje del usuario
-    setMessages((prev) =>
-      prev.map((m) => ({ ...m, showPicker: false }))
-    );
+    setMessages((prev) => prev.map((m) => ({ ...m, showPicker: false })));
     const confirmation = `Quiero el ${slot.dayName} ${slot.date.slice(8)} a las ${slot.time} con ${slot.doctor}`;
     setMessages((prev) => [...prev, { role: "user", text: confirmation }]);
+
+    // Guardar booking y notificar a la clínica
+    fetch(`${API_URL}/api/bookings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clinicSlug: "galana",
+        sessionId: sessionId ?? undefined,
+        patientName: context?.patientName,
+        service: context?.serviceInterest,
+        ...slot,
+      }),
+    }).catch(() => {});
+
     sendToAPI(confirmation);
   }
 
@@ -102,9 +128,12 @@ export function ChatDemo() {
         newContext.intent === "ready_to_book" ||
         /agend|reserv|hora|cita|disponible|horario/i.test(text);
 
+      const preferredDate = parsePreferredDate(text) ?? undefined;
+      const doctorFilter  = extractMentionedDoctor(data.reply) ?? undefined;
+
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", text: data.reply, showPicker: wantsBooking },
+        { role: "assistant", text: data.reply, showPicker: wantsBooking, preferredDate, doctorFilter },
       ]);
     } catch {
       setMessages((prev) => [
@@ -152,6 +181,8 @@ export function ChatDemo() {
                 <div className="mt-2 ml-1">
                   <AvailabilityPicker
                     service={context?.serviceInterest}
+                    doctorFilter={msg.doctorFilter}
+                    preferredDate={msg.preferredDate}
                     onSelect={handleSlotSelected}
                   />
                 </div>

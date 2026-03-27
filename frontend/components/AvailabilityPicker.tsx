@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getMondayOf } from "@/lib/dateParser";
 
 interface Slot {
   time: string;
@@ -18,6 +19,8 @@ interface DayAvailability {
 
 interface Props {
   service?: string;
+  doctorFilter?: string;      // si el AI recomendó un doctor específico
+  preferredDate?: string;     // YYYY-MM-DD — salta a este día automáticamente
   onSelect: (slot: { date: string; dayName: string; time: string; doctor: string; box: string | null }) => void;
 }
 
@@ -33,12 +36,19 @@ function getMondayOfWeek(offset = 0): string {
 }
 
 function formatTabDate(date: string): string {
-  const d = new Date(date + "T12:00:00");
-  return d.getDate().toString();
+  return new Date(date + "T12:00:00").getDate().toString();
 }
 
-export function AvailabilityPicker({ service, onSelect }: Props) {
-  const [weekOffset, setWeekOffset] = useState(0);
+function weekOffsetForDate(targetDate: string): number {
+  const targetMonday = getMondayOf(targetDate);
+  const currentMonday = getMondayOfWeek(0);
+  const diffMs = new Date(targetMonday).getTime() - new Date(currentMonday).getTime();
+  return Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
+}
+
+export function AvailabilityPicker({ service, doctorFilter, preferredDate, onSelect }: Props) {
+  const initialOffset = preferredDate ? weekOffsetForDate(preferredDate) : 0;
+  const [weekOffset, setWeekOffset] = useState(Math.max(0, initialOffset));
   const [days, setDays] = useState<DayAvailability[]>([]);
   const [selectedDay, setSelectedDay] = useState(0);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
@@ -49,20 +59,33 @@ export function AvailabilityPicker({ service, onSelect }: Props) {
   useEffect(() => {
     setLoading(true);
     setSelectedSlot(null);
-    const serviceParam = service ? `&service=${encodeURIComponent(service)}` : "";
-    fetch(`${API_URL}/api/availability?weekStart=${weekStart}${serviceParam}`)
+    const params = new URLSearchParams({ weekStart });
+    if (service) params.set("service", service);
+    if (doctorFilter) params.set("doctor", doctorFilter);
+
+    fetch(`${API_URL}/api/availability?${params}`)
       .then((r) => r.json())
-      .then((data) => {
-        setDays(data.days ?? []);
-        // Auto-select primer día abierto
-        const firstOpen = (data.days ?? []).findIndex((d: DayAvailability) => d.isOpen);
+      .then((data: { days: DayAvailability[] }) => {
+        const fetchedDays = data.days ?? [];
+        setDays(fetchedDays);
+
+        // Saltar al día preferido si cae en esta semana, si no al primer día abierto
+        if (preferredDate) {
+          const idx = fetchedDays.findIndex((d) => d.date === preferredDate && d.isOpen);
+          if (idx >= 0) { setSelectedDay(idx); return; }
+        }
+        const firstOpen = fetchedDays.findIndex((d) => d.isOpen);
         setSelectedDay(firstOpen >= 0 ? firstOpen : 0);
       })
       .finally(() => setLoading(false));
-  }, [weekStart]);
+  }, [weekStart, service, doctorFilter]);
 
-  const openDays = days.filter((d) => d.isOpen);
   const currentDay = days[selectedDay];
+
+  // Filtrar slots por doctor si hay filtro
+  const visibleSlots = doctorFilter
+    ? currentDay?.slots.filter((s) => s.doctor.toLowerCase().includes(doctorFilter.toLowerCase()))
+    : currentDay?.slots;
 
   if (loading) {
     return (
@@ -80,22 +103,15 @@ export function AvailabilityPicker({ service, onSelect }: Props) {
           onClick={() => setWeekOffset((w) => w - 1)}
           disabled={weekOffset === 0}
           className="text-sky-500 disabled:opacity-30 hover:text-sky-700 transition p-1 rounded"
-        >
-          ‹
-        </button>
+        >‹</button>
         <span className="text-xs font-semibold text-sky-700 uppercase tracking-wide">
-          {weekOffset === 0 ? "Esta semana" : weekOffset === 1 ? "Próxima semana" : `Semana del ${weekStart}`}
+          {weekOffset === 0 ? "Esta semana" : weekOffset === 1 ? "Próxima semana" : `Sem. del ${weekStart}`}
         </span>
-        <button
-          onClick={() => setWeekOffset((w) => w + 1)}
-          className="text-sky-500 hover:text-sky-700 transition p-1 rounded"
-        >
-          ›
-        </button>
+        <button onClick={() => setWeekOffset((w) => w + 1)} className="text-sky-500 hover:text-sky-700 transition p-1 rounded">›</button>
       </div>
 
       {/* Tabs de días */}
-      <div className="flex border-b border-gray-100 overflow-x-auto scrollbar-hide">
+      <div className="flex border-b border-gray-100 overflow-x-auto">
         {days.map((day, idx) => (
           <button
             key={day.date}
@@ -117,13 +133,13 @@ export function AvailabilityPicker({ service, onSelect }: Props) {
 
       {/* Grilla de slots */}
       <div className="p-3 max-h-56 overflow-y-auto">
-        {currentDay?.isOpen ? (
+        {currentDay?.isOpen && visibleSlots && visibleSlots.length > 0 ? (
           <div className="grid grid-cols-2 gap-2">
-            {currentDay.slots.map((slot) => {
-              const isSelected = selectedSlot?.time === slot.time;
+            {visibleSlots.map((slot) => {
+              const isSelected = selectedSlot?.time === slot.time && selectedSlot?.doctor === slot.doctor;
               return (
                 <button
-                  key={slot.time}
+                  key={`${slot.time}-${slot.doctor}`}
                   disabled={!slot.available}
                   onClick={() => setSelectedSlot(isSelected ? null : slot)}
                   className={`rounded-xl px-3 py-2 text-left transition border ${
@@ -143,7 +159,9 @@ export function AvailabilityPicker({ service, onSelect }: Props) {
             })}
           </div>
         ) : (
-          <p className="text-center text-gray-400 text-sm py-4">Cerrado</p>
+          <p className="text-center text-gray-400 text-sm py-4">
+            {currentDay?.isOpen ? "Sin horarios disponibles" : "Cerrado"}
+          </p>
         )}
       </div>
 
@@ -151,15 +169,7 @@ export function AvailabilityPicker({ service, onSelect }: Props) {
       {selectedSlot && currentDay && (
         <div className="px-3 pb-3">
           <button
-            onClick={() =>
-              onSelect({
-                date: currentDay.date,
-                dayName: currentDay.dayName,
-                time: selectedSlot.time,
-                doctor: selectedSlot.doctor,
-                box: selectedSlot.box,
-              })
-            }
+            onClick={() => onSelect({ date: currentDay.date, dayName: currentDay.dayName, time: selectedSlot.time, doctor: selectedSlot.doctor, box: selectedSlot.box })}
             className="w-full bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-xl py-2.5 text-sm transition"
           >
             Confirmar {currentDay.dayName} {formatTabDate(currentDay.date)} a las {selectedSlot.time}

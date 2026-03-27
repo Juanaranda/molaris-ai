@@ -1,7 +1,9 @@
 import Groq from "groq-sdk";
 import { config } from "../../config/env";
 import { buildSystemPrompt } from "./promptBuilder";
-import { getHistory, appendToHistory } from "./sessionStore";
+import { getHistory, appendToHistory, getMessageCount, MAX_MESSAGES } from "./sessionStore";
+import { checkTopic, OFF_TOPIC_REPLY, TOO_LONG_REPLY } from "./topicGuard";
+import { computeScore } from "./leadScoring";
 import type { Clinic } from "@prisma/client";
 
 const groq = new Groq({ apiKey: config.groqApiKey });
@@ -38,13 +40,46 @@ export interface AIResponse {
   context: PatientContextUpdate | null;
 }
 
+function extractContextHeuristic(message: string): PatientContextUpdate | null {
+  const lower = message.toLowerCase();
+  const wantsBooking = /agend|reserv|cita|quiero|necesito|hora/.test(lower);
+  const hasUrgency   = /dolor|duele|urgente|fractura|sangr/.test(lower);
+  const serviceMatch = lower.match(/(limpieza|blanqueamiento|implante|ortodoncia|endodoncia|carilla|extracci[oó]n|urgencia|conducto)/);
+
+  if (!wantsBooking && !serviceMatch && !hasUrgency) return null;
+
+  return {
+    intent:          wantsBooking ? "ready_to_book" : "evaluating",
+    urgency:         hasUrgency ? "high" : "low",
+    serviceInterest: serviceMatch ? serviceMatch[0] : undefined,
+    patientName:     undefined,
+    score:           0, // se calcula justo después
+  };
+}
+
 export async function getAIResponse({
   message,
   clinic,
   sessionId,
 }: AIRequestParams): Promise<AIResponse> {
-  const systemPrompt = buildSystemPrompt(clinic);
+  // ── Capa 1: Rate limit por sesión ─────────────────────────────────
+  if (getMessageCount(sessionId) >= MAX_MESSAGES) {
+    return {
+      reply: "Has alcanzado el límite de mensajes de esta sesión. Para continuar, contáctanos directamente o inicia una nueva conversación.",
+      context: null,
+    };
+  }
 
+  // ── Capa 2: Pre-filtro de tópico (sin costo de LLM) ──────────────
+  const guard = checkTopic(message);
+  if (!guard.allowed) {
+    appendToHistory(sessionId, "user", message);
+    const reply = guard.reason === "too_long" ? TOO_LONG_REPLY : OFF_TOPIC_REPLY;
+    appendToHistory(sessionId, "assistant", reply);
+    return { reply, context: null };
+  }
+
+  const systemPrompt = buildSystemPrompt(clinic);
   appendToHistory(sessionId, "user", message);
   const history = getHistory(sessionId);
 
@@ -127,6 +162,14 @@ export async function getAIResponse({
   }
 
   appendToHistory(sessionId, "assistant", replyText);
+
+  // Fallback heurístico: si el LLM no disparó el tool, extraer señales del mensaje
+  if (!context) {
+    context = extractContextHeuristic(message);
+  }
+
+  // Score siempre calculado de forma determinista (nunca confiar en el número del LLM)
+  if (context) context.score = computeScore(context);
 
   return { reply: replyText, context };
 }

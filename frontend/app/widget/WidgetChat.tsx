@@ -42,6 +42,19 @@ export function WidgetChat() {
     setMessages((prev) => prev.map((m) => ({ ...m, showPicker: false })));
     const text = `Quiero el ${slot.dayName} ${slot.date.slice(8)} a las ${slot.time} con ${slot.doctor}`;
     setMessages((prev) => [...prev, { role: "user", text }]);
+
+    fetch(`${API_URL}/api/bookings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clinicSlug,
+        sessionId: sessionId ?? undefined,
+        patientName: context?.patientName,
+        service: context?.serviceInterest,
+        ...slot,
+      }),
+    }).catch(() => {});
+
     sendToAPI(text);
   }
 
