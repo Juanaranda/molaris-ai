@@ -8,12 +8,20 @@ export default function Home() {
         <span className="text-xl font-bold tracking-tight">
           molaris<span className="text-blue-600">.ai</span>
         </span>
-        <a
-          href="#demo"
-          className="bg-blue-600 text-white text-sm font-medium px-5 py-2 rounded-full hover:bg-blue-700 transition-colors"
-        >
-          Ver demo
-        </a>
+        <div className="flex items-center gap-4">
+          <a
+            href="#pricing"
+            className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            Precios
+          </a>
+          <a
+            href="#demo"
+            className="bg-blue-600 text-white text-sm font-medium px-5 py-2 rounded-full hover:bg-blue-700 transition-colors"
+          >
+            Ver demo
+          </a>
+        </div>
       </nav>
 
       {/* HERO */}
@@ -122,6 +130,103 @@ export default function Home() {
             Demo en vivo del asistente de Galana Clínica Dental
           </p>
           <ChatDemo />
+        </div>
+      </section>
+
+      {/* PRICING */}
+      <section id="pricing" className="max-w-5xl mx-auto px-8 py-20">
+        <h2 className="text-2xl font-bold text-center mb-3">Planes y precios</h2>
+        <p className="text-gray-500 text-center text-sm mb-12">
+          Sin contratos largos. Cancela cuando quieras.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 items-stretch">
+          {/* Starter */}
+          <div className="flex flex-col rounded-2xl border border-gray-200 p-7">
+            <p className="text-sm font-semibold text-gray-500 uppercase tracking-widest mb-4">Starter</p>
+            <div className="mb-1">
+              <span className="text-4xl font-extrabold tracking-tight">$49</span>
+              <span className="text-gray-400 text-sm ml-1">USD / mes</span>
+            </div>
+            <p className="text-gray-500 text-sm mb-6">Para clínicas pequeñas (1 box)</p>
+            <ul className="flex flex-col gap-2 text-sm text-gray-700 mb-8 flex-1">
+              {[
+                "Chatbot con IA 24/7",
+                "Respuestas a preguntas frecuentes",
+                "Agendamiento automático",
+                "1 canal de atención",
+              ].map((f) => (
+                <li key={f} className="flex items-center gap-2">
+                  <span className="text-blue-500 font-bold">✓</span> {f}
+                </li>
+              ))}
+            </ul>
+            <a
+              href="https://wa.me/56966865887"
+              className="block text-center border border-blue-600 text-blue-600 font-semibold py-2.5 rounded-full text-sm hover:bg-blue-50 transition-colors"
+            >
+              Empezar ahora
+            </a>
+          </div>
+
+          {/* Pro — destacado */}
+          <div className="flex flex-col rounded-2xl border-2 border-blue-600 p-7 relative shadow-lg">
+            <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs font-semibold px-4 py-1 rounded-full">
+              Más popular
+            </span>
+            <p className="text-sm font-semibold text-blue-600 uppercase tracking-widest mb-4">Pro</p>
+            <div className="mb-1">
+              <span className="text-4xl font-extrabold tracking-tight">$129</span>
+              <span className="text-gray-400 text-sm ml-1">USD / mes</span>
+            </div>
+            <p className="text-gray-500 text-sm mb-6">Para clínicas medianas (2–5 boxes)</p>
+            <ul className="flex flex-col gap-2 text-sm text-gray-700 mb-8 flex-1">
+              {[
+                "Todo lo del plan Starter",
+                "Lead scoring de pacientes",
+                "Seguimiento automático post-consulta",
+                "Analytics de conversión",
+                "Múltiples canales de atención",
+              ].map((f) => (
+                <li key={f} className="flex items-center gap-2">
+                  <span className="text-blue-500 font-bold">✓</span> {f}
+                </li>
+              ))}
+            </ul>
+            <a
+              href="https://wa.me/56966865887"
+              className="block text-center bg-blue-600 text-white font-semibold py-2.5 rounded-full text-sm hover:bg-blue-700 transition-colors"
+            >
+              Empezar ahora
+            </a>
+          </div>
+
+          {/* Enterprise */}
+          <div className="flex flex-col rounded-2xl border border-gray-200 p-7">
+            <p className="text-sm font-semibold text-gray-500 uppercase tracking-widest mb-4">Enterprise</p>
+            <div className="mb-1">
+              <span className="text-4xl font-extrabold tracking-tight">Custom</span>
+            </div>
+            <p className="text-gray-500 text-sm mb-6">Para cadenas o grupos dentales</p>
+            <ul className="flex flex-col gap-2 text-sm text-gray-700 mb-8 flex-1">
+              {[
+                "Todo lo del plan Pro",
+                "Multi-sucursal",
+                "API e integraciones a medida",
+                "Onboarding dedicado",
+                "SLA garantizado",
+              ].map((f) => (
+                <li key={f} className="flex items-center gap-2">
+                  <span className="text-blue-500 font-bold">✓</span> {f}
+                </li>
+              ))}
+            </ul>
+            <a
+              href="https://wa.me/56966865887"
+              className="block text-center border border-gray-300 text-gray-700 font-semibold py-2.5 rounded-full text-sm hover:bg-gray-50 transition-colors"
+            >
+              Hablar con el equipo
+            </a>
+          </div>
         </div>
       </section>
 
