@@ -1,0 +1,28 @@
+<svg width="240" height="60" viewBox="0 0 240 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="iconGrad" x1="4" y1="4" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#0891B2"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Icon: rounded square background -->
+  <rect x="4" y="4" width="52" height="52" rx="16" fill="url(#iconGrad)"/>
+
+  <!-- Tooth crown -->
+  <path d="M 16 38 L 16 26 C 16 20 18 16 22 16 C 24 16 25 18 26 20 C 27 17 29 15 30 15 C 31 15 33 17 34 20 C 35 18 36 16 38 16 C 42 16 44 20 44 26 L 44 38 Z" fill="white" opacity="0.96"/>
+
+  <!-- Left root -->
+  <path d="M 17 37 L 17 46 C 17 49 19 50 22 50 C 25 50 27 49 27 46 L 27 37 Z" fill="white" opacity="0.96"/>
+
+  <!-- Right root -->
+  <path d="M 33 37 L 33 46 C 33 49 35 50 38 50 C 41 50 43 49 43 46 L 43 37 Z" fill="white" opacity="0.96"/>
+
+  <!-- AI sparkle — top right corner of icon -->
+  <circle cx="51" cy="13" r="7" fill="#7C3AED"/>
+  <path d="M51 9 L51.8 12.2 L55 13 L51.8 13.8 L51 17 L50.2 13.8 L47 13 L50.2 12.2 Z" fill="white"/>
+
+  <!-- Wordmark -->
+  <text x="68" y="40" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif" font-size="27" font-weight="700" fill="#0F172A" letter-spacing="-0.5">molaris</text>
+  <text x="187" y="40" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif" font-size="27" font-weight="700" fill="#0891B2">.ai</text>
+</svg>

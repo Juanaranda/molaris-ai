@@ -25,6 +25,7 @@ model Clinic {
 
   patients  Patient[]
   sessions  Session[]
+  bookings  Booking[]
 
   @@map("clinics")
 }
@@ -89,4 +90,22 @@ model PatientContext {
   updatedAt       DateTime @updatedAt
 
   @@map("patient_contexts")
+}
+
+// ─── BOOKINGS (CITAS CONFIRMADAS) ────────────────────────────────────────────
+model Booking {
+  id          String   @id @default(cuid())
+  clinicId    String
+  clinic      Clinic   @relation(fields: [clinicId], references: [id])
+  sessionId   String?
+  patientName String?
+  service     String?
+  date        DateTime
+  time        String
+  doctor      String
+  box         String?
+  status      String   @default("pending") // "pending" | "confirmed" | "cancelled"
+  createdAt   DateTime @default(now())
+
+  @@map("bookings")
 }

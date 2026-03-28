@@ -1,3 +1,5 @@
+import Image from "next/image";
+import Link from "next/link";
 import { ChatDemo } from "@/components/ChatDemo";
 
 export default function Home() {
@@ -5,15 +7,18 @@ export default function Home() {
     <main className="min-h-screen bg-white text-gray-900 font-sans">
       {/* NAV */}
       <nav className="flex items-center justify-between px-8 py-5 border-b border-gray-100">
-        <span className="text-xl font-bold tracking-tight">
-          molaris<span className="text-blue-600">.ai</span>
-        </span>
-        <a
-          href="#demo"
-          className="bg-blue-600 text-white text-sm font-medium px-5 py-2 rounded-full hover:bg-blue-700 transition-colors"
-        >
-          Ver demo
-        </a>
+        <Image src="/logo.svg" alt="molaris.ai" width={160} height={40} priority />
+        <div className="flex items-center gap-6">
+          <Link href="/pricing" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+            Precios
+          </Link>
+          <a
+            href="#demo"
+            className="bg-blue-600 text-white text-sm font-medium px-5 py-2 rounded-full hover:bg-blue-700 transition-colors"
+          >
+            Ver demo
+          </a>
+        </div>
       </nav>
 
       {/* HERO */}
