@@ -53,6 +53,8 @@ export function getWeekAvailability(weekStart: string, service?: string): DayAva
   const { doctors, boxes, slotDurationMin } = galanaConfig;
   const duration = slotDurationMin ?? 45;
 
+  const todayStr = new Date().toISOString().slice(0, 10);
+
   for (let i = 0; i < 7; i++) {
     const date = new Date(start);
     date.setDate(start.getDate() + i);
@@ -62,7 +64,8 @@ export function getWeekAvailability(weekStart: string, service?: string): DayAva
     const isOpen = isWeekday || isSaturday;
     const dateStr = date.toISOString().slice(0, 10);
 
-    if (!isOpen) {
+    // Días pasados o domingo: cerrado
+    if (!isOpen || dateStr < todayStr) {
       result.push({ date: dateStr, dayName: DAY_NAMES[dow], isOpen: false, slots: [] });
       continue;
     }

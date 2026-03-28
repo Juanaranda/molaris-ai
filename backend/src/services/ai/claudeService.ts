@@ -1,6 +1,7 @@
 import Groq from "groq-sdk";
 import { config } from "../../config/env";
 import { buildSystemPrompt } from "./promptBuilder";
+import { buildContextHint } from "./contextInjector";
 import { getHistory, appendToHistory, getMessageCount, MAX_MESSAGES } from "./sessionStore";
 import { checkTopic, OFF_TOPIC_REPLY, TOO_LONG_REPLY } from "./topicGuard";
 import { computeScore } from "./leadScoring";
@@ -80,6 +81,7 @@ export async function getAIResponse({
   }
 
   const systemPrompt = buildSystemPrompt(clinic);
+  const contextHint = buildContextHint(message, clinic.config);
   appendToHistory(sessionId, "user", message);
   const history = getHistory(sessionId);
 
@@ -112,7 +114,11 @@ export async function getAIResponse({
       const response = await groq.chat.completions.create({
         model,
         max_tokens: 600,
-        messages: [{ role: "system", content: systemPrompt }, ...history],
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...(contextHint ? [{ role: "system" as const, content: contextHint }] : []),
+          ...history,
+        ],
         tools,
         tool_choice: "auto",
       });
@@ -148,17 +154,29 @@ export async function getAIResponse({
   }
 
   // Fallback: parsear y limpiar tags inline del reply
+  // Llama puede emitir dos formatos distintos:
+  //   A) <function=name>json</function>
+  //   B) <function=name {json}>  (self-closing con JSON inline)
   let replyText = rawContent;
   if (!context) {
-    const funcMatch = rawContent.match(/<function=update_patient_context>([\s\S]*?)<\/function>/);
-    if (funcMatch) {
-      try {
-        context = JSON.parse(funcMatch[1]) as PatientContextUpdate;
-      } catch {}
-      replyText = rawContent
-        .replace(/<function=update_patient_context>[\s\S]*?<\/function>/g, "")
-        .trim();
+    // Formato A
+    const funcMatchA = rawContent.match(/<function=update_patient_context>([\s\S]*?)<\/function>/);
+    if (funcMatchA) {
+      try { context = JSON.parse(funcMatchA[1]) as PatientContextUpdate; } catch {}
     }
+    // Formato B
+    if (!context) {
+      const funcMatchB = rawContent.match(/<function=update_patient_context\s*(\{[\s\S]*?\})\s*>/);
+      if (funcMatchB) {
+        try { context = JSON.parse(funcMatchB[1]) as PatientContextUpdate; } catch {}
+      }
+    }
+    // Limpiar cualquier variante del tag del texto de respuesta
+    replyText = rawContent
+      .replace(/<function=update_patient_context>[\s\S]*?<\/function>/g, "")
+      .replace(/<function=update_patient_context\s*\{[\s\S]*?\}\s*>/g, "")
+      .replace(/<function=[^>]*>/g, "")
+      .trim();
   }
 
   appendToHistory(sessionId, "assistant", replyText);
