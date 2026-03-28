@@ -1,10 +1,24 @@
 import Groq from "groq-sdk";
 import { config } from "../../config/env";
 import { buildSystemPrompt } from "./promptBuilder";
-import { getHistory, appendToHistory } from "./sessionStore";
+import { getHistory, appendToHistory, getMessageCount, MAX_MESSAGES } from "./sessionStore";
+import { checkTopic, OFF_TOPIC_REPLY, TOO_LONG_REPLY } from "./topicGuard";
+import { computeScore } from "./leadScoring";
 import type { Clinic } from "@prisma/client";
 
-const client = new Groq({ apiKey: config.groqApiKey });
+const groq = new Groq({ apiKey: config.groqApiKey });
+
+// Cadena de fallback: se intenta en orden hasta que uno responda
+// Agregar aquí nuevos modelos/proveedores cuando estén disponibles
+const MODEL_CHAIN = [
+  { provider: "groq", model: "llama-3.3-70b-versatile" },   // primario — mejor calidad
+  { provider: "groq", model: "llama-3.1-8b-instant" },      // fallback 1 — más rápido/barato
+  { provider: "groq", model: "gemma2-9b-it" },              // fallback 2 — modelo diferente
+  // { provider: "anthropic", model: "claude-haiku-4-5" },  // fallback 3 — cuando tengas créditos
+  // { provider: "openai",    model: "gpt-4o-mini" },       // fallback 4 — cuando tengas créditos
+];
+
+const STATIC_FALLBACK = "En este momento estamos con alta demanda. Por favor escríbenos directamente al WhatsApp y te atendemos de inmediato. 🦷";
 
 export interface PatientContextUpdate {
   patientName?: string;
@@ -26,61 +40,136 @@ export interface AIResponse {
   context: PatientContextUpdate | null;
 }
 
+function extractContextHeuristic(message: string): PatientContextUpdate | null {
+  const lower = message.toLowerCase();
+  const wantsBooking = /agend|reserv|cita|quiero|necesito|hora/.test(lower);
+  const hasUrgency   = /dolor|duele|urgente|fractura|sangr/.test(lower);
+  const serviceMatch = lower.match(/(limpieza|blanqueamiento|implante|ortodoncia|endodoncia|carilla|extracci[oó]n|urgencia|conducto)/);
+
+  if (!wantsBooking && !serviceMatch && !hasUrgency) return null;
+
+  return {
+    intent:          wantsBooking ? "ready_to_book" : "evaluating",
+    urgency:         hasUrgency ? "high" : "low",
+    serviceInterest: serviceMatch ? serviceMatch[0] : undefined,
+    patientName:     undefined,
+    score:           0, // se calcula justo después
+  };
+}
+
 export async function getAIResponse({
   message,
   clinic,
   sessionId,
 }: AIRequestParams): Promise<AIResponse> {
-  const systemPrompt = buildSystemPrompt(clinic);
+  // ── Capa 1: Rate limit por sesión ─────────────────────────────────
+  if (getMessageCount(sessionId) >= MAX_MESSAGES) {
+    return {
+      reply: "Has alcanzado el límite de mensajes de esta sesión. Para continuar, contáctanos directamente o inicia una nueva conversación.",
+      context: null,
+    };
+  }
 
+  // ── Capa 2: Pre-filtro de tópico (sin costo de LLM) ──────────────
+  const guard = checkTopic(message);
+  if (!guard.allowed) {
+    appendToHistory(sessionId, "user", message);
+    const reply = guard.reason === "too_long" ? TOO_LONG_REPLY : OFF_TOPIC_REPLY;
+    appendToHistory(sessionId, "assistant", reply);
+    return { reply, context: null };
+  }
+
+  const systemPrompt = buildSystemPrompt(clinic);
   appendToHistory(sessionId, "user", message);
   const history = getHistory(sessionId);
 
-  const response = await client.chat.completions.create({
-    model: "llama-3.3-70b-versatile",
-    max_tokens: 600,
-    messages: [
-      { role: "system", content: systemPrompt },
-      ...history,
-    ],
-    tools: [
-      {
-        type: "function",
-        function: {
-          name: "update_patient_context",
-          description: "Extrae y actualiza el perfil del paciente basado en la conversación.",
-          parameters: {
-            type: "object",
-            properties: {
-              patientName: { type: "string", description: "Nombre del paciente si lo mencionó" },
-              serviceInterest: { type: "string", description: "Tratamiento o servicio de interés" },
-              urgency: { type: "string", enum: ["high", "medium", "low"], description: "Urgencia detectada" },
-              intent: { type: "string", enum: ["ready_to_book", "evaluating", "just_browsing"], description: "Intención de agendar" },
-              score: { type: "number", description: "Score de lead del 0 al 100" },
-              notes: { type: "string", description: "Información adicional relevante" },
-            },
+  const tools: Groq.Chat.Completions.ChatCompletionTool[] = [
+    {
+      type: "function",
+      function: {
+        name: "update_patient_context",
+        description: "Extrae y actualiza el perfil del paciente basado en la conversación.",
+        parameters: {
+          type: "object",
+          properties: {
+            patientName: { type: "string" },
+            serviceInterest: { type: "string" },
+            urgency: { type: "string", enum: ["high", "medium", "low"] },
+            intent: { type: "string", enum: ["ready_to_book", "evaluating", "just_browsing"] },
+            score: { type: "number" },
+            notes: { type: "string" },
           },
         },
       },
-    ],
-    tool_choice: "auto",
-  });
+    },
+  ];
 
-  const msg = response.choices[0]?.message;
-  const replyText = msg?.content ?? "";
+  // Intentar cada modelo en la cadena hasta que uno responda
+  let msg: Groq.Chat.Completions.ChatCompletionMessage | undefined;
+  let usedModel = "";
+  for (const { model } of MODEL_CHAIN) {
+    try {
+      const response = await groq.chat.completions.create({
+        model,
+        max_tokens: 600,
+        messages: [{ role: "system", content: systemPrompt }, ...history],
+        tools,
+        tool_choice: "auto",
+      });
+      msg = response.choices[0]?.message;
+      usedModel = model;
+      break;
+    } catch (err: any) {
+      const isRetryable = err?.status === 429 || err?.status >= 500 || err?.code === "ECONNREFUSED";
+      if (!isRetryable) throw err; // error no recuperable → no reintentar
+      console.warn(`[AI] ${model} falló (${err?.status ?? err?.code}), probando siguiente...`);
+    }
+  }
 
-  appendToHistory(sessionId, "assistant", replyText);
+  if (!msg) {
+    // Todos los modelos fallaron → respuesta estática de emergencia
+    console.error("[AI] Todos los modelos fallaron. Usando respuesta estática.");
+    return { reply: STATIC_FALLBACK, context: null };
+  }
 
-  // Extraer contexto del tool call si lo hubo
+  if (usedModel !== MODEL_CHAIN[0].model) {
+    console.warn(`[AI] Usando modelo de fallback: ${usedModel}`);
+  }
+  const rawContent = msg?.content ?? "";
+
+  // Extraer contexto: primero desde tool_calls (formato correcto),
+  // luego desde tags inline <function=...> que Llama a veces emite como texto
   let context: PatientContextUpdate | null = null;
   const toolCall = msg?.tool_calls?.[0];
   if (toolCall?.function?.arguments) {
     try {
       context = JSON.parse(toolCall.function.arguments) as PatientContextUpdate;
-    } catch {
-      // ignorar si falla el parse
+    } catch {}
+  }
+
+  // Fallback: parsear y limpiar tags inline del reply
+  let replyText = rawContent;
+  if (!context) {
+    const funcMatch = rawContent.match(/<function=update_patient_context>([\s\S]*?)<\/function>/);
+    if (funcMatch) {
+      try {
+        context = JSON.parse(funcMatch[1]) as PatientContextUpdate;
+      } catch {}
+      replyText = rawContent
+        .replace(/<function=update_patient_context>[\s\S]*?<\/function>/g, "")
+        .trim();
     }
   }
+
+  appendToHistory(sessionId, "assistant", replyText);
+
+  // Fallback heurístico: si el LLM no disparó el tool, extraer señales del mensaje
+  if (!context) {
+    context = extractContextHeuristic(message);
+  }
+
+  // Score siempre calculado de forma determinista (nunca confiar en el número del LLM)
+  if (context) context.score = computeScore(context);
 
   return { reply: replyText, context };
 }
