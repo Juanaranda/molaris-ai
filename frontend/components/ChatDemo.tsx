@@ -225,14 +225,16 @@ export function ChatDemo() {
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
             Lead Score · molaris.ai
           </p>
-          <div className="flex items-center gap-6">
-            <div className="text-center">
+          <div className="flex items-center gap-4 sm:gap-6">
+            {/* Score */}
+            <div className="text-center shrink-0">
               <div className={`text-4xl font-black ${SCORE_COLOR(context.score ?? 0)}`}>
                 {context.score ?? "—"}
               </div>
               <div className="text-xs text-gray-400 mt-1">Score</div>
             </div>
-            <div className="flex-1 grid grid-cols-2 gap-2 text-sm">
+
+            <div className="flex-1 grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 gap-2 text-sm">
               {context.patientName && (
                 <div>
                   <span className="text-gray-400 text-xs">Paciente</span>
