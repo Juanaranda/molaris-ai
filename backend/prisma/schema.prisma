@@ -82,11 +82,14 @@ model PatientContext {
   sessionId       String   @unique
   session         Session  @relation(fields: [sessionId], references: [id])
   patientName     String?
+  rut             String?
+  email           String?
   serviceInterest String?  // ej: "implante dental"
   urgency         String?  // "high" | "medium" | "low"
   intent          String?  // "ready_to_book" | "evaluating" | "just_browsing"
   score           Int?     // 0-100
   notes           String?  // info adicional extraída
+  slotBooked      Boolean  @default(false)
   updatedAt       DateTime @updatedAt
 
   @@map("patient_contexts")

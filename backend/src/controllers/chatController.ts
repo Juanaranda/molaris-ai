@@ -7,6 +7,7 @@ const bodySchema = z.object({
   message: z.string().min(1),
   clinicSlug: z.string().default("galana"),
   sessionId: z.string().optional(),
+  slotBooked: z.boolean().optional(),
 });
 
 export async function chatController(req: FastifyRequest, reply: FastifyReply) {
@@ -15,7 +16,7 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
     return reply.status(400).send({ error: parsed.error.flatten() });
   }
 
-  const { message, clinicSlug, sessionId } = parsed.data;
+  const { message, clinicSlug, sessionId, slotBooked } = parsed.data;
 
   const clinic = await prisma.clinic.findUnique({ where: { slug: clinicSlug } });
   if (!clinic) {
@@ -37,10 +38,20 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
     data: { sessionId: session.id, role: "user", content: message },
   });
 
-  const { reply: aiReply, context } = await getAIResponse({
+  // Cargar contexto existente para pasárselo al AI
+  const existingCtx = await prisma.patientContext.findUnique({ where: { sessionId: session.id } });
+
+  const { reply: aiReply, context, isFarewell } = await getAIResponse({
     message,
     clinic,
     sessionId: session.id,
+    currentContext: {
+      patientName:     existingCtx?.patientName     ?? undefined,
+      rut:             existingCtx?.rut             ?? undefined,
+      email:           existingCtx?.email           ?? undefined,
+      serviceInterest: existingCtx?.serviceInterest ?? undefined,
+      slotBooked:      slotBooked ?? existingCtx?.slotBooked ?? false,
+    },
   });
 
   await prisma.message.create({
@@ -48,12 +59,13 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
   });
 
   if (context) {
+    const slotBookedValue = slotBooked ?? existingCtx?.slotBooked ?? false;
     await prisma.patientContext.upsert({
       where: { sessionId: session.id },
-      update: { ...context },
-      create: { sessionId: session.id, ...context },
+      update: { ...context, slotBooked: slotBookedValue || context.slotBooked || false },
+      create: { sessionId: session.id, ...context, slotBooked: slotBookedValue || context.slotBooked || false },
     });
   }
 
-  return reply.send({ reply: aiReply, sessionId: session.id, context });
+  return reply.send({ reply: aiReply, sessionId: session.id, context, isFarewell });
 }

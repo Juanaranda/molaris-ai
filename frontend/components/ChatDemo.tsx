@@ -7,9 +7,9 @@ import { parsePreferredDate } from "@/lib/dateParser";
 const GALANA_DOCTORS = [
   "Dra. Ana Aranda",
   "Dra. Ivonne Poblete",
-  "Dr. Pedro Engel",
+  "Dr. Nicolás",
   "Dr. Juan Garcés",
-  "Dra. Jacqueline Pérez",
+  "Dra. Javiera",
 ];
 
 function extractMentionedDoctor(text: string): string | undefined {
@@ -26,10 +26,13 @@ interface Message {
 
 interface LeadContext {
   patientName?: string;
+  rut?: string;
+  email?: string;
   serviceInterest?: string;
   urgency?: "high" | "medium" | "low";
   intent?: "ready_to_book" | "evaluating" | "just_browsing";
   score?: number;
+  slotBooked?: boolean;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -63,6 +66,7 @@ export function ChatDemo() {
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [context, setContext] = useState<LeadContext | null>(null);
+  const [slotBooked, setSlotBooked] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -76,8 +80,9 @@ export function ChatDemo() {
     doctor: string;
     box: string | null;
   }) {
+    setSlotBooked(true);
     setMessages((prev) => prev.map((m) => ({ ...m, showPicker: false })));
-    const confirmation = `Quiero el ${slot.dayName} ${slot.date.slice(8)} a las ${slot.time} con ${slot.doctor}`;
+    const confirmation = `Seleccioné el ${slot.dayName} ${slot.date.slice(8)} a las ${slot.time} con ${slot.doctor}`;
     setMessages((prev) => [...prev, { role: "user", text: confirmation }]);
 
     // Guardar booking y notificar a la clínica
@@ -91,9 +96,9 @@ export function ChatDemo() {
         service: context?.serviceInterest,
         ...slot,
       }),
-    }).catch(() => {});
+    }).catch(() => { });
 
-    sendToAPI(confirmation);
+    sendToAPI(confirmation, true);
   }
 
   async function sendMessage() {
@@ -104,8 +109,9 @@ export function ChatDemo() {
     await sendToAPI(text);
   }
 
-  async function sendToAPI(text: string) {
+  async function sendToAPI(text: string, slotJustBooked = false) {
     setLoading(true);
+    const bookedNow = slotBooked || slotJustBooked;
     try {
       const res = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
@@ -114,6 +120,7 @@ export function ChatDemo() {
           message: text,
           clinicSlug: "galana",
           sessionId: sessionId ?? undefined,
+          slotBooked: bookedNow,
         }),
       });
       const data = await res.json();
@@ -123,13 +130,14 @@ export function ChatDemo() {
       const newContext: LeadContext = { ...context, ...data.context };
       if (data.context) setContext(newContext);
 
-      // Mostrar picker si el paciente quiere agendar
+      // Mostrar picker solo si NO hay hora agendada y el paciente quiere agendar
       const wantsBooking =
-        newContext.intent === "ready_to_book" ||
-        /agend|reserv|hora|cita|disponible|horario/i.test(text);
+        !bookedNow &&
+        (newContext.intent === "ready_to_book" ||
+          /agend|reserv|hora|cita|disponible|horario/i.test(text));
 
       const preferredDate = parsePreferredDate(text) ?? undefined;
-      const doctorFilter  = extractMentionedDoctor(data.reply) ?? undefined;
+      const doctorFilter = extractMentionedDoctor(data.reply) ?? undefined;
 
       setMessages((prev) => [
         ...prev,
@@ -166,11 +174,10 @@ export function ChatDemo() {
             <div key={i}>
               <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div
-                  className={`max-w-[82%] px-4 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
-                    msg.role === "user"
+                  className={`max-w-[82%] px-4 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${msg.role === "user"
                       ? "bg-sky-600 text-white rounded-br-sm"
                       : "bg-gray-100 text-gray-800 rounded-bl-sm"
-                  }`}
+                    }`}
                 >
                   {msg.text}
                 </div>

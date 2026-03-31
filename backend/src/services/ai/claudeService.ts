@@ -23,22 +23,27 @@ const STATIC_FALLBACK = "En este momento estamos con alta demanda. Por favor esc
 
 export interface PatientContextUpdate {
   patientName?: string;
+  rut?: string;
+  email?: string;
   serviceInterest?: string;
   urgency?: string;
   intent?: string;
   score?: number;
   notes?: string;
+  slotBooked?: boolean;
 }
 
 export interface AIRequestParams {
   message: string;
   clinic: Clinic;
   sessionId: string;
+  currentContext?: Partial<PatientContextUpdate>;
 }
 
 export interface AIResponse {
   reply: string;
   context: PatientContextUpdate | null;
+  isFarewell: boolean;
 }
 
 function extractContextHeuristic(message: string): PatientContextUpdate | null {
@@ -58,10 +63,38 @@ function extractContextHeuristic(message: string): PatientContextUpdate | null {
   };
 }
 
+function buildStateHint(ctx: Partial<PatientContextUpdate>): string {
+  const lines = [
+    "## DATOS YA RECOPILADOS EN ESTA CONVERSACIÓN (NO los vuelvas a pedir)",
+  ];
+
+  if (ctx.slotBooked)    lines.push("- Hora: ya seleccionó horario — NO preguntes fecha/hora de nuevo");
+  if (ctx.patientName)   lines.push(`- Nombre: ${ctx.patientName}`);
+  if (ctx.rut)           lines.push(`- RUT: ${ctx.rut}`);
+  if (ctx.email)         lines.push(`- Email: ${ctx.email}`);
+
+  // Solo indicar qué falta si ya agendó hora
+  if (ctx.slotBooked) {
+    const missing: string[] = [];
+    if (!ctx.patientName) missing.push("nombre completo");
+    if (!ctx.rut)         missing.push("RUT (formato XX.XXX.XXX-X)");
+    if (missing.length > 0) {
+      lines.push(`\nPara confirmar la cita aún falta: ${missing.join(" y ")}. Pídelo de forma natural en la conversación.`);
+    } else if (!ctx.email) {
+      lines.push("\nTodos los datos obligatorios están completos. Puedes preguntar el email (opcional) o despedirte.");
+    } else {
+      lines.push("\nTodos los datos están completos. Despídete con un mensaje cálido.");
+    }
+  }
+
+  return lines.join("\n");
+}
+
 export async function getAIResponse({
   message,
   clinic,
   sessionId,
+  currentContext = {},
 }: AIRequestParams): Promise<AIResponse> {
   // ── Capa 1: Rate limit por sesión ─────────────────────────────────
   if (getMessageCount(sessionId) >= MAX_MESSAGES) {
@@ -82,6 +115,7 @@ export async function getAIResponse({
 
   const systemPrompt = buildSystemPrompt(clinic);
   const contextHint = buildContextHint(message, clinic.config);
+  const stateHint = buildStateHint(currentContext);
   appendToHistory(sessionId, "user", message);
   const history = getHistory(sessionId);
 
@@ -90,11 +124,13 @@ export async function getAIResponse({
       type: "function",
       function: {
         name: "update_patient_context",
-        description: "Extrae y actualiza el perfil del paciente basado en la conversación.",
+        description: "Extrae datos reales del paciente mencionados en la conversación. SOLO incluye un campo si el paciente lo mencionó explícitamente. NO uses 'Pendiente', 'null', ni valores inventados.",
         parameters: {
           type: "object",
           properties: {
-            patientName: { type: "string" },
+            patientName: { type: "string", description: "Nombre completo del paciente" },
+            rut: { type: "string", description: "RUT del paciente (formato XX.XXX.XXX-X)" },
+            email: { type: "string", description: "Email del paciente (opcional)" },
             serviceInterest: { type: "string" },
             urgency: { type: "string", enum: ["high", "medium", "low"] },
             intent: { type: "string", enum: ["ready_to_book", "evaluating", "just_browsing"] },
@@ -117,6 +153,7 @@ export async function getAIResponse({
         messages: [
           { role: "system", content: systemPrompt },
           ...(contextHint ? [{ role: "system" as const, content: contextHint }] : []),
+          { role: "system", content: stateHint },
           ...history,
         ],
         tools,
@@ -186,8 +223,18 @@ export async function getAIResponse({
     context = extractContextHeuristic(message);
   }
 
-  // Score siempre calculado de forma determinista (nunca confiar en el número del LLM)
-  if (context) context.score = computeScore(context);
+  // Fusionar con contexto previo para no perder datos entre turnos
+  const mergedContext: PatientContextUpdate = { ...currentContext, ...context };
 
-  return { reply: replyText, context };
+  // Score siempre calculado de forma determinista (nunca confiar en el número del LLM)
+  if (mergedContext) mergedContext.score = computeScore(mergedContext);
+
+  // Despedida cuando hay hora agendada + nombre + RUT
+  const isFarewell = Boolean(
+    mergedContext.slotBooked &&
+    mergedContext.patientName &&
+    mergedContext.rut
+  );
+
+  return { reply: replyText, context: mergedContext, isFarewell };
 }
