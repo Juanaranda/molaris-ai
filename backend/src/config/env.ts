@@ -3,12 +3,18 @@ dotenv.config();
 
 export const config = {
   port: Number(process.env.PORT) || 3000,
-  anthropicApiKey: process.env.ANTHROPIC_API_KEY!,
-  groqApiKey: process.env.GROQ_API_KEY!,
   nodeEnv: process.env.NODE_ENV || "development",
+  openRouter: {
+    apiKey: process.env.OPENROUTER_API_KEY ?? "",
+    models: {
+      fast:     process.env.OPENROUTER_MODEL_FAST     ?? "meta-llama/llama-3.1-8b-instruct:free",
+      balanced: process.env.OPENROUTER_MODEL_BALANCED ?? "meta-llama/llama-3.3-70b-instruct",
+      smart:    process.env.OPENROUTER_MODEL_SMART    ?? "anthropic/claude-haiku-4-5",
+    },
+  },
   twilio: {
     accountSid: process.env.TWILIO_ACCOUNT_SID ?? "",
     authToken:  process.env.TWILIO_AUTH_TOKEN  ?? "",
-    from:       process.env.TWILIO_WHATSAPP_FROM ?? "", // "whatsapp:+14155238886"
+    from:       process.env.TWILIO_WHATSAPP_FROM ?? "",
   },
 };
