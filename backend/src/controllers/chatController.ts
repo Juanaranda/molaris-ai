@@ -2,6 +2,7 @@ import { FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { getAIResponse } from "../services/ai/claudeService";
 import prisma from "../config/prisma";
+import { config } from "../config/env";
 
 const bodySchema = z.object({
   message: z.string().min(1),
@@ -67,5 +68,16 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
     });
   }
 
-  return reply.send({ reply: aiReply, sessionId: session.id, context, isFarewell });
+  // Adjuntar link de reserva la primera vez que el paciente muestra intención de agendar
+  const justReadyToBook =
+    context?.intent === "ready_to_book" &&
+    existingCtx?.intent !== "ready_to_book";
+
+  let finalReply = aiReply;
+  if (justReadyToBook) {
+    const bookingUrl = `${config.frontendUrl}/book/${clinicSlug}?s=${session.id}`;
+    finalReply = finalReply.replace(/\s+$/, "") + `\n\n👉 ${bookingUrl}`;
+  }
+
+  return reply.send({ reply: finalReply, sessionId: session.id, context, isFarewell });
 }

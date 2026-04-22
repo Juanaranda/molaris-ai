@@ -141,23 +141,29 @@ function extractContextHeuristic(message: string): PatientContextUpdate | null {
 }
 
 function buildStateHint(ctx: Partial<PatientContextUpdate>): string {
-  const lines = ["## DATOS YA RECOPILADOS EN ESTA CONVERSACIÓN (NO los vuelvas a pedir)"];
+  const lines = ["## ESTADO DE LA CONVERSACIÓN"];
 
-  if (ctx.slotBooked)  lines.push("- Hora: ya seleccionó horario — NO preguntes fecha/hora de nuevo");
-  if (ctx.patientName) lines.push(`- Nombre: ${ctx.patientName}`);
-  if (ctx.rut)         lines.push(`- RUT: ${ctx.rut}`);
-  if (ctx.email)       lines.push(`- Email: ${ctx.email}`);
+  if (ctx.patientName) lines.push(`- Nombre ya dado: ${ctx.patientName} (NO lo vuelvas a pedir)`);
+  if (ctx.rut)         lines.push(`- RUT ya dado: ${ctx.rut} (NO lo vuelvas a pedir)`);
+  if (ctx.email)       lines.push(`- Email ya dado: ${ctx.email} (NO lo vuelvas a pedir)`);
 
+  if (ctx.intent === "ready_to_book" && !ctx.slotBooked) {
+    lines.push("\nEl paciente quiere agendar. El link de reserva se adjuntará automáticamente. Di algo natural del tipo 'Aquí puedes elegir tu hora:' y NO solicites RUT ni datos por el chat.");
+    if (ctx.patientName || ctx.rut) {
+      lines.push("Menciona que sus datos ya estarán precargados en el formulario.");
+    }
+  }
+
+  // Flujo legacy (widget embebido): slotBooked viene del frontend
   if (ctx.slotBooked) {
+    lines.push("\n- Hora: ya seleccionada vía widget — NO preguntes fecha/hora de nuevo");
     const missing: string[] = [];
     if (!ctx.patientName) missing.push("nombre completo");
     if (!ctx.rut)         missing.push("RUT (formato XX.XXX.XXX-X)");
     if (missing.length > 0) {
-      lines.push(`\nPara confirmar la cita aún falta: ${missing.join(" y ")}. Pídelo de forma natural.`);
-    } else if (!ctx.email) {
-      lines.push("\nTodos los datos obligatorios están completos. Puedes preguntar el email (opcional) o despedirte.");
+      lines.push(`Falta para confirmar: ${missing.join(" y ")}. Pídelo de forma natural.`);
     } else {
-      lines.push("\nTodos los datos están completos. Despídete con un mensaje cálido.");
+      lines.push("Todos los datos están completos. Despídete con mensaje cálido.");
     }
   }
 

@@ -33,6 +33,7 @@ model Clinic {
   sessions     Session[]
   bookings     Booking[]
   partnerUsers PartnerUser[]
+  patientUsers PatientUser[]
 
   @@map("clinics")
 }
@@ -53,18 +54,57 @@ model PartnerUser {
   @@map("partner_users")
 }
 
+// ─── IDENTIDAD (PERSONA UNIVERSAL — RUT como identificador único) ────────────
+model Identity {
+  id         String        @id @default(cuid())
+  rut        String        @unique
+  firstName  String
+  lastName   String
+  email      String?       @unique
+  phone      String?
+  birthDate  DateTime?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  patientUsers PatientUser[]
+  patients     Patient[]
+
+  @@map("identities")
+}
+
+// ─── USUARIO PACIENTE (IDENTIDAD ENROLADA EN UNA CLÍNICA) ────────────────────
+model PatientUser {
+  id           String    @id @default(cuid())
+  identityId   String
+  identity     Identity  @relation(fields: [identityId], references: [id])
+  clinicId     String
+  clinic       Clinic    @relation(fields: [clinicId], references: [id])
+  passwordHash String?
+  enrolledAt   DateTime  @default(now())
+  lastVisit    DateTime?
+  notes        String?
+  active       Boolean   @default(true)
+
+  bookings     Booking[]
+
+  @@unique([identityId, clinicId])
+  @@map("patient_users")
+}
+
 // ─── PACIENTE ────────────────────────────────────────────────────────────────
 model Patient {
-  id        String   @id @default(cuid())
-  clinicId  String
-  clinic    Clinic   @relation(fields: [clinicId], references: [id])
-  name      String?
-  phone     String?
-  email     String?
-  channel   String?  // "whatsapp" | "web" | "instagram"
-  createdAt DateTime @default(now())
+  id         String    @id @default(cuid())
+  clinicId   String
+  clinic     Clinic    @relation(fields: [clinicId], references: [id])
+  identityId String?
+  identity   Identity? @relation(fields: [identityId], references: [id])
+  name       String?
+  phone      String?
+  email      String?
+  channel    String?   // "whatsapp" | "web" | "instagram"
+  createdAt  DateTime  @default(now())
 
-  sessions  Session[]
+  sessions   Session[]
 
   @@map("patients")
 }
@@ -120,18 +160,20 @@ model PatientContext {
 
 // ─── BOOKINGS (CITAS CONFIRMADAS) ────────────────────────────────────────────
 model Booking {
-  id          String   @id @default(cuid())
-  clinicId    String
-  clinic      Clinic   @relation(fields: [clinicId], references: [id])
-  sessionId   String?
-  patientName String?
-  service     String?
-  date        DateTime
-  time        String
-  doctor      String
-  box         String?
-  status      String   @default("pending") // "pending" | "confirmed" | "cancelled"
-  createdAt   DateTime @default(now())
+  id            String       @id @default(cuid())
+  clinicId      String
+  clinic        Clinic       @relation(fields: [clinicId], references: [id])
+  patientUserId String?
+  patientUser   PatientUser? @relation(fields: [patientUserId], references: [id])
+  sessionId     String?
+  patientName   String?
+  service       String?
+  date          DateTime
+  time          String
+  doctor        String
+  box           String?
+  status        String       @default("pending") // "pending" | "confirmed" | "cancelled"
+  createdAt     DateTime     @default(now())
 
   @@map("bookings")
 }

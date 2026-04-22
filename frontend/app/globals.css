@@ -1,26 +1,38 @@
 @import "tailwindcss";
 
+@theme {
+  --font-family-display: var(--font-display), "Syne", sans-serif;
+  --font-family-body: var(--font-body), "Manrope", sans-serif;
+  --font-family-sans: var(--font-body), "Manrope", sans-serif;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --ink: #0C1B26;
+  --ink-muted: #607281;
+  --surface: #F7F5F1;
+  --surface-white: #FDFCFB;
+  --teal-dark: #0B2F42;
+  --teal-mid: #1A5C7A;
+  --teal-light: #E8F3F7;
+  --coral: #D95F45;
+  --coral-light: #FDECEA;
+  --border: #E5E0D9;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-family-body);
 }
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-fade-up-delay-1 { animation-delay: 0.1s; }
+.animate-fade-up-delay-2 { animation-delay: 0.2s; }
+.animate-fade-up-delay-3 { animation-delay: 0.32s; }

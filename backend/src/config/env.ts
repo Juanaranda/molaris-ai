@@ -13,6 +13,7 @@ export const config = {
       smart:    process.env.OPENROUTER_MODEL_SMART    ?? "anthropic/claude-haiku-4-5",
     },
   },
+  frontendUrl: process.env.FRONTEND_URL ?? "http://localhost:3000",
   twilio: {
     accountSid: process.env.TWILIO_ACCOUNT_SID ?? "",
     authToken:  process.env.TWILIO_AUTH_TOKEN  ?? "",

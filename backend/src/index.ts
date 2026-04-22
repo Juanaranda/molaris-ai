@@ -6,6 +6,8 @@ import { availabilityRoutes } from "./routes/availability";
 import { bookingRoutes } from "./routes/bookings";
 import { authRoutes } from "./routes/auth";
 import { clinicRoutes } from "./routes/clinics";
+import { patientAuthRoutes } from "./routes/patient-auth";
+import { bookRoutes } from "./routes/book";
 
 const app = Fastify({ logger: true });
 
@@ -15,6 +17,8 @@ app.register(availabilityRoutes, { prefix: "/api" });
 app.register(bookingRoutes, { prefix: "/api" });
 app.register(authRoutes, { prefix: "/api" });
 app.register(clinicRoutes, { prefix: "/api" });
+app.register(patientAuthRoutes, { prefix: "/api" });
+app.register(bookRoutes, { prefix: "/api" });
 
 app.get("/health", async () => ({ status: "ok", project: "molaris.ai" }));
 
