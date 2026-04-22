@@ -68,15 +68,22 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
     });
   }
 
-  // Adjuntar link de reserva la primera vez que el paciente muestra intención de agendar
+  // Adjuntar link de reserva cuando el bot ya dice "aquí:" o cuando la intención cambia a ready_to_book
+  // El bot a veces emite la cue textual sin settear el intent → detectar ambos casos
+  const hasBookingCue = /(?:aquí|link|enlace)\s*:?\s*$/i.test(aiReply.trim());
   const justReadyToBook =
     context?.intent === "ready_to_book" &&
     existingCtx?.intent !== "ready_to_book";
 
   let finalReply = aiReply;
-  if (justReadyToBook) {
+  if ((justReadyToBook || hasBookingCue) && !(existingCtx?.slotBooked ?? false)) {
     const bookingUrl = `${config.frontendUrl}/book/${clinicSlug}?s=${session.id}`;
-    finalReply = finalReply.replace(/\s+$/, "") + `\n\n👉 ${bookingUrl}`;
+    // Si el reply ya termina en "aquí:" simplemente concatenar la URL en la misma línea
+    if (hasBookingCue) {
+      finalReply = aiReply.trimEnd() + `\n\n👉 ${bookingUrl}`;
+    } else {
+      finalReply = aiReply.replace(/\s+$/, "") + `\n\n👉 ${bookingUrl}`;
+    }
   }
 
   return reply.send({ reply: finalReply, sessionId: session.id, context, isFarewell });

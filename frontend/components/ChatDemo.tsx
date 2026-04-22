@@ -1,19 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { AvailabilityPicker } from "./AvailabilityPicker";
-import { parsePreferredDate } from "@/lib/dateParser";
-
-function extractMentionedDoctor(text: string, doctors: string[]): string | undefined {
-  return doctors.find((d) => text.includes(d));
-}
 
 interface Message {
   role: "user" | "assistant";
   text: string;
-  showPicker?: boolean;
-  preferredDate?: string;
-  doctorFilter?: string;
 }
 
 interface LeadContext {
@@ -30,7 +21,6 @@ interface LeadContext {
 interface Props {
   clinicSlug?: string;
   clinicName?: string;
-  doctors?: string[];
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -53,15 +43,7 @@ const SCORE_COLOR = (score: number) => {
   return "text-gray-400";
 };
 
-const DEFAULT_DOCTORS = [
-  "Dra. Ana Aranda",
-  "Dra. Ivonne Poblete",
-  "Dr. Pedro Engel",
-  "Dr. Juan Garcés",
-  "Dra. Jacqueline Pérez",
-];
-
-export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica Dental", doctors = DEFAULT_DOCTORS }: Props = {}) {
+export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica Dental" }: Props = {}) {
   const initial = `Hola, soy el asistente virtual de ${clinicName}. ¿En qué puedo ayudarte?`;
   const initial_letter = clinicName.charAt(0).toUpperCase();
 
@@ -70,92 +52,56 @@ export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica 
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [context, setContext] = useState<LeadContext | null>(null);
-  const [slotBooked, setSlotBooked] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Reset when clinic changes
   useEffect(() => {
     setMessages([{ role: "assistant", text: `Hola, soy el asistente virtual de ${clinicName}. ¿En qué puedo ayudarte?` }]);
     setSessionId(null);
     setContext(null);
-    setSlotBooked(false);
   }, [clinicSlug, clinicName]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  async function handleSlotSelected(slot: {
-    date: string;
-    dayName: string;
-    time: string;
-    doctor: string;
-    box: string | null;
-  }) {
-    setSlotBooked(true);
-    setMessages((prev) => prev.map((m) => ({ ...m, showPicker: false })));
-    const confirmation = `Seleccioné el ${slot.dayName} ${slot.date.slice(8)} a las ${slot.time} con ${slot.doctor}`;
-    setMessages((prev) => [...prev, { role: "user", text: confirmation }]);
-
-    fetch(`${API_URL}/api/bookings`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clinicSlug,
-        sessionId: sessionId ?? undefined,
-        patientName: context?.patientName,
-        service: context?.serviceInterest,
-        ...slot,
-      }),
-    }).catch(() => {});
-
-    sendToAPI(confirmation, true);
-  }
-
   async function sendMessage() {
     const text = input.trim();
     if (!text || loading) return;
     setMessages((prev) => [...prev, { role: "user", text }]);
     setInput("");
-    await sendToAPI(text);
-  }
-
-  async function sendToAPI(text: string, slotJustBooked = false) {
     setLoading(true);
-    const bookedNow = slotBooked || slotJustBooked;
+
     try {
       const res = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, clinicSlug, sessionId: sessionId ?? undefined, slotBooked: bookedNow }),
+        body: JSON.stringify({ message: text, clinicSlug, sessionId: sessionId ?? undefined }),
       });
       const data = await res.json();
-
       if (!sessionId && data.sessionId) setSessionId(data.sessionId);
-
-      const newContext: LeadContext = { ...context, ...data.context };
-      if (data.context) setContext(newContext);
-
-      const wantsBooking =
-        !bookedNow &&
-        (newContext.intent === "ready_to_book" ||
-          /agend|reserv|hora|cita|disponible|horario/i.test(text));
-
-      const preferredDate = parsePreferredDate(text) ?? undefined;
-      const doctorFilter = extractMentionedDoctor(data.reply, doctors) ?? undefined;
-
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", text: data.reply, showPicker: wantsBooking, preferredDate, doctorFilter },
-      ]);
+      if (data.context) setContext((prev) => ({ ...prev, ...data.context }));
+      setMessages((prev) => [...prev, { role: "assistant", text: data.reply }]);
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", text: "Hubo un problema al conectar. Intenta de nuevo." },
-      ]);
+      setMessages((prev) => [...prev, { role: "assistant", text: "Hubo un problema al conectar. Intenta de nuevo." }]);
     } finally {
       setLoading(false);
     }
+  }
+
+  // Render message text: detect booking URLs and make them clickable
+  function renderText(text: string) {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    return parts.map((part, i) =>
+      urlRegex.test(part) ? (
+        <a key={i} href={part} target="_blank" rel="noopener noreferrer"
+          className="underline underline-offset-2 break-all hover:opacity-80 transition-opacity">
+          {part}
+        </a>
+      ) : (
+        <span key={i}>{part}</span>
+      )
+    );
   }
 
   return (
@@ -176,29 +122,16 @@ export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
           {messages.map((msg, i) => (
-            <div key={i}>
-              <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div
-                  className={`max-w-[82%] px-4 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
-                    msg.role === "user"
-                      ? "bg-sky-600 text-white rounded-br-sm"
-                      : "bg-gray-100 text-gray-800 rounded-bl-sm"
-                  }`}
-                >
-                  {msg.text}
-                </div>
+            <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                className={`max-w-[82%] px-4 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+                  msg.role === "user"
+                    ? "bg-sky-600 text-white rounded-br-sm"
+                    : "bg-gray-100 text-gray-800 rounded-bl-sm"
+                }`}
+              >
+                {msg.role === "assistant" ? renderText(msg.text) : msg.text}
               </div>
-
-              {msg.showPicker && msg.role === "assistant" && (
-                <div className="mt-2 ml-1">
-                  <AvailabilityPicker
-                    service={context?.serviceInterest}
-                    doctorFilter={msg.doctorFilter}
-                    preferredDate={msg.preferredDate}
-                    onSelect={handleSlotSelected}
-                  />
-                </div>
-              )}
             </div>
           ))}
           {loading && (
