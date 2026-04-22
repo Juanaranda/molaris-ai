@@ -7,11 +7,12 @@ dist/
 .next/
 out/
 
-# Environment variables
+# Environment variables (mantener .env.example trackeado)
 .env
 .env.local
 **/.env
 **/.env.local
+!**/.env.example
 
 # Prisma generated client
 backend/src/generated/
