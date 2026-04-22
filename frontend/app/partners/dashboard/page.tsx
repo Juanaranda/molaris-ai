@@ -11,6 +11,7 @@ import { ServicesEditor, ServiceRow } from "@/components/ServicesEditor";
 /* ─── Tipos de config ──────────────────────────────────────────────────────── */
 interface ClinicConfig {
   tone?: string;
+  assistantName?: string;
   doctors?: DoctorRow[];
   services?: ServiceRow[];
   boxes?: number;
@@ -32,8 +33,8 @@ function RoleBadge({ role }: { role: string }) {
 }
 
 /* ─── Campo editable ────────────────────────────────────────────────────────── */
-function InfoField({ label, value, editable, onChange }: {
-  label: string; value: string; editable: boolean; onChange: (v: string) => void;
+function InfoField({ label, value, editable, onChange, placeholder }: {
+  label: string; value: string; editable: boolean; onChange: (v: string) => void; placeholder?: string;
 }) {
   if (!editable) {
     return (
@@ -49,6 +50,7 @@ function InfoField({ label, value, editable, onChange }: {
       <input
         type="text"
         value={value}
+        placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
       />
@@ -63,23 +65,50 @@ export default function PartnersDashboard() {
   const [clinic, setClinic] = useState<ClinicData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Basic info
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ name: "", phone: "", whatsapp: "", instagram: "", location: "" });
+  const [form, setForm] = useState({ name: "", phone: "", whatsapp: "", instagram: "", location: "", assistantName: "" });
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
+
+  // Schedule
+  const [schedEditing, setSchedEditing] = useState(false);
+  const [schedForm, setSchedForm] = useState({ weekdays: "", saturday: "", sunday: "" });
+  const [schedSaving, setSchedSaving] = useState(false);
+  const [schedMsg, setSchedMsg] = useState("");
 
   useEffect(() => {
     getMe().then((data) => {
       if (!data) { router.push("/login"); return; }
       setUser(data.user);
       setClinic(data.clinic);
-      if (data.clinic) syncForm(data.clinic);
+      if (data.clinic) {
+        syncForm(data.clinic);
+        syncSchedForm(data.clinic);
+      }
       setLoading(false);
     });
   }, [router]);
 
   function syncForm(c: ClinicData) {
-    setForm({ name: c.name ?? "", phone: c.phone ?? "", whatsapp: c.whatsapp ?? "", instagram: c.instagram ?? "", location: c.location ?? "" });
+    const cfg = c.config as ClinicConfig;
+    setForm({
+      name: c.name ?? "",
+      phone: c.phone ?? "",
+      whatsapp: c.whatsapp ?? "",
+      instagram: c.instagram ?? "",
+      location: c.location ?? "",
+      assistantName: cfg.assistantName ?? "",
+    });
+  }
+
+  function syncSchedForm(c: ClinicData) {
+    const cfg = c.config as ClinicConfig;
+    setSchedForm({
+      weekdays: cfg.schedule?.weekdays ?? "",
+      saturday: cfg.schedule?.saturday ?? "",
+      sunday: cfg.schedule?.sunday ?? "",
+    });
   }
 
   function handleLogout() { logout(); router.push("/"); }
@@ -88,12 +117,27 @@ export default function PartnersDashboard() {
     if (!clinic) return;
     setSaving(true); setSaveMsg("");
     try {
-      const updated = await updateClinic(clinic.id, form);
+      const { assistantName, ...basicFields } = form;
+      const cfg = { ...(clinic.config as ClinicConfig), assistantName };
+      const updated = await updateClinic(clinic.id, { ...basicFields, config: cfg as Record<string, unknown> });
       setClinic(updated); syncForm(updated); setEditing(false);
       setSaveMsg("Guardado"); setTimeout(() => setSaveMsg(""), 3000);
     } catch (e) {
       setSaveMsg(e instanceof Error ? e.message : "Error al guardar");
     } finally { setSaving(false); }
+  }
+
+  async function saveSchedule() {
+    if (!clinic) return;
+    setSchedSaving(true); setSchedMsg("");
+    try {
+      const cfg = { ...(clinic.config as ClinicConfig), schedule: schedForm };
+      const updated = await updateClinic(clinic.id, { config: cfg as Record<string, unknown> });
+      setClinic(updated); syncSchedForm(updated); setSchedEditing(false);
+      setSchedMsg("Guardado"); setTimeout(() => setSchedMsg(""), 3000);
+    } catch (e) {
+      setSchedMsg(e instanceof Error ? e.message : "Error al guardar");
+    } finally { setSchedSaving(false); }
   }
 
   async function saveDoctors(doctors: DoctorRow[], boxes: number) {
@@ -180,7 +224,8 @@ export default function PartnersDashboard() {
                 )}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <InfoField label="Nombre" value={form.name} editable={editing} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
+                <InfoField label="Nombre de la clínica" value={form.name} editable={editing} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
+                <InfoField label="Nombre del asistente virtual" value={form.assistantName} editable={editing} placeholder="Ej: Gala, Aria, Max..." onChange={(v) => setForm((f) => ({ ...f, assistantName: v }))} />
                 <InfoField label="Teléfono" value={form.phone} editable={editing} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} />
                 <InfoField label="WhatsApp" value={form.whatsapp} editable={editing} onChange={(v) => setForm((f) => ({ ...f, whatsapp: v }))} />
                 <InfoField label="Instagram" value={form.instagram} editable={editing} onChange={(v) => setForm((f) => ({ ...f, instagram: v }))} />
@@ -192,18 +237,56 @@ export default function PartnersDashboard() {
               </div>
             </section>
 
-            {/* ── Horarios (solo lectura por ahora) ───────────────── */}
-            {cfg.schedule && (
-              <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                <h2 className="font-semibold text-gray-900 mb-4">Horarios de atención</h2>
-                <div className="flex flex-col gap-2 text-sm">
-                  {cfg.schedule.weekdays && <div className="flex justify-between"><span className="text-gray-500">Semana</span><span className="text-gray-800">{cfg.schedule.weekdays}</span></div>}
-                  {cfg.schedule.saturday && <div className="flex justify-between"><span className="text-gray-500">Sábado</span><span className="text-gray-800">{cfg.schedule.saturday}</span></div>}
-                  {cfg.schedule.sunday && <div className="flex justify-between"><span className="text-gray-500">Domingo</span><span className="text-gray-800">{cfg.schedule.sunday}</span></div>}
+            {/* ── Horarios (editable) ──────────────────────────────── */}
+            <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold text-gray-900">Horarios de atención</h2>
+                <div className="flex items-center gap-3">
+                  {schedMsg && <span className={`text-xs ${schedMsg === "Guardado" ? "text-green-600" : "text-red-600"}`}>{schedMsg}</span>}
+                  {canEdit && !schedEditing && (
+                    <button onClick={() => setSchedEditing(true)} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Editar</button>
+                  )}
+                  {canEdit && schedEditing && (
+                    <div className="flex gap-3">
+                      <button onClick={() => { setSchedEditing(false); syncSchedForm(clinic); }} className="text-sm text-gray-500 hover:text-gray-700">Cancelar</button>
+                      <button onClick={saveSchedule} disabled={schedSaving} className="text-sm bg-blue-600 text-white font-medium px-4 py-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                        {schedSaving ? "Guardando..." : "Guardar"}
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs text-gray-400 mt-4">Para modificar horarios, contacta al equipo.</p>
-              </section>
-            )}
+              </div>
+              <div className="flex flex-col gap-3">
+                {schedEditing ? (
+                  <>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Lunes a Viernes</label>
+                      <input value={schedForm.weekdays} onChange={(e) => setSchedForm((f) => ({ ...f, weekdays: e.target.value }))}
+                        placeholder="Lunes a Viernes: 10:00 - 18:00"
+                        className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Sábado</label>
+                      <input value={schedForm.saturday} onChange={(e) => setSchedForm((f) => ({ ...f, saturday: e.target.value }))}
+                        placeholder="Sábado: 10:00 - 14:00"
+                        className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Domingo</label>
+                      <input value={schedForm.sunday} onChange={(e) => setSchedForm((f) => ({ ...f, sunday: e.target.value }))}
+                        placeholder="Domingo: cerrado"
+                        className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col gap-2 text-sm">
+                    {schedForm.weekdays && <div className="flex justify-between"><span className="text-gray-500">Semana</span><span className="text-gray-800">{schedForm.weekdays}</span></div>}
+                    {schedForm.saturday && <div className="flex justify-between"><span className="text-gray-500">Sábado</span><span className="text-gray-800">{schedForm.saturday}</span></div>}
+                    {schedForm.sunday && <div className="flex justify-between"><span className="text-gray-500">Domingo</span><span className="text-gray-800">{schedForm.sunday}</span></div>}
+                  </div>
+                )}
+              </div>
+            </section>
 
             {/* ── Doctores (editable) ──────────────────────────────── */}
             <DoctorsEditor
@@ -227,7 +310,7 @@ export default function PartnersDashboard() {
                 <p className="text-blue-100 text-sm mt-1">Conversa con el agente configurado para {clinic.name}</p>
               </div>
               <Link
-                href={`/?clinic=${clinic.slug}#demo`}
+                href={`/demo/${clinic.slug}`}
                 className="shrink-0 bg-white text-blue-600 font-semibold px-6 py-2.5 rounded-full text-sm hover:bg-blue-50 transition-colors"
               >
                 Abrir demo →

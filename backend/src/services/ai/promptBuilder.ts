@@ -2,20 +2,24 @@ import type { Clinic } from "@prisma/client";
 
 interface Service {
   name: string;
-  pricingType: "fixed" | "variable";
+  pricingType: "fixed" | "range" | "variable";
   price?: string;
+  priceMin?: string;
+  priceMax?: string;
   priceNote?: string;
 }
 
 interface Doctor {
   name: string;
   specialty: string;
-  services: string[];
-  workDays: number[];
+  services?: string[];
+  workDays?: number[];
+  schedule?: string;
 }
 
 interface ClinicConfig {
   tone: string;
+  assistantName?: string;
   schedule: { weekdays: string; saturday: string; sunday: string };
   services: Service[];
   doctors?: Doctor[];
@@ -27,6 +31,9 @@ function formatService(s: Service): string {
     const note = s.priceNote ? ` (${s.priceNote})` : "";
     return `  - ${s.name}: ${s.price}${note}`;
   }
+  if (s.pricingType === "range" && s.priceMin && s.priceMax) {
+    return `  - ${s.name}: ${s.priceMin} - ${s.priceMax}`;
+  }
   return `  - ${s.name}: precio variable (se evalúa en consulta)`;
 }
 
@@ -34,7 +41,7 @@ const DAY_NAMES = ["domingo", "lunes", "martes", "miércoles", "jueves", "vierne
 
 export function buildSystemPrompt(clinic: Clinic): string {
   const cfg = clinic.config as unknown as ClinicConfig;
-  const fixed    = cfg.services.filter((s) => s.pricingType === "fixed");
+  const fixed    = cfg.services.filter((s) => s.pricingType === "fixed" || s.pricingType === "range");
   const variable = cfg.services.filter((s) => s.pricingType === "variable");
 
   // Lista exacta de nombres de doctores para que el AI no alucine
@@ -42,14 +49,17 @@ export function buildSystemPrompt(clinic: Clinic): string {
   const doctorBlock = cfg.doctors && cfg.doctors.length > 0
     ? cfg.doctors
         .map((d) => {
-          const days = d.workDays.map((n) => DAY_NAMES[n]).join(", ");
-          return `  - ${d.name} (${d.specialty}) — atiende: ${d.services.join(", ")} — trabaja: ${days}`;
+          const scheduleStr = d.schedule ?? (d.workDays ? d.workDays.map((n) => DAY_NAMES[n]).join(", ") : "");
+          const servicesStr = d.services?.join(", ") ?? d.specialty;
+          return `  - ${d.name} (${d.specialty}) — atiende: ${servicesStr}${scheduleStr ? ` — trabaja: ${scheduleStr}` : ""}`;
         })
         .join("\n")
     : "  - Equipo de profesionales disponible";
 
+  const assistantName = cfg.assistantName ? `Tu nombre es ${cfg.assistantName}. ` : "";
+
   return `
-Eres el asistente virtual de ${clinic.name}, clínica dental en ${clinic.location ?? "Chile"}.
+Eres el asistente virtual de ${clinic.name}, clínica dental en ${clinic.location ?? "Chile"}. ${assistantName}
 
 ## Tu rol
 1. Responder consultas sobre tratamientos y disponibilidad
