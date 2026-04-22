@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ChatDemo } from "@/components/ChatDemo";
+import { Suspense } from "react";
+import { DemoSection } from "@/components/DemoSection";
 
 /* ─── WhatsApp mockup ──────────────────────────────────────────── */
 function WhatsAppMockup() {
@@ -168,9 +169,18 @@ export default function Home() {
       {/* NAV */}
       <nav className="flex items-center justify-between px-8 py-5 border-b border-gray-100">
         <Image src="/logo.svg" alt="molaris.ai" width={160} height={40} priority />
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-5">
           <Link href="/pricing" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
             Precios
+          </Link>
+          <Link href="/register" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+            Registrarse
+          </Link>
+          <Link
+            href="/login"
+            className="text-sm text-gray-600 hover:text-gray-900 transition-colors font-medium"
+          >
+            Acceder
           </Link>
           <a
             href="#demo"
@@ -200,12 +210,12 @@ export default function Home() {
           responde 24/7 y convierte más consultas en citas agendadas.
         </p>
         <div className="relative flex flex-col sm:flex-row gap-3 justify-center">
-          <a
-            href="#demo"
+          <Link
+            href="/login"
             className="inline-block bg-blue-600 text-white font-semibold px-7 sm:px-8 py-3 rounded-full hover:bg-blue-700 transition-colors text-sm sm:text-base"
           >
-            Probar ahora →
-          </a>
+            Empezar gratis →
+          </Link>
           <a
             href="https://wa.me/56966865887"
             className="inline-block border border-gray-200 text-gray-700 font-semibold px-7 sm:px-8 py-3 rounded-full hover:bg-gray-50 transition-colors text-sm sm:text-base"
@@ -332,15 +342,9 @@ export default function Home() {
       </section>
 
       {/* DEMO */}
-      <section id="demo" className="bg-gray-50 py-12 sm:py-16">
-        <div className="max-w-xl mx-auto px-4 sm:px-8">
-          <h2 className="text-xl sm:text-2xl font-bold text-center mb-2">Pruébalo ahora</h2>
-          <p className="text-gray-500 text-center text-sm mb-6 sm:mb-8">
-            Demo en vivo del asistente de Galana Clínica Dental
-          </p>
-          <ChatDemo />
-        </div>
-      </section>
+      <Suspense fallback={<div className="bg-gray-50 py-16" />}>
+        <DemoSection />
+      </Suspense>
 
       {/* PRICING */}
       <section id="pricing" className="max-w-5xl mx-auto px-4 sm:px-8 py-14 sm:py-20">
@@ -424,12 +428,20 @@ export default function Home() {
           <p className="text-blue-100 mb-8 text-sm sm:text-base">
             Implementamos molaris.ai en tu clínica en menos de 48 horas.
           </p>
-          <a
-            href="https://wa.me/56966865887"
-            className="inline-block bg-white text-blue-600 font-semibold px-6 sm:px-8 py-3 rounded-full hover:bg-blue-50 transition-colors text-sm sm:text-base shadow-lg"
-          >
-            Hablar con el equipo por WhatsApp →
-          </a>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link
+              href="/login"
+              className="inline-block bg-white text-blue-600 font-semibold px-6 sm:px-8 py-3 rounded-full hover:bg-blue-50 transition-colors text-sm sm:text-base shadow-lg"
+            >
+              Acceder al portal →
+            </Link>
+            <a
+              href="https://wa.me/56966865887"
+              className="inline-block border border-white/40 text-white font-semibold px-6 sm:px-8 py-3 rounded-full hover:bg-white/10 transition-colors text-sm sm:text-base"
+            >
+              Hablar con el equipo
+            </a>
+          </div>
         </div>
       </section>
 

@@ -7,6 +7,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum PartnerRole {
+  SUPERADMIN
+  ADMIN
+  USER
+}
+
 // ─── CLÍNICA (TENANT) ────────────────────────────────────────────────────────
 model Clinic {
   id        String   @id @default(cuid())
@@ -23,11 +29,28 @@ model Clinic {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  patients  Patient[]
-  sessions  Session[]
-  bookings  Booking[]
+  patients     Patient[]
+  sessions     Session[]
+  bookings     Booking[]
+  partnerUsers PartnerUser[]
 
   @@map("clinics")
+}
+
+// ─── USUARIOS PARTNER (CLÍNICAS) ─────────────────────────────────────────────
+model PartnerUser {
+  id           String      @id @default(cuid())
+  clinicId     String?
+  clinic       Clinic?     @relation(fields: [clinicId], references: [id])
+  name         String
+  email        String      @unique
+  passwordHash String
+  role         PartnerRole @default(USER)
+  active       Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("partner_users")
 }
 
 // ─── PACIENTE ────────────────────────────────────────────────────────────────
