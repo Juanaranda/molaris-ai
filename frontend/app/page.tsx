@@ -266,11 +266,11 @@ export default function Home() {
 
               <div className="flex flex-col sm:flex-row gap-3 animate-fade-up animate-fade-up-delay-3">
                 <Link
-                  href="/login"
+                  href="/register"
                   className="inline-block text-white font-semibold px-8 py-3.5 rounded-full text-sm transition-opacity hover:opacity-90"
                   style={{ backgroundColor: "#0B2F42" }}
                 >
-                  Empezar gratis →
+                  Regístrate gratis →
                 </Link>
                 <a
                   href="https://wa.me/56966865887"
@@ -585,11 +585,11 @@ export default function Home() {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
-              href="/login"
+              href="/register"
               className="inline-block font-semibold px-8 py-3.5 rounded-full text-sm transition-opacity hover:opacity-90"
               style={{ backgroundColor: "#D95F45", color: "white" }}
             >
-              Acceder al portal →
+              Regístrate gratis →
             </Link>
             <a
               href="https://wa.me/56966865887"
