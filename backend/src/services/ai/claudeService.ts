@@ -164,6 +164,31 @@ function buildStateHint(ctx: Partial<PatientContextUpdate>): string {
   return lines.join("\n");
 }
 
+// ── Guardia post-LLM: elimina doctores alucinados ─────────────────────────
+//
+// El LLM a veces ignora el system prompt e inventa nombres de doctores.
+// Esta función escanea la respuesta y reemplaza cualquier "Dr./Dra. X" que
+// NO esté en la lista oficial de la clínica por "nuestro equipo".
+//
+function sanitizeDoctorMentions(text: string, validDoctors: string[]): string {
+  // Extraer apellidos de la lista válida para comparación flexible
+  const validLastNames = new Set(
+    validDoctors.flatMap((name) => name.split(" ").slice(1).map((w) => w.toLowerCase()))
+  );
+
+  return text.replace(/\b(Dr\.?|Dra\.?)\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)*)/g, (match, title, rest) => {
+    const fullName = `${title} ${rest}`;
+    // ¿Está en la lista exacta?
+    if (validDoctors.some((d) => d.toLowerCase() === fullName.toLowerCase())) return match;
+    // ¿Al menos el apellido coincide?
+    const words = rest.split(" ").map((w: string) => w.toLowerCase());
+    if (words.some((w: string) => validLastNames.has(w))) return match;
+    // Doctor inventado → reemplazar
+    console.warn(`[AI] Doctor alucinado detectado y eliminado: "${fullName}"`);
+    return "nuestro equipo";
+  });
+}
+
 // ── Función principal ──────────────────────────────────────────────────────
 
 export async function getAIResponse({
@@ -222,7 +247,7 @@ export async function getAIResponse({
       if (m !== model) console.warn(`[AI] Usando fallback: ${m}`);
       break;
     } catch (err: any) {
-      const retryable = err?.status === 429 || (err?.status ?? 0) >= 500;
+      const retryable = err?.status === 429 || err?.status === 404 || (err?.status ?? 0) >= 500;
       if (!retryable) throw err;
       console.warn(`[AI] ${m} falló (${err?.status}), probando siguiente...`);
     }
@@ -262,7 +287,19 @@ export async function getAIResponse({
       .trim();
   }
 
-  appendToHistory(sessionId, "assistant", replyText);
+  // Guardia post-LLM: eliminar doctores alucinados
+  const cfg = clinic.config as unknown as { doctors?: Array<{ name: string }> };
+  const validDoctors = cfg.doctors?.map((d) => d.name) ?? [];
+  replyText = sanitizeDoctorMentions(replyText, validDoctors);
+
+  // Eliminar markdown del reply (asteriscos, negritas, etc.)
+  replyText = replyText
+    .replace(/\*\*([^*]+)\*\*/g, "$1")   // **bold** → bold
+    .replace(/\*([^*]+)\*/g, "$1")        // *italic* → italic
+    .replace(/_{1,2}([^_]+)_{1,2}/g, "$1") // _italic_ / __bold__
+    .replace(/^#{1,6}\s+/gm, "")          // # headers
+    .replace(/`([^`]+)`/g, "$1")          // `code`
+    .trim();
 
   if (!context) context = extractContextHeuristic(message);
 
@@ -272,6 +309,29 @@ export async function getAIResponse({
   const isFarewell = Boolean(
     mergedContext.slotBooked && mergedContext.patientName && mergedContext.rut,
   );
+
+  // Si el flujo está completo, usar despedida determinista (no depender del LLM)
+  if (isFarewell && !replyText) {
+    replyText = `¡Perfecto ${mergedContext.patientName?.split(" ")[0]}! Tu cita está confirmada. Te contactaremos para recordarte. ¡Hasta pronto! 🦷`;
+  }
+
+  // Si el modelo retornó solo tool_call sin texto, pedir respuesta conversacional
+  if (!replyText && context) {
+    console.warn("[AI] Modelo retornó solo tool_call sin texto — pidiendo respuesta conversacional");
+    try {
+      const followUp = await callOpenRouter(model, [
+        ...messages,
+        { role: "system", content: "Responde con UN mensaje conversacional corto (máximo 2 oraciones). NO uses markdown. NO uses tools." },
+      ]);
+      replyText = ((followUp.choices?.[0]?.message?.content as string) ?? "").trim();
+    } catch {
+      replyText = "Entendido. ¿En qué más te puedo ayudar?";
+    }
+  }
+
+  if (!replyText) replyText = "Entendido. ¿En qué más te puedo ayudar?";
+
+  appendToHistory(sessionId, "assistant", replyText);
 
   return { reply: replyText, context: mergedContext, isFarewell };
 }

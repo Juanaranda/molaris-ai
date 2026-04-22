@@ -29,6 +29,12 @@ export const galanaConfig = {
   },
   services: [
     {
+      name: "Resina / tapadura",
+      pricingType: "fixed" as PricingType,
+      price: "$25.000 - $60.000",
+      priceNote: "El precio varía según el tamaño y ubicación de la caries.",
+    },
+    {
       name: "Limpieza dental",
       pricingType: "fixed" as PricingType,
       price: "a consultar",
@@ -80,6 +86,7 @@ export const galanaConfig = {
       workDays: [1, 2, 3, 4, 5], // Lun-Vie
       box: null,
       services: [
+        "Resina / tapadura",
         "Limpieza dental",
         "Blanqueamiento dental",
         "Carillas dentales",
@@ -93,6 +100,7 @@ export const galanaConfig = {
       workDays: [1, 3, 5, 6], // Lun, Mié, Vie, Sáb
       box: null,
       services: [
+        "Resina / tapadura",
         "Limpieza dental",
         "Blanqueamiento dental",
         "Urgencias dentales",
@@ -104,6 +112,7 @@ export const galanaConfig = {
       workDays: [2, 4, 6], // Mar, Jue, Sáb
       box: null,
       services: [
+        "Resina / tapadura",
         "Limpieza dental",
         "Extracción de muela del juicio",
         "Urgencias dentales",
