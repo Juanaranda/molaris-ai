@@ -280,9 +280,10 @@ export async function getAIResponse({
       if (m !== model) console.warn(`[AI] Usando fallback: ${m}`);
       break;
     } catch (err: any) {
-      const retryable = err?.status === 429 || err?.status === 404 || (err?.status ?? 0) >= 500;
+      // 400 de Gemini/OpenRouter por tools incompatibles también cae aquí — siempre continuar cadena
+      const retryable = err?.status === 429 || err?.status === 404 || (err?.status ?? 0) >= 400;
+      console.warn(`[AI] ${m} falló (${err?.status}): ${err?.body ?? err?.message} — ${retryable ? "reintentando" : "propagando"}`);
       if (!retryable) throw err;
-      console.warn(`[AI] ${m} falló (${err?.status}), probando siguiente...`);
     }
   }
 
@@ -348,11 +349,11 @@ export async function getAIResponse({
     replyText = `¡Perfecto ${mergedContext.patientName?.split(" ")[0]}! Tu cita está confirmada. Te contactaremos para recordarte. ¡Hasta pronto! 🦷`;
   }
 
-  // Si el modelo retornó solo tool_call sin texto, pedir respuesta conversacional
-  if (!replyText && context) {
-    console.warn("[AI] Modelo retornó solo tool_call sin texto — pidiendo respuesta conversacional");
+  // Si el modelo retornó sin texto (solo tool_call o respuesta vacía), pedir respuesta conversacional
+  if (!replyText) {
+    console.warn("[AI] Respuesta vacía del modelo — pidiendo follow-up conversacional");
     try {
-      const followUp = await callOpenRouter(model, [
+      const followUp = await callOpenRouter(config.openRouter.models.smart, [
         ...messages,
         { role: "system", content: "Responde con UN mensaje conversacional corto (máximo 2 oraciones). NO uses markdown. NO uses tools." },
       ]);
