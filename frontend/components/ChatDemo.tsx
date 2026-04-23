@@ -44,10 +44,18 @@ const SCORE_COLOR = (score: number) => {
 };
 
 export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica Dental" }: Props = {}) {
-  const initial = `Hola, soy el asistente virtual de ${clinicName}. ¿En qué puedo ayudarte?`;
-  const initial_letter = clinicName.charAt(0).toUpperCase();
+  const [assistantName, setAssistantName] = useState<string | null>(null);
+  const [displayClinicName, setDisplayClinicName] = useState(clinicName);
 
-  const [messages, setMessages] = useState<Message[]>([{ role: "assistant", text: initial }]);
+  function buildGreeting(aName: string | null, cName: string) {
+    return aName
+      ? `Hola, soy ${aName}, asistente virtual de ${cName}. ¿En qué puedo ayudarte?`
+      : `Hola, soy el asistente virtual de ${cName}. ¿En qué puedo ayudarte?`;
+  }
+
+  const [messages, setMessages] = useState<Message[]>([
+    { role: "assistant", text: buildGreeting(null, clinicName) },
+  ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -55,9 +63,21 @@ export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica 
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setMessages([{ role: "assistant", text: `Hola, soy el asistente virtual de ${clinicName}. ¿En qué puedo ayudarte?` }]);
     setSessionId(null);
     setContext(null);
+    // Fetch clinic info to get assistantName
+    fetch(`${API_URL}/api/book/${clinicSlug}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        const aName: string | null = data?.clinic?.assistantName ?? null;
+        const cName: string = data?.clinic?.name ?? clinicName;
+        setAssistantName(aName);
+        setDisplayClinicName(cName);
+        setMessages([{ role: "assistant", text: buildGreeting(aName, cName) }]);
+      })
+      .catch(() => {
+        setMessages([{ role: "assistant", text: buildGreeting(null, clinicName) }]);
+      });
   }, [clinicSlug, clinicName]);
 
   useEffect(() => {
@@ -111,11 +131,11 @@ export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica 
         {/* Header */}
         <div className="bg-sky-600 px-5 py-4 flex items-center gap-3">
           <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-sky-600 font-bold text-sm">
-            {initial_letter}
+            {(assistantName ?? displayClinicName).charAt(0).toUpperCase()}
           </div>
           <div>
-            <p className="text-white font-semibold text-sm">{clinicName}</p>
-            <p className="text-sky-200 text-xs">Asistente virtual · En línea</p>
+            <p className="text-white font-semibold text-sm">{assistantName ?? displayClinicName}</p>
+            <p className="text-sky-200 text-xs">{assistantName ? `Asistente de ${displayClinicName}` : "Asistente virtual"} · En línea</p>
           </div>
         </div>
 

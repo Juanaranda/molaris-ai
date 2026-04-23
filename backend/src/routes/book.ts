@@ -13,6 +13,7 @@ interface ClinicConfig {
   services?: { name: string; pricingType?: string; price?: string; priceNote?: string }[];
   schedule?: { weekdays?: string; saturday?: string; sunday?: string };
   boxes?: number;
+  assistantName?: string;
 }
 
 // Mapeo de abreviaciones españolas a día JS (0=Dom, 1=Lun, ..., 6=Sáb)
@@ -101,6 +102,7 @@ export async function bookRoutes(app: FastifyInstance) {
         slug: clinic.slug,
         name: clinic.name,
         location: clinic.location,
+        assistantName: cfg.assistantName ?? null,
         doctors: cfg.doctors ?? [],
         services: cfg.services ?? [],
         schedule: cfg.schedule ?? {},
