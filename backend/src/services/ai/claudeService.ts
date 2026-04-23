@@ -271,10 +271,13 @@ export async function getAIResponse({
   const model = config.openRouter.models[tier];
   console.log(`[AI] tier=${tier} model=${model}`);
 
-  // Cadena de fallback: tier elegido → balanced → smart → estático
-  const fallbackChain: string[] = [model];
-  if (tier === "fast")  fallbackChain.push(config.openRouter.models.balanced);
-  if (tier !== "smart") fallbackChain.push(config.openRouter.models.smart);
+  // Cadena de fallback siempre con al menos 3 opciones: primario → balanced → reserve
+  // De esta forma cualquier fallo (400, 429, 5xx) siempre tiene siguiente
+  const seen = new Set<string>();
+  const fallbackChain: string[] = [];
+  for (const m of [model, config.openRouter.models.balanced, config.openRouter.models.smart, config.openRouter.models.reserve]) {
+    if (m && !seen.has(m)) { fallbackChain.push(m); seen.add(m); }
+  }
 
   const messages: ORMessage[] = [
     { role: "system", content: systemPrompt },
