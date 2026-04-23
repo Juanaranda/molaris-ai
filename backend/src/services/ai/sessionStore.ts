@@ -1,3 +1,5 @@
+import prisma from "../../config/prisma";
+
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
@@ -5,61 +7,80 @@ export interface ChatMessage {
 
 interface SessionData {
   messages: ChatMessage[];
-  messageCount: number;   // total acumulado (no se resetea al truncar)
-  createdAt: number;      // timestamp ms
+  messageCount: number;
   lastActivityAt: number;
 }
 
-const sessions = new Map<string, SessionData>();
+const cache = new Map<string, SessionData>();
 
-const MAX_HISTORY   = 20;   // mensajes en memoria para contexto
-const MAX_MESSAGES  = 30;   // límite total de mensajes por sesión
-const SESSION_TTL   = 60 * 60 * 1000; // 1 hora de inactividad → sesión expirada
+const MAX_HISTORY  = 20;   // mensajes en contexto (ventana deslizante)
+const MAX_MESSAGES = 30;   // límite total de mensajes por sesión
+const SESSION_TTL  = 60 * 60 * 1000;
 
-function getOrCreate(sessionId: string): SessionData {
-  const now = Date.now();
-  if (!sessions.has(sessionId)) {
-    sessions.set(sessionId, { messages: [], messageCount: 0, createdAt: now, lastActivityAt: now });
-  }
-  return sessions.get(sessionId)!;
+function now() { return Date.now(); }
+
+// Cargar historial desde DB si no está en caché (restart recovery)
+async function warmUp(sessionId: string): Promise<SessionData> {
+  const dbMessages = await prisma.message.findMany({
+    where: { sessionId },
+    orderBy: { createdAt: "asc" },
+    select: { role: true, content: true },
+  });
+
+  const messages = dbMessages
+    .filter((m): m is { role: "user" | "assistant"; content: string } =>
+      m.role === "user" || m.role === "assistant"
+    )
+    .slice(-MAX_HISTORY);
+
+  const data: SessionData = {
+    messages,
+    messageCount: dbMessages.length,
+    lastActivityAt: now(),
+  };
+  cache.set(sessionId, data);
+  return data;
 }
 
-export function getHistory(sessionId: string): ChatMessage[] {
-  return sessions.get(sessionId)?.messages ?? [];
+async function getOrLoad(sessionId: string): Promise<SessionData> {
+  return cache.get(sessionId) ?? warmUp(sessionId);
 }
 
-export function getMessageCount(sessionId: string): number {
-  return sessions.get(sessionId)?.messageCount ?? 0;
+export async function getHistory(sessionId: string): Promise<ChatMessage[]> {
+  const s = await getOrLoad(sessionId);
+  return s.messages;
 }
 
-export function isSessionExpired(sessionId: string): boolean {
-  const s = sessions.get(sessionId);
-  if (!s) return false;
-  return Date.now() - s.lastActivityAt > SESSION_TTL;
+export async function getMessageCount(sessionId: string): Promise<number> {
+  const s = await getOrLoad(sessionId);
+  return s.messageCount;
 }
 
 export function appendToHistory(sessionId: string, role: "user" | "assistant", content: string) {
-  const s = getOrCreate(sessionId);
+  let s = cache.get(sessionId);
+  if (!s) {
+    s = { messages: [], messageCount: 0, lastActivityAt: now() };
+    cache.set(sessionId, s);
+  }
   s.messages.push({ role, content });
   s.messageCount++;
-  s.lastActivityAt = Date.now();
+  s.lastActivityAt = now();
 
-  // Mantener solo los últimos MAX_HISTORY para no inflar el contexto
   if (s.messages.length > MAX_HISTORY) {
     s.messages.splice(0, s.messages.length - MAX_HISTORY);
   }
 }
 
 export function clearSession(sessionId: string) {
-  sessions.delete(sessionId);
+  cache.delete(sessionId);
 }
 
 export { MAX_MESSAGES };
 
-// Limpiar sesiones expiradas cada 30 min
+// GC: limpiar entradas inactivas del caché (los datos siguen en DB)
 setInterval(() => {
-  const now = Date.now();
-  for (const [id, s] of sessions.entries()) {
-    if (now - s.lastActivityAt > SESSION_TTL) sessions.delete(id);
+  const cutoff = now() - SESSION_TTL;
+  for (const [id, s] of cache.entries()) {
+    if (s.lastActivityAt < cutoff) cache.delete(id);
   }
 }, 30 * 60 * 1000);

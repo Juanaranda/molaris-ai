@@ -9,7 +9,7 @@ export const config = {
     apiKey: process.env.OPENROUTER_API_KEY ?? "",
     models: {
       fast:     process.env.OPENROUTER_MODEL_FAST     ?? "meta-llama/llama-3.1-8b-instruct:free",
-      balanced: process.env.OPENROUTER_MODEL_BALANCED ?? "meta-llama/llama-3.3-70b-instruct",
+      balanced: process.env.OPENROUTER_MODEL_BALANCED ?? "google/gemini-2.5-flash",
       smart:    process.env.OPENROUTER_MODEL_SMART    ?? "anthropic/claude-haiku-4-5",
     },
   },

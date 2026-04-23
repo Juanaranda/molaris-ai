@@ -2,7 +2,7 @@ import { config } from "../../config/env";
 import { buildSystemPrompt } from "./promptBuilder";
 import { buildContextHint } from "./contextInjector";
 import { getHistory, appendToHistory, getMessageCount, MAX_MESSAGES } from "./sessionStore";
-import { checkTopic, OFF_TOPIC_REPLY, TOO_LONG_REPLY } from "./topicGuard";
+import { checkTopic, isOutOfDomain, OFF_TOPIC_REPLY, JAILBREAK_REPLY, TOO_LONG_REPLY } from "./topicGuard";
 import { computeScore } from "./leadScoring";
 import type { Clinic } from "@prisma/client";
 
@@ -73,8 +73,10 @@ function classifyTier(
 
 // ── Precios por modelo (USD / 1M tokens) ──────────────────────────────────
 const MODEL_PRICING: Record<string, { in: number; out: number }> = {
-  "meta-llama/llama-3.1-8b-instruct:free": { in: 0, out: 0 },
+  "meta-llama/llama-3.1-8b-instruct:free": { in: 0,    out: 0    },
   "meta-llama/llama-3.3-70b-instruct":     { in: 0.59, out: 0.79 },
+  "google/gemini-2.5-flash":               { in: 0.15, out: 0.60 },
+  "google/gemini-2.5-flash-preview":       { in: 0.15, out: 0.60 },
   "anthropic/claude-haiku-4-5":            { in: 0.80, out: 4.00 },
   "anthropic/claude-haiku-4-5-20251001":   { in: 0.80, out: 4.00 },
 };
@@ -218,8 +220,8 @@ export async function getAIResponse({
   currentContext = {},
 }: AIRequestParams): Promise<AIResponse> {
 
-  // Capa 1: rate limit por sesión
-  if (getMessageCount(sessionId) >= MAX_MESSAGES) {
+  // Capa 1: rate limit por sesión (async — puede recuperar desde DB)
+  if ((await getMessageCount(sessionId)) >= MAX_MESSAGES) {
     return {
       reply: "Has alcanzado el límite de mensajes de esta sesión. Para continuar, contáctanos directamente o inicia una nueva conversación.",
       context: null,
@@ -231,7 +233,10 @@ export async function getAIResponse({
   const guard = checkTopic(message);
   if (!guard.allowed) {
     appendToHistory(sessionId, "user", message);
-    const reply = guard.reason === "too_long" ? TOO_LONG_REPLY : OFF_TOPIC_REPLY;
+    const reply =
+      guard.reason === "too_long"  ? TOO_LONG_REPLY  :
+      guard.reason === "jailbreak" ? JAILBREAK_REPLY :
+      OFF_TOPIC_REPLY;
     appendToHistory(sessionId, "assistant", reply);
     return { reply, context: null, isFarewell: false };
   }
@@ -240,7 +245,7 @@ export async function getAIResponse({
   const contextHint  = buildContextHint(message, clinic.config);
   const stateHint    = buildStateHint(currentContext);
   appendToHistory(sessionId, "user", message);
-  const history = getHistory(sessionId);
+  const history = await getHistory(sessionId);
 
   // Capa 3: orquestación por tier de complejidad
   const tier  = classifyTier(message, currentContext, history.length);
@@ -358,6 +363,12 @@ export async function getAIResponse({
   }
 
   if (!replyText) replyText = "Entendido. ¿En qué más te puedo ayudar?";
+
+  // Capa post-LLM: si la respuesta se salió del dominio, reemplazar
+  if (isOutOfDomain(replyText)) {
+    console.warn("[AI] Respuesta out-of-domain detectada — aplicando fallback");
+    replyText = OFF_TOPIC_REPLY;
+  }
 
   appendToHistory(sessionId, "assistant", replyText);
 
