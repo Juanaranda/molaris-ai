@@ -603,8 +603,14 @@ export default function Home() {
       </section>
 
       {/* FOOTER */}
-      <footer className="py-6 text-center text-sm" style={{ borderTop: "1px solid #E5E0D9", color: "#607281", backgroundColor: "#FDFCFB" }}>
-        © {new Date().getFullYear()} molaris.ai — Santiago, Chile
+      <footer className="py-6 text-sm" style={{ borderTop: "1px solid #E5E0D9", color: "#607281", backgroundColor: "#FDFCFB" }}>
+        <div className="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <span>© {new Date().getFullYear()} molaris.ai — Santiago, Chile</span>
+          <div className="flex items-center gap-4">
+            <Link href="/legal/terminos" className="hover:text-gray-900 transition-colors">Términos y condiciones</Link>
+            <Link href="/legal/privacidad" className="hover:text-gray-900 transition-colors">Privacidad</Link>
+          </div>
+        </div>
       </footer>
 
     </main>

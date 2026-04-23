@@ -40,16 +40,17 @@ model Clinic {
 
 // ─── USUARIOS PARTNER (CLÍNICAS) ─────────────────────────────────────────────
 model PartnerUser {
-  id           String      @id @default(cuid())
-  clinicId     String?
-  clinic       Clinic?     @relation(fields: [clinicId], references: [id])
-  name         String
-  email        String      @unique
-  passwordHash String
-  role         PartnerRole @default(USER)
-  active       Boolean     @default(true)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id               String      @id @default(cuid())
+  clinicId         String?
+  clinic           Clinic?     @relation(fields: [clinicId], references: [id])
+  name             String
+  email            String      @unique
+  passwordHash     String
+  role             PartnerRole @default(USER)
+  active           Boolean     @default(true)
+  acceptedTermsAt  DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
   @@map("partner_users")
 }

@@ -1,0 +1,147 @@
+import Link from "next/link";
+
+export const metadata = { title: "Términos y Condiciones — molaris.ai" };
+
+const LAST_UPDATED = "23 de abril de 2026";
+
+export default function TerminosPage() {
+  return (
+    <div className="min-h-screen" style={{ backgroundColor: "var(--surface, #F7F5F1)" }}>
+      <nav className="bg-white border-b px-6 py-4" style={{ borderColor: "#E5E0D9" }}>
+        <Link href="/" className="text-sm font-semibold hover:opacity-70 transition-opacity" style={{ color: "var(--teal-dark, #0B2F42)" }}>
+          ← molaris.ai
+        </Link>
+      </nav>
+
+      <div className="max-w-3xl mx-auto px-6 py-12">
+        <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--coral, #D95F45)" }}>
+          Legal
+        </p>
+        <h1 className="font-[family-name:var(--font-display,sans-serif)] text-3xl sm:text-4xl font-bold mb-2" style={{ color: "var(--ink, #0C1B26)" }}>
+          Términos y Condiciones
+        </h1>
+        <p className="text-sm mb-10" style={{ color: "var(--ink-muted, #607281)" }}>
+          Última actualización: {LAST_UPDATED}
+        </p>
+
+        <LegalContent />
+
+        <div className="mt-12 pt-8 border-t flex flex-wrap gap-4 text-sm" style={{ borderColor: "#E5E0D9", color: "var(--ink-muted, #607281)" }}>
+          <Link href="/legal/privacidad" className="underline underline-offset-2 hover:opacity-70">Política de Privacidad</Link>
+          <Link href="/" className="underline underline-offset-2 hover:opacity-70">Volver al inicio</Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="mb-8">
+      <h2 className="text-lg font-bold mb-3" style={{ color: "var(--ink, #0C1B26)" }}>{title}</h2>
+      <div className="text-sm leading-relaxed flex flex-col gap-3" style={{ color: "var(--ink-muted, #607281)" }}>
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function LegalContent() {
+  return (
+    <div>
+      <Section title="1. Descripción del servicio">
+        <p>
+          molaris.ai es una plataforma de asistente virtual con inteligencia artificial diseñada para clínicas dentales. Permite automatizar la atención inicial de pacientes a través de canales digitales (web, WhatsApp, Instagram), facilitar el agendamiento de citas y gestionar leads de manera eficiente.
+        </p>
+        <p>
+          El servicio es provisto por molaris.ai, con domicilio en Santiago, Chile, a clínicas dentales que se registran como clientes ("la Clínica").
+        </p>
+      </Section>
+
+      <Section title="2. Aceptación de los términos">
+        <p>
+          Al registrarse en la plataforma, la Clínica acepta íntegramente estos Términos y Condiciones. Si no está de acuerdo con alguna de las condiciones aquí establecidas, no debe utilizar el servicio.
+        </p>
+        <p>
+          La aceptación queda registrada electrónicamente con la fecha, hora y cuenta de correo del administrador que completó el registro, en conformidad con la Ley N° 19.799 sobre Documentos Electrónicos, Firma Electrónica y Servicios de Certificación.
+        </p>
+      </Section>
+
+      <Section title="3. Uso del servicio y responsabilidades">
+        <p>
+          El asistente virtual de molaris.ai es una herramienta de apoyo a la gestión de pacientes. Sus respuestas son informativas y no constituyen diagnóstico médico, confirmación definitiva de citas ni asesoría clínica de ningún tipo.
+        </p>
+        <p>
+          La Clínica es responsable de:
+        </p>
+        <ul className="list-disc pl-5 flex flex-col gap-1.5">
+          <li>Verificar y confirmar toda información antes de ejecutar acciones clínicas o administrativas.</li>
+          <li>Configurar correctamente la información de doctores, servicios y horarios en la plataforma.</li>
+          <li>Obtener el consentimiento de sus pacientes para el tratamiento de sus datos personales.</li>
+          <li>Cumplir con la normativa vigente en materia de protección de datos de salud.</li>
+        </ul>
+        <p>
+          molaris.ai no se hace responsable de información incorrecta que el asistente pueda proporcionar como resultado de una configuración incompleta o errónea por parte de la Clínica.
+        </p>
+      </Section>
+
+      <Section title="4. Planes y pagos">
+        <p>
+          molaris.ai ofrece distintos planes de suscripción. El plan Starter incluye un período de prueba gratuito de 30 días. Transcurrido ese período, la continuidad del servicio estará sujeta al pago de la suscripción correspondiente según el plan contratado.
+        </p>
+        <p>
+          Los precios están expresados en dólares estadounidenses (USD) e incluyen IVA cuando corresponda según la normativa chilena. molaris.ai se reserva el derecho de modificar sus precios con un aviso previo de 30 días.
+        </p>
+      </Section>
+
+      <Section title="5. Propiedad de los datos">
+        <p>
+          Los datos de pacientes que se generen a través de la plataforma (nombre, RUT, correo, conversaciones) pertenecen a la Clínica. molaris.ai actúa como encargado del tratamiento de datos en los términos definidos en la Política de Privacidad y en el Acuerdo de Procesamiento de Datos (DPA) aplicable.
+        </p>
+        <p>
+          molaris.ai no utilizará los datos de los pacientes de la Clínica para entrenar modelos de inteligencia artificial propios ni para fines comerciales distintos a la prestación del servicio contratado.
+        </p>
+      </Section>
+
+      <Section title="6. Proveedores tecnológicos terceros">
+        <p>
+          molaris.ai utiliza servicios de terceros para la prestación del servicio, entre ellos proveedores de modelos de inteligencia artificial (OpenRouter, Anthropic) y servicios de infraestructura. Estos terceros tienen sus propias políticas de privacidad y términos de uso. La Clínica reconoce y acepta que el procesamiento de conversaciones puede involucrar a estos proveedores.
+        </p>
+      </Section>
+
+      <Section title="7. Disponibilidad y limitación de responsabilidad">
+        <p>
+          molaris.ai procura la disponibilidad continua del servicio, pero no garantiza un uptime del 100%. No será responsable por interrupciones causadas por fuerza mayor, fallas de terceros proveedores o mantenimientos programados.
+        </p>
+        <p>
+          En ningún caso molaris.ai será responsable por daños indirectos, lucro cesante ni pérdida de datos derivados del uso o imposibilidad de uso del servicio, salvo en caso de dolo o culpa grave.
+        </p>
+      </Section>
+
+      <Section title="8. Cancelación y término">
+        <p>
+          La Clínica puede cancelar su suscripción en cualquier momento desde el panel de administración. La cancelación será efectiva al término del período de facturación en curso. molaris.ai puede dar término al servicio en caso de incumplimiento de estos términos, con aviso previo de 15 días.
+        </p>
+      </Section>
+
+      <Section title="9. Modificaciones">
+        <p>
+          molaris.ai puede modificar estos Términos y Condiciones en cualquier momento. Las modificaciones serán notificadas por correo electrónico con al menos 15 días de anticipación. El uso continuado del servicio tras ese plazo implica la aceptación de los nuevos términos.
+        </p>
+      </Section>
+
+      <Section title="10. Ley aplicable y jurisdicción">
+        <p>
+          Estos Términos se rigen por las leyes de la República de Chile. Cualquier controversia será sometida a los tribunales ordinarios de justicia de la ciudad de Santiago, renunciando las partes a cualquier otro fuero o jurisdicción.
+        </p>
+      </Section>
+
+      <Section title="Contacto">
+        <p>
+          Para consultas sobre estos Términos, puede escribirnos a{" "}
+          <a href="mailto:hola@molaris.ai" className="underline underline-offset-2">hola@molaris.ai</a>.
+        </p>
+      </Section>
+    </div>
+  );
+}

@@ -21,6 +21,7 @@ export default function RegisterPage() {
   const [step, setStep] = useState<Step>(1);
   const [clinic, setClinic] = useState({ name: "", phone: "", location: "" });
   const [admin, setAdmin] = useState({ name: "", email: "", password: "", confirm: "" });
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -36,6 +37,7 @@ export default function RegisterPage() {
     setError("");
     if (admin.password !== admin.confirm) { setError("Las contraseñas no coinciden"); return; }
     if (admin.password.length < 8) { setError("La contraseña debe tener al menos 8 caracteres"); return; }
+    if (!acceptedTerms) { setError("Debes aceptar los Términos y Condiciones para continuar"); return; }
     setLoading(true);
     try {
       const res = await fetch(`${API}/api/clinics`, {
@@ -44,6 +46,7 @@ export default function RegisterPage() {
         body: JSON.stringify({
           clinic: { name: clinic.name, phone: clinic.phone, location: clinic.location },
           admin: { name: admin.name, email: admin.email, password: admin.password },
+          acceptedTerms: true,
         }),
       });
       if (!res.ok) {
@@ -192,8 +195,25 @@ export default function RegisterPage() {
                     <Field label="Confirmar contraseña" type="password" value={admin.confirm}
                       onChange={(v) => setAdmin((a) => ({ ...a, confirm: v }))}
                       placeholder="Repite tu contraseña" />
+                    {/* Checkbox T&C */}
+                    <label className="flex items-start gap-3 cursor-pointer select-none">
+                      <input type="checkbox" checked={acceptedTerms}
+                        onChange={(e) => setAcceptedTerms(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 rounded accent-teal-700 shrink-0" />
+                      <span className="text-xs leading-relaxed" style={{ color: "var(--ink-muted, #607281)" }}>
+                        Acepto los{" "}
+                        <Link href="/legal/terminos" target="_blank" className="underline underline-offset-2 font-medium hover:opacity-70">
+                          Términos y Condiciones
+                        </Link>{" "}
+                        y la{" "}
+                        <Link href="/legal/privacidad" target="_blank" className="underline underline-offset-2 font-medium hover:opacity-70">
+                          Política de Privacidad
+                        </Link>{" "}
+                        de molaris.ai
+                      </span>
+                    </label>
                     {error && <ErrorMsg msg={error} />}
-                    <SubmitBtn label="Crear cuenta y ver mi demo →" disabled={loading} loading={loading} />
+                    <SubmitBtn label="Crear cuenta y ver mi demo →" disabled={loading || !acceptedTerms} loading={loading} />
                   </form>
                 </>
               )}

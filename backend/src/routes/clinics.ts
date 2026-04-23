@@ -74,11 +74,15 @@ export async function clinicRoutes(app: FastifyInstance) {
     Body: {
       clinic: { name: string; phone?: string; location?: string; instagram?: string; whatsapp?: string };
       admin: { name: string; email: string; password: string };
+      acceptedTerms?: boolean;
     };
   }>("/clinics", async (req, reply) => {
-    const { clinic: clinicData, admin } = req.body ?? {};
+    const { clinic: clinicData, admin, acceptedTerms } = req.body ?? {};
     if (!clinicData?.name || !admin?.email || !admin?.password || !admin?.name) {
       return reply.status(400).send({ error: "Nombre de clínica, nombre, email y contraseña son requeridos" });
+    }
+    if (!acceptedTerms) {
+      return reply.status(400).send({ error: "Debes aceptar los Términos y Condiciones para continuar" });
     }
     if (admin.password.length < 8) {
       return reply.status(400).send({ error: "La contraseña debe tener al menos 8 caracteres" });
@@ -128,6 +132,7 @@ export async function clinicRoutes(app: FastifyInstance) {
             email: admin.email.toLowerCase().trim(),
             passwordHash,
             role: "ADMIN",
+            acceptedTermsAt: new Date(),
           },
         },
       },
