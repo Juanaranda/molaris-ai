@@ -117,7 +117,26 @@ const TOOLS = [
   },
 ];
 
+// Modelos que soportan function calling vía OpenRouter
+const TOOLS_SUPPORTED = ["meta-llama", "anthropic", "openai", "mistral", "cohere"];
+
+function supportsTools(model: string): boolean {
+  return TOOLS_SUPPORTED.some((prefix) => model.startsWith(prefix));
+}
+
 async function callOpenRouter(model: string, messages: ORMessage[]) {
+  const withTools = supportsTools(model);
+  const body: Record<string, unknown> = {
+    model,
+    messages,
+    max_tokens: 600,
+    usage: { include: true },
+  };
+  if (withTools) {
+    body.tools = TOOLS;
+    body.tool_choice = "auto";
+  }
+
   const res = await fetch(OPENROUTER_BASE, {
     method: "POST",
     headers: {
@@ -126,12 +145,12 @@ async function callOpenRouter(model: string, messages: ORMessage[]) {
       "HTTP-Referer":  "https://molaris.ai",
       "X-Title":       "Molaris AI",
     },
-    body: JSON.stringify({ model, messages, tools: TOOLS, tool_choice: "auto", max_tokens: 600, usage: { include: true } }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
-    const body = await res.text().catch(() => res.statusText);
-    throw Object.assign(new Error(`OpenRouter ${res.status}`), { status: res.status, body });
+    const errBody = await res.text().catch(() => res.statusText);
+    throw Object.assign(new Error(`OpenRouter ${res.status}`), { status: res.status, body: errBody });
   }
 
   return res.json() as Promise<any>;
