@@ -4,11 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getMe, logout, updateClinic, AuthUser, ClinicData } from "@/lib/auth";
+import { getMe, getToken, logout, updateClinic, AuthUser, ClinicData } from "@/lib/auth";
 import { DoctorsEditor, DoctorRow } from "@/components/DoctorsEditor";
 import { ServicesEditor, ServiceRow } from "@/components/ServicesEditor";
 
-/* ─── Tipos de config ──────────────────────────────────────────────────────── */
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+
+/* ─── Tipos ────────────────────────────────────────────────────────────────── */
 interface ClinicConfig {
   tone?: string;
   assistantName?: string;
@@ -18,52 +20,94 @@ interface ClinicConfig {
   schedule?: { weekdays?: string; saturday?: string; sunday?: string };
 }
 
-/* ─── Badge de rol ─────────────────────────────────────────────────────────── */
+interface Analytics {
+  totals: { sessions: number; leads: number; readyToBook: number; slotBooked: number; bookings: number; avgScore: number };
+  conversionRate: number;
+  bookingRate: number;
+  intentBreakdown: { intent: string; count: number }[];
+  urgencyBreakdown: { urgency: string; count: number }[];
+  topServices: { name: string; count: number }[];
+  recentLeads: {
+    id: string; patientName: string | null; serviceInterest: string | null;
+    intent: string | null; urgency: string | null; score: number | null;
+    slotBooked: boolean; channel: string; createdAt: string;
+  }[];
+  sessionsByDay: { day: string; count: number }[];
+}
+
+/* ─── Helpers visuales ─────────────────────────────────────────────────────── */
 function RoleBadge({ role }: { role: string }) {
   const styles: Record<string, string> = {
     SUPERADMIN: "bg-purple-100 text-purple-700",
     ADMIN: "bg-blue-100 text-blue-700",
     USER: "bg-gray-100 text-gray-600",
   };
-  return (
-    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${styles[role] ?? styles.USER}`}>
-      {role}
-    </span>
-  );
+  return <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${styles[role] ?? styles.USER}`}>{role}</span>;
 }
 
-/* ─── Campo editable ────────────────────────────────────────────────────────── */
-function InfoField({ label, value, editable, onChange, placeholder }: {
-  label: string; value: string; editable: boolean; onChange: (v: string) => void; placeholder?: string;
-}) {
-  if (!editable) {
-    return (
-      <div>
-        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">{label}</p>
-        <p className="text-sm text-gray-800">{value || "—"}</p>
-      </div>
-    );
-  }
+function IntentBadge({ intent }: { intent: string | null }) {
+  if (!intent) return <span className="text-gray-300 text-xs">—</span>;
+  const map: Record<string, { label: string; cls: string }> = {
+    ready_to_book: { label: "Listo para agendar", cls: "bg-green-50 text-green-700 border border-green-100" },
+    evaluating:    { label: "Evaluando",           cls: "bg-yellow-50 text-yellow-700 border border-yellow-100" },
+    just_browsing: { label: "Explorando",          cls: "bg-gray-50 text-gray-500 border border-gray-100" },
+  };
+  const v = map[intent] ?? { label: intent, cls: "bg-gray-50 text-gray-500 border border-gray-100" };
+  return <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${v.cls}`}>{v.label}</span>;
+}
+
+function UrgencyDot({ urgency }: { urgency: string | null }) {
+  const colors: Record<string, string> = { high: "bg-red-500", medium: "bg-yellow-400", low: "bg-gray-300" };
+  if (!urgency) return null;
+  return <span className={`inline-block w-2 h-2 rounded-full ${colors[urgency] ?? "bg-gray-300"}`} title={urgency} />;
+}
+
+function ScoreBadge({ score }: { score: number | null }) {
+  if (score == null) return <span className="text-gray-300 text-xs">—</span>;
+  const color = score >= 70 ? "text-green-600" : score >= 40 ? "text-yellow-500" : "text-gray-400";
+  return <span className={`font-black text-sm ${color}`}>{score}</span>;
+}
+
+function StatCard({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: boolean }) {
   return (
-    <div>
-      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">{label}</label>
-      <input
-        type="text"
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-      />
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-1">
+      <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{label}</p>
+      <p className={`text-3xl font-black leading-none ${accent ? "text-blue-600" : "text-gray-900"}`}>{value}</p>
+      {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
     </div>
   );
 }
 
-/* ─── Dashboard ─────────────────────────────────────────────────────────────── */
+function InfoField({ label, value, editable, onChange, placeholder }: {
+  label: string; value: string; editable: boolean; onChange: (v: string) => void; placeholder?: string;
+}) {
+  if (!editable) return (
+    <div>
+      <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">{label}</p>
+      <p className="text-sm text-gray-800">{value || "—"}</p>
+    </div>
+  );
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">{label}</label>
+      <input type="text" value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)}
+        className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
+    </div>
+  );
+}
+
+type Tab = "analytics" | "config";
+
+/* ─── Dashboard principal ──────────────────────────────────────────────────── */
 export default function PartnersDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [clinic, setClinic] = useState<ClinicData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<Tab>("analytics");
+
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   // Basic info
   const [editing, setEditing] = useState(false);
@@ -82,33 +126,31 @@ export default function PartnersDashboard() {
       if (!data) { router.push("/login"); return; }
       setUser(data.user);
       setClinic(data.clinic);
-      if (data.clinic) {
-        syncForm(data.clinic);
-        syncSchedForm(data.clinic);
-      }
+      if (data.clinic) { syncForm(data.clinic); syncSchedForm(data.clinic); }
       setLoading(false);
+      if (data.clinic) fetchAnalytics(data.clinic.id);
     });
   }, [router]);
 
-  function syncForm(c: ClinicData) {
-    const cfg = c.config as ClinicConfig;
-    setForm({
-      name: c.name ?? "",
-      phone: c.phone ?? "",
-      whatsapp: c.whatsapp ?? "",
-      instagram: c.instagram ?? "",
-      location: c.location ?? "",
-      assistantName: cfg.assistantName ?? "",
-    });
+  async function fetchAnalytics(clinicId: string) {
+    setAnalyticsLoading(true);
+    try {
+      const res = await fetch(`${API}/api/clinics/${clinicId}/analytics`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (res.ok) setAnalytics(await res.json());
+    } catch {}
+    finally { setAnalyticsLoading(false); }
   }
 
+  function syncForm(c: ClinicData) {
+    const cfg = c.config as ClinicConfig;
+    setForm({ name: c.name ?? "", phone: c.phone ?? "", whatsapp: c.whatsapp ?? "",
+      instagram: c.instagram ?? "", location: c.location ?? "", assistantName: cfg.assistantName ?? "" });
+  }
   function syncSchedForm(c: ClinicData) {
     const cfg = c.config as ClinicConfig;
-    setSchedForm({
-      weekdays: cfg.schedule?.weekdays ?? "",
-      saturday: cfg.schedule?.saturday ?? "",
-      sunday: cfg.schedule?.sunday ?? "",
-    });
+    setSchedForm({ weekdays: cfg.schedule?.weekdays ?? "", saturday: cfg.schedule?.saturday ?? "", sunday: cfg.schedule?.sunday ?? "" });
   }
 
   function handleLogout() { logout(); router.push("/"); }
@@ -122,9 +164,8 @@ export default function PartnersDashboard() {
       const updated = await updateClinic(clinic.id, { ...basicFields, config: cfg as Record<string, unknown> });
       setClinic(updated); syncForm(updated); setEditing(false);
       setSaveMsg("Guardado"); setTimeout(() => setSaveMsg(""), 3000);
-    } catch (e) {
-      setSaveMsg(e instanceof Error ? e.message : "Error al guardar");
-    } finally { setSaving(false); }
+    } catch (e) { setSaveMsg(e instanceof Error ? e.message : "Error al guardar"); }
+    finally { setSaving(false); }
   }
 
   async function saveSchedule() {
@@ -135,9 +176,8 @@ export default function PartnersDashboard() {
       const updated = await updateClinic(clinic.id, { config: cfg as Record<string, unknown> });
       setClinic(updated); syncSchedForm(updated); setSchedEditing(false);
       setSchedMsg("Guardado"); setTimeout(() => setSchedMsg(""), 3000);
-    } catch (e) {
-      setSchedMsg(e instanceof Error ? e.message : "Error al guardar");
-    } finally { setSchedSaving(false); }
+    } catch (e) { setSchedMsg(e instanceof Error ? e.message : "Error"); }
+    finally { setSchedSaving(false); }
   }
 
   async function saveDoctors(doctors: DoctorRow[], boxes: number) {
@@ -158,28 +198,22 @@ export default function PartnersDashboard() {
   const cfg = (clinic?.config as ClinicConfig) ?? {};
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+    </div>;
   }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Nav */}
-      <nav className="flex items-center justify-between px-6 sm:px-8 py-4 bg-white border-b border-gray-100">
-        <Link href="/"><Image src="/logo.svg" alt="molaris.ai" width={130} height={34} priority /></Link>
+      <nav className="flex items-center justify-between px-6 sm:px-8 py-4 bg-white border-b border-gray-100 sticky top-0 z-10">
+        <Link href="/"><Image src="/logo.svg" alt="molaris.ai" width={120} height={32} priority /></Link>
         <div className="flex items-center gap-4">
-          {user && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600 hidden sm:block">{user.name}</span>
-              <RoleBadge role={user.role} />
-            </div>
-          )}
-          <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
-            Cerrar sesión
-          </button>
+          {user && <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600 hidden sm:block">{user.name}</span>
+            <RoleBadge role={user.role} />
+          </div>}
+          <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Cerrar sesión</button>
         </div>
       </nav>
 
@@ -187,15 +221,14 @@ export default function PartnersDashboard() {
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-              {clinic ? clinic.name : "Sin clínica asignada"}
-            </h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{clinic?.name ?? "Sin clínica"}</h1>
             <p className="text-sm text-gray-500 mt-0.5">Panel de administración · molaris.ai</p>
           </div>
-          {saveMsg && (
-            <span className={`text-sm px-3 py-1.5 rounded-full border ${saveMsg === "Guardado" ? "text-green-600 bg-green-50 border-green-100" : "text-red-600 bg-red-50 border-red-100"}`}>
-              {saveMsg}
-            </span>
+          {clinic && (
+            <Link href={`/demo/${clinic.slug}`}
+              className="text-sm bg-blue-600 text-white font-semibold px-4 py-2 rounded-full hover:bg-blue-700 transition-colors">
+              Ver demo →
+            </Link>
           )}
         </div>
 
@@ -207,115 +240,244 @@ export default function PartnersDashboard() {
 
         {clinic && (
           <>
-            {/* ── Info básica ─────────────────────────────────────── */}
-            <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="font-semibold text-gray-900">Información de la clínica</h2>
-                {canEdit && !editing && (
-                  <button onClick={() => setEditing(true)} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Editar</button>
-                )}
-                {canEdit && editing && (
-                  <div className="flex gap-3">
-                    <button onClick={() => { setEditing(false); syncForm(clinic); }} className="text-sm text-gray-500 hover:text-gray-700">Cancelar</button>
-                    <button onClick={saveBasicInfo} disabled={saving} className="text-sm bg-blue-600 text-white font-medium px-4 py-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">
-                      {saving ? "Guardando..." : "Guardar"}
-                    </button>
+            {/* Tabs */}
+            <div className="flex border-b border-gray-200 gap-1">
+              {([["analytics", "Analítica"], ["config", "Configuración"]] as [Tab, string][]).map(([tab, label]) => (
+                <button key={tab} onClick={() => setActiveTab(tab)}
+                  className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                    activeTab === tab
+                      ? "border-blue-600 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
+                  }`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* ══ TAB ANALÍTICA ══════════════════════════════════════════════ */}
+            {activeTab === "analytics" && (
+              <div className="flex flex-col gap-6">
+                {analyticsLoading && (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
                   </div>
                 )}
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <InfoField label="Nombre de la clínica" value={form.name} editable={editing} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
-                <InfoField label="Nombre del asistente virtual" value={form.assistantName} editable={editing} placeholder="Ej: Gala, Aria, Max..." onChange={(v) => setForm((f) => ({ ...f, assistantName: v }))} />
-                <InfoField label="Teléfono" value={form.phone} editable={editing} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} />
-                <InfoField label="WhatsApp" value={form.whatsapp} editable={editing} onChange={(v) => setForm((f) => ({ ...f, whatsapp: v }))} />
-                <InfoField label="Instagram" value={form.instagram} editable={editing} onChange={(v) => setForm((f) => ({ ...f, instagram: v }))} />
-                <InfoField label="Ubicación" value={form.location} editable={editing} onChange={(v) => setForm((f) => ({ ...f, location: v }))} />
-                <div>
-                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Plan</p>
-                  <span className="inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 capitalize">{clinic.plan}</span>
-                </div>
-              </div>
-            </section>
 
-            {/* ── Horarios (editable) ──────────────────────────────── */}
-            <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold text-gray-900">Horarios de atención</h2>
-                <div className="flex items-center gap-3">
-                  {schedMsg && <span className={`text-xs ${schedMsg === "Guardado" ? "text-green-600" : "text-red-600"}`}>{schedMsg}</span>}
-                  {canEdit && !schedEditing && (
-                    <button onClick={() => setSchedEditing(true)} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Editar</button>
-                  )}
-                  {canEdit && schedEditing && (
-                    <div className="flex gap-3">
-                      <button onClick={() => { setSchedEditing(false); syncSchedForm(clinic); }} className="text-sm text-gray-500 hover:text-gray-700">Cancelar</button>
-                      <button onClick={saveSchedule} disabled={schedSaving} className="text-sm bg-blue-600 text-white font-medium px-4 py-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">
-                        {schedSaving ? "Guardando..." : "Guardar"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="flex flex-col gap-3">
-                {schedEditing ? (
+                {!analyticsLoading && analytics && (
                   <>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Lunes a Viernes</label>
-                      <input value={schedForm.weekdays} onChange={(e) => setSchedForm((f) => ({ ...f, weekdays: e.target.value }))}
-                        placeholder="Lunes a Viernes: 10:00 - 18:00"
-                        className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    {/* Stat cards */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <StatCard label="Conversaciones" value={analytics.totals.sessions} />
+                      <StatCard label="Leads captados" value={analytics.totals.leads}
+                        sub={analytics.totals.sessions > 0 ? `${Math.round(analytics.totals.leads / analytics.totals.sessions * 100)}% del total` : undefined} />
+                      <StatCard label="Quieren agendar" value={`${analytics.conversionRate}%`}
+                        sub={`${analytics.totals.readyToBook} leads`} accent />
+                      <StatCard label="Citas agendadas" value={analytics.totals.bookings}
+                        sub={analytics.totals.leads > 0 ? `${analytics.bookingRate}% conversión` : undefined} />
                     </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Sábado</label>
-                      <input value={schedForm.saturday} onChange={(e) => setSchedForm((f) => ({ ...f, saturday: e.target.value }))}
-                        placeholder="Sábado: 10:00 - 14:00"
-                        className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+
+                    {/* Score promedio + embudo */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {/* Score */}
+                      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Score promedio</p>
+                        <div className="flex items-end gap-2">
+                          <span className={`text-5xl font-black leading-none ${
+                            analytics.totals.avgScore >= 70 ? "text-green-600" : analytics.totals.avgScore >= 40 ? "text-yellow-500" : "text-gray-400"
+                          }`}>{analytics.totals.avgScore}</span>
+                          <span className="text-gray-400 text-sm mb-1">/100</span>
+                        </div>
+                        <div className="mt-3 h-2 rounded-full bg-gray-100 overflow-hidden">
+                          <div className={`h-full rounded-full transition-all ${
+                            analytics.totals.avgScore >= 70 ? "bg-green-500" : analytics.totals.avgScore >= 40 ? "bg-yellow-400" : "bg-gray-300"
+                          }`} style={{ width: `${analytics.totals.avgScore}%` }} />
+                        </div>
+                      </div>
+
+                      {/* Urgencia */}
+                      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Urgencia</p>
+                        <div className="flex flex-col gap-2">
+                          {[["high", "Alta", "bg-red-500"], ["medium", "Media", "bg-yellow-400"], ["low", "Baja", "bg-gray-300"]].map(([key, label, color]) => {
+                            const count = analytics.urgencyBreakdown.find((u) => u.urgency === key)?.count ?? 0;
+                            const total = analytics.urgencyBreakdown.reduce((a, b) => a + b.count, 0) || 1;
+                            return (
+                              <div key={key} className="flex items-center gap-2 text-sm">
+                                <div className={`w-2 h-2 rounded-full shrink-0 ${color}`} />
+                                <span className="text-gray-500 flex-1">{label}</span>
+                                <span className="font-semibold text-gray-800">{count}</span>
+                                <div className="w-16 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                                  <div className={`h-full rounded-full ${color}`} style={{ width: `${Math.round(count / total * 100)}%` }} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Top servicios */}
+                      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Top servicios</p>
+                        {analytics.topServices.length === 0 ? (
+                          <p className="text-sm text-gray-400">Sin datos aún</p>
+                        ) : (
+                          <div className="flex flex-col gap-2">
+                            {analytics.topServices.slice(0, 5).map((s) => {
+                              const max = analytics.topServices[0]?.count || 1;
+                              return (
+                                <div key={s.name} className="flex flex-col gap-0.5">
+                                  <div className="flex justify-between text-xs">
+                                    <span className="text-gray-700 truncate max-w-[140px]">{s.name}</span>
+                                    <span className="text-gray-400 shrink-0 ml-1">{s.count}</span>
+                                  </div>
+                                  <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                                    <div className="h-full rounded-full bg-blue-400" style={{ width: `${Math.round(s.count / max * 100)}%` }} />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Domingo</label>
-                      <input value={schedForm.sunday} onChange={(e) => setSchedForm((f) => ({ ...f, sunday: e.target.value }))}
-                        placeholder="Domingo: cerrado"
-                        className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
+
+                    {/* Tabla de leads recientes */}
+                    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                      <div className="flex items-center justify-between mb-5">
+                        <h2 className="font-semibold text-gray-900">Leads recientes</h2>
+                        <span className="text-xs text-gray-400">{analytics.recentLeads.length} conversaciones</span>
+                      </div>
+
+                      {analytics.recentLeads.length === 0 ? (
+                        <div className="py-10 text-center">
+                          <p className="text-sm text-gray-400">Aún no hay conversaciones registradas.</p>
+                          <Link href={`/demo/${clinic.slug}`} className="text-sm text-blue-600 mt-2 inline-block hover:underline">
+                            Probar el asistente →
+                          </Link>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto -mx-2">
+                          <table className="w-full text-sm min-w-[540px]">
+                            <thead>
+                              <tr className="border-b border-gray-100">
+                                {["Paciente", "Servicio", "Score", "Intención", "Urg.", "Canal", "Fecha"].map((h) => (
+                                  <th key={h} className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider pb-3 px-2">{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                              {analytics.recentLeads.map((lead) => (
+                                <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
+                                  <td className="py-2.5 px-2 font-medium text-gray-800">
+                                    {lead.patientName ?? <span className="text-gray-300 font-normal">Anónimo</span>}
+                                    {lead.slotBooked && <span className="ml-1.5 text-[10px] bg-green-50 text-green-700 border border-green-100 px-1.5 py-0.5 rounded-full">agendado</span>}
+                                  </td>
+                                  <td className="py-2.5 px-2 text-gray-600 max-w-[140px] truncate">{lead.serviceInterest ?? "—"}</td>
+                                  <td className="py-2.5 px-2"><ScoreBadge score={lead.score} /></td>
+                                  <td className="py-2.5 px-2"><IntentBadge intent={lead.intent} /></td>
+                                  <td className="py-2.5 px-2"><UrgencyDot urgency={lead.urgency} /></td>
+                                  <td className="py-2.5 px-2 text-gray-400 capitalize text-xs">{lead.channel}</td>
+                                  <td className="py-2.5 px-2 text-gray-400 text-xs whitespace-nowrap">
+                                    {new Date(lead.createdAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" })}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </section>
                   </>
-                ) : (
-                  <div className="flex flex-col gap-2 text-sm">
-                    {schedForm.weekdays && <div className="flex justify-between"><span className="text-gray-500">Semana</span><span className="text-gray-800">{schedForm.weekdays}</span></div>}
-                    {schedForm.saturday && <div className="flex justify-between"><span className="text-gray-500">Sábado</span><span className="text-gray-800">{schedForm.saturday}</span></div>}
-                    {schedForm.sunday && <div className="flex justify-between"><span className="text-gray-500">Domingo</span><span className="text-gray-800">{schedForm.sunday}</span></div>}
+                )}
+
+                {!analyticsLoading && !analytics && (
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center text-sm text-gray-400">
+                    No se pudieron cargar los datos. <button onClick={() => fetchAnalytics(clinic.id)} className="text-blue-600 hover:underline">Reintentar</button>
                   </div>
                 )}
               </div>
-            </section>
+            )}
 
-            {/* ── Doctores (editable) ──────────────────────────────── */}
-            <DoctorsEditor
-              doctors={cfg.doctors ?? []}
-              boxes={cfg.boxes ?? 1}
-              canEdit={canEdit}
-              onSave={saveDoctors}
-            />
+            {/* ══ TAB CONFIGURACIÓN ══════════════════════════════════════════ */}
+            {activeTab === "config" && (
+              <div className="flex flex-col gap-6">
+                {/* Info básica */}
+                <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <div className="flex items-center justify-between mb-5">
+                    <h2 className="font-semibold text-gray-900">Información de la clínica</h2>
+                    {canEdit && !editing && <button onClick={() => setEditing(true)} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Editar</button>}
+                    {canEdit && editing && (
+                      <div className="flex gap-3">
+                        <button onClick={() => { setEditing(false); syncForm(clinic); }} className="text-sm text-gray-500">Cancelar</button>
+                        <button onClick={saveBasicInfo} disabled={saving}
+                          className="text-sm bg-blue-600 text-white font-medium px-4 py-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                          {saving ? "Guardando..." : "Guardar"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {saveMsg && <p className={`text-xs mb-4 ${saveMsg === "Guardado" ? "text-green-600" : "text-red-600"}`}>{saveMsg}</p>}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <InfoField label="Nombre de la clínica" value={form.name} editable={editing} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
+                    <InfoField label="Nombre del asistente" value={form.assistantName} editable={editing} placeholder="Ej: Gala, Aria..." onChange={(v) => setForm((f) => ({ ...f, assistantName: v }))} />
+                    <InfoField label="Teléfono" value={form.phone} editable={editing} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} />
+                    <InfoField label="WhatsApp" value={form.whatsapp} editable={editing} onChange={(v) => setForm((f) => ({ ...f, whatsapp: v }))} />
+                    <InfoField label="Instagram" value={form.instagram} editable={editing} onChange={(v) => setForm((f) => ({ ...f, instagram: v }))} />
+                    <InfoField label="Ubicación" value={form.location} editable={editing} onChange={(v) => setForm((f) => ({ ...f, location: v }))} />
+                    <div>
+                      <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Plan</p>
+                      <span className="inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 capitalize">{clinic.plan}</span>
+                    </div>
+                  </div>
+                </section>
 
-            {/* ── Servicios (editable) ─────────────────────────────── */}
-            <ServicesEditor
-              services={(cfg.services as ServiceRow[]) ?? []}
-              canEdit={canEdit}
-              onSave={saveServices}
-            />
+                {/* Horarios */}
+                <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="font-semibold text-gray-900">Horarios de atención</h2>
+                    <div className="flex items-center gap-3">
+                      {schedMsg && <span className={`text-xs ${schedMsg === "Guardado" ? "text-green-600" : "text-red-600"}`}>{schedMsg}</span>}
+                      {canEdit && !schedEditing && <button onClick={() => setSchedEditing(true)} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Editar</button>}
+                      {canEdit && schedEditing && (
+                        <div className="flex gap-3">
+                          <button onClick={() => { setSchedEditing(false); syncSchedForm(clinic); }} className="text-sm text-gray-500">Cancelar</button>
+                          <button onClick={saveSchedule} disabled={schedSaving}
+                            className="text-sm bg-blue-600 text-white font-medium px-4 py-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                            {schedSaving ? "Guardando..." : "Guardar"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    {schedEditing ? (
+                      <>
+                        {[["weekdays", "Lunes a Viernes", "Lunes a Viernes: 10:00 - 18:00"],
+                          ["saturday", "Sábado", "Sábado: 10:00 - 14:00"],
+                          ["sunday", "Domingo", "Domingo: cerrado"]].map(([key, label, ph]) => (
+                          <div key={key}>
+                            <label className="block text-xs text-gray-500 mb-1">{label}</label>
+                            <input value={schedForm[key as keyof typeof schedForm]}
+                              onChange={(e) => setSchedForm((f) => ({ ...f, [key]: e.target.value }))}
+                              placeholder={ph}
+                              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                      <div className="flex flex-col gap-2 text-sm">
+                        {schedForm.weekdays && <div className="flex justify-between"><span className="text-gray-500">Semana</span><span className="text-gray-800">{schedForm.weekdays}</span></div>}
+                        {schedForm.saturday && <div className="flex justify-between"><span className="text-gray-500">Sábado</span><span className="text-gray-800">{schedForm.saturday}</span></div>}
+                        {schedForm.sunday && <div className="flex justify-between"><span className="text-gray-500">Domingo</span><span className="text-gray-800">{schedForm.sunday}</span></div>}
+                      </div>
+                    )}
+                  </div>
+                </section>
 
-            {/* ── CTA demo ─────────────────────────────────────────── */}
-            <section className="bg-blue-600 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div>
-                <p className="font-semibold text-white">Probar el asistente de tu clínica</p>
-                <p className="text-blue-100 text-sm mt-1">Conversa con el agente configurado para {clinic.name}</p>
+                <DoctorsEditor doctors={cfg.doctors ?? []} boxes={cfg.boxes ?? 1} canEdit={canEdit} onSave={saveDoctors} />
+                <ServicesEditor services={(cfg.services as ServiceRow[]) ?? []} canEdit={canEdit} onSave={saveServices} />
               </div>
-              <Link
-                href={`/demo/${clinic.slug}`}
-                className="shrink-0 bg-white text-blue-600 font-semibold px-6 py-2.5 rounded-full text-sm hover:bg-blue-50 transition-colors"
-              >
-                Abrir demo →
-              </Link>
-            </section>
+            )}
           </>
         )}
       </div>

@@ -5,6 +5,126 @@ import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
 
 export async function clinicRoutes(app: FastifyInstance) {
+
+  // GET /api/clinics/:id/analytics
+  app.get<{ Params: { id: string }; Querystring: { days?: string } }>(
+    "/clinics/:id/analytics",
+    async (req, reply) => {
+      let payload;
+      try { payload = verifyToken(req.headers.authorization); } catch {
+        return reply.status(401).send({ error: "No autorizado" });
+      }
+      if (payload.role !== "SUPERADMIN" && payload.clinicId !== req.params.id) {
+        return reply.status(403).send({ error: "Acceso denegado" });
+      }
+
+      const clinicId = req.params.id;
+      const days = Number(req.query.days ?? 30);
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+      const [
+        totalSessions,
+        totalLeads,
+        intentCounts,
+        urgencyCounts,
+        topServices,
+        avgScoreAgg,
+        totalBookings,
+        recentLeads,
+        sessionsByDay,
+      ] = await Promise.all([
+        // Total conversaciones
+        prisma.session.count({ where: { clinicId } }),
+
+        // Leads (sesiones con contexto capturado)
+        prisma.patientContext.count({ where: { session: { clinicId } } }),
+
+        // Desglose por intent
+        prisma.patientContext.groupBy({
+          by: ["intent"],
+          where: { session: { clinicId }, intent: { not: null } },
+          _count: true,
+        }),
+
+        // Desglose por urgencia
+        prisma.patientContext.groupBy({
+          by: ["urgency"],
+          where: { session: { clinicId }, urgency: { not: null } },
+          _count: true,
+        }),
+
+        // Top servicios
+        prisma.patientContext.groupBy({
+          by: ["serviceInterest"],
+          where: { session: { clinicId }, serviceInterest: { not: null } },
+          _count: { serviceInterest: true },
+          orderBy: { _count: { serviceInterest: "desc" } },
+          take: 6,
+        }),
+
+        // Score promedio
+        prisma.patientContext.aggregate({
+          where: { session: { clinicId }, score: { not: null } },
+          _avg: { score: true },
+        }),
+
+        // Citas agendadas (booking page)
+        prisma.booking.count({ where: { clinicId } }),
+
+        // Leads recientes con detalle
+        prisma.patientContext.findMany({
+          where: { session: { clinicId } },
+          include: { session: { select: { createdAt: true, channel: true } } },
+          orderBy: { session: { createdAt: "desc" } },
+          take: 25,
+        }),
+
+        // Sesiones por día (últimos N días)
+        prisma.$queryRaw<Array<{ day: string; count: bigint }>>`
+          SELECT DATE(s."createdAt") as day, COUNT(*)::int as count
+          FROM sessions s
+          WHERE s."clinicId" = ${clinicId}
+            AND s."createdAt" >= ${since}
+          GROUP BY DATE(s."createdAt")
+          ORDER BY day ASC
+        `,
+      ]);
+
+      const readyToBook = intentCounts.find((i) => i.intent === "ready_to_book")?._count ?? 0;
+      const slotBooked = await prisma.patientContext.count({
+        where: { session: { clinicId }, slotBooked: true },
+      });
+
+      return reply.send({
+        totals: {
+          sessions: totalSessions,
+          leads: totalLeads,
+          readyToBook,
+          slotBooked,
+          bookings: totalBookings,
+          avgScore: Math.round(avgScoreAgg._avg.score ?? 0),
+        },
+        conversionRate: totalLeads > 0 ? Math.round((readyToBook / totalLeads) * 100) : 0,
+        bookingRate: totalLeads > 0 ? Math.round(((slotBooked + totalBookings) / totalLeads) * 100) : 0,
+        intentBreakdown: intentCounts.map((i) => ({ intent: i.intent, count: i._count })),
+        urgencyBreakdown: urgencyCounts.map((u) => ({ urgency: u.urgency, count: u._count })),
+        topServices: topServices.map((s) => ({ name: s.serviceInterest!, count: s._count.serviceInterest })),
+        recentLeads: recentLeads.map((l) => ({
+          id: l.id,
+          patientName: l.patientName,
+          serviceInterest: l.serviceInterest,
+          intent: l.intent,
+          urgency: l.urgency,
+          score: l.score,
+          slotBooked: l.slotBooked,
+          channel: l.session.channel,
+          createdAt: l.session.createdAt,
+        })),
+        sessionsByDay: sessionsByDay.map((r) => ({ day: r.day, count: Number(r.count) })),
+      });
+    }
+  );
+
   // GET /api/clinics/:id
   app.get<{ Params: { id: string } }>("/clinics/:id", async (req, reply) => {
     let payload;
