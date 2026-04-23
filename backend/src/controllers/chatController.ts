@@ -42,7 +42,7 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
   // Cargar contexto existente para pasárselo al AI
   const existingCtx = await prisma.patientContext.findUnique({ where: { sessionId: session.id } });
 
-  const { reply: aiReply, context, isFarewell } = await getAIResponse({
+  const { reply: aiReply, context, isFarewell, usage } = await getAIResponse({
     message,
     clinic,
     sessionId: session.id,
@@ -54,6 +54,21 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
       slotBooked:      slotBooked ?? existingCtx?.slotBooked ?? false,
     },
   });
+
+  if (usage) {
+    prisma.usageEvent.create({
+      data: {
+        clinicId:  clinic.id,
+        sessionId: session.id,
+        model:     usage.model,
+        tier:      usage.tier,
+        tokensIn:  usage.tokensIn,
+        tokensOut: usage.tokensOut,
+        costUsd:   usage.costUsd,
+        latencyMs: usage.latencyMs,
+      },
+    }).catch((e) => console.error("[usage] Error guardando evento:", e));
+  }
 
   await prisma.message.create({
     data: { sessionId: session.id, role: "assistant", content: aiReply },

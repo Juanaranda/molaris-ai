@@ -34,6 +34,7 @@ export interface AIResponse {
   reply: string;
   context: PatientContextUpdate | null;
   isFarewell: boolean;
+  usage?: { model: string; tier: string; tokensIn: number; tokensOut: number; costUsd: number; latencyMs: number };
 }
 
 // ── Clasificador de complejidad (sin costo de LLM) ─────────────────────────
@@ -68,6 +69,19 @@ function classifyTier(
 
   // Tier 1: todo lo demás
   return "fast";
+}
+
+// ── Precios por modelo (USD / 1M tokens) ──────────────────────────────────
+const MODEL_PRICING: Record<string, { in: number; out: number }> = {
+  "meta-llama/llama-3.1-8b-instruct:free": { in: 0, out: 0 },
+  "meta-llama/llama-3.3-70b-instruct":     { in: 0.59, out: 0.79 },
+  "anthropic/claude-haiku-4-5":            { in: 0.80, out: 4.00 },
+  "anthropic/claude-haiku-4-5-20251001":   { in: 0.80, out: 4.00 },
+};
+
+function calcCost(model: string, tokensIn: number, tokensOut: number): number {
+  const p = MODEL_PRICING[model] ?? { in: 1, out: 3 }; // fallback conservador
+  return (tokensIn / 1_000_000) * p.in + (tokensOut / 1_000_000) * p.out;
 }
 
 // ── Llamada a OpenRouter ───────────────────────────────────────────────────
@@ -110,7 +124,7 @@ async function callOpenRouter(model: string, messages: ORMessage[]) {
       "HTTP-Referer":  "https://molaris.ai",
       "X-Title":       "Molaris AI",
     },
-    body: JSON.stringify({ model, messages, tools: TOOLS, tool_choice: "auto", max_tokens: 600 }),
+    body: JSON.stringify({ model, messages, tools: TOOLS, tool_choice: "auto", max_tokens: 600, usage: { include: true } }),
   });
 
   if (!res.ok) {
@@ -246,10 +260,18 @@ export async function getAIResponse({
   ];
 
   let orMsg: any;
+  let usedModel = model;
+  let tokensIn = 0, tokensOut = 0, latencyMs = 0;
+
   for (const m of fallbackChain) {
     try {
+      const t0 = Date.now();
       const data = await callOpenRouter(m, messages);
+      latencyMs = Date.now() - t0;
       orMsg = data.choices?.[0]?.message;
+      tokensIn  = data.usage?.prompt_tokens     ?? 0;
+      tokensOut = data.usage?.completion_tokens ?? 0;
+      usedModel = m;
       if (m !== model) console.warn(`[AI] Usando fallback: ${m}`);
       break;
     } catch (err: any) {
@@ -339,5 +361,10 @@ export async function getAIResponse({
 
   appendToHistory(sessionId, "assistant", replyText);
 
-  return { reply: replyText, context: mergedContext, isFarewell };
+  return {
+    reply: replyText,
+    context: mergedContext,
+    isFarewell,
+    usage: { model: usedModel, tier, tokensIn, tokensOut, costUsd: calcCost(usedModel, tokensIn, tokensOut), latencyMs },
+  };
 }

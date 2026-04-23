@@ -34,6 +34,7 @@ model Clinic {
   bookings     Booking[]
   partnerUsers PartnerUser[]
   patientUsers PatientUser[]
+  usageEvents  UsageEvent[]
 
   @@map("clinics")
 }
@@ -157,6 +158,25 @@ model PatientContext {
   updatedAt       DateTime @updatedAt
 
   @@map("patient_contexts")
+}
+
+// ─── EVENTOS DE USO (MONITOREO INTERNO) ──────────────────────────────────────
+model UsageEvent {
+  id         String   @id @default(cuid())
+  clinicId   String
+  clinic     Clinic   @relation(fields: [clinicId], references: [id])
+  sessionId  String?
+  model      String
+  tier       String   // "fast" | "balanced" | "smart"
+  tokensIn   Int      @default(0)
+  tokensOut  Int      @default(0)
+  costUsd    Float    @default(0)
+  latencyMs  Int?
+  createdAt  DateTime @default(now())
+
+  @@index([clinicId])
+  @@index([createdAt])
+  @@map("usage_events")
 }
 
 // ─── BOOKINGS (CITAS CONFIRMADAS) ────────────────────────────────────────────
