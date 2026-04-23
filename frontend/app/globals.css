@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 @theme {
-  --font-family-display: var(--font-display), "Syne", sans-serif;
-  --font-family-body: var(--font-body), "Manrope", sans-serif;
-  --font-family-sans: var(--font-body), "Manrope", sans-serif;
+  --font-family-display: var(--font-jakarta), "Plus Jakarta Sans", sans-serif;
+  --font-family-body: var(--font-jakarta), "Plus Jakarta Sans", sans-serif;
+  --font-family-sans: var(--font-jakarta), "Plus Jakarta Sans", sans-serif;
 }
 
 :root {
