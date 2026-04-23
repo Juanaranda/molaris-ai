@@ -100,7 +100,7 @@ export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica 
       const data = await res.json();
       if (!sessionId && data.sessionId) setSessionId(data.sessionId);
       if (data.context) setContext((prev) => ({ ...prev, ...data.context }));
-      setMessages((prev) => [...prev, { role: "assistant", text: data.reply }]);
+      setMessages((prev) => [...prev, { role: "assistant", text: data.reply ?? "Sin respuesta. Intenta de nuevo." }]);
     } catch {
       setMessages((prev) => [...prev, { role: "assistant", text: "Hubo un problema al conectar. Intenta de nuevo." }]);
     } finally {
@@ -109,7 +109,8 @@ export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica 
   }
 
   // Render message text: detect booking URLs and make them clickable
-  function renderText(text: string) {
+  function renderText(text: string | undefined) {
+    if (!text) return null;
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const parts = text.split(urlRegex);
     return parts.map((part, i) =>
