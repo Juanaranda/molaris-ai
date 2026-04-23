@@ -450,7 +450,7 @@ export default function Home() {
             Proceso
           </p>
           <h2 className="font-[family-name:var(--font-display)] text-3xl sm:text-4xl font-bold text-center text-white mb-14">
-            En marcha en 48 horas
+            En marcha en minutos
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-0">
             {[
@@ -581,7 +581,7 @@ export default function Home() {
             ¿Tienes una clínica dental?
           </h2>
           <p className="mb-10 text-sm sm:text-base" style={{ color: "rgba(255,255,255,0.6)" }}>
-            Implementamos molaris.ai en tu clínica en menos de 48 horas.
+            Regístrate, configura tu clínica y activa tu asistente — tú decides el ritmo.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
