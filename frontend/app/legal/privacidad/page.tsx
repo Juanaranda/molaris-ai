@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export const metadata = { title: "Política de Privacidad — molaris.ai" };
+export const metadata = { title: "Política de Privacidad — molari.ai" };
 
 const LAST_UPDATED = "23 de abril de 2026";
 
@@ -9,7 +9,7 @@ export default function PrivacidadPage() {
     <div className="min-h-screen" style={{ backgroundColor: "var(--surface, #F7F5F1)" }}>
       <nav className="bg-white border-b px-6 py-4" style={{ borderColor: "#E5E0D9" }}>
         <Link href="/" className="text-sm font-semibold hover:opacity-70 transition-opacity" style={{ color: "var(--teal-dark, #0B2F42)" }}>
-          ← molaris.ai
+          ← molari.ai
         </Link>
       </nav>
 
@@ -51,10 +51,10 @@ function PrivacyContent() {
     <div>
       <Section title="1. Responsable del tratamiento">
         <p>
-          molaris.ai (en adelante "molaris.ai", "nosotros" o "el Proveedor") opera la plataforma de asistente virtual para clínicas dentales disponible en molaris.ai. Esta Política describe cómo tratamos los datos personales en el contexto de la prestación de nuestros servicios.
+          molari.ai (en adelante "molari.ai", "nosotros" o "el Proveedor") opera la plataforma de asistente virtual para clínicas dentales disponible en molari.ai. Esta Política describe cómo tratamos los datos personales en el contexto de la prestación de nuestros servicios.
         </p>
         <p>
-          molaris.ai actúa como <strong>encargado del tratamiento</strong> de los datos de pacientes, en nombre de las clínicas que contratan el servicio (responsables del tratamiento). Para los datos de los usuarios administradores de la plataforma, molaris.ai actúa como responsable.
+          molari.ai actúa como <strong>encargado del tratamiento</strong> de los datos de pacientes, en nombre de las clínicas que contratan el servicio (responsables del tratamiento). Para los datos de los usuarios administradores de la plataforma, molari.ai actúa como responsable.
         </p>
       </Section>
 
@@ -92,7 +92,7 @@ function PrivacyContent() {
           Las consultas realizadas por los pacientes pueden contener información relacionada con su salud (tipo de tratamiento, urgencias, condiciones médicas). Estos datos son considerados sensibles bajo la legislación chilena.
         </p>
         <p>
-          molaris.ai trata estos datos exclusivamente para la finalidad de facilitar la atención y agendamiento en la clínica correspondiente. No comparte estos datos con terceros para fines comerciales ni los utiliza para entrenar modelos de inteligencia artificial propios.
+          molari.ai trata estos datos exclusivamente para la finalidad de facilitar la atención y agendamiento en la clínica correspondiente. No comparte estos datos con terceros para fines comerciales ni los utiliza para entrenar modelos de inteligencia artificial propios.
         </p>
       </Section>
 
@@ -108,7 +108,7 @@ function PrivacyContent() {
 
       <Section title="6. Transferencia a terceros">
         <p>
-          Para prestar el servicio, molaris.ai utiliza los siguientes proveedores tecnológicos que pueden procesar datos:
+          Para prestar el servicio, molari.ai utiliza los siguientes proveedores tecnológicos que pueden procesar datos:
         </p>
         <ul className="list-disc pl-5 flex flex-col gap-1.5">
           <li><strong>OpenRouter / Anthropic:</strong> procesamiento de lenguaje natural para generar respuestas del asistente. Las conversaciones pueden transmitirse a estos servicios de forma cifrada.</li>
@@ -131,7 +131,7 @@ function PrivacyContent() {
         </ul>
         <p>
           Las solicitudes de los pacientes deben dirigirse a la clínica con la que interactuaron, quien es el responsable del tratamiento de sus datos. Para solicitudes relacionadas con la plataforma, escribir a{" "}
-          <a href="mailto:privacidad@molaris.ai" className="underline underline-offset-2">privacidad@molaris.ai</a>.
+          <a href="mailto:privacidad@molari.ai" className="underline underline-offset-2">privacidad@molari.ai</a>.
         </p>
       </Section>
 
@@ -143,7 +143,7 @@ function PrivacyContent() {
 
       <Section title="9. Seguridad">
         <p>
-          molaris.ai implementa medidas técnicas y organizativas para proteger los datos personales: cifrado en tránsito (TLS), acceso restringido por roles, contraseñas almacenadas con hash bcrypt y monitoreo de accesos. Sin embargo, ningún sistema es 100% seguro y no podemos garantizar la seguridad absoluta de la información.
+          molari.ai implementa medidas técnicas y organizativas para proteger los datos personales: cifrado en tránsito (TLS), acceso restringido por roles, contraseñas almacenadas con hash bcrypt y monitoreo de accesos. Sin embargo, ningún sistema es 100% seguro y no podemos garantizar la seguridad absoluta de la información.
         </p>
       </Section>
 
@@ -156,7 +156,7 @@ function PrivacyContent() {
       <Section title="Contacto">
         <p>
           Para consultas sobre privacidad y protección de datos:{" "}
-          <a href="mailto:privacidad@molaris.ai" className="underline underline-offset-2">privacidad@molaris.ai</a>
+          <a href="mailto:privacidad@molari.ai" className="underline underline-offset-2">privacidad@molari.ai</a>
         </p>
       </Section>
     </div>

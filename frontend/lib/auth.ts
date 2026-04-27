@@ -34,17 +34,17 @@ export async function login(email: string, password: string) {
     throw new Error(err.error ?? "Error al iniciar sesión");
   }
   const data = await res.json();
-  localStorage.setItem("molaris_token", data.token);
+  localStorage.setItem("molari_token", data.token);
   return data as { token: string; user: AuthUser; clinic: ClinicData | null };
 }
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("molaris_token");
+  return localStorage.getItem("molari_token");
 }
 
 export function logout() {
-  localStorage.removeItem("molaris_token");
+  localStorage.removeItem("molari_token");
 }
 
 export async function getMe(): Promise<{ user: AuthUser; clinic: ClinicData | null } | null> {

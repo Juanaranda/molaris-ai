@@ -10,7 +10,7 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "molaris.ai — IA para clínicas dentales",
+  title: "molari.ai — IA para clínicas dentales",
   description: "Automatiza la atención, aumenta tus reservas y convierte más pacientes con inteligencia artificial.",
 };
 

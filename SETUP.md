@@ -1,4 +1,4 @@
-# molaris.ai — Guía de setup en nuevo dispositivo
+# molari.ai — Guía de setup en nuevo dispositivo
 
 ## Requisitos previos
 
@@ -11,8 +11,8 @@
 ## 1. Clonar el repo
 
 ```bash
-git clone https://github.com/Juanaranda/molaris-ai.git
-cd molaris-ai
+git clone https://github.com/Juanaranda/molari-ai.git
+cd molari-ai
 git checkout dev    # rama de desarrollo activa
 ```
 
@@ -59,7 +59,7 @@ npx prisma db seed
 
 | Email | Contraseña | Rol | Clínica |
 |---|---|---|---|
-| superadmin@molaris.ai | molaris2024! | SUPERADMIN | — |
+| superadmin@molari.ai | molari2024! | SUPERADMIN | — |
 | admin@galana.cl | galana2024! | ADMIN | Galana |
 | recepcion@galana.cl | galana2024! | USER | Galana |
 
@@ -107,7 +107,7 @@ npm run build && npm start   # producción
 ## 4. Estructura del proyecto
 
 ```
-molaris-ai/
+molari-ai/
 ├── backend/
 │   ├── prisma/
 │   │   ├── schema.prisma          # modelos: Clinic, PartnerUser, Patient, Session, ...

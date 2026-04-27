@@ -1,6 +1,6 @@
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-const TOKEN_KEY = "molaris_patient_token";
+const TOKEN_KEY = "molari_patient_token";
 
 export interface PatientData {
   id: string;
@@ -142,7 +142,10 @@ export async function getAvailableSlots(
 
 export async function createBooking(
   slug: string,
-  data: { doctor: string; date: string; time: string; service?: string }
+  data: {
+    doctor: string; date: string; time: string; service?: string;
+    patientData?: { firstName: string; lastName: string; rut?: string };
+  }
 ): Promise<{ booking: { id: string; doctor: string; date: string; time: string; service: string | null; status: string; patientName: string | null; clinicName: string } }> {
   const token = getPatientToken();
   const res = await fetch(`${API}/api/book/${slug}/appointments`, {

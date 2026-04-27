@@ -70,7 +70,7 @@ export default function RegisterPage() {
       <div className="hidden lg:flex lg:w-[45%] flex-col justify-between p-12 text-white"
         style={{ backgroundColor: "var(--teal-dark, #0B2F42)" }}>
         <Link href="/" className="text-sm font-semibold tracking-tight opacity-80 hover:opacity-100 transition-opacity">
-          ← molaris.ai
+          ← molari.ai
         </Link>
 
         <div>
@@ -92,7 +92,7 @@ export default function RegisterPage() {
         </div>
 
         <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
-          © {new Date().getFullYear()} molaris.ai · Santiago, Chile
+          © {new Date().getFullYear()} molari.ai · Santiago, Chile
         </p>
       </div>
 
@@ -101,7 +101,7 @@ export default function RegisterPage() {
         {/* Nav mobile */}
         <nav className="lg:hidden flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: "#E5E0D9", backgroundColor: "white" }}>
           <Link href="/" className="text-sm font-semibold" style={{ color: "var(--teal-dark, #0B2F42)" }}>
-            ← molaris.ai
+            ← molari.ai
           </Link>
           <Link href="/login" className="text-sm" style={{ color: "var(--ink-muted, #607281)" }}>
             Ya tengo cuenta
@@ -209,7 +209,7 @@ export default function RegisterPage() {
                         <Link href="/legal/privacidad" target="_blank" className="underline underline-offset-2 font-medium hover:opacity-70">
                           Política de Privacidad
                         </Link>{" "}
-                        de molaris.ai
+                        de molari.ai
                       </span>
                     </label>
                     {error && <ErrorMsg msg={error} />}
@@ -222,7 +222,7 @@ export default function RegisterPage() {
             <p className="text-center text-xs mt-5" style={{ color: "var(--ink-muted, #607281)" }}>
               Al registrarte aceptas los{" "}
               <Link href="#" className="underline underline-offset-2">términos de uso</Link>{" "}
-              de molaris.ai
+              de molari.ai
             </p>
           </div>
         </div>

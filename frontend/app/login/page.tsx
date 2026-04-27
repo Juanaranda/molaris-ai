@@ -32,7 +32,7 @@ export default function LoginPage() {
       {/* Nav */}
       <nav className="flex items-center justify-between px-8 py-5 border-b" style={{ backgroundColor: "#FDFCFB", borderColor: "#E5E0D9" }}>
         <Link href="/">
-          <Image src="/logo.svg" alt="molaris.ai" width={140} height={36} priority />
+          <Image src="/logo.svg" alt="molari.ai" width={140} height={36} priority />
         </Link>
         <Link href="/" className="text-sm font-medium transition-colors" style={{ color: "#607281" }}>
           ← Volver al inicio
@@ -50,7 +50,7 @@ export default function LoginPage() {
                 </svg>
               </div>
               <h1 className="font-[family-name:var(--font-display)] text-2xl font-bold" style={{ color: "#0C1B26" }}>Portal de clínicas</h1>
-              <p className="text-sm mt-1" style={{ color: "#607281" }}>Accede a tu panel de molaris.ai</p>
+              <p className="text-sm mt-1" style={{ color: "#607281" }}>Accede a tu panel de molari.ai</p>
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">

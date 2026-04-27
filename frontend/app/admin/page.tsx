@@ -145,7 +145,7 @@ export default function AdminPage() {
       {/* Header */}
       <nav className="bg-white border-b px-6 py-4 flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
         <div className="flex items-center gap-3">
-          <span className="text-lg font-bold" style={{ color: "var(--teal-dark)" }}>molaris.ai</span>
+          <span className="text-lg font-bold" style={{ color: "var(--teal-dark)" }}>molari.ai</span>
           <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">SUPERADMIN</span>
         </div>
         <button

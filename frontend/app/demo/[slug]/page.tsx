@@ -15,7 +15,7 @@ function DemoContent({ slug }: { slug: string }) {
       {isWelcome && (
         <div className="rounded-2xl p-5 border text-sm flex flex-col gap-1"
           style={{ backgroundColor: "#EEF7F3", borderColor: "#A8D5C2", color: "#1B6B4A" }}>
-          <p className="font-semibold text-base">¡Bienvenido a molaris.ai! 🎉</p>
+          <p className="font-semibold text-base">¡Bienvenido a molari.ai! 🎉</p>
           <p style={{ color: "#2D8A62" }}>
             Este es tu asistente virtual configurado para tu clínica. Pruébalo ahora y cuando estés listo,{" "}
             <Link href="/partners/dashboard" className="font-semibold underline underline-offset-2 hover:opacity-80">
@@ -36,7 +36,7 @@ export default function DemoPage({ params }: { params: Promise<{ slug: string }>
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "var(--surface, #F7F5F1)" }}>
       <nav className="bg-white border-b px-6 py-4 flex items-center justify-between" style={{ borderColor: "#E5E0D9" }}>
         <Link href="/" className="text-sm font-semibold hover:opacity-70 transition-opacity" style={{ color: "var(--teal-dark, #0B2F42)" }}>
-          ← molaris.ai
+          ← molari.ai
         </Link>
         <div className="flex items-center gap-4">
           <span className="text-xs uppercase tracking-widest font-medium" style={{ color: "var(--ink-muted, #607281)" }}>

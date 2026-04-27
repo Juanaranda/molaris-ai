@@ -189,7 +189,7 @@ export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica 
       {context && (
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
-            Lead Score · molaris.ai
+            Lead Score · molari.ai
           </p>
           <div className="flex items-center gap-4 sm:gap-6">
             <div className="text-center shrink-0">

@@ -41,8 +41,10 @@ const DAY_NAMES = ["domingo", "lunes", "martes", "miércoles", "jueves", "vierne
 
 export function buildSystemPrompt(clinic: Clinic): string {
   const cfg = clinic.config as unknown as ClinicConfig;
-  const fixed    = cfg.services.filter((s) => s.pricingType === "fixed" || s.pricingType === "range");
-  const variable = cfg.services.filter((s) => s.pricingType === "variable");
+  const services = cfg.services ?? [];
+  const schedule = cfg.schedule ?? { weekdays: "Lunes a Viernes: 9:00 - 18:00", saturday: "Sábado: cerrado", sunday: "Domingo: cerrado" };
+  const fixed    = services.filter((s) => s.pricingType === "fixed" || s.pricingType === "range");
+  const variable = services.filter((s) => s.pricingType === "variable");
 
   // Lista exacta de nombres de doctores para que el AI no alucine
   const doctorNames = cfg.doctors?.map((d) => d.name) ?? [];
@@ -108,9 +110,9 @@ Si preguntan precio variable: no des cifras. Di que depende del caso y ofrece ag
 Nunca digas "no sé el precio" a secas — siempre ofrece agendar.
 
 ## Horarios
-- ${cfg.schedule.weekdays}
-- ${cfg.schedule.saturday}
-- ${cfg.schedule.sunday}
+- ${schedule.weekdays}
+- ${schedule.saturday}
+- ${schedule.sunday}
 
 ## Agendamiento
 Cuando el paciente quiera agendar (ya sea por primera vez o después de pedir info de precios/equipo), oriéntalo con UNA frase corta y termina con "aquí:". El sistema adjuntará el link automáticamente.

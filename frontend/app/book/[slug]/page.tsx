@@ -246,7 +246,13 @@ export default function BookPage() {
   const [slotsLoading, setSlotsLoading]     = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingError, setBookingError]     = useState("");
-  const [confirmedBooking, setConfirmedBooking] = useState<{ id: string; doctor: string; date: string; time: string } | null>(null);
+  const [confirmedBooking, setConfirmedBooking] = useState<{ id: string; doctor: string; date: string; time: string; patientName: string } | null>(null);
+
+  // Agendar para otra persona
+  const [bookingFor, setBookingFor] = useState<"self" | "other">("self");
+  const [otherFirstName, setOtherFirstName] = useState("");
+  const [otherLastName, setOtherLastName]   = useState("");
+  const [otherRut, setOtherRut]             = useState("");
 
   const dates = next14Days();
 
@@ -295,6 +301,10 @@ export default function BookPage() {
   }
 
   async function confirmBooking() {
+    if (bookingFor === "other" && (!otherFirstName.trim() || !otherLastName.trim())) {
+      setBookingError("Ingresa el nombre y apellido del paciente");
+      return;
+    }
     setBookingLoading(true); setBookingError("");
     try {
       const result = await createBooking(slug, {
@@ -302,8 +312,14 @@ export default function BookPage() {
         date: selectedDate,
         time: selectedTime,
         service: selectedService || undefined,
+        patientData: bookingFor === "other"
+          ? { firstName: otherFirstName.trim(), lastName: otherLastName.trim(), rut: otherRut || undefined }
+          : undefined,
       });
-      setConfirmedBooking({ id: result.booking.id, doctor: result.booking.doctor, date: selectedDate, time: result.booking.time });
+      const name = bookingFor === "other"
+        ? `${otherFirstName.trim()} ${otherLastName.trim()}`
+        : `${patient!.firstName} ${patient!.lastName}`;
+      setConfirmedBooking({ id: result.booking.id, doctor: result.booking.doctor, date: selectedDate, time: result.booking.time, patientName: name });
     } catch (err) {
       setBookingError(err instanceof Error ? err.message : "Error al agendar");
     } finally {
@@ -312,7 +328,9 @@ export default function BookPage() {
   }
 
   function reset() {
-    setStep(0); setSelectedDoctor(""); setSelectedDate(""); setSelectedTime(""); setSelectedService(""); setSlots([]); setBookingError(""); setConfirmedBooking(null);
+    setStep(0); setSelectedDoctor(""); setSelectedDate(""); setSelectedTime(""); setSelectedService("");
+    setSlots([]); setBookingError(""); setConfirmedBooking(null);
+    setBookingFor("self"); setOtherFirstName(""); setOtherLastName(""); setOtherRut("");
   }
 
   const card = "rounded-2xl p-6 shadow-sm";
@@ -374,6 +392,7 @@ export default function BookPage() {
             </div>
             <div className="rounded-xl p-4 mb-6 space-y-2" style={{ backgroundColor: "#F7F5F1" }}>
               {[
+                { label: "Paciente", value: confirmedBooking.patientName },
                 { label: "Profesional", value: confirmedBooking.doctor },
                 { label: "Fecha", value: new Date(`${confirmedBooking.date}T12:00:00`).toLocaleDateString("es-CL", { weekday: "long", year: "numeric", month: "long", day: "numeric" }) },
                 { label: "Hora", value: confirmedBooking.time },
@@ -508,6 +527,61 @@ export default function BookPage() {
               <div className={`${card} mb-4`} style={cardStyle}>
                 <p className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: "#1A5C7A" }}>Confirmar reserva</p>
 
+                {/* ¿Para quién es la cita? */}
+                <div className="mb-5">
+                  <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: "#607281" }}>¿Para quién es la cita?</p>
+                  <div className="flex rounded-xl p-1 mb-3" style={{ backgroundColor: "#E5E0D9" }}>
+                    {(["self", "other"] as const).map((opt) => (
+                      <button
+                        key={opt}
+                        onClick={() => { setBookingFor(opt); setBookingError(""); }}
+                        className="flex-1 py-2 rounded-lg text-sm font-semibold transition-colors"
+                        style={{
+                          backgroundColor: bookingFor === opt ? "#FDFCFB" : "transparent",
+                          color: bookingFor === opt ? "#0C1B26" : "#607281",
+                        }}
+                      >
+                        {opt === "self" ? `Para mí (${patient!.firstName})` : "Para otra persona"}
+                      </button>
+                    ))}
+                  </div>
+
+                  {bookingFor === "other" && (
+                    <div className="flex flex-col gap-3 p-4 rounded-xl" style={{ backgroundColor: "#F7F5F1", border: "1px solid #E5E0D9" }}>
+                      <p className="text-xs" style={{ color: "#607281" }}>Ingresa los datos del paciente que va a atenderse</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: "#607281" }}>Nombre</label>
+                          <input
+                            type="text" placeholder="María" required
+                            value={otherFirstName} onChange={(e) => setOtherFirstName(e.target.value)}
+                            className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                            style={{ border: "1px solid #E5E0D9", backgroundColor: "#FDFCFB", color: "#0C1B26" }}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: "#607281" }}>Apellido</label>
+                          <input
+                            type="text" placeholder="González" required
+                            value={otherLastName} onChange={(e) => setOtherLastName(e.target.value)}
+                            className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                            style={{ border: "1px solid #E5E0D9", backgroundColor: "#FDFCFB", color: "#0C1B26" }}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: "#607281" }}>RUT del paciente <span style={{ color: "#A0B0BC", fontWeight: 400, textTransform: "none" }}>(opcional)</span></label>
+                        <input
+                          type="text" placeholder="12.345.678-9"
+                          value={otherRut} onChange={(e) => setOtherRut(formatRut(e.target.value))}
+                          className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                          style={{ border: "1px solid #E5E0D9", backgroundColor: "#FDFCFB", color: "#0C1B26" }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Optional service select */}
                 {clinic.services.length > 0 && (
                   <div className="mb-4">
@@ -529,7 +603,12 @@ export default function BookPage() {
                 {/* Summary */}
                 <div className="rounded-xl p-4 mb-5 space-y-2.5" style={{ backgroundColor: "#F7F5F1" }}>
                   {[
-                    { label: "Paciente", value: `${patient.firstName} ${patient.lastName}` },
+                    {
+                      label: "Paciente",
+                      value: bookingFor === "other" && (otherFirstName || otherLastName)
+                        ? `${otherFirstName} ${otherLastName}`.trim()
+                        : `${patient.firstName} ${patient.lastName}`,
+                    },
                     { label: "Profesional", value: selectedDoctor },
                     { label: "Fecha", value: new Date(`${selectedDate}T12:00:00`).toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" }) },
                     { label: "Hora", value: selectedTime },
@@ -571,7 +650,7 @@ export default function BookPage() {
 
       {/* Footer */}
       <p className="text-center text-xs pb-8 mt-4" style={{ color: "#A0B0BC" }}>
-        Powered by <span style={{ color: "#1A5C7A" }}>molaris.ai</span>
+        Powered by <span style={{ color: "#1A5C7A" }}>molari.ai</span>
       </p>
     </div>
   );

@@ -19,6 +19,8 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
 
   const { message, clinicSlug, sessionId, slotBooked } = parsed.data;
 
+  try {
+
   const clinic = await prisma.clinic.findUnique({ where: { slug: clinicSlug } });
   if (!clinic) {
     return reply.status(404).send({ error: `Clínica "${clinicSlug}" no encontrada` });
@@ -101,5 +103,15 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
     }
   }
 
-  return reply.send({ reply: finalReply, sessionId: session.id, context, isFarewell });
+    return reply.send({ reply: finalReply, sessionId: session.id, context, isFarewell });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    req.log.error({ err }, `[chat] Error inesperado: ${msg}`);
+    return reply.send({
+      reply: "En este momento estamos con alta demanda. Por favor escríbenos directamente al WhatsApp y te atendemos de inmediato. 🦷",
+      sessionId: (req.body as { sessionId?: string })?.sessionId ?? null,
+      context: null,
+      isFarewell: false,
+    });
+  }
 }

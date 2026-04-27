@@ -218,31 +218,29 @@ export default function Home() {
 
       {/* NAV */}
       <nav className="flex items-center justify-between px-6 sm:px-10 py-5 bg-[#FDFCFB] border-b" style={{ borderColor: "#E5E0D9" }}>
-        <Image src="/logo.svg" alt="molaris.ai" width={148} height={38} priority />
+        <Image src="/logo.svg" alt="molari.ai" width={148} height={38} priority />
         <div className="flex items-center gap-6">
-          <Link href="/pricing" className="text-sm font-medium hidden sm:block transition-colors" style={{ color: "#607281" }}>
+          <a href="#pricing" className="text-sm font-medium hidden sm:block transition-colors" style={{ color: "#607281" }}>
             Precios
-          </Link>
+          </a>
           <Link href="/register" className="text-sm font-medium hidden sm:block transition-colors" style={{ color: "#607281" }}>
             Registrarse
           </Link>
           <Link href="/login" className="text-sm font-medium transition-colors" style={{ color: "#0C1B26" }}>
             Acceder
           </Link>
-          <a
-            href="#como-funciona"
+          <Link
+            href="/demo/galana"
             className="text-sm font-semibold px-5 py-2 rounded-full text-white transition-opacity hover:opacity-90"
-            style={{ backgroundColor: "#0B2F42" }}
+            style={{ backgroundColor: "#D95F45" }}
           >
-            Cómo funciona
-          </a>
+            Ver demo
+          </Link>
         </div>
       </nav>
 
       {/* HERO */}
       <section className="relative overflow-hidden" style={{ backgroundColor: "#F7F5F1" }}>
-        {/* Background grid */}
-        <div className="pointer-events-none absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(#0B2F42 1px, transparent 1px), linear-gradient(90deg, #0B2F42 1px, transparent 1px)", backgroundSize: "48px 48px" }} />
 
         <div className="relative max-w-6xl mx-auto px-6 sm:px-10 pt-16 sm:pt-24 pb-12 sm:pb-20">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
@@ -254,43 +252,75 @@ export default function Home() {
                 IA para clínicas dentales
               </span>
 
-              <h1 className="font-[family-name:var(--font-display)] text-5xl sm:text-6xl font-bold leading-[1.08] tracking-tight mb-6 animate-fade-up animate-fade-up-delay-1">
+              <h1 className="font-display text-5xl sm:text-6xl font-bold leading-[1.08] tracking-tight mb-6 animate-fade-up animate-fade-up-delay-1">
                 Más pacientes.<br />
                 <span style={{ color: "#D95F45" }}>Menos trabajo<br />manual.</span>
               </h1>
 
               <p className="text-base sm:text-lg max-w-md mb-10 animate-fade-up animate-fade-up-delay-2" style={{ color: "#607281" }}>
-                molaris.ai automatiza la atención en WhatsApp, Instagram y tu web —
+                molari.ai automatiza la atención en WhatsApp, Instagram y tu web —
                 responde 24/7 y convierte más consultas en citas agendadas.
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-3 animate-fade-up animate-fade-up-delay-3">
+              <div className="flex flex-col gap-3 animate-fade-up animate-fade-up-delay-3">
                 <Link
                   href="/register"
-                  className="inline-block text-white font-semibold px-8 py-3.5 rounded-full text-sm transition-opacity hover:opacity-90"
-                  style={{ backgroundColor: "#0B2F42" }}
+                  className="inline-flex items-center justify-center text-white font-bold px-10 py-5 rounded-2xl text-lg transition-all hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] shadow-lg w-full sm:w-auto"
+                  style={{ backgroundColor: "#D95F45", boxShadow: "0 8px 30px rgba(217,95,69,0.35)" }}
                 >
-                  Regístrate gratis →
+                  Prueba molari.ai gratis
                 </Link>
-                <a
-                  href="https://wa.me/56966865887"
-                  className="inline-block font-semibold px-8 py-3.5 rounded-full text-sm transition-colors"
-                  style={{ border: "1px solid rgba(12,27,38,0.2)", color: "#0C1B26" }}
-                >
-                  Hablar con el equipo
-                </a>
+                <div className="flex items-center gap-4">
+                  <Link href="/login" className="text-sm font-semibold underline underline-offset-2" style={{ color: "#607281" }}>
+                    Iniciar sesión
+                  </Link>
+                  <span style={{ color: "#c0c8d0" }}>·</span>
+                  <a href="https://wa.me/56966865887" className="text-sm font-semibold" style={{ color: "#607281" }}>
+                    Hablar con el equipo
+                  </a>
+                </div>
               </div>
 
               {/* Trust bar */}
-              <div className="flex items-center gap-4 mt-10 animate-fade-up animate-fade-up-delay-3">
-                <div className="flex -space-x-2">
-                  {["G", "C", "P", "A"].map((l, i) => (
-                    <div key={i} className="w-7 h-7 rounded-full border-2 border-white flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: ["#1A5C7A","#0B2F42","#D95F45","#1A5C7A"][i] }}>{l}</div>
+              <div className="flex items-center gap-3 mt-10 animate-fade-up animate-fade-up-delay-3">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ backgroundColor: "#E8F3F7", border: "1px solid rgba(26,92,122,0.15)" }}>
+                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#1A5C7A" }} />
+                  <p className="text-xs font-semibold" style={{ color: "#1A5C7A" }}>
+                    En producción · Galana Clínica Dental, Santiago
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile: activity preview (hidden on lg+) */}
+            <div className="lg:hidden mt-2 animate-fade-up animate-fade-up-delay-3">
+              <div className="rounded-2xl p-4 shadow-xl" style={{ backgroundColor: "#0B2F42" }}>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.5)" }}>Actividad en vivo</p>
+                  <span className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: "#4ade80" }}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                    En línea
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {[
+                    { canal: "WhatsApp", msg: "Nueva cita — Dra. Aranda", time: "hace 2 min", dot: "#25D366" },
+                    { canal: "Web", msg: "Lead calificado — ortodoncia", time: "hace 6 min", dot: "#1A5C7A" },
+                  ].map((item) => (
+                    <div key={item.canal} className="flex items-center gap-3 px-3 py-2.5 rounded-xl" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.dot }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.75)" }}>{item.canal}</p>
+                        <p className="text-[11px] truncate" style={{ color: "rgba(255,255,255,0.45)" }}>{item.msg}</p>
+                      </div>
+                      <p className="text-[10px] shrink-0" style={{ color: "rgba(255,255,255,0.3)" }}>{item.time}</p>
+                    </div>
                   ))}
                 </div>
-                <p className="text-xs" style={{ color: "#607281" }}>
-                  <strong style={{ color: "#0C1B26" }}>+12 clínicas</strong> en Chile ya usan molaris.ai
-                </p>
+                <div className="mt-3 pt-3 flex justify-between text-xs" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                  <span style={{ color: "rgba(255,255,255,0.4)" }}>Citas hoy</span>
+                  <span className="font-bold" style={{ color: "#D95F45" }}>7 confirmadas</span>
+                </div>
               </div>
             </div>
 
@@ -353,7 +383,7 @@ export default function Home() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
             {stats.map((s) => (
               <div key={s.label}>
-                <p className="font-[family-name:var(--font-display)] text-3xl sm:text-4xl font-bold" style={{ color: "#D95F45" }}>
+                <p className="font-display text-3xl sm:text-4xl font-bold" style={{ color: "#D95F45" }}>
                   {s.value}
                 </p>
                 <p className="text-xs mt-1.5" style={{ color: "rgba(255,255,255,0.55)" }}>{s.label}</p>
@@ -369,7 +399,7 @@ export default function Home() {
           <p className="text-xs font-bold uppercase tracking-[0.15em] text-center mb-3" style={{ color: "#1A5C7A" }}>
             Multiplataforma
           </p>
-          <h2 className="font-[family-name:var(--font-display)] text-3xl sm:text-4xl font-bold text-center mb-4">
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-center mb-4">
             Donde tus pacientes ya están
           </h2>
           <p className="text-sm text-center max-w-xl mx-auto mb-14" style={{ color: "#607281" }}>
@@ -386,7 +416,7 @@ export default function Home() {
       {/* PROBLEMA */}
       <section className="py-14 sm:py-20" style={{ backgroundColor: "#F7F5F1" }}>
         <div className="max-w-4xl mx-auto px-6 sm:px-10">
-          <h2 className="font-[family-name:var(--font-display)] text-3xl sm:text-4xl font-bold text-center mb-12">
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-center mb-12">
             ¿Te suena familiar?
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
@@ -401,7 +431,7 @@ export default function Home() {
                 }}
               >
                 <p
-                  className="font-[family-name:var(--font-display)] text-5xl font-bold mb-5"
+                  className="font-display text-5xl font-bold mb-5"
                   style={{ color: "rgba(217,95,69,0.18)" }}
                 >
                   {item.num}
@@ -417,8 +447,8 @@ export default function Home() {
       {/* FEATURES */}
       <section className="py-14 sm:py-20" style={{ backgroundColor: "#FDFCFB" }}>
         <div className="max-w-4xl mx-auto px-6 sm:px-10">
-          <h2 className="font-[family-name:var(--font-display)] text-3xl sm:text-4xl font-bold text-center mb-12">
-            Qué hace molaris.ai
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-center mb-12">
+            Qué hace molari.ai
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {features.map((f) => (
@@ -449,7 +479,7 @@ export default function Home() {
           <p className="text-xs font-bold uppercase tracking-[0.15em] text-center mb-3" style={{ color: "rgba(255,255,255,0.4)" }}>
             Proceso
           </p>
-          <h2 className="font-[family-name:var(--font-display)] text-3xl sm:text-4xl font-bold text-center text-white mb-14">
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-center text-white mb-14">
             En marcha en minutos
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-0">
@@ -471,7 +501,7 @@ export default function Home() {
               },
             ].map((item, i) => (
               <div key={item.step} className="relative flex flex-col px-6 sm:px-8 py-8 sm:py-0" style={i > 0 ? { borderLeft: "1px solid rgba(255,255,255,0.1)" } : {}}>
-                <p className="font-[family-name:var(--font-display)] text-5xl font-bold mb-5" style={{ color: "#D95F45", opacity: 0.6 }}>{item.step}</p>
+                <p className="font-display text-5xl font-bold mb-5" style={{ color: "#D95F45", opacity: 0.6 }}>{item.step}</p>
                 <h3 className="text-base font-bold text-white mb-2">{item.title}</h3>
                 <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>{item.desc}</p>
               </div>
@@ -483,7 +513,7 @@ export default function Home() {
       {/* PRICING */}
       <section id="pricing" className="py-16 sm:py-24" style={{ backgroundColor: "#FDFCFB" }}>
         <div className="max-w-5xl mx-auto px-6 sm:px-10">
-          <h2 className="font-[family-name:var(--font-display)] text-3xl sm:text-4xl font-bold text-center mb-3">
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-center mb-3">
             Planes y precios
           </h2>
           <p className="text-sm text-center mb-12" style={{ color: "#607281" }}>
@@ -495,7 +525,7 @@ export default function Home() {
             <div className="flex flex-col rounded-2xl p-6 sm:p-7" style={{ border: "1px solid #E5E0D9", backgroundColor: "#FDFCFB" }}>
               <p className="text-xs font-bold uppercase tracking-[0.12em] mb-5" style={{ color: "#607281" }}>Starter</p>
               <div className="mb-1">
-                <span className="font-[family-name:var(--font-display)] text-4xl font-bold">$49</span>
+                <span className="font-display text-4xl font-bold">$49</span>
                 <span className="text-sm ml-1.5" style={{ color: "#607281" }}>USD / mes</span>
               </div>
               <p className="text-sm mb-6" style={{ color: "#607281" }}>Para clínicas pequeñas (1 box)</p>
@@ -523,7 +553,7 @@ export default function Home() {
               </span>
               <p className="text-xs font-bold uppercase tracking-[0.12em] mb-5" style={{ color: "#D95F45" }}>Pro</p>
               <div className="mb-1">
-                <span className="font-[family-name:var(--font-display)] text-4xl font-bold">$129</span>
+                <span className="font-display text-4xl font-bold">$129</span>
                 <span className="text-sm ml-1.5" style={{ color: "#607281" }}>USD / mes</span>
               </div>
               <p className="text-sm mb-6" style={{ color: "#607281" }}>Para clínicas medianas (2–5 boxes)</p>
@@ -548,7 +578,7 @@ export default function Home() {
             <div className="flex flex-col rounded-2xl p-6 sm:p-7" style={{ border: "1px solid #E5E0D9", backgroundColor: "#FDFCFB" }}>
               <p className="text-xs font-bold uppercase tracking-[0.12em] mb-5" style={{ color: "#607281" }}>Enterprise</p>
               <div className="mb-1">
-                <span className="font-[family-name:var(--font-display)] text-4xl font-bold">Custom</span>
+                <span className="font-display text-4xl font-bold">Custom</span>
               </div>
               <p className="text-sm mb-6" style={{ color: "#607281" }}>Para cadenas o grupos dentales</p>
               <ul className="flex flex-col gap-2.5 text-sm mb-8 flex-1">
@@ -577,7 +607,7 @@ export default function Home() {
         <div className="pointer-events-none absolute -top-32 -right-32 w-96 h-96 rounded-full opacity-10" style={{ border: "1px solid #D95F45" }} />
         <div className="pointer-events-none absolute -bottom-32 -left-32 w-96 h-96 rounded-full opacity-10" style={{ border: "1px solid white" }} />
         <div className="relative max-w-2xl mx-auto px-6 sm:px-10">
-          <h2 className="font-[family-name:var(--font-display)] text-3xl sm:text-5xl font-bold text-white mb-5">
+          <h2 className="font-display text-3xl sm:text-5xl font-bold text-white mb-5">
             ¿Tienes una clínica dental?
           </h2>
           <p className="mb-10 text-sm sm:text-base" style={{ color: "rgba(255,255,255,0.6)" }}>
@@ -589,7 +619,7 @@ export default function Home() {
               className="inline-block font-semibold px-8 py-3.5 rounded-full text-sm transition-opacity hover:opacity-90"
               style={{ backgroundColor: "#D95F45", color: "white" }}
             >
-              Regístrate gratis →
+              Regístrate gratis
             </Link>
             <a
               href="https://wa.me/56966865887"
@@ -605,7 +635,7 @@ export default function Home() {
       {/* FOOTER */}
       <footer className="py-6 text-sm" style={{ borderTop: "1px solid #E5E0D9", color: "#607281", backgroundColor: "#FDFCFB" }}>
         <div className="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <span>© {new Date().getFullYear()} molaris.ai — Santiago, Chile</span>
+          <span>© {new Date().getFullYear()} molari.ai — Santiago, Chile</span>
           <div className="flex items-center gap-4">
             <Link href="/legal/terminos" className="hover:text-gray-900 transition-colors">Términos y condiciones</Link>
             <Link href="/legal/privacidad" className="hover:text-gray-900 transition-colors">Privacidad</Link>

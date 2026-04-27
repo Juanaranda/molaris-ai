@@ -79,12 +79,12 @@ async function main() {
   const SALT_ROUNDS = 12;
 
   const superAdmin = await prisma.partnerUser.upsert({
-    where: { email: "superadmin@molaris.ai" },
+    where: { email: "superadmin@molari.ai" },
     update: {},
     create: {
       name: "Super Admin",
-      email: "superadmin@molaris.ai",
-      passwordHash: await bcrypt.hash("molaris2024!", SALT_ROUNDS),
+      email: "superadmin@molari.ai",
+      passwordHash: await bcrypt.hash("molari2024!", SALT_ROUNDS),
       role: "SUPERADMIN",
     },
   });

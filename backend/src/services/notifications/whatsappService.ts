@@ -25,7 +25,7 @@ function buildMessage(b: BookingNotification): string {
     boxLine,
     ``,
     `📎 ID sesión: ${b.sessionId}`,
-    `_Generado por molaris.ai_`,
+    `_Generado por molari.ai_`,
   ]
     .filter((l) => l !== undefined)
     .join("\n");

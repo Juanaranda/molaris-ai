@@ -10,8 +10,9 @@
 interface Doctor {
   name: string;
   specialty: string;
-  services: string[];
-  workDays: number[];
+  services?: string[];
+  workDays?: number[];
+  schedule?: string;
 }
 
 interface ClinicConfig {
@@ -42,8 +43,14 @@ function detectService(message: string): string | null {
 
 function findDoctorsForService(doctors: Doctor[], serviceKey: string): Doctor[] {
   return doctors.filter((d) =>
-    d.services.some((s) => s.toLowerCase().includes(serviceKey.toLowerCase()))
+    (d.services ?? []).some((s) => s.toLowerCase().includes(serviceKey.toLowerCase()))
   );
+}
+
+function getDayString(doc: Doctor): string {
+  if (doc.schedule) return doc.schedule;
+  if (doc.workDays) return doc.workDays.map((d) => DAY_NAMES[d]).join(", ");
+  return "";
 }
 
 /**
@@ -63,14 +70,14 @@ export function buildContextHint(message: string, clinicConfig: unknown): string
   // Si hay exactamente un especialista → hint directo y obligatorio
   if (matched.length === 1) {
     const doc = matched[0];
-    const days = doc.workDays.map((d) => DAY_NAMES[d]).join(", ");
-    return `[CONTEXTO DETECTADO] El paciente pregunta por ${serviceKey}. El especialista es ${doc.name} (${doc.specialty}), disponible: ${days}. DEBES mencionar a ${doc.name} en tu próxima respuesta. No menciones otros doctores para este servicio.`;
+    const days = getDayString(doc);
+    return `[CONTEXTO DETECTADO] El paciente pregunta por ${serviceKey}. El especialista es ${doc.name} (${doc.specialty})${days ? `, disponible: ${days}` : ""}. DEBES mencionar a ${doc.name} en tu próxima respuesta. No menciones otros doctores para este servicio.`;
   }
 
   // Si hay varios doctores para el servicio → menciona todos
   const names = matched.map((d) => {
-    const days = d.workDays.map((n) => DAY_NAMES[n]).join(", ");
-    return `${d.name} (${days})`;
+    const days = getDayString(d);
+    return days ? `${d.name} (${days})` : d.name;
   }).join(" / ");
   return `[CONTEXTO DETECTADO] El paciente pregunta por ${serviceKey}. Doctores disponibles: ${names}. Menciona al más adecuado según el día preferido.`;
 }

@@ -22,9 +22,9 @@ app.register(patientAuthRoutes, { prefix: "/api" });
 app.register(bookRoutes, { prefix: "/api" });
 app.register(adminRoutes, { prefix: "/api" });
 
-app.get("/health", async () => ({ status: "ok", project: "molaris.ai" }));
+app.get("/health", async () => ({ status: "ok", project: "molari.ai" }));
 
-app.listen({ port: config.port }, (err) => {
+app.listen({ port: config.port, host: "0.0.0.0" }, (err) => {
   if (err) {
     app.log.error(err);
     process.exit(1);

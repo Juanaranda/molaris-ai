@@ -142,7 +142,7 @@ async function callOpenRouter(model: string, messages: ORMessage[]) {
     headers: {
       "Authorization": `Bearer ${config.openRouter.apiKey}`,
       "Content-Type":  "application/json",
-      "HTTP-Referer":  "https://molaris.ai",
+      "HTTP-Referer":  "https://molari.ai",
       "X-Title":       "Molaris AI",
     },
     body: JSON.stringify(body),

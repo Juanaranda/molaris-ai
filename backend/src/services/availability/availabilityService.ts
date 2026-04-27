@@ -1,5 +1,3 @@
-import { galanaConfig, type Doctor } from "../../config/clinics/galana";
-
 export interface Slot {
   time: string;
   doctor: string;
@@ -14,7 +12,51 @@ export interface DayAvailability {
   slots: Slot[];
 }
 
+export interface AvailabilityDoctor {
+  name: string;
+  specialty?: string;
+  schedule?: string;    // "Lun-Vie" o "Lun/Mié/Vie"
+  workDays?: number[];  // alternativa pre-parseada
+  services?: string[];
+  box?: string | null;
+}
+
+export interface ClinicAvailabilityConfig {
+  doctors?: AvailabilityDoctor[];
+  boxes?: number | string[];
+  slotDurationMin?: number;
+}
+
 const DAY_NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+const DAY_MAP: Record<string, number> = {
+  Dom: 0, Lun: 1, Mar: 2, "Mié": 3, Jue: 4, Vie: 5, "Sáb": 6,
+};
+
+function parseDoctorDays(schedule: string): number[] {
+  if (schedule.includes("-")) {
+    const [start, end] = schedule.split("-").map((s) => s.trim());
+    const s = DAY_MAP[start];
+    const e = DAY_MAP[end];
+    if (s == null || e == null) return [];
+    return Array.from({ length: e - s + 1 }, (_, i) => s + i);
+  }
+  return schedule.split("/").map((d) => DAY_MAP[d.trim()]).filter((d) => d != null);
+}
+
+function getWorkDays(doc: AvailabilityDoctor): number[] {
+  if (doc.workDays && doc.workDays.length > 0) return doc.workDays;
+  if (doc.schedule) return parseDoctorDays(doc.schedule);
+  return [];
+}
+
+function buildBoxPool(boxes: ClinicAvailabilityConfig["boxes"]): string[] {
+  if (Array.isArray(boxes)) return boxes;
+  if (typeof boxes === "number" && boxes > 0) {
+    return Array.from({ length: boxes }, (_, i) => `Box ${i + 1}`);
+  }
+  return ["Box 1"];
+}
 
 function getSlotsForDay(isWeekday: boolean, durationMin: number): string[] {
   const [startH, endH] = isWeekday ? [10, 18] : [10, 14];
@@ -43,59 +85,57 @@ function isSlotInPast(dateStr: string, time: string): boolean {
   const [hh, mm] = time.split(":").map(Number);
   const slotDate = new Date(dateStr + "T12:00:00");
   slotDate.setHours(hh, mm, 0, 0);
-  // Agregar buffer de 30 min (no se puede agendar para "ahora mismo")
   return slotDate.getTime() < now.getTime() + 30 * 60 * 1000;
 }
 
-export function getWeekAvailability(weekStart: string, service?: string): DayAvailability[] {
+export function getWeekAvailability(
+  weekStart: string,
+  clinicConfig: ClinicAvailabilityConfig,
+  service?: string
+): DayAvailability[] {
   const start = new Date(weekStart + "T12:00:00");
   const result: DayAvailability[] = [];
-  const { doctors, boxes, slotDurationMin } = galanaConfig;
-  const duration = slotDurationMin ?? 45;
+  const doctors = clinicConfig.doctors ?? [];
+  const duration = clinicConfig.slotDurationMin ?? 45;
+  const allBoxes = buildBoxPool(clinicConfig.boxes);
 
   const todayStr = new Date().toISOString().slice(0, 10);
 
   for (let i = 0; i < 7; i++) {
     const date = new Date(start);
     date.setDate(start.getDate() + i);
-    const dow = date.getDay(); // 0=Dom, 1=Lun ... 6=Sáb
+    const dow = date.getDay();
     const isWeekday = dow >= 1 && dow <= 5;
     const isSaturday = dow === 6;
     const isOpen = isWeekday || isSaturday;
     const dateStr = date.toISOString().slice(0, 10);
 
-    // Días pasados o domingo: cerrado
     if (!isOpen || dateStr < todayStr) {
       result.push({ date: dateStr, dayName: DAY_NAMES[dow], isOpen: false, slots: [] });
       continue;
     }
 
-    // Doctores que trabajan este día del mes
-    const workingDoctors = doctors.filter((d) => d.workDays.includes(dow));
+    const workingDoctors = doctors.filter((d) => getWorkDays(d).includes(dow));
 
-    // Filtrar por servicio si se indica
-    const eligibleDoctors: Doctor[] = service
+    const eligibleDoctors = service
       ? workingDoctors.filter((d) =>
-          d.services.some((s) => s.toLowerCase().includes(service.toLowerCase()))
+          d.services?.some((s) => s.toLowerCase().includes(service.toLowerCase()))
         )
       : workingDoctors;
 
     const activeDoctors = eligibleDoctors.length > 0 ? eligibleDoctors : workingDoctors;
 
     if (activeDoctors.length === 0) {
-      // Nadie trabaja este día
       result.push({ date: dateStr, dayName: DAY_NAMES[dow], isOpen: false, slots: [] });
       continue;
     }
 
     const times = getSlotsForDay(isWeekday, duration);
 
-    // Pool dinámico: todos los boxes de la clínica.
-    // Los boxes de especialistas que NO trabajan hoy se liberan al pool.
     const busyBoxes = new Set(
       workingDoctors.filter((d) => d.box).map((d) => d.box as string)
     );
-    const freePool = boxes.filter((b) => !busyBoxes.has(b));
+    const freePool = allBoxes.filter((b) => !busyBoxes.has(b));
 
     const slots: Slot[] = times.map((time) => {
       const isPast = isSlotInPast(dateStr, time);
@@ -105,7 +145,6 @@ export function getWeekAvailability(weekStart: string, service?: string): DayAva
       const doctorIdx = Math.floor(seededRandom(`${dateStr}-${time}-doc`) * activeDoctors.length);
       const doctor = activeDoctors[doctorIdx];
 
-      // Box: asignado al doctor > pool libre > null (sin sistema de boxes)
       let box: string | null = null;
       if (doctor.box) {
         box = doctor.box;

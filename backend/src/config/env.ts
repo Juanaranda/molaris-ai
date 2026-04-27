@@ -4,7 +4,7 @@ dotenv.config();
 export const config = {
   port: Number(process.env.PORT) || 3000,
   nodeEnv: process.env.NODE_ENV || "development",
-  jwtSecret: process.env.JWT_SECRET ?? "molaris-dev-secret-change-in-prod",
+  jwtSecret: process.env.JWT_SECRET ?? "molari-dev-secret-change-in-prod",
   openRouter: {
     apiKey: process.env.OPENROUTER_API_KEY ?? "",
     models: {

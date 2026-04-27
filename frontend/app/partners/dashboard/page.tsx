@@ -111,7 +111,7 @@ export default function PartnersDashboard() {
 
   // Basic info
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ name: "", phone: "", whatsapp: "", instagram: "", location: "", assistantName: "" });
+  const [form, setForm] = useState({ name: "", phone: "", whatsapp: "", instagram: "", location: "", assistantName: "", tone: "" });
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
 
@@ -146,7 +146,8 @@ export default function PartnersDashboard() {
   function syncForm(c: ClinicData) {
     const cfg = c.config as ClinicConfig;
     setForm({ name: c.name ?? "", phone: c.phone ?? "", whatsapp: c.whatsapp ?? "",
-      instagram: c.instagram ?? "", location: c.location ?? "", assistantName: cfg.assistantName ?? "" });
+      instagram: c.instagram ?? "", location: c.location ?? "", assistantName: cfg.assistantName ?? "",
+      tone: cfg.tone ?? "" });
   }
   function syncSchedForm(c: ClinicData) {
     const cfg = c.config as ClinicConfig;
@@ -159,8 +160,8 @@ export default function PartnersDashboard() {
     if (!clinic) return;
     setSaving(true); setSaveMsg("");
     try {
-      const { assistantName, ...basicFields } = form;
-      const cfg = { ...(clinic.config as ClinicConfig), assistantName };
+      const { assistantName, tone, ...basicFields } = form;
+      const cfg = { ...(clinic.config as ClinicConfig), assistantName, tone };
       const updated = await updateClinic(clinic.id, { ...basicFields, config: cfg as Record<string, unknown> });
       setClinic(updated); syncForm(updated); setEditing(false);
       setSaveMsg("Guardado"); setTimeout(() => setSaveMsg(""), 3000);
@@ -207,7 +208,7 @@ export default function PartnersDashboard() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Nav */}
       <nav className="flex items-center justify-between px-6 sm:px-8 py-4 bg-white border-b border-gray-100 sticky top-0 z-10">
-        <Link href="/"><Image src="/logo.svg" alt="molaris.ai" width={120} height={32} priority /></Link>
+        <Link href="/"><Image src="/logo.svg" alt="molari.ai" width={120} height={32} priority /></Link>
         <div className="flex items-center gap-4">
           {user && <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600 hidden sm:block">{user.name}</span>
@@ -222,7 +223,7 @@ export default function PartnersDashboard() {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{clinic?.name ?? "Sin clínica"}</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Panel de administración · molaris.ai</p>
+            <p className="text-sm text-gray-500 mt-0.5">Panel de administración · molari.ai</p>
           </div>
           {clinic && (
             <Link href={`/demo/${clinic.slug}`}
@@ -234,7 +235,7 @@ export default function PartnersDashboard() {
 
         {!clinic && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6 text-sm text-yellow-800">
-            Tu usuario no tiene una clínica asignada. Contacta al equipo de molaris.ai.
+            Tu usuario no tiene una clínica asignada. Contacta al equipo de molari.ai.
           </div>
         )}
 
@@ -420,6 +421,21 @@ export default function PartnersDashboard() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <InfoField label="Nombre de la clínica" value={form.name} editable={editing} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
                     <InfoField label="Nombre del asistente" value={form.assistantName} editable={editing} placeholder="Ej: Gala, Aria..." onChange={(v) => setForm((f) => ({ ...f, assistantName: v }))} />
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Tono del asistente</label>
+                      {editing ? (
+                        <select value={form.tone} onChange={(e) => setForm((f) => ({ ...f, tone: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                          <option value="">Seleccionar tono...</option>
+                          <option value="profesional pero cercano, lenguaje chileno natural">Profesional y cercano (recomendado)</option>
+                          <option value="muy amigable y cálido, tutea al paciente, usa expresiones coloquiales chilenas">Amigable y cálido</option>
+                          <option value="formal y técnico, trata de usted, lenguaje clínico preciso">Formal y técnico</option>
+                          <option value="empático y tranquilizador, prioriza que el paciente se sienta escuchado y sin miedo">Empático y tranquilizador</option>
+                        </select>
+                      ) : (
+                        <p className="text-sm text-gray-800">{form.tone || "—"}</p>
+                      )}
+                    </div>
                     <InfoField label="Teléfono" value={form.phone} editable={editing} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} />
                     <InfoField label="WhatsApp" value={form.whatsapp} editable={editing} onChange={(v) => setForm((f) => ({ ...f, whatsapp: v }))} />
                     <InfoField label="Instagram" value={form.instagram} editable={editing} onChange={(v) => setForm((f) => ({ ...f, instagram: v }))} />

@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import prisma from "../config/prisma";
 import { verifyPatientToken } from "./patient-auth";
+import { sendBookingNotification } from "../services/notifications/whatsappService";
 
 interface DoctorConfig {
   name: string;
@@ -177,7 +178,10 @@ export async function bookRoutes(app: FastifyInstance) {
   // POST /api/book/:slug/appointments — requiere auth de paciente
   app.post<{
     Params: { slug: string };
-    Body: { doctor: string; date: string; time: string; service?: string };
+    Body: {
+      doctor: string; date: string; time: string; service?: string;
+      patientData?: { firstName: string; lastName: string; rut?: string };
+    };
   }>("/book/:slug/appointments", async (req, reply) => {
     let payload;
     try {
@@ -187,13 +191,16 @@ export async function bookRoutes(app: FastifyInstance) {
     }
 
     const { slug } = req.params;
-    const { doctor, date, time, service } = req.body ?? {};
+    const { doctor, date, time, service, patientData } = req.body ?? {};
 
     if (!doctor || !date || !time) {
       return reply.status(400).send({ error: "Faltan campos: doctor, date, time" });
     }
 
-    const clinic = await prisma.clinic.findUnique({ where: { slug } });
+    const clinic = await prisma.clinic.findUnique({
+      where: { slug },
+      select: { id: true, slug: true, name: true, phone: true, whatsapp: true, config: true, active: true },
+    });
     if (!clinic || !clinic.active) return reply.status(404).send({ error: "Clínica no encontrada" });
     if (clinic.id !== payload.clinicId) {
       return reply.status(403).send({ error: "No autorizado para esta clínica" });
@@ -224,18 +231,41 @@ export async function bookRoutes(app: FastifyInstance) {
       return reply.status(409).send({ error: "Ese horario ya fue reservado. Por favor elige otro." });
     }
 
+    // Si viene patientData, la cita es para otra persona (ej: padre agendando para hijo)
+    const bookingPatientName = patientData?.firstName
+      ? `${patientData.firstName} ${patientData.lastName}`
+      : `${patientUser.identity.firstName} ${patientUser.identity.lastName}`;
+
     const booking = await prisma.booking.create({
       data: {
-        clinicId:     clinic.id,
+        clinicId:      clinic.id,
         patientUserId: patientUser.id,
-        patientName:  `${patientUser.identity.firstName} ${patientUser.identity.lastName}`,
+        patientName:   bookingPatientName,
         doctor,
-        date:         requestedDate,
+        date:          requestedDate,
         time,
-        service:      service ?? null,
-        status:       "confirmed",
+        service:       service ?? null,
+        status:        "confirmed",
       },
     });
+
+    // Notificación WhatsApp (no bloquea la respuesta)
+    if (clinic.whatsapp) {
+      const DAY_NAMES_ES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+      const dayName = DAY_NAMES_ES[new Date(`${date}T12:00:00`).getDay()];
+      sendBookingNotification({
+        clinicName:     clinic.name,
+        clinicWhatsapp: clinic.whatsapp,
+        patientName:    `${patientUser.identity.firstName} ${patientUser.identity.lastName}`,
+        service:        service ?? "A confirmar",
+        date,
+        dayName,
+        time,
+        doctor,
+        box:            null,
+        sessionId:      booking.id,
+      }).catch(() => {});
+    }
 
     return reply.status(201).send({
       booking: {
