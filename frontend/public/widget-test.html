@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prueba Widget — molaris.ai</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 700px; margin: 80px auto; padding: 0 24px; color: #1e293b; }
+    h1 { font-size: 28px; margin-bottom: 8px; }
+    p  { color: #64748b; line-height: 1.6; }
+    .tag { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; font-family: monospace; font-size: 13px; white-space: pre; margin-top: 32px; color: #0891B2; }
+  </style>
+</head>
+<body>
+  <h1>Sitio web de prueba</h1>
+  <p>Esta página simula el sitio web de <strong>Galana Clínica Dental</strong>.<br>
+  El botón azul abajo a la derecha es el widget de molaris.ai.</p>
+
+  <p>Para integrarlo en cualquier sitio solo se necesita pegar este código:</p>
+
+  <div class="tag">&lt;script
+  src="http://localhost:3000/widget.js"
+  data-clinic="galana"
+  data-color="#0891B2"
+&gt;&lt;/script&gt;</div>
+
+  <!-- Widget molaris.ai -->
+  <script
+    src="http://localhost:3000/widget.js"
+    data-clinic="galana"
+    data-color="#0891B2"
+    data-origin="http://localhost:3000"
+  ></script>
+</body>
+</html>

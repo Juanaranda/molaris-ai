@@ -9,10 +9,18 @@ interface Message {
 
 interface LeadContext {
   patientName?: string;
+  rut?: string;
+  email?: string;
   serviceInterest?: string;
   urgency?: "high" | "medium" | "low";
   intent?: "ready_to_book" | "evaluating" | "just_browsing";
   score?: number;
+  slotBooked?: boolean;
+}
+
+interface Props {
+  clinicSlug?: string;
+  clinicName?: string;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -35,12 +43,18 @@ const SCORE_COLOR = (score: number) => {
   return "text-gray-400";
 };
 
-export function ChatDemo() {
+export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica Dental" }: Props = {}) {
+  const [assistantName, setAssistantName] = useState<string | null>(null);
+  const [displayClinicName, setDisplayClinicName] = useState(clinicName);
+
+  function buildGreeting(aName: string | null, cName: string) {
+    return aName
+      ? `Hola, soy ${aName}, asistente virtual de ${cName}. ¿En qué puedo ayudarte?`
+      : `Hola, soy el asistente virtual de ${cName}. ¿En qué puedo ayudarte?`;
+  }
+
   const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      text: "Hola, soy el asistente virtual de Galana Clínica Dental. ¿En qué puedo ayudarte?",
-    },
+    { role: "assistant", text: buildGreeting(null, clinicName) },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -49,13 +63,30 @@ export function ChatDemo() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setSessionId(null);
+    setContext(null);
+    // Fetch clinic info to get assistantName
+    fetch(`${API_URL}/api/book/${clinicSlug}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        const aName: string | null = data?.clinic?.assistantName ?? null;
+        const cName: string = data?.clinic?.name ?? clinicName;
+        setAssistantName(aName);
+        setDisplayClinicName(cName);
+        setMessages([{ role: "assistant", text: buildGreeting(aName, cName) }]);
+      })
+      .catch(() => {
+        setMessages([{ role: "assistant", text: buildGreeting(null, clinicName) }]);
+      });
+  }, [clinicSlug, clinicName]);
+
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   async function sendMessage() {
     const text = input.trim();
     if (!text || loading) return;
-
     setMessages((prev) => [...prev, { role: "user", text }]);
     setInput("");
     setLoading(true);
@@ -64,65 +95,69 @@ export function ChatDemo() {
       const res = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: text,
-          clinicSlug: "galana",
-          sessionId: sessionId ?? undefined,
-        }),
+        body: JSON.stringify({ message: text, clinicSlug, sessionId: sessionId ?? undefined }),
       });
       const data = await res.json();
-
-      // Guardar sessionId del backend en el primer mensaje
       if (!sessionId && data.sessionId) setSessionId(data.sessionId);
       if (data.context) setContext((prev) => ({ ...prev, ...data.context }));
-
-      setMessages((prev) => [...prev, { role: "assistant", text: data.reply }]);
+      setMessages((prev) => [...prev, { role: "assistant", text: data.reply ?? "Sin respuesta. Intenta de nuevo." }]);
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", text: "Hubo un problema al conectar. Intenta de nuevo." },
-      ]);
+      setMessages((prev) => [...prev, { role: "assistant", text: "Hubo un problema al conectar. Intenta de nuevo." }]);
     } finally {
       setLoading(false);
     }
   }
 
+  // Render message text: detect booking URLs and make them clickable
+  function renderText(text: string | undefined) {
+    if (!text) return null;
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    return parts.map((part, i) =>
+      urlRegex.test(part) ? (
+        <a key={i} href={part} target="_blank" rel="noopener noreferrer"
+          className="underline underline-offset-2 break-all hover:opacity-80 transition-opacity">
+          {part}
+        </a>
+      ) : (
+        <span key={i}>{part}</span>
+      )
+    );
+  }
+
   return (
     <div className="flex flex-col gap-3">
       {/* Chat */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden flex flex-col h-[480px]">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden flex flex-col h-[520px]">
         {/* Header */}
-        <div className="bg-blue-600 px-5 py-4 flex items-center gap-3">
-          <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-blue-600 font-bold text-sm">
-            G
+        <div className="bg-sky-600 px-5 py-4 flex items-center gap-3">
+          <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-sky-600 font-bold text-sm">
+            {(assistantName ?? displayClinicName).charAt(0).toUpperCase()}
           </div>
           <div>
-            <p className="text-white font-semibold text-sm">Galana Clínica Dental</p>
-            <p className="text-blue-200 text-xs">Asistente virtual · En línea</p>
+            <p className="text-white font-semibold text-sm">{assistantName ?? displayClinicName}</p>
+            <p className="text-sky-200 text-xs">{assistantName ? `Asistente de ${displayClinicName}` : "Asistente virtual"} · En línea</p>
           </div>
         </div>
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
           {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-            >
+            <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
               <div
-                className={`max-w-[80%] px-4 py-2 rounded-2xl text-sm leading-relaxed ${
+                className={`max-w-[82%] px-4 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
                   msg.role === "user"
-                    ? "bg-blue-600 text-white rounded-br-sm"
+                    ? "bg-sky-600 text-white rounded-br-sm"
                     : "bg-gray-100 text-gray-800 rounded-bl-sm"
                 }`}
               >
-                {msg.text}
+                {msg.role === "assistant" ? renderText(msg.text) : msg.text}
               </div>
             </div>
           ))}
           {loading && (
             <div className="flex justify-start">
-              <div className="bg-gray-100 text-gray-400 px-4 py-2 rounded-2xl rounded-bl-sm text-sm">
+              <div className="bg-gray-100 text-gray-400 px-4 py-2 rounded-2xl rounded-bl-sm text-sm animate-pulse">
                 Escribiendo...
               </div>
             </div>
@@ -138,34 +173,32 @@ export function ChatDemo() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
             placeholder="Escribe tu consulta..."
-            className="flex-1 text-sm border border-gray-200 rounded-full px-4 py-2 focus:outline-none focus:border-blue-400"
+            className="flex-1 text-sm border border-gray-200 rounded-full px-4 py-2 focus:outline-none focus:border-sky-400"
           />
           <button
             onClick={sendMessage}
             disabled={loading || !input.trim()}
-            className="bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-full hover:bg-blue-700 disabled:opacity-40 transition-colors"
+            className="bg-sky-600 text-white text-sm font-medium px-4 py-2 rounded-full hover:bg-sky-700 disabled:opacity-40 transition-colors"
           >
             Enviar
           </button>
         </div>
       </div>
 
-      {/* Lead Score Panel — solo visible si hay contexto */}
+      {/* Lead Score Panel */}
       {context && (
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
-            Lead Score · molaris.ai
+            Lead Score · molari.ai
           </p>
-          <div className="flex items-center gap-6">
-            {/* Score */}
-            <div className="text-center">
+          <div className="flex items-center gap-4 sm:gap-6">
+            <div className="text-center shrink-0">
               <div className={`text-4xl font-black ${SCORE_COLOR(context.score ?? 0)}`}>
                 {context.score ?? "—"}
               </div>
               <div className="text-xs text-gray-400 mt-1">Score</div>
             </div>
-
-            <div className="flex-1 grid grid-cols-2 gap-2 text-sm">
+            <div className="flex-1 grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 gap-2 text-sm">
               {context.patientName && (
                 <div>
                   <span className="text-gray-400 text-xs">Paciente</span>
