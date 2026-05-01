@@ -9,6 +9,7 @@ import { clinicRoutes } from "./routes/clinics";
 import { patientAuthRoutes } from "./routes/patient-auth";
 import { bookRoutes } from "./routes/book";
 import { adminRoutes } from "./routes/admin";
+import { startReminderScheduler } from "./services/notifications/reminderService";
 
 const app = Fastify({ logger: true });
 
@@ -29,4 +30,5 @@ app.listen({ port: config.port, host: "0.0.0.0" }, (err) => {
     app.log.error(err);
     process.exit(1);
   }
+  startReminderScheduler();
 });
