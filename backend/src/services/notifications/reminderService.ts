@@ -1,6 +1,22 @@
 import prisma from "../../config/prisma";
 import { config } from "../../config/env";
 
+interface ClinicReminderConfig {
+  enabled: boolean;
+  dayBefore: boolean;
+  twoHours: boolean;
+}
+
+function getReminderConfig(clinicConfig: unknown): ClinicReminderConfig {
+  const cfg = (clinicConfig as Record<string, unknown> | null) ?? {};
+  const r = (cfg.reminders as Partial<ClinicReminderConfig>) ?? {};
+  return {
+    enabled:   r.enabled   !== false,
+    dayBefore: r.dayBefore !== false,
+    twoHours:  r.twoHours  !== false,
+  };
+}
+
 interface ReminderPayload {
   phone: string | null | undefined;
   clinicName: string;
@@ -97,6 +113,12 @@ export async function runReminderCheck(): Promise<void> {
   });
 
   for (const b of dayBookings) {
+    const remCfg = getReminderConfig(b.clinic.config);
+    if (!remCfg.enabled || !remCfg.dayBefore) {
+      await prisma.booking.update({ where: { id: b.id }, data: { reminderDaySent: true } });
+      continue;
+    }
+
     const patientName = b.patientUser
       ? `${b.patientUser.identity.firstName} ${b.patientUser.identity.lastName}`
       : (b.patientName ?? "Paciente");
@@ -155,6 +177,12 @@ export async function runReminderCheck(): Promise<void> {
   });
 
   for (const b of hourBookings) {
+    const remCfg = getReminderConfig(b.clinic.config);
+    if (!remCfg.enabled || !remCfg.twoHours) {
+      await prisma.booking.update({ where: { id: b.id }, data: { reminderHourSent: true } });
+      continue;
+    }
+
     const patientName = b.patientUser
       ? `${b.patientUser.identity.firstName} ${b.patientUser.identity.lastName}`
       : (b.patientName ?? "Paciente");

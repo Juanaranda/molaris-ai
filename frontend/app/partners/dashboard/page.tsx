@@ -8,10 +8,17 @@ import { getMe, getToken, logout, updateClinic, AuthUser, ClinicData } from "@/l
 import { DoctorsEditor, DoctorRow } from "@/components/DoctorsEditor";
 import { ServicesEditor, ServiceRow } from "@/components/ServicesEditor";
 import { BookingsTab } from "@/components/BookingsTab";
+import { SetupChecklist } from "@/components/SetupChecklist";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 /* ─── Tipos ────────────────────────────────────────────────────────────────── */
+interface ReminderConfig {
+  enabled: boolean;
+  dayBefore: boolean;
+  twoHours: boolean;
+}
+
 interface ClinicConfig {
   tone?: string;
   assistantName?: string;
@@ -19,6 +26,7 @@ interface ClinicConfig {
   services?: ServiceRow[];
   boxes?: number;
   schedule?: { weekdays?: string; saturday?: string; sunday?: string };
+  reminders?: ReminderConfig;
 }
 
 interface Analytics {
@@ -122,12 +130,17 @@ export default function PartnersDashboard() {
   const [schedSaving, setSchedSaving] = useState(false);
   const [schedMsg, setSchedMsg] = useState("");
 
+  // Reminders
+  const [remForm, setRemForm] = useState<ReminderConfig>({ enabled: true, dayBefore: true, twoHours: true });
+  const [remSaving, setRemSaving] = useState(false);
+  const [remMsg, setRemMsg] = useState("");
+
   useEffect(() => {
     getMe().then((data) => {
       if (!data) { router.push("/login"); return; }
       setUser(data.user);
       setClinic(data.clinic);
-      if (data.clinic) { syncForm(data.clinic); syncSchedForm(data.clinic); }
+      if (data.clinic) { syncForm(data.clinic); syncSchedForm(data.clinic); syncRemForm(data.clinic); }
       setLoading(false);
       if (data.clinic) fetchAnalytics(data.clinic.id);
     });
@@ -153,6 +166,10 @@ export default function PartnersDashboard() {
   function syncSchedForm(c: ClinicData) {
     const cfg = c.config as ClinicConfig;
     setSchedForm({ weekdays: cfg.schedule?.weekdays ?? "", saturday: cfg.schedule?.saturday ?? "", sunday: cfg.schedule?.sunday ?? "" });
+  }
+  function syncRemForm(c: ClinicData) {
+    const cfg = c.config as ClinicConfig;
+    setRemForm({ enabled: cfg.reminders?.enabled !== false, dayBefore: cfg.reminders?.dayBefore !== false, twoHours: cfg.reminders?.twoHours !== false });
   }
 
   function handleLogout() { logout(); router.push("/"); }
@@ -180,6 +197,18 @@ export default function PartnersDashboard() {
       setSchedMsg("Guardado"); setTimeout(() => setSchedMsg(""), 3000);
     } catch (e) { setSchedMsg(e instanceof Error ? e.message : "Error"); }
     finally { setSchedSaving(false); }
+  }
+
+  async function saveReminders() {
+    if (!clinic) return;
+    setRemSaving(true); setRemMsg("");
+    try {
+      const cfg = { ...(clinic.config as ClinicConfig), reminders: remForm };
+      const updated = await updateClinic(clinic.id, { config: cfg as Record<string, unknown> });
+      setClinic(updated); syncRemForm(updated);
+      setRemMsg("Guardado"); setTimeout(() => setRemMsg(""), 3000);
+    } catch (e) { setRemMsg(e instanceof Error ? e.message : "Error"); }
+    finally { setRemSaving(false); }
   }
 
   async function saveDoctors(doctors: DoctorRow[], boxes: number) {
@@ -259,6 +288,7 @@ export default function PartnersDashboard() {
             {/* ══ TAB ANALÍTICA ══════════════════════════════════════════════ */}
             {activeTab === "analytics" && (
               <div className="flex flex-col gap-6">
+                <SetupChecklist clinic={clinic} onGoToConfig={() => setActiveTab("config")} />
                 {analyticsLoading && (
                   <div className="flex items-center justify-center py-16">
                     <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -498,6 +528,58 @@ export default function PartnersDashboard() {
 
                 <DoctorsEditor doctors={cfg.doctors ?? []} boxes={cfg.boxes ?? 1} canEdit={canEdit} onSave={saveDoctors} />
                 <ServicesEditor services={(cfg.services as ServiceRow[]) ?? []} canEdit={canEdit} onSave={saveServices} />
+
+                {/* Recordatorios automáticos */}
+                <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="font-semibold text-gray-900">Recordatorios automáticos</h2>
+                    <div className="flex items-center gap-3">
+                      {remMsg && <span className={`text-xs ${remMsg === "Guardado" ? "text-green-600" : "text-red-600"}`}>{remMsg}</span>}
+                      {canEdit && (
+                        <button onClick={saveReminders} disabled={remSaving}
+                          className="text-sm bg-blue-600 text-white font-medium px-4 py-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                          {remSaving ? "Guardando..." : "Guardar"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-400 mb-4">Se envían por WhatsApp al paciente si tiene número registrado.</p>
+                  <div className="flex flex-col gap-3">
+                    {[
+                      { key: "enabled",   label: "Recordatorios activos",           desc: "Habilita o deshabilita todos los recordatorios" },
+                      { key: "dayBefore", label: "Recordatorio día anterior",       desc: "Avisa al paciente la noche antes de su cita" },
+                      { key: "twoHours",  label: "Recordatorio 2 horas antes",     desc: "Avisa al paciente 2 horas antes de su cita" },
+                    ].map(({ key, label, desc }) => (
+                      <label key={key} className={`flex items-center justify-between gap-4 p-3 rounded-xl border transition-colors cursor-pointer ${canEdit ? "hover:bg-gray-50" : "opacity-70 cursor-default"}`}
+                        style={{ borderColor: "#f1f5f9" }}>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">{label}</p>
+                          <p className="text-xs text-gray-400">{desc}</p>
+                        </div>
+                        <div
+                          onClick={() => canEdit && setRemForm((f) => ({ ...f, [key]: !f[key as keyof ReminderConfig] }))}
+                          className={`w-10 h-6 rounded-full relative transition-colors ${remForm[key as keyof ReminderConfig] ? "bg-blue-600" : "bg-gray-200"}`}
+                        >
+                          <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${remForm[key as keyof ReminderConfig] ? "translate-x-5" : "translate-x-1"}`} />
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </section>
+
+                {/* Webhook WhatsApp */}
+                <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <h2 className="font-semibold text-gray-900 mb-1">Webhook WhatsApp (inbound)</h2>
+                  <p className="text-xs text-gray-400 mb-4">
+                    Configura esta URL en tu consola de Twilio para que los mensajes entrantes de WhatsApp lleguen al asistente.
+                  </p>
+                  <div className="bg-gray-50 rounded-xl border border-gray-200 px-4 py-3 font-mono text-xs text-gray-700 break-all select-all">
+                    {typeof window !== "undefined" ? window.location.origin : "https://tu-dominio.com"}/api/webhooks/whatsapp/{clinic.slug}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-3">
+                    En Twilio: <strong>Sandbox Settings → When a message comes in</strong> → pega la URL → método POST.
+                  </p>
+                </section>
               </div>
             )}
           </>

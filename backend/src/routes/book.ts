@@ -280,4 +280,58 @@ export async function bookRoutes(app: FastifyInstance) {
       },
     });
   });
+
+  // GET /api/book/:slug/my-appointments — citas del paciente autenticado
+  app.get<{ Params: { slug: string } }>("/book/:slug/my-appointments", async (req, reply) => {
+    let payload;
+    try { payload = verifyPatientToken(req.headers.authorization); }
+    catch { return reply.status(401).send({ error: "No autorizado" }); }
+
+    const clinic = await prisma.clinic.findUnique({ where: { slug: req.params.slug } });
+    if (!clinic) return reply.status(404).send({ error: "Clínica no encontrada" });
+
+    const bookings = await prisma.booking.findMany({
+      where: { patientUserId: payload.patientUserId, clinicId: clinic.id },
+      orderBy: { date: "desc" },
+      take: 50,
+    });
+
+    return reply.send({ bookings, clinicName: clinic.name });
+  });
+
+  // PATCH /api/book/:slug/appointments/:id/cancel — el paciente cancela su propia cita
+  app.patch<{ Params: { slug: string; id: string } }>(
+    "/book/:slug/appointments/:id/cancel",
+    async (req, reply) => {
+      let payload;
+      try { payload = verifyPatientToken(req.headers.authorization); }
+      catch { return reply.status(401).send({ error: "No autorizado" }); }
+
+      const booking = await prisma.booking.findFirst({
+        where: { id: req.params.id, patientUserId: payload.patientUserId },
+      });
+      if (!booking) return reply.status(404).send({ error: "Cita no encontrada" });
+      if (booking.status === "cancelled") {
+        return reply.status(400).send({ error: "La cita ya está cancelada" });
+      }
+
+      // No permitir cancelar con menos de 2h de anticipación
+      const bookingDateTime = new Date(booking.date);
+      const [h, m] = booking.time.split(":").map(Number);
+      bookingDateTime.setHours(h, m, 0, 0);
+      const twoHoursFromNow = new Date(Date.now() + 2 * 60 * 60 * 1000);
+      if (bookingDateTime < twoHoursFromNow) {
+        return reply.status(400).send({
+          error: "No puedes cancelar con menos de 2 horas de anticipación. Por favor llámanos directamente.",
+        });
+      }
+
+      const updated = await prisma.booking.update({
+        where: { id: booking.id },
+        data: { status: "cancelled" },
+      });
+
+      return reply.send(updated);
+    }
+  );
 }
