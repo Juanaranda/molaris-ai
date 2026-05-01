@@ -1,4 +1,4 @@
-# molaris.ai — Contexto del proyecto
+# molari.ai — Contexto del proyecto
 
 ## Qué es
 AI Growth System para clínicas dentales chilenas. Monorepo:

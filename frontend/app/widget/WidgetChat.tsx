@@ -32,6 +32,7 @@ export function WidgetChat() {
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [context, setContext] = useState<LeadContext | null>(null);
+  const [slotBooked, setSlotBooked] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -39,8 +40,9 @@ export function WidgetChat() {
   }, [messages]);
 
   function handleSlotSelected(slot: { date: string; dayName: string; time: string; doctor: string; box: string | null }) {
+    setSlotBooked(true);
     setMessages((prev) => prev.map((m) => ({ ...m, showPicker: false })));
-    const text = `Quiero el ${slot.dayName} ${slot.date.slice(8)} a las ${slot.time} con ${slot.doctor}`;
+    const text = `Seleccioné el ${slot.dayName} ${slot.date.slice(8)} a las ${slot.time} con ${slot.doctor}`;
     setMessages((prev) => [...prev, { role: "user", text }]);
 
     fetch(`${API_URL}/api/bookings`, {
@@ -55,24 +57,26 @@ export function WidgetChat() {
       }),
     }).catch(() => {});
 
-    sendToAPI(text);
+    sendToAPI(text, true);
   }
 
-  const sendToAPI = useCallback(async (text: string) => {
+  const sendToAPI = useCallback(async (text: string, slotJustBooked = false) => {
     setLoading(true);
+    const bookedNow = slotBooked || slotJustBooked;
     try {
       const res = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, clinicSlug, sessionId: sessionId ?? undefined }),
+        body: JSON.stringify({ message: text, clinicSlug, sessionId: sessionId ?? undefined, slotBooked: bookedNow }),
       });
       const data = await res.json();
       if (!sessionId && data.sessionId) setSessionId(data.sessionId);
       const newCtx: LeadContext = { ...context, ...data.context };
       if (data.context) setContext(newCtx);
       const wantsBooking =
-        newCtx.intent === "ready_to_book" ||
-        /agend|reserv|hora|cita|disponible|horario/i.test(text);
+        !bookedNow &&
+        (newCtx.intent === "ready_to_book" ||
+          /agend|reserv|hora|cita|disponible|horario/i.test(text));
       setMessages((prev) => [
         ...prev,
         { role: "assistant", text: data.reply, showPicker: wantsBooking },
@@ -85,7 +89,7 @@ export function WidgetChat() {
     } finally {
       setLoading(false);
     }
-  }, [clinicSlug, sessionId, context]);
+  }, [clinicSlug, sessionId, context, slotBooked]);
 
   async function sendMessage() {
     const text = input.trim();

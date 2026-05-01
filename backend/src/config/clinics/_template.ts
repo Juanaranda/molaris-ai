@@ -1,5 +1,5 @@
 /**
- * TEMPLATE DE CONFIGURACIÓN — molaris.ai
+ * TEMPLATE DE CONFIGURACIÓN — molari.ai
  *
  * Copia este archivo, renómbralo con el slug de la clínica (ej: clinica-norte.ts)
  * y rellena cada campo. Luego agrégalo al seed de Prisma con /add-clinic.

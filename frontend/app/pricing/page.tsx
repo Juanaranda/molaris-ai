@@ -79,7 +79,7 @@ export default function PricingPage() {
       {/* NAV */}
       <nav className="flex items-center justify-between px-8 py-5 border-b border-gray-100">
         <Link href="/">
-          <Image src="/logo.svg" alt="molaris.ai" width={160} height={40} priority />
+          <Image src="/logo.svg" alt="molari.ai" width={160} height={40} priority />
         </Link>
         <div className="flex items-center gap-6">
           <Link href="/#demo" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
@@ -194,7 +194,7 @@ export default function PricingPage() {
 
       {/* FOOTER */}
       <footer className="border-t border-gray-100 py-6 text-center text-sm text-gray-400">
-        © {new Date().getFullYear()} molaris.ai — Santiago, Chile
+        © {new Date().getFullYear()} molari.ai — Santiago, Chile
       </footer>
     </main>
   );

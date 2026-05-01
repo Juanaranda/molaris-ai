@@ -1,35 +1,26 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { AvailabilityPicker } from "./AvailabilityPicker";
-import { parsePreferredDate } from "@/lib/dateParser";
-
-const GALANA_DOCTORS = [
-  "Dra. Ana Aranda",
-  "Dra. Ivonne Poblete",
-  "Dr. Pedro Engel",
-  "Dr. Juan Garcés",
-  "Dra. Jacqueline Pérez",
-];
-
-function extractMentionedDoctor(text: string): string | undefined {
-  return GALANA_DOCTORS.find((d) => text.includes(d));
-}
 
 interface Message {
   role: "user" | "assistant";
   text: string;
-  showPicker?: boolean;
-  preferredDate?: string;
-  doctorFilter?: string;
 }
 
 interface LeadContext {
   patientName?: string;
+  rut?: string;
+  email?: string;
   serviceInterest?: string;
   urgency?: "high" | "medium" | "low";
   intent?: "ready_to_book" | "evaluating" | "just_browsing";
   score?: number;
+  slotBooked?: boolean;
+}
+
+interface Props {
+  clinicSlug?: string;
+  clinicName?: string;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -52,12 +43,18 @@ const SCORE_COLOR = (score: number) => {
   return "text-gray-400";
 };
 
-export function ChatDemo() {
+export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica Dental" }: Props = {}) {
+  const [assistantName, setAssistantName] = useState<string | null>(null);
+  const [displayClinicName, setDisplayClinicName] = useState(clinicName);
+
+  function buildGreeting(aName: string | null, cName: string) {
+    return aName
+      ? `Hola, soy ${aName}, asistente virtual de ${cName}. ¿En qué puedo ayudarte?`
+      : `Hola, soy el asistente virtual de ${cName}. ¿En qué puedo ayudarte?`;
+  }
+
   const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      text: "Hola, soy el asistente virtual de Galana Clínica Dental. ¿En qué puedo ayudarte?",
-    },
+    { role: "assistant", text: buildGreeting(null, clinicName) },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -66,83 +63,66 @@ export function ChatDemo() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setSessionId(null);
+    setContext(null);
+    // Fetch clinic info to get assistantName
+    fetch(`${API_URL}/api/book/${clinicSlug}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        const aName: string | null = data?.clinic?.assistantName ?? null;
+        const cName: string = data?.clinic?.name ?? clinicName;
+        setAssistantName(aName);
+        setDisplayClinicName(cName);
+        setMessages([{ role: "assistant", text: buildGreeting(aName, cName) }]);
+      })
+      .catch(() => {
+        setMessages([{ role: "assistant", text: buildGreeting(null, clinicName) }]);
+      });
+  }, [clinicSlug, clinicName]);
+
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  async function handleSlotSelected(slot: {
-    date: string;
-    dayName: string;
-    time: string;
-    doctor: string;
-    box: string | null;
-  }) {
-    setMessages((prev) => prev.map((m) => ({ ...m, showPicker: false })));
-    const confirmation = `Quiero el ${slot.dayName} ${slot.date.slice(8)} a las ${slot.time} con ${slot.doctor}`;
-    setMessages((prev) => [...prev, { role: "user", text: confirmation }]);
-
-    // Guardar booking y notificar a la clínica
-    fetch(`${API_URL}/api/bookings`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clinicSlug: "galana",
-        sessionId: sessionId ?? undefined,
-        patientName: context?.patientName,
-        service: context?.serviceInterest,
-        ...slot,
-      }),
-    }).catch(() => {});
-
-    sendToAPI(confirmation);
-  }
 
   async function sendMessage() {
     const text = input.trim();
     if (!text || loading) return;
     setMessages((prev) => [...prev, { role: "user", text }]);
     setInput("");
-    await sendToAPI(text);
-  }
-
-  async function sendToAPI(text: string) {
     setLoading(true);
+
     try {
       const res = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: text,
-          clinicSlug: "galana",
-          sessionId: sessionId ?? undefined,
-        }),
+        body: JSON.stringify({ message: text, clinicSlug, sessionId: sessionId ?? undefined }),
       });
       const data = await res.json();
-
       if (!sessionId && data.sessionId) setSessionId(data.sessionId);
-
-      const newContext: LeadContext = { ...context, ...data.context };
-      if (data.context) setContext(newContext);
-
-      // Mostrar picker si el paciente quiere agendar
-      const wantsBooking =
-        newContext.intent === "ready_to_book" ||
-        /agend|reserv|hora|cita|disponible|horario/i.test(text);
-
-      const preferredDate = parsePreferredDate(text) ?? undefined;
-      const doctorFilter  = extractMentionedDoctor(data.reply) ?? undefined;
-
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", text: data.reply, showPicker: wantsBooking, preferredDate, doctorFilter },
-      ]);
+      if (data.context) setContext((prev) => ({ ...prev, ...data.context }));
+      setMessages((prev) => [...prev, { role: "assistant", text: data.reply ?? "Sin respuesta. Intenta de nuevo." }]);
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", text: "Hubo un problema al conectar. Intenta de nuevo." },
-      ]);
+      setMessages((prev) => [...prev, { role: "assistant", text: "Hubo un problema al conectar. Intenta de nuevo." }]);
     } finally {
       setLoading(false);
     }
+  }
+
+  // Render message text: detect booking URLs and make them clickable
+  function renderText(text: string | undefined) {
+    if (!text) return null;
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    return parts.map((part, i) =>
+      urlRegex.test(part) ? (
+        <a key={i} href={part} target="_blank" rel="noopener noreferrer"
+          className="underline underline-offset-2 break-all hover:opacity-80 transition-opacity">
+          {part}
+        </a>
+      ) : (
+        <span key={i}>{part}</span>
+      )
+    );
   }
 
   return (
@@ -152,41 +132,27 @@ export function ChatDemo() {
         {/* Header */}
         <div className="bg-sky-600 px-5 py-4 flex items-center gap-3">
           <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-sky-600 font-bold text-sm">
-            G
+            {(assistantName ?? displayClinicName).charAt(0).toUpperCase()}
           </div>
           <div>
-            <p className="text-white font-semibold text-sm">Galana Clínica Dental</p>
-            <p className="text-sky-200 text-xs">Asistente virtual · En línea</p>
+            <p className="text-white font-semibold text-sm">{assistantName ?? displayClinicName}</p>
+            <p className="text-sky-200 text-xs">{assistantName ? `Asistente de ${displayClinicName}` : "Asistente virtual"} · En línea</p>
           </div>
         </div>
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
           {messages.map((msg, i) => (
-            <div key={i}>
-              <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div
-                  className={`max-w-[82%] px-4 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
-                    msg.role === "user"
-                      ? "bg-sky-600 text-white rounded-br-sm"
-                      : "bg-gray-100 text-gray-800 rounded-bl-sm"
-                  }`}
-                >
-                  {msg.text}
-                </div>
+            <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                className={`max-w-[82%] px-4 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+                  msg.role === "user"
+                    ? "bg-sky-600 text-white rounded-br-sm"
+                    : "bg-gray-100 text-gray-800 rounded-bl-sm"
+                }`}
+              >
+                {msg.role === "assistant" ? renderText(msg.text) : msg.text}
               </div>
-
-              {/* Availability picker inline */}
-              {msg.showPicker && msg.role === "assistant" && (
-                <div className="mt-2 ml-1">
-                  <AvailabilityPicker
-                    service={context?.serviceInterest}
-                    doctorFilter={msg.doctorFilter}
-                    preferredDate={msg.preferredDate}
-                    onSelect={handleSlotSelected}
-                  />
-                </div>
-              )}
             </div>
           ))}
           {loading && (
@@ -223,16 +189,16 @@ export function ChatDemo() {
       {context && (
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
-            Lead Score · molaris.ai
+            Lead Score · molari.ai
           </p>
-          <div className="flex items-center gap-6">
-            <div className="text-center">
+          <div className="flex items-center gap-4 sm:gap-6">
+            <div className="text-center shrink-0">
               <div className={`text-4xl font-black ${SCORE_COLOR(context.score ?? 0)}`}>
                 {context.score ?? "—"}
               </div>
               <div className="text-xs text-gray-400 mt-1">Score</div>
             </div>
-            <div className="flex-1 grid grid-cols-2 gap-2 text-sm">
+            <div className="flex-1 grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 gap-2 text-sm">
               {context.patientName && (
                 <div>
                   <span className="text-gray-400 text-xs">Paciente</span>
