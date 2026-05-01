@@ -189,6 +189,72 @@ export async function clinicRoutes(app: FastifyInstance) {
     return reply.send(updated);
   });
 
+  // GET /api/clinics/:id/bookings
+  app.get<{ Params: { id: string }; Querystring: { status?: string; from?: string; to?: string; doctor?: string } }>(
+    "/clinics/:id/bookings",
+    async (req, reply) => {
+      let payload;
+      try { payload = verifyToken(req.headers.authorization); } catch {
+        return reply.status(401).send({ error: "No autorizado" });
+      }
+      if (payload.role !== "SUPERADMIN" && payload.clinicId !== req.params.id) {
+        return reply.status(403).send({ error: "Acceso denegado" });
+      }
+
+      const { status, from, to, doctor } = req.query;
+
+      const bookings = await prisma.booking.findMany({
+        where: {
+          clinicId: req.params.id,
+          ...(status && status !== "all" ? { status } : {}),
+          ...(doctor ? { doctor: { contains: doctor, mode: "insensitive" } } : {}),
+          ...(from || to ? {
+            date: {
+              ...(from ? { gte: new Date(from + "T00:00:00") } : {}),
+              ...(to   ? { lte: new Date(to   + "T23:59:59") } : {}),
+            },
+          } : {}),
+        },
+        orderBy: { date: "desc" },
+        take: 100,
+        include: {
+          patientUser: {
+            include: { identity: { select: { firstName: true, lastName: true, phone: true, email: true } } },
+          },
+        },
+      });
+
+      return reply.send({ bookings });
+    }
+  );
+
+  // PATCH /api/clinics/:id/bookings/:bookingId/status
+  app.patch<{ Params: { id: string; bookingId: string }; Body: { status: string } }>(
+    "/clinics/:id/bookings/:bookingId/status",
+    async (req, reply) => {
+      let payload;
+      try { payload = verifyToken(req.headers.authorization); } catch {
+        return reply.status(401).send({ error: "No autorizado" });
+      }
+      if (payload.role === "USER") return reply.status(403).send({ error: "Sin permisos" });
+      if (payload.role !== "SUPERADMIN" && payload.clinicId !== req.params.id) {
+        return reply.status(403).send({ error: "Acceso denegado" });
+      }
+
+      const { status } = req.body ?? {};
+      if (!["pending", "confirmed", "cancelled"].includes(status)) {
+        return reply.status(400).send({ error: "Estado inválido" });
+      }
+
+      const updated = await prisma.booking.update({
+        where: { id: req.params.bookingId },
+        data: { status },
+      });
+
+      return reply.send(updated);
+    }
+  );
+
   // POST /api/clinics — registro público de nueva clínica + admin
   app.post<{
     Body: {
