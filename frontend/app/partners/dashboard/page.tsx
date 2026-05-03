@@ -240,6 +240,10 @@ export default function PartnersDashboard() {
       <nav className="flex items-center justify-between px-6 sm:px-8 py-4 bg-white border-b border-gray-100 sticky top-0 z-10">
         <Link href="/"><Image src="/logo.svg" alt="molari.ai" width={120} height={32} priority /></Link>
         <div className="flex items-center gap-4">
+          <Link href="/partners/agenda"
+            className="text-sm font-semibold px-4 py-2 rounded-full border border-gray-200 text-gray-700 hover:border-blue-500 hover:text-blue-600 transition-colors">
+            📅 Agenda
+          </Link>
           {user && <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600 hidden sm:block">{user.name}</span>
             <RoleBadge role={user.role} />
