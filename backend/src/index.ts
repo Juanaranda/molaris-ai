@@ -11,6 +11,7 @@ import { patientAuthRoutes } from "./routes/patient-auth";
 import { bookRoutes } from "./routes/book";
 import { adminRoutes } from "./routes/admin";
 import { webhookRoutes } from "./routes/webhooks";
+import { agendaRoutes } from "./routes/agenda";
 import { startReminderScheduler } from "./services/notifications/reminderService";
 
 const app = Fastify({ logger: true });
@@ -26,6 +27,7 @@ app.register(patientAuthRoutes, { prefix: "/api" });
 app.register(bookRoutes, { prefix: "/api" });
 app.register(adminRoutes, { prefix: "/api" });
 app.register(webhookRoutes, { prefix: "/api" });
+app.register(agendaRoutes, { prefix: "/api" });
 
 app.get("/health", async () => ({ status: "ok", project: "molari.ai" }));
 

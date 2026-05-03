@@ -197,6 +197,7 @@ model Booking {
   doctor        String
   box           String?
   status           String       @default("pending") // "pending" | "confirmed" | "cancelled"
+  notes            String?
   reminderDaySent  Boolean      @default(false)
   reminderHourSent Boolean      @default(false)
   createdAt        DateTime     @default(now())
