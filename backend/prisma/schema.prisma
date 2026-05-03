@@ -188,6 +188,9 @@ model Booking {
   patientUser   PatientUser? @relation(fields: [patientUserId], references: [id])
   sessionId     String?
   patientName   String?
+  patientRut    String?
+  patientPhone  String?
+  patientEmail  String?
   service       String?
   date          DateTime
   time          String
