@@ -600,7 +600,7 @@ function ImportCSVModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
           <div>
             <h2 className="text-base font-black text-gray-900">Importar pacientes desde CSV</h2>
             <p className="text-xs text-gray-400 mt-0.5">
-              {step === "upload" && "Sube un archivo CSV de Reservo, Dentalink u otro sistema"}
+              {step === "upload" && "Sube un archivo CSV exportado desde tu sistema actual"}
               {step === "preview" && `${fileName} — ${preview.length} fila${preview.length !== 1 ? "s" : ""} de preview`}
               {step === "result" && "Importación completada"}
             </p>
@@ -619,7 +619,7 @@ function ImportCSVModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
                 className="border-2 border-dashed border-gray-200 rounded-2xl p-10 text-center hover:border-blue-300 hover:bg-blue-50 transition cursor-pointer w-full">
                 <div className="text-4xl mb-3">📄</div>
                 <p className="text-sm font-bold text-gray-700 mb-1">Haz clic para seleccionar un archivo CSV</p>
-                <p className="text-xs text-gray-400">Compatible con Reservo, Dentalink, Excel exportado como CSV</p>
+                <p className="text-xs text-gray-400">Compatible con cualquier exportación CSV de tu sistema de gestión</p>
               </button>
               <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleFile} />
 

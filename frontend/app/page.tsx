@@ -272,7 +272,7 @@ export default function Home() {
     {
       icon: <IconCalendar />,
       title: "Agenda inteligente",
-      desc: "Vista de calendario por profesional, gestión de citas con un clic — como Dentalink, incluido en tu plan.",
+      desc: "Vista de calendario por profesional, gestión de citas con un clic — sin herramientas adicionales, incluido en tu plan.",
       color: "#7C3AED", bg: "#F3E8FF",
     },
     {
@@ -359,7 +359,7 @@ export default function Home() {
 
               <p className="text-base sm:text-lg max-w-md mb-10 animate-fade-up animate-fade-up-delay-2" style={{ color: "#607281" }}>
                 molari.ai automatiza la atención en WhatsApp, Instagram y tu web,
-                gestiona tu agenda como Dentalink y te muestra cada lead en tiempo real.
+                gestiona tu agenda completa y te muestra cada lead en tiempo real.
               </p>
 
               <div className="flex flex-col gap-3 animate-fade-up animate-fade-up-delay-3">
@@ -517,7 +517,7 @@ export default function Home() {
                 Agenda incluida
               </p>
               <h2 className="font-display text-3xl sm:text-4xl font-bold text-white mb-5 leading-tight">
-                Tu Dentalink<br />con IA incluida.
+                Agenda completa,<br />con IA incluida.
               </h2>
               <p className="text-sm sm:text-base leading-relaxed mb-8" style={{ color: "rgba(255,255,255,0.6)" }}>
                 Vista de calendario semanal con columna por profesional, citas confirmadas y pendientes,

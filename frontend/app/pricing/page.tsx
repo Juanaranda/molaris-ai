@@ -45,7 +45,7 @@ const PLANS = [
       "Todo lo de Grow",
       "Conversaciones ilimitadas",
       "Múltiples clínicas / sucursales",
-      "Integración Reservo / sistema propio",
+      "Integración con sistema propio vía API",
       "Onboarding dedicado",
       "SLA garantizado",
     ],
@@ -65,7 +65,7 @@ const FAQ = [
   },
   {
     q: "¿Funciona con mi sistema de agenda actual?",
-    a: "En los planes Grow y Clínica+ conectamos con Reservo y otros sistemas via API.",
+    a: "En los planes Grow y Clínica+ conectamos con tu sistema de agenda actual vía API.",
   },
   {
     q: "¿Qué pasa si supero el límite de conversaciones?",
