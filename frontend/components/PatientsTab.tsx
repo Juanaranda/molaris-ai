@@ -25,6 +25,24 @@ interface HistoryEntry {
   amountPaid: number | null; paymentMethod: string | null; paidAt: string | null;
 }
 
+interface TreatmentPlan {
+  id: string;
+  patientRut: string | null;
+  patientName: string;
+  doctor: string | null;
+  title: string;
+  description: string | null;
+  totalAmount: number | null;
+  amountPaid: number;
+  sessions: number;
+  sessionsCompleted: number;
+  status: string;
+  startDate: string;
+  endDate: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
 function StatusPill({ status }: { status: string }) {
   const map: Record<string, string> = {
     confirmed: "bg-emerald-50 text-emerald-700 border-emerald-100",
@@ -55,21 +73,177 @@ function PayPill({ status }: { status: string | null }) {
   return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${s.cls}`}>{s.label}</span>;
 }
 
+const PLAN_STATUS: Record<string, { label: string; cls: string }> = {
+  active:    { label: "En curso",    cls: "bg-blue-50 text-blue-700 border-blue-200" },
+  completed: { label: "Completado",  cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  paused:    { label: "Pausado",     cls: "bg-amber-50 text-amber-700 border-amber-200" },
+  cancelled: { label: "Cancelado",   cls: "bg-gray-50 text-gray-400 border-gray-100" },
+};
+
+function PlanStatusPill({ status }: { status: string }) {
+  const s = PLAN_STATUS[status] ?? PLAN_STATUS.active;
+  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${s.cls}`}>{s.label}</span>;
+}
+
+function ProgressBar({ value, max, color = "bg-blue-500" }: { value: number; max: number; color?: string }) {
+  const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="text-[10px] text-gray-400 w-7 text-right">{pct}%</span>
+    </div>
+  );
+}
+
+interface NewPlanForm {
+  title: string; doctor: string; description: string;
+  totalAmount: string; sessions: string; notes: string;
+}
+
+function NewPlanModal({
+  patient, onClose, onCreated,
+}: {
+  patient: Patient;
+  onClose: () => void;
+  onCreated: (plan: TreatmentPlan) => void;
+}) {
+  const [form, setForm] = useState<NewPlanForm>({
+    title: "", doctor: "", description: "", totalAmount: "", sessions: "1", notes: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const set = (k: keyof NewPlanForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  async function handleSubmit(e: React.SyntheticEvent) {
+    e.preventDefault();
+    if (!form.title) { setError("El título es obligatorio"); return; }
+    setSaving(true); setError("");
+    try {
+      const token = getToken();
+      const res = await fetch(`${API}/api/treatment-plans`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          patientRut: patient.rut ?? undefined,
+          patientName: patient.name,
+          doctor: form.doctor || undefined,
+          title: form.title,
+          description: form.description || undefined,
+          totalAmount: form.totalAmount ? parseFloat(form.totalAmount) : undefined,
+          sessions: parseInt(form.sessions) || 1,
+          notes: form.notes || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Error al crear"); return; }
+      onCreated(data);
+    } catch { setError("Error de conexión"); }
+    finally { setSaving(false); }
+  }
+
+  const DOCTORS = [
+    "Dra. Ana Aranda","Dra. Ivonne Poblete","Dr. Pedro Engel",
+    "Dr. Juan Garcés","Dra. Jacqueline Pérez",
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-black text-gray-900">Nuevo plan de tratamiento</h3>
+            <p className="text-xs text-gray-400 mt-0.5">{patient.name}</p>
+          </div>
+          <button onClick={onClose}
+            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500">✕</button>
+        </div>
+        <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-600 mb-1">Título *</label>
+            <input value={form.title} onChange={set("title")} placeholder="Ortodoncia completa, Implante superior…"
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-gray-600 mb-1">Doctor</label>
+              <select value={form.doctor} onChange={set("doctor")}
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                <option value="">Sin asignar</option>
+                {DOCTORS.map((d) => <option key={d} value={d}>{d.replace(/Dra?\. /,"")}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-600 mb-1">Sesiones</label>
+              <input type="number" min="1" value={form.sessions} onChange={set("sessions")}
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-600 mb-1">Monto total (CLP)</label>
+            <input type="number" min="0" value={form.totalAmount} onChange={set("totalAmount")} placeholder="0"
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-600 mb-1">Descripción</label>
+            <textarea value={form.description} onChange={set("description")} rows={2} placeholder="Detalle del tratamiento…"
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+          </div>
+          {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 transition">
+              Cancelar
+            </button>
+            <button type="submit" disabled={saving}
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50">
+              {saving ? "Guardando…" : "Crear plan"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => void }) {
+  const [tab, setTab] = useState<"history" | "plans">("history");
   const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [plans, setPlans] = useState<TreatmentPlan[]>([]);
+  const [loadingPlans, setLoadingPlans] = useState(false);
+  const [showNewPlan, setShowNewPlan] = useState(false);
 
   useEffect(() => {
     if (!patient.rut) return;
     const token = getToken(); if (!token) return;
-    setLoading(true);
+    setLoadingHistory(true);
     fetch(`${API}/api/patients/${encodeURIComponent(patient.rut)}/history`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())
       .then(setHistory)
-      .finally(() => setLoading(false));
+      .finally(() => setLoadingHistory(false));
   }, [patient.rut]);
+
+  useEffect(() => {
+    if (tab !== "plans") return;
+    const token = getToken(); if (!token) return;
+    setLoadingPlans(true);
+    const url = patient.rut
+      ? `${API}/api/treatment-plans?patientRut=${encodeURIComponent(patient.rut)}`
+      : `${API}/api/treatment-plans`;
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((data: TreatmentPlan[]) => {
+        setPlans(patient.rut ? data : data.filter((p) => p.patientName === patient.name));
+      })
+      .finally(() => setLoadingPlans(false));
+  }, [tab, patient.rut, patient.name]);
 
   const balance = patient.totalCharged - patient.totalPaid;
 
@@ -142,53 +316,146 @@ function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => 
           )}
         </div>
 
-        {/* History */}
-        <div className="flex flex-col overflow-hidden" style={{ maxHeight: 380 }}>
-          <div className="px-5 py-3 border-b border-gray-50 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-gray-800">Historial de citas</h3>
-            {patient.pendingCount > 0 && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                {patient.pendingCount} sin registrar pago
-              </span>
-            )}
-          </div>
-          <div className="overflow-y-auto">
-            {loading ? (
-              <div className="p-5 space-y-3">
-                {[1, 2, 3].map((i) => <div key={i} className="h-10 bg-gray-100 rounded-xl animate-pulse" />)}
-              </div>
-            ) : history.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-8">Sin historial disponible</p>
-            ) : (
-              <div className="divide-y divide-gray-50">
-                {history.map((h) => (
-                  <div key={h.id} className="flex items-center gap-3 px-5 py-3">
-                    <div className="shrink-0 text-center w-16">
-                      <p className="text-xs font-bold text-gray-800">{h.time}</p>
-                      <p className="text-[10px] text-gray-400">{fmtDate(h.date)}</p>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-gray-700 truncate">{h.doctor.replace(/Dra?\. /,"")}</p>
-                      {h.service && <p className="text-[11px] text-gray-400 truncate">{h.service}</p>}
-                      {h.amountTotal && (
-                        <p className="text-[11px] text-gray-400 mt-0.5">
-                          {h.amountPaid ? fmtCLP(h.amountPaid) : "—"}
-                          {h.amountTotal !== h.amountPaid && ` / ${fmtCLP(h.amountTotal)}`}
-                          {h.paymentMethod && ` · ${{ cash:"Efectivo",transfer:"Transferencia",card:"Tarjeta",other:"Otro" }[h.paymentMethod] ?? h.paymentMethod}`}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex flex-col items-end gap-1 shrink-0">
-                      <StatusPill status={h.status} />
-                      <PayPill status={h.paymentStatus} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+        {/* Tab bar */}
+        <div className="flex border-b border-gray-100">
+          {(["history", "plans"] as const).map((t) => (
+            <button key={t} onClick={() => setTab(t)}
+              className={`flex-1 py-3 text-xs font-bold transition ${tab === t ? "text-blue-600 border-b-2 border-blue-500" : "text-gray-400 hover:text-gray-600"}`}>
+              {t === "history" ? "Historial de citas" : `Planes de tratamiento${plans.length > 0 ? ` (${plans.length})` : ""}`}
+            </button>
+          ))}
         </div>
+
+        {/* Tab: History */}
+        {tab === "history" && (
+          <div className="flex flex-col overflow-hidden" style={{ maxHeight: 340 }}>
+            {patient.pendingCount > 0 && (
+              <div className="px-5 py-2 border-b border-gray-50 flex justify-end">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                  {patient.pendingCount} sin registrar pago
+                </span>
+              </div>
+            )}
+            <div className="overflow-y-auto">
+              {loadingHistory ? (
+                <div className="p-5 space-y-3">
+                  {[1, 2, 3].map((i) => <div key={i} className="h-10 bg-gray-100 rounded-xl animate-pulse" />)}
+                </div>
+              ) : history.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8">Sin historial disponible</p>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {history.map((h) => (
+                    <div key={h.id} className="flex items-center gap-3 px-5 py-3">
+                      <div className="shrink-0 text-center w-16">
+                        <p className="text-xs font-bold text-gray-800">{h.time}</p>
+                        <p className="text-[10px] text-gray-400">{fmtDate(h.date)}</p>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-gray-700 truncate">{h.doctor.replace(/Dra?\. /,"")}</p>
+                        {h.service && <p className="text-[11px] text-gray-400 truncate">{h.service}</p>}
+                        {h.amountTotal && (
+                          <p className="text-[11px] text-gray-400 mt-0.5">
+                            {h.amountPaid ? fmtCLP(h.amountPaid) : "—"}
+                            {h.amountTotal !== h.amountPaid && ` / ${fmtCLP(h.amountTotal)}`}
+                            {h.paymentMethod && ` · ${{ cash:"Efectivo",transfer:"Transferencia",card:"Tarjeta",other:"Otro" }[h.paymentMethod] ?? h.paymentMethod}`}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <StatusPill status={h.status} />
+                        <PayPill status={h.paymentStatus} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Tab: Plans */}
+        {tab === "plans" && (
+          <div className="flex flex-col overflow-hidden" style={{ maxHeight: 340 }}>
+            <div className="px-5 py-2.5 border-b border-gray-50 flex justify-end">
+              <button onClick={() => setShowNewPlan(true)}
+                className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 transition">
+                <span className="text-base leading-none">+</span> Nuevo plan
+              </button>
+            </div>
+            <div className="overflow-y-auto">
+              {loadingPlans ? (
+                <div className="p-5 space-y-3">
+                  {[1, 2].map((i) => <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />)}
+                </div>
+              ) : plans.length === 0 ? (
+                <div className="flex flex-col items-center py-10 gap-2">
+                  <p className="text-2xl">📋</p>
+                  <p className="text-sm text-gray-400">Sin planes de tratamiento</p>
+                  <button onClick={() => setShowNewPlan(true)}
+                    className="mt-1 text-xs font-bold text-blue-600 hover:underline">Crear el primero</button>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {plans.map((plan) => {
+                    const moneyPct = plan.totalAmount && plan.totalAmount > 0
+                      ? Math.min(100, Math.round((plan.amountPaid / plan.totalAmount) * 100)) : null;
+                    const sessPct = plan.sessions > 0
+                      ? Math.min(100, Math.round((plan.sessionsCompleted / plan.sessions) * 100)) : 0;
+                    const pending = plan.totalAmount ? plan.totalAmount - plan.amountPaid : null;
+                    return (
+                      <div key={plan.id} className="px-5 py-4">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-gray-800 truncate">{plan.title}</p>
+                            {plan.doctor && (
+                              <p className="text-[11px] text-gray-400">{plan.doctor.replace(/Dra?\. /,"")}</p>
+                            )}
+                          </div>
+                          <PlanStatusPill status={plan.status} />
+                        </div>
+                        {plan.description && (
+                          <p className="text-[11px] text-gray-500 mb-2 line-clamp-2">{plan.description}</p>
+                        )}
+                        {/* Financial progress */}
+                        {plan.totalAmount && plan.totalAmount > 0 ? (
+                          <div className="mb-2">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] text-gray-400 font-semibold">Pago</span>
+                              <span className="text-[10px] text-gray-600 font-bold">
+                                {fmtCLP(plan.amountPaid)} / {fmtCLP(plan.totalAmount)}
+                                {pending && pending > 0 && <span className="text-red-500 ml-1">(-{fmtCLP(pending)})</span>}
+                              </span>
+                            </div>
+                            <ProgressBar value={plan.amountPaid} max={plan.totalAmount}
+                              color={moneyPct === 100 ? "bg-emerald-500" : "bg-blue-500"} />
+                          </div>
+                        ) : null}
+                        {/* Session progress */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] text-gray-400 font-semibold">Sesiones</span>
+                            <span className="text-[10px] text-gray-600 font-bold">
+                              {plan.sessionsCompleted} / {plan.sessions}
+                            </span>
+                          </div>
+                          <ProgressBar value={plan.sessionsCompleted} max={plan.sessions}
+                            color={sessPct === 100 ? "bg-emerald-500" : "bg-purple-500"} />
+                        </div>
+                        <p className="text-[10px] text-gray-300 mt-2">{fmtDate(plan.startDate)}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
+      {showNewPlan && (
+        <NewPlanModal patient={patient} onClose={() => setShowNewPlan(false)}
+          onCreated={(plan) => { setPlans((ps) => [plan, ...ps]); setShowNewPlan(false); }} />
+      )}
     </div>
   );
 }

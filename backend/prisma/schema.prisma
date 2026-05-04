@@ -29,12 +29,13 @@ model Clinic {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  patients     Patient[]
-  sessions     Session[]
-  bookings     Booking[]
-  partnerUsers PartnerUser[]
-  patientUsers PatientUser[]
-  usageEvents  UsageEvent[]
+  patients        Patient[]
+  sessions        Session[]
+  bookings        Booking[]
+  partnerUsers    PartnerUser[]
+  patientUsers    PatientUser[]
+  usageEvents     UsageEvent[]
+  treatmentPlans  TreatmentPlan[]
 
   @@map("clinics")
 }
@@ -177,6 +178,32 @@ model UsageEvent {
   @@index([clinicId])
   @@index([createdAt])
   @@map("usage_events")
+}
+
+// ─── PLANES DE TRATAMIENTO ───────────────────────────────────────────────────
+model TreatmentPlan {
+  id          String    @id @default(cuid())
+  clinicId    String
+  clinic      Clinic    @relation(fields: [clinicId], references: [id])
+  patientRut  String?
+  patientName String
+  doctor      String?
+  title       String                        // "Ortodoncia completa", "Implante superior"
+  description String?
+  totalAmount Float?                        // Monto total acordado (CLP)
+  amountPaid  Float     @default(0)         // Monto pagado hasta ahora
+  sessions    Int       @default(1)         // Número de sesiones planificadas
+  sessionsCompleted Int @default(0)
+  status      String    @default("active")  // "active" | "completed" | "cancelled" | "paused"
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([clinicId])
+  @@index([patientRut])
+  @@map("treatment_plans")
 }
 
 // ─── BOOKINGS (CITAS CONFIRMADAS) ────────────────────────────────────────────
