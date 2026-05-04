@@ -40,6 +40,17 @@ export async function clinicRoutes(app: FastifyInstance) {
         paymentLastMonth,
         paymentByStatus,
         incomeByMonth,
+        doctorBookings,
+        doctorCancellations,
+        doctorIncome,
+        cancelledTotal,
+        bookingsByDow,
+        uniquePatients,
+        newPatientsThisMonth,
+        returningPatients,
+        incomeByService,
+        avgTicket,
+        bookingsByHour,
       ] = await Promise.all([
         // Total conversaciones
         prisma.session.count({ where: { clinicId } }),
@@ -132,6 +143,96 @@ export async function clinicRoutes(app: FastifyInstance) {
           GROUP BY TO_CHAR("paidAt", 'YYYY-MM')
           ORDER BY month ASC
         `,
+
+        // Citas activas por doctor
+        prisma.booking.groupBy({
+          by: ["doctor"],
+          where: { clinicId, status: { not: "cancelled" } },
+          _count: true,
+        }),
+
+        // Cancelaciones por doctor
+        prisma.booking.groupBy({
+          by: ["doctor"],
+          where: { clinicId, status: "cancelled" },
+          _count: true,
+        }),
+
+        // Ingresos por doctor
+        prisma.booking.groupBy({
+          by: ["doctor"],
+          where: { clinicId, paymentStatus: { in: ["paid", "partial"] } },
+          _sum: { amountPaid: true },
+          _count: true,
+        }),
+
+        // Total citas canceladas (para tasa global)
+        prisma.booking.count({ where: { clinicId, status: "cancelled" } }),
+
+        // Citas por día de semana (0=Dom … 6=Sáb)
+        prisma.$queryRaw<Array<{ dow: number; count: bigint }>>`
+          SELECT EXTRACT(DOW FROM date)::int as dow, COUNT(*)::int as count
+          FROM bookings
+          WHERE "clinicId" = ${clinicId} AND status != 'cancelled'
+          GROUP BY EXTRACT(DOW FROM date)
+          ORDER BY dow
+        `,
+
+        // Pacientes únicos histórico
+        prisma.$queryRaw<Array<{ total: bigint }>>`
+          SELECT COUNT(DISTINCT COALESCE("patientRut", LOWER(TRIM("patientName")))) as total
+          FROM bookings
+          WHERE "clinicId" = ${clinicId} AND status != 'cancelled' AND "patientName" IS NOT NULL
+        `,
+
+        // Pacientes cuya primera cita fue este mes
+        prisma.$queryRaw<Array<{ total: bigint }>>`
+          SELECT COUNT(*) as total FROM (
+            SELECT COALESCE("patientRut", LOWER(TRIM("patientName"))) as pid,
+                   MIN(date) as first_date
+            FROM bookings
+            WHERE "clinicId" = ${clinicId} AND status != 'cancelled' AND "patientName" IS NOT NULL
+            GROUP BY pid
+            HAVING MIN(date) >= ${monthStart}
+          ) sub
+        `,
+
+        // Pacientes que han vuelto (>1 cita)
+        prisma.$queryRaw<Array<{ total: bigint }>>`
+          SELECT COUNT(*) as total FROM (
+            SELECT COALESCE("patientRut", LOWER(TRIM("patientName"))) as pid
+            FROM bookings
+            WHERE "clinicId" = ${clinicId} AND status != 'cancelled' AND "patientName" IS NOT NULL
+            GROUP BY pid
+            HAVING COUNT(*) > 1
+          ) sub
+        `,
+
+        // Ingresos y citas por servicio
+        prisma.booking.groupBy({
+          by: ["service"],
+          where: { clinicId, service: { not: null }, status: { not: "cancelled" } },
+          _count: true,
+          _sum: { amountPaid: true },
+          orderBy: { _count: { service: "desc" } },
+          take: 10,
+        }),
+
+        // Ticket promedio (citas con pago registrado)
+        prisma.booking.aggregate({
+          where: { clinicId, paymentStatus: { in: ["paid", "partial"] }, amountPaid: { gt: 0 } },
+          _avg: { amountPaid: true },
+          _count: true,
+        }),
+
+        // Citas por hora del día
+        prisma.$queryRaw<Array<{ hour: number; count: bigint }>>`
+          SELECT CAST(SPLIT_PART(time, ':', 1) AS INT) as hour, COUNT(*)::int as count
+          FROM bookings
+          WHERE "clinicId" = ${clinicId} AND status != 'cancelled'
+          GROUP BY SPLIT_PART(time, ':', 1)
+          ORDER BY hour
+        `,
       ]);
 
       const readyToBook = intentCounts.find((i) => i.intent === "ready_to_book")?._count ?? 0;
@@ -165,6 +266,43 @@ export async function clinicRoutes(app: FastifyInstance) {
           createdAt: l.session.createdAt,
         })),
         sessionsByDay: sessionsByDay.map((r) => ({ day: r.day, count: Number(r.count) })),
+        doctors: doctorBookings.map((d) => {
+          const cancelled = doctorCancellations.find((c) => c.doctor === d.doctor)?._count ?? 0;
+          const income    = doctorIncome.find((i) => i.doctor === d.doctor)?._sum?.amountPaid ?? 0;
+          const total     = d._count + cancelled;
+          return {
+            doctor: d.doctor,
+            bookings: d._count,
+            cancelled,
+            cancellationRate: total > 0 ? Math.round((cancelled / total) * 100) : 0,
+            income: income ?? 0,
+          };
+        }).sort((a, b) => b.bookings - a.bookings),
+        patients: {
+          total: Number((uniquePatients[0] as { total: bigint } | undefined)?.total ?? 0),
+          newThisMonth: Number((newPatientsThisMonth[0] as { total: bigint } | undefined)?.total ?? 0),
+          returning: Number((returningPatients[0] as { total: bigint } | undefined)?.total ?? 0),
+          retentionRate: (() => {
+            const total = Number((uniquePatients[0] as { total: bigint } | undefined)?.total ?? 0);
+            const ret   = Number((returningPatients[0] as { total: bigint } | undefined)?.total ?? 0);
+            return total > 0 ? Math.round((ret / total) * 100) : 0;
+          })(),
+        },
+        operations: {
+          cancellationRate: totalBookings + cancelledTotal > 0
+            ? Math.round((cancelledTotal / (totalBookings + cancelledTotal)) * 100) : 0,
+          bookingsByDow: bookingsByDow.map((r) => ({ dow: Number(r.dow), count: Number(r.count) })),
+          bookingsByHour: bookingsByHour.map((r) => ({ hour: Number(r.hour), count: Number(r.count) })),
+          avgTicket: Math.round(avgTicket._avg.amountPaid ?? 0),
+          paidBookings: avgTicket._count,
+        },
+        services: (incomeByService as { service: string | null; _count: number; _sum: { amountPaid: number | null } }[])
+          .filter((s) => s.service)
+          .map((s) => ({
+            service: s.service!,
+            count: s._count,
+            income: s._sum.amountPaid ?? 0,
+          })),
         payments: {
           thisMonth: {
             income: paymentThisMonth._sum.amountPaid ?? 0,
