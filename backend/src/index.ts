@@ -12,6 +12,7 @@ import { bookRoutes } from "./routes/book";
 import { adminRoutes } from "./routes/admin";
 import { webhookRoutes } from "./routes/webhooks";
 import { agendaRoutes } from "./routes/agenda";
+import { patientsRoutes } from "./routes/patients";
 import { startReminderScheduler } from "./services/notifications/reminderService";
 
 const app = Fastify({ logger: true });
@@ -28,6 +29,7 @@ app.register(bookRoutes, { prefix: "/api" });
 app.register(adminRoutes, { prefix: "/api" });
 app.register(webhookRoutes, { prefix: "/api" });
 app.register(agendaRoutes, { prefix: "/api" });
+app.register(patientsRoutes, { prefix: "/api" });
 
 app.get("/health", async () => ({ status: "ok", project: "molari.ai" }));
 

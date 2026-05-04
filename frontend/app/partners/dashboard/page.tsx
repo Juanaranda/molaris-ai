@@ -10,6 +10,7 @@ import { ServicesEditor, ServiceRow } from "@/components/ServicesEditor";
 import { BookingsTab } from "@/components/BookingsTab";
 import { SetupChecklist } from "@/components/SetupChecklist";
 import { AgendaTab } from "@/components/AgendaTab";
+import { PatientsTab } from "@/components/PatientsTab";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -106,7 +107,7 @@ function InfoField({ label, value, editable, onChange, placeholder }: {
   );
 }
 
-type Tab = "analytics" | "agenda" | "bookings" | "config";
+type Tab = "agenda" | "analytics" | "patients" | "bookings" | "config";
 
 /* ─── Dashboard principal ──────────────────────────────────────────────────── */
 export default function PartnersDashboard() {
@@ -274,7 +275,7 @@ export default function PartnersDashboard() {
           <>
             {/* Tabs */}
             <div className="flex border-b border-gray-200 gap-1">
-              {([["analytics", "Analítica"], ["agenda", "📅 Agenda"], ["bookings", "Citas"], ["config", "Configuración"]] as [Tab, string][]).map(([tab, label]) => (
+              {([["agenda", "Agenda"], ["analytics", "Analítica"], ["patients", "Pacientes"], ["bookings", "Citas"], ["config", "Configuración"]] as [Tab, string][]).map(([tab, label]) => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
                   className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
                     activeTab === tab
@@ -434,6 +435,11 @@ export default function PartnersDashboard() {
             {/* ══ TAB AGENDA ═════════════════════════════════════════════════ */}
             {activeTab === "agenda" && user && (
               <AgendaTab user={user} />
+            )}
+
+            {/* ══ TAB PACIENTES ══════════════════════════════════════════════ */}
+            {activeTab === "patients" && (
+              <PatientsTab />
             )}
 
             {/* ══ TAB CITAS ══════════════════════════════════════════════════ */}
