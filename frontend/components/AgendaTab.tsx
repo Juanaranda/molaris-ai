@@ -64,7 +64,7 @@ function palOf(doctor: string) {
 }
 
 interface Booking {
-  id: string; doctor: string; time: string; date: string;
+  id: string; doctor: string; time: string; date: string; box: string | null;
   patientName: string | null; patientRut: string | null;
   patientPhone: string | null; patientEmail: string | null;
   service: string | null; status: string; notes: string | null;
@@ -175,6 +175,7 @@ function BookingModal({ booking, onClose, onSave, onCancel }: {
                 {[
                   ["Hora",     booking.time],
                   ["Fecha",    new Date(booking.date + (booking.date.includes("T") ? "" : "T12:00:00")).toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" })],
+                  ["Box",      booking.box ? `Box ${booking.box}` : "—"],
                   ["RUT",      booking.patientRut ?? "—"],
                   ["Teléfono", booking.patientPhone ?? "—"],
                   ["Email",    booking.patientEmail ?? "—"],
@@ -283,13 +284,14 @@ const TIME_OPTIONS = Array.from({ length: 20 }, (_, i) => {
   return `${String(h).padStart(2, "0")}:${m}`;
 });
 
-function NewBookingModal({ doctors, initialDate, onClose, onCreate }: {
+function NewBookingModal({ doctors, initialDate, boxes, onClose, onCreate }: {
   doctors: string[];
   initialDate: string;
+  boxes: number;
   onClose: () => void;
-  onCreate: (data: { doctor: string; date: string; time: string; patientName: string; patientRut?: string; patientPhone?: string; patientEmail?: string; service?: string }) => Promise<void>;
+  onCreate: (data: { doctor: string; date: string; time: string; box?: string; patientName: string; patientRut?: string; patientPhone?: string; patientEmail?: string; service?: string }) => Promise<void>;
 }) {
-  const [form, setForm] = useState({ doctor: doctors[0] ?? "", date: initialDate, time: "10:00",
+  const [form, setForm] = useState({ doctor: doctors[0] ?? "", date: initialDate, time: "10:00", box: "1",
     patientName: "", patientRut: "", patientPhone: "", patientEmail: "", service: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -303,6 +305,7 @@ function NewBookingModal({ doctors, initialDate, onClose, onCreate }: {
     setSaving(true); setError("");
     try {
       await onCreate({ doctor: form.doctor, date: form.date, time: form.time,
+        box: form.box || undefined,
         patientName: form.patientName,
         patientRut:   form.patientRut   || undefined,
         patientPhone: form.patientPhone || undefined,
@@ -334,8 +337,8 @@ function NewBookingModal({ doctors, initialDate, onClose, onCreate }: {
               {doctors.map((d) => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
-          {/* Date + Time */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Date + Time + Box */}
+          <div className="grid grid-cols-3 gap-3">
             <div>
               <label className={lbl}>Fecha *</label>
               <input type="date" value={form.date} onChange={set("date")} required className={inp} />
@@ -344,6 +347,14 @@ function NewBookingModal({ doctors, initialDate, onClose, onCreate }: {
               <label className={lbl}>Hora *</label>
               <select value={form.time} onChange={set("time")} className={inp}>
                 {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={lbl}>Box</label>
+              <select value={form.box} onChange={set("box")} className={inp}>
+                {Array.from({ length: boxes }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={String(n)}>Box {n}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -385,7 +396,7 @@ function NewBookingModal({ doctors, initialDate, onClose, onCreate }: {
 }
 
 /* ── Admin agenda ────────────────────────────────────────────────────── */
-function AdminAgenda() {
+function AdminAgenda({ boxes }: { boxes: number }) {
   const [weekStart, setWeekStart]     = useState(() => getMondayOf(new Date()));
   const [days, setDays]               = useState<DayData[]>([]);
   const [loading, setLoading]         = useState(false);
@@ -459,7 +470,7 @@ function AdminAgenda() {
   }
 
   async function handleCreate(data: {
-    doctor: string; date: string; time: string; patientName: string;
+    doctor: string; date: string; time: string; box?: string; patientName: string;
     patientRut?: string; patientPhone?: string; patientEmail?: string; service?: string;
   }) {
     const token = getToken();
@@ -663,7 +674,9 @@ function AdminAgenda() {
                             {/* Patient */}
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-semibold truncate" style={{ color: pal.text }}>{b.patientName ?? "—"}</p>
-                              {b.service && <p className="text-[10px] truncate" style={{ color: pal.text, opacity: 0.7 }}>{b.service}</p>}
+                              <p className="text-[10px] truncate" style={{ color: pal.text, opacity: 0.6 }}>
+                                {[b.service, b.box ? `Box ${b.box}` : null].filter(Boolean).join(" · ") || null}
+                              </p>
                             </div>
                             {/* Status + pay */}
                             <div className="flex flex-col items-end gap-0.5 shrink-0">
@@ -695,6 +708,7 @@ function AdminAgenda() {
         <NewBookingModal
           doctors={DOCTORS}
           initialDate={selectedDate}
+          boxes={boxes}
           onClose={() => setShowNew(false)}
           onCreate={handleCreate}
         />
@@ -799,7 +813,7 @@ function DoctorAgenda({ user }: { user: AuthUser }) {
 }
 
 /* ── Main export ─────────────────────────────────────────────────────── */
-export function AgendaTab({ user }: { user: AuthUser }) {
+export function AgendaTab({ user, boxes = 2 }: { user: AuthUser; boxes?: number }) {
   const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
-  return isAdmin ? <AdminAgenda /> : <DoctorAgenda user={user} />;
+  return isAdmin ? <AdminAgenda boxes={boxes} /> : <DoctorAgenda user={user} />;
 }

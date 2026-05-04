@@ -821,7 +821,7 @@ export default function PartnersDashboard() {
 
             {/* ══ TAB AGENDA ═════════════════════════════════════════════════ */}
             {activeTab === "agenda" && user && (
-              <AgendaTab user={user} />
+              <AgendaTab user={user} boxes={(clinic.config as ClinicConfig).boxes ?? 2} />
             )}
 
             {/* ══ TAB PACIENTES ══════════════════════════════════════════════ */}

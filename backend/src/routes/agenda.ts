@@ -14,6 +14,7 @@ interface CreateBookingBody {
   doctor: string;
   date: string;
   time: string;
+  box?: string;
   patientName: string;
   patientRut?: string;
   patientPhone?: string;
@@ -37,6 +38,7 @@ function bookingSelect() {
     doctor: true,
     time: true,
     date: true,
+    box: true,
     patientName: true,
     patientRut: true,
     patientPhone: true,
@@ -147,7 +149,7 @@ export async function agendaRoutes(app: FastifyInstance) {
       return reply.status(403).send({ error: "Sin clínica asignada" });
     }
 
-    const { doctor, date, time, patientName, patientRut, patientPhone, patientEmail, service, notes } = req.body ?? {};
+    const { doctor, date, time, box, patientName, patientRut, patientPhone, patientEmail, service, notes } = req.body ?? {};
 
     if (!doctor || !date || !time || !patientName) {
       return reply.status(400).send({ error: "Campos requeridos: doctor, date, time, patientName" });
@@ -178,6 +180,7 @@ export async function agendaRoutes(app: FastifyInstance) {
         doctor,
         date: new Date(`${date}T12:00:00`),
         time,
+        box: box ?? null,
         patientName,
         patientRut: patientRut ?? null,
         patientPhone: patientPhone ?? null,
