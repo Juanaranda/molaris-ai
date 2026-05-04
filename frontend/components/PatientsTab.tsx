@@ -15,11 +15,14 @@ function fmtDate(iso: string) {
 interface Patient {
   key: string; name: string; rut: string | null; phone: string | null; email: string | null;
   visits: number; lastVisit: string; lastDoctor: string; services: string[];
+  totalCharged: number; totalPaid: number; pendingCount: number;
 }
 
 interface HistoryEntry {
   id: string; doctor: string; date: string; time: string;
   service: string | null; status: string; notes: string | null;
+  paymentStatus: string | null; amountTotal: number | null;
+  amountPaid: number | null; paymentMethod: string | null; paidAt: string | null;
 }
 
 function StatusPill({ status }: { status: string }) {
@@ -34,6 +37,22 @@ function StatusPill({ status }: { status: string }) {
       {labels[status] ?? status}
     </span>
   );
+}
+
+const fmtCLP = (n: number) =>
+  n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : `$${Math.round(n / 1_000)}k`;
+
+const PAY_LABELS: Record<string, { label: string; cls: string }> = {
+  paid:    { label: "Pagado",    cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  partial: { label: "Parcial",   cls: "bg-amber-50 text-amber-700 border-amber-200" },
+  pending: { label: "Pendiente", cls: "bg-gray-50 text-gray-500 border-gray-200" },
+  waived:  { label: "Bonif.",    cls: "bg-purple-50 text-purple-700 border-purple-200" },
+};
+
+function PayPill({ status }: { status: string | null }) {
+  if (!status) return <span className="text-[10px] text-gray-300 border border-gray-100 px-2 py-0.5 rounded-full">Sin pago</span>;
+  const s = PAY_LABELS[status] ?? PAY_LABELS.pending;
+  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${s.cls}`}>{s.label}</span>;
 }
 
 function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => void }) {
@@ -52,6 +71,8 @@ function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => 
       .finally(() => setLoading(false));
   }, [patient.rut]);
 
+  const balance = patient.totalCharged - patient.totalPaid;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -67,9 +88,7 @@ function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => 
               {patient.rut && <p className="text-sm text-white/60 mt-0.5">{patient.rut}</p>}
             </div>
             <button onClick={onClose}
-              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center text-white/70">
-              ✕
-            </button>
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center text-white/70">✕</button>
           </div>
           <div className="grid grid-cols-2 gap-3 mt-4">
             {patient.phone && (
@@ -93,6 +112,27 @@ function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => 
               <p className="text-sm font-semibold text-white/90">{fmtDate(patient.lastVisit)}</p>
             </div>
           </div>
+
+          {/* Resumen financiero */}
+          {patient.totalCharged > 0 && (
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              <div className="bg-white/10 rounded-xl px-3 py-2">
+                <p className="text-[9px] text-white/40 font-bold uppercase">Cobrado</p>
+                <p className="text-sm font-black text-white/90">{fmtCLP(patient.totalCharged)}</p>
+              </div>
+              <div className="bg-white/10 rounded-xl px-3 py-2">
+                <p className="text-[9px] text-white/40 font-bold uppercase">Pagado</p>
+                <p className="text-sm font-black text-emerald-300">{fmtCLP(patient.totalPaid)}</p>
+              </div>
+              <div className={`rounded-xl px-3 py-2 ${balance > 0 ? "bg-red-500/20" : "bg-emerald-500/10"}`}>
+                <p className="text-[9px] text-white/40 font-bold uppercase">Saldo</p>
+                <p className={`text-sm font-black ${balance > 0 ? "text-red-300" : "text-emerald-300"}`}>
+                  {balance > 0 ? `-${fmtCLP(balance)}` : "Al día"}
+                </p>
+              </div>
+            </div>
+          )}
+
           {patient.services.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-1.5">
               {patient.services.map((s) => (
@@ -103,9 +143,14 @@ function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => 
         </div>
 
         {/* History */}
-        <div className="flex flex-col overflow-hidden" style={{ maxHeight: 340 }}>
-          <div className="px-5 py-3 border-b border-gray-50">
+        <div className="flex flex-col overflow-hidden" style={{ maxHeight: 380 }}>
+          <div className="px-5 py-3 border-b border-gray-50 flex items-center justify-between">
             <h3 className="text-sm font-bold text-gray-800">Historial de citas</h3>
+            {patient.pendingCount > 0 && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                {patient.pendingCount} sin registrar pago
+              </span>
+            )}
           </div>
           <div className="overflow-y-auto">
             {loading ? (
@@ -117,16 +162,26 @@ function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => 
             ) : (
               <div className="divide-y divide-gray-50">
                 {history.map((h) => (
-                  <div key={h.id} className="flex items-center gap-4 px-5 py-3">
-                    <div className="shrink-0 text-center w-20">
+                  <div key={h.id} className="flex items-center gap-3 px-5 py-3">
+                    <div className="shrink-0 text-center w-16">
                       <p className="text-xs font-bold text-gray-800">{h.time}</p>
                       <p className="text-[10px] text-gray-400">{fmtDate(h.date)}</p>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-gray-700 truncate">{h.doctor.replace("Dra. ","").replace("Dr. ","")}</p>
+                      <p className="text-xs font-semibold text-gray-700 truncate">{h.doctor.replace(/Dra?\. /,"")}</p>
                       {h.service && <p className="text-[11px] text-gray-400 truncate">{h.service}</p>}
+                      {h.amountTotal && (
+                        <p className="text-[11px] text-gray-400 mt-0.5">
+                          {h.amountPaid ? fmtCLP(h.amountPaid) : "—"}
+                          {h.amountTotal !== h.amountPaid && ` / ${fmtCLP(h.amountTotal)}`}
+                          {h.paymentMethod && ` · ${{ cash:"Efectivo",transfer:"Transferencia",card:"Tarjeta",other:"Otro" }[h.paymentMethod] ?? h.paymentMethod}`}
+                        </p>
+                      )}
                     </div>
-                    <StatusPill status={h.status} />
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <StatusPill status={h.status} />
+                      <PayPill status={h.paymentStatus} />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -412,34 +467,55 @@ export function PatientsTab() {
         ) : (
           <>
             {/* Table header */}
-            <div className="hidden sm:grid grid-cols-[1fr_110px_130px_110px_90px_40px] gap-4 px-5 py-2.5 border-b border-gray-50">
-              {["Paciente", "RUT", "Teléfono", "Última visita", "Visitas", ""].map((h) => (
+            <div className="hidden sm:grid grid-cols-[1fr_110px_120px_110px_80px_100px_40px] gap-4 px-5 py-2.5 border-b border-gray-50">
+              {["Paciente", "RUT", "Teléfono", "Última visita", "Visitas", "Pago", ""].map((h) => (
                 <span key={h} className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{h}</span>
               ))}
             </div>
             <div className="divide-y divide-gray-50">
-              {filtered.map((p) => (
-                <button key={p.key} onClick={() => setSelected(p)}
-                  className="w-full text-left px-5 py-3.5 hover:bg-gray-50 transition group flex sm:grid sm:grid-cols-[1fr_110px_130px_110px_90px_40px] sm:gap-4 items-center gap-3">
-                  {/* Name + initials */}
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-black text-slate-500 shrink-0">
-                      {p.name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
+              {filtered.map((p) => {
+                const balance = p.totalCharged - p.totalPaid;
+                const hasPending = p.pendingCount > 0;
+                return (
+                  <button key={p.key} onClick={() => setSelected(p)}
+                    className="w-full text-left px-5 py-3.5 hover:bg-gray-50 transition group flex sm:grid sm:grid-cols-[1fr_110px_120px_110px_80px_100px_40px] sm:gap-4 items-center gap-3">
+                    {/* Name + initials */}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-black text-slate-500 shrink-0">
+                        {p.name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-800 truncate">{p.name}</p>
+                        {p.services.length > 0 && (
+                          <p className="text-[11px] text-gray-400 truncate">{p.services.slice(0, 2).join(", ")}</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-gray-800 truncate">{p.name}</p>
-                      {p.services.length > 0 && (
-                        <p className="text-[11px] text-gray-400 truncate">{p.services.slice(0, 2).join(", ")}</p>
+                    <span className="text-xs text-gray-500 hidden sm:block">{p.rut ?? "—"}</span>
+                    <span className="text-xs text-gray-500 hidden sm:block">{p.phone ?? "—"}</span>
+                    <span className="text-xs text-gray-500 hidden sm:block">{fmtDate(p.lastVisit)}</span>
+                    <span className="text-xs font-bold text-blue-600 hidden sm:block">{p.visits}</span>
+                    {/* Estado pago */}
+                    <div className="hidden sm:flex flex-col gap-0.5">
+                      {p.totalCharged > 0 ? (
+                        <>
+                          {balance > 0 ? (
+                            <span className="text-[10px] font-bold text-red-600">-{fmtCLP(balance)}</span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-emerald-600">Al día</span>
+                          )}
+                          <span className="text-[9px] text-gray-400">{fmtCLP(p.totalPaid)} pagado</span>
+                        </>
+                      ) : hasPending ? (
+                        <span className="text-[10px] text-amber-600 font-semibold">{p.pendingCount} sin registrar</span>
+                      ) : (
+                        <span className="text-[10px] text-gray-300">—</span>
                       )}
                     </div>
-                  </div>
-                  <span className="text-xs text-gray-500 hidden sm:block">{p.rut ?? "—"}</span>
-                  <span className="text-xs text-gray-500 hidden sm:block">{p.phone ?? "—"}</span>
-                  <span className="text-xs text-gray-500 hidden sm:block">{fmtDate(p.lastVisit)}</span>
-                  <span className="text-xs font-bold text-blue-600 hidden sm:block">{p.visits}</span>
-                  <span className="text-gray-300 group-hover:text-gray-400 transition text-sm shrink-0">›</span>
-                </button>
-              ))}
+                    <span className="text-gray-300 group-hover:text-gray-400 transition text-sm shrink-0">›</span>
+                  </button>
+                );
+              })}
             </div>
           </>
         )}

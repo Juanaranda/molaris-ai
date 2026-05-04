@@ -80,6 +80,7 @@ export async function patientsRoutes(app: FastifyInstance) {
       select: {
         id: true, patientName: true, patientRut: true, patientPhone: true, patientEmail: true,
         service: true, doctor: true, date: true, time: true, status: true, createdAt: true,
+        paymentStatus: true, amountTotal: true, amountPaid: true,
       },
       orderBy: { date: "desc" },
     });
@@ -88,6 +89,7 @@ export async function patientsRoutes(app: FastifyInstance) {
     const map = new Map<string, {
       key: string; name: string; rut: string | null; phone: string | null; email: string | null;
       visits: number; lastVisit: string; lastDoctor: string; services: string[];
+      totalCharged: number; totalPaid: number; pendingCount: number;
     }>();
 
     for (const b of bookings) {
@@ -97,15 +99,19 @@ export async function patientsRoutes(app: FastifyInstance) {
         map.set(key, {
           key, name: b.patientName, rut: b.patientRut, phone: b.patientPhone, email: b.patientEmail,
           visits: 0, lastVisit: b.date.toISOString(), lastDoctor: b.doctor, services: [],
+          totalCharged: 0, totalPaid: 0, pendingCount: 0,
         });
       }
       const p = map.get(key)!;
       p.visits++;
       if (b.date > new Date(p.lastVisit)) { p.lastVisit = b.date.toISOString(); p.lastDoctor = b.doctor; }
       if (b.service && !p.services.includes(b.service)) p.services.push(b.service);
-      // Update contact info if missing
       if (!p.phone && b.patientPhone) p.phone = b.patientPhone;
       if (!p.email && b.patientEmail) p.email = b.patientEmail;
+      // Payment aggregation
+      if (b.amountTotal) p.totalCharged += b.amountTotal;
+      if (b.amountPaid)  p.totalPaid    += b.amountPaid;
+      if (!b.paymentStatus || b.paymentStatus === "pending") p.pendingCount++;
     }
 
     const patients = Array.from(map.values()).sort((a, b) =>
@@ -129,6 +135,7 @@ export async function patientsRoutes(app: FastifyInstance) {
       select: {
         id: true, doctor: true, date: true, time: true, service: true,
         status: true, notes: true, createdAt: true,
+        paymentStatus: true, amountTotal: true, amountPaid: true, paymentMethod: true, paidAt: true,
       },
       orderBy: { date: "desc" },
     });
