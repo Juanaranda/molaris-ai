@@ -25,6 +25,10 @@ interface CreateBookingBody {
 interface UpdateBookingBody {
   status?: "confirmed" | "cancelled" | "pending";
   notes?: string;
+  paymentStatus?: "pending" | "paid" | "partial" | "waived";
+  amountTotal?: number;
+  amountPaid?: number;
+  paymentMethod?: "cash" | "transfer" | "card" | "other";
 }
 
 function bookingSelect() {
@@ -40,6 +44,11 @@ function bookingSelect() {
     service: true,
     status: true,
     notes: true,
+    paymentStatus: true,
+    amountTotal: true,
+    amountPaid: true,
+    paymentMethod: true,
+    paidAt: true,
     createdAt: true,
   } as const;
 }
@@ -197,7 +206,7 @@ export async function agendaRoutes(app: FastifyInstance) {
     }
 
     const { id } = req.params;
-    const { status, notes } = req.body ?? {};
+    const { status, notes, paymentStatus, amountTotal, amountPaid, paymentMethod } = req.body ?? {};
 
     const existing = await prisma.booking.findUnique({ where: { id } });
     if (!existing || existing.clinicId !== payload.clinicId) {
@@ -209,11 +218,23 @@ export async function agendaRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Status inválido" });
     }
 
+    const validPayStatuses = ["pending", "paid", "partial", "waived"];
+    if (paymentStatus && !validPayStatuses.includes(paymentStatus)) {
+      return reply.status(400).send({ error: "paymentStatus inválido" });
+    }
+
+    const isPaid = paymentStatus === "paid" || paymentStatus === "partial";
+
     const updated = await prisma.booking.update({
       where: { id },
       data: {
         ...(status !== undefined ? { status } : {}),
         ...(notes !== undefined ? { notes } : {}),
+        ...(paymentStatus !== undefined ? { paymentStatus } : {}),
+        ...(amountTotal !== undefined ? { amountTotal } : {}),
+        ...(amountPaid !== undefined ? { amountPaid } : {}),
+        ...(paymentMethod !== undefined ? { paymentMethod } : {}),
+        ...(isPaid && !existing.paidAt ? { paidAt: new Date() } : {}),
       },
       select: bookingSelect(),
     });

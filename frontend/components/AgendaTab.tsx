@@ -20,10 +20,40 @@ const DAY_SHORT  = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
 const DAY_FULL   = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
 const MONTHS     = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
 
+// Galana working hours: Weekdays 10:00–18:00, Saturday 10:00–14:00, Sunday closed
+const WORK_HOURS: Record<number, { start: number; end: number } | null> = {
+  0: null,                   // Sunday
+  1: { start: 10, end: 18 }, // Monday
+  2: { start: 10, end: 18 }, // Tuesday
+  3: { start: 10, end: 18 }, // Wednesday
+  4: { start: 10, end: 18 }, // Thursday
+  5: { start: 10, end: 18 }, // Friday
+  6: { start: 10, end: 14 }, // Saturday
+};
+
+// Half-hour slots from 09:00 to 18:30 (grid rows)
+const GRID_SLOTS = Array.from({ length: 21 }, (_, i) => {
+  const totalMins = 9 * 60 + i * 30;
+  return `${String(Math.floor(totalMins / 60)).padStart(2, "0")}:${totalMins % 60 === 0 ? "00" : "30"}`;
+});
+
+function getWorkHours(dateStr: string) {
+  const dow = new Date(dateStr + "T12:00:00").getDay();
+  return WORK_HOURS[dow] ?? null;
+}
+
+function isInWorkHours(slot: string, wh: { start: number; end: number } | null): boolean {
+  if (!wh) return false;
+  const [h, m] = slot.split(":").map(Number);
+  const mins = h * 60 + m;
+  return mins >= wh.start * 60 && mins < wh.end * 60;
+}
+
 function getMondayOf(date: Date): Date {
   const d = new Date(date);
   const day = d.getDay();
-  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+  // Sunday (0) → show the upcoming Monday (forward), not last week
+  d.setDate(d.getDate() + (day === 0 ? 1 : 1 - day));
   d.setHours(0, 0, 0, 0);
   return d;
 }
@@ -37,7 +67,10 @@ interface Booking {
   id: string; doctor: string; time: string; date: string;
   patientName: string | null; patientRut: string | null;
   patientPhone: string | null; patientEmail: string | null;
-  service: string | null; status: string; notes: string | null; createdAt: string;
+  service: string | null; status: string; notes: string | null;
+  paymentStatus: string | null; amountTotal: number | null;
+  amountPaid: number | null; paymentMethod: string | null; paidAt: string | null;
+  createdAt: string;
 }
 interface DayData { date: string; bookings: Booking[]; }
 
@@ -57,21 +90,44 @@ function StatusPill({ status }: { status: string }) {
 }
 
 /* ── Booking detail modal ────────────────────────────────────────────── */
+const PAY_STATUS_LABELS: Record<string, { label: string; cls: string }> = {
+  paid:    { label: "Pagado",   cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  partial: { label: "Parcial",  cls: "bg-amber-50 text-amber-700 border-amber-200" },
+  pending: { label: "Pendiente",cls: "bg-gray-50 text-gray-500 border-gray-200" },
+  waived:  { label: "Bonif.",   cls: "bg-purple-50 text-purple-700 border-purple-200" },
+};
+
+function PayPill({ status }: { status: string | null }) {
+  if (!status || status === "pending") return null;
+  const s = PAY_STATUS_LABELS[status] ?? PAY_STATUS_LABELS.pending;
+  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${s.cls}`}>{s.label}</span>;
+}
+
 function BookingModal({ booking, onClose, onSave, onCancel }: {
   booking: Booking;
   onClose: () => void;
-  onSave: (id: string, status: string, notes: string) => Promise<void>;
+  onSave: (id: string, patch: {
+    status: string; notes: string;
+    paymentStatus: string; amountTotal: string; amountPaid: string; paymentMethod: string;
+  }) => Promise<void>;
   onCancel: (id: string) => Promise<void>;
 }) {
-  const [status, setStatus] = useState(booking.status);
-  const [notes, setNotes]   = useState(booking.notes ?? "");
-  const [saving, setSaving] = useState(false);
+  const [status, setStatus]             = useState(booking.status);
+  const [notes, setNotes]               = useState(booking.notes ?? "");
+  const [paymentStatus, setPayStatus]   = useState(booking.paymentStatus ?? "pending");
+  const [amountTotal, setAmountTotal]   = useState(booking.amountTotal?.toString() ?? "");
+  const [amountPaid, setAmountPaid]     = useState(booking.amountPaid?.toString() ?? "");
+  const [paymentMethod, setPayMethod]   = useState(booking.paymentMethod ?? "cash");
+  const [saving, setSaving]             = useState(false);
+  const [tab, setTab]                   = useState<"info" | "payment">("info");
   const pal = palOf(booking.doctor);
 
   async function save() {
     setSaving(true);
-    try { await onSave(booking.id, status, notes); onClose(); }
-    finally { setSaving(false); }
+    try {
+      await onSave(booking.id, { status, notes, paymentStatus, amountTotal, amountPaid, paymentMethod });
+      onClose();
+    } finally { setSaving(false); }
   }
 
   async function cancel() {
@@ -79,6 +135,8 @@ function BookingModal({ booking, onClose, onSave, onCancel }: {
     await onCancel(booking.id);
     onClose();
   }
+
+  const inp = "w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
@@ -90,51 +148,118 @@ function BookingModal({ booking, onClose, onSave, onCancel }: {
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: pal.text }}>{booking.doctor}</p>
             <h2 className="text-lg font-black text-gray-900 mt-0.5">{booking.patientName ?? "Paciente"}</h2>
+            <div className="flex items-center gap-1.5 mt-1">
+              <StatusPill status={booking.status} />
+              <PayPill status={booking.paymentStatus} />
+            </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-black/5 hover:bg-black/10 transition flex items-center justify-center text-gray-500">
-            ✕
-          </button>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-black/5 hover:bg-black/10 transition flex items-center justify-center text-gray-500">✕</button>
         </div>
 
-        <div className="px-6 py-5 flex flex-col gap-5">
-          {/* Info grid */}
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-            {[
-              ["Hora",    booking.time],
-              ["Fecha",   new Date(booking.date).toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" })],
-              ["RUT",     booking.patientRut ?? "—"],
-              ["Teléfono",booking.patientPhone ?? "—"],
-              ["Email",   booking.patientEmail ?? "—"],
-              ["Servicio",booking.service ?? "—"],
-            ].map(([label, val]) => (
-              <div key={label}>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">{label}</p>
-                <p className="text-sm font-semibold text-gray-800">{val}</p>
+        {/* Tabs */}
+        <div className="flex border-b border-gray-100">
+          {(["info", "payment"] as const).map((t) => (
+            <button key={t} onClick={() => setTab(t)}
+              className={`flex-1 py-2.5 text-xs font-bold transition border-b-2 -mb-px ${
+                tab === t ? "border-blue-600 text-blue-600" : "border-transparent text-gray-400 hover:text-gray-600"
+              }`}>
+              {t === "info" ? "Detalle" : "Pago"}
+            </button>
+          ))}
+        </div>
+
+        <div className="px-6 py-5 flex flex-col gap-4">
+          {tab === "info" ? (
+            <>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                {[
+                  ["Hora",     booking.time],
+                  ["Fecha",    new Date(booking.date + (booking.date.includes("T") ? "" : "T12:00:00")).toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" })],
+                  ["RUT",      booking.patientRut ?? "—"],
+                  ["Teléfono", booking.patientPhone ?? "—"],
+                  ["Email",    booking.patientEmail ?? "—"],
+                  ["Servicio", booking.service ?? "—"],
+                ].map(([label, val]) => (
+                  <div key={label}>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">{label}</p>
+                    <p className="text-sm font-semibold text-gray-800">{val}</p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          {/* Status */}
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Estado</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="confirmed">Confirmada</option>
-              <option value="pending">Pendiente</option>
-              <option value="cancelled">Cancelada</option>
-            </select>
-          </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Estado</label>
+                <select value={status} onChange={(e) => setStatus(e.target.value)} className={inp}>
+                  <option value="confirmed">Confirmada</option>
+                  <option value="pending">Pendiente</option>
+                  <option value="cancelled">Cancelada</option>
+                </select>
+              </div>
 
-          {/* Notes */}
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Notas internas</label>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
-              placeholder="Observaciones, indicaciones..."
-              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Notas internas</label>
+                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
+                  placeholder="Observaciones, indicaciones..."
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Payment status */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Estado del pago</label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {(["pending","paid","partial","waived"] as const).map((s) => {
+                    const info = PAY_STATUS_LABELS[s];
+                    return (
+                      <button key={s} type="button" onClick={() => setPayStatus(s)}
+                        className={`py-2 rounded-xl text-[11px] font-bold border transition ${
+                          paymentStatus === s ? `${info.cls} ring-2 ring-offset-1 ring-current` : "border-gray-200 text-gray-400 hover:border-gray-300"
+                        }`}>
+                        {info.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Amounts */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Monto cobrado (CLP)</label>
+                  <input type="number" min="0" step="1000" value={amountTotal}
+                    onChange={(e) => setAmountTotal(e.target.value)}
+                    placeholder="Ej: 50000" className={inp} />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Monto pagado (CLP)</label>
+                  <input type="number" min="0" step="1000" value={amountPaid}
+                    onChange={(e) => setAmountPaid(e.target.value)}
+                    placeholder="Ej: 50000" className={inp} />
+                </div>
+              </div>
+
+              {/* Method */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Método de pago</label>
+                <select value={paymentMethod} onChange={(e) => setPayMethod(e.target.value)} className={inp}>
+                  <option value="cash">Efectivo</option>
+                  <option value="transfer">Transferencia</option>
+                  <option value="card">Tarjeta</option>
+                  <option value="other">Otro</option>
+                </select>
+              </div>
+
+              {booking.paidAt && (
+                <p className="text-xs text-gray-400">
+                  Pagado el {new Date(booking.paidAt).toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" })}
+                </p>
+              )}
+            </>
+          )}
 
           {/* Actions */}
-          <div className="flex gap-3">
+          <div className="flex gap-3 pt-1">
             <button onClick={save} disabled={saving}
               className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
               style={{ backgroundColor: pal.dot }}>
@@ -302,12 +427,23 @@ function AdminAgenda() {
     return day.bookings.filter((b) => b.status !== "cancelled" && (!doctorFilter || b.doctor === doctorFilter)).length;
   }
 
-  async function handleSave(id: string, status: string, notes: string) {
+  async function handleSave(id: string, patch: {
+    status: string; notes: string;
+    paymentStatus: string; amountTotal: string; amountPaid: string; paymentMethod: string;
+  }) {
     const token = getToken();
+    const body: Record<string, unknown> = {
+      status: patch.status,
+      notes: patch.notes,
+      paymentStatus: patch.paymentStatus,
+      paymentMethod: patch.paymentMethod,
+    };
+    if (patch.amountTotal !== "") body.amountTotal = Number(patch.amountTotal);
+    if (patch.amountPaid  !== "") body.amountPaid  = Number(patch.amountPaid);
     const res = await fetch(`${API}/api/agenda/bookings/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ status, notes }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error("Error al guardar");
     await fetchWeek(weekStart);
@@ -322,7 +458,7 @@ function AdminAgenda() {
     await fetchWeek(weekStart);
   }
 
-  async function handleCreate(data: Parameters<typeof handleSave>[0] extends never ? never : {
+  async function handleCreate(data: {
     doctor: string; date: string; time: string; patientName: string;
     patientRut?: string; patientPhone?: string; patientEmail?: string; service?: string;
   }) {
@@ -333,7 +469,14 @@ function AdminAgenda() {
       body: JSON.stringify(data),
     });
     if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error ?? "Error"); }
-    await fetchWeek(weekStart);
+    // Navigate to the week that contains the new booking
+    const bookingWeekStart = getMondayOf(new Date(data.date + "T12:00:00"));
+    if (toDateStr(bookingWeekStart) !== toDateStr(weekStart)) {
+      setWeekStart(bookingWeekStart);
+      // useEffect will trigger fetchWeek for the new weekStart
+    } else {
+      await fetchWeek(weekStart);
+    }
     setSelectedDate(data.date);
   }
 
@@ -426,68 +569,125 @@ function AdminAgenda() {
         })}
       </div>
 
-      {/* Day timeline */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-gray-50 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-gray-800 capitalize">{selectedLabel}</h3>
-          <span className="text-xs text-gray-400">
-            {dayBookings.filter((b) => b.status !== "cancelled").length} cita{dayBookings.filter((b) => b.status !== "cancelled").length !== 1 ? "s" : ""} activa{dayBookings.filter((b) => b.status !== "cancelled").length !== 1 ? "s" : ""}
-          </span>
-        </div>
+      {/* Day timeline grid */}
+      {(() => {
+        const wh = getWorkHours(selectedDate);
+        const activeCitas = dayBookings.filter((b) => b.status !== "cancelled").length;
+        // Map bookings by their half-hour slot key
+        const slotMap = new Map<string, Booking[]>();
+        for (const b of dayBookings) {
+          const [h, m] = b.time.split(":").map(Number);
+          const slotKey = `${String(h).padStart(2,"0")}:${m < 30 ? "00" : "30"}`;
+          if (!slotMap.has(slotKey)) slotMap.set(slotKey, []);
+          slotMap.get(slotKey)!.push(b);
+        }
 
-        {dayBookings.length === 0 ? (
-          <div className="text-center py-14">
-            <p className="text-4xl mb-3">📅</p>
-            <p className="text-sm font-medium text-gray-500">Sin citas para este día</p>
-            <button onClick={() => setShowNew(true)}
-              className="mt-4 text-xs font-bold px-4 py-2 rounded-xl text-white"
-              style={{ backgroundColor: "#D95F45" }}>
-              + Agregar cita
-            </button>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-50">
-            {dayBookings.map((b) => {
-              const pal = palOf(b.doctor);
-              const isCancelled = b.status === "cancelled";
-              return (
-                <button key={b.id} onClick={() => setSelectedBooking(b)}
-                  className={`w-full flex items-center gap-4 px-5 py-3.5 text-left hover:bg-gray-50 transition group ${isCancelled ? "opacity-40" : ""}`}>
-                  {/* Time */}
-                  <span className="text-sm font-black text-gray-800 w-12 shrink-0 tabular-nums">{b.time}</span>
-                  {/* Color bar */}
-                  <span className="w-1 h-8 rounded-full shrink-0" style={{ background: pal.dot }} />
-                  {/* Doctor (when showing all) */}
-                  {!doctorFilter && (
-                    <span className="text-xs font-bold shrink-0 w-32 hidden sm:block" style={{ color: pal.text }}>
-                      {b.doctor.replace("Dra. ", "").replace("Dr. ", "")}
-                    </span>
-                  )}
-                  {/* Patient info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-800 truncate">{b.patientName ?? "—"}</p>
-                    <p className="text-xs text-gray-400 truncate">{[b.service, b.patientRut].filter(Boolean).join(" · ")}</p>
+        return (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            {/* Header */}
+            <div className="px-5 py-3.5 border-b border-gray-50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <h3 className="text-sm font-bold text-gray-800 capitalize">{selectedLabel}</h3>
+                {wh ? (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                    {String(wh.start).padStart(2,"0")}:00 – {String(wh.end).padStart(2,"0")}:00
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">Cerrado</span>
+                )}
+              </div>
+              <span className="text-xs text-gray-400">
+                {activeCitas} cita{activeCitas !== 1 ? "s" : ""} activa{activeCitas !== 1 ? "s" : ""}
+              </span>
+            </div>
+
+            {/* Legend */}
+            <div className="flex items-center gap-4 px-5 py-2 border-b border-gray-50 bg-gray-50/60">
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-sm bg-white border border-gray-200" />
+                <span className="text-[10px] text-gray-400 font-medium">Horario de atención</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-sm bg-gray-100 border border-gray-200" />
+                <span className="text-[10px] text-gray-400 font-medium">Fuera de horario</span>
+              </div>
+            </div>
+
+            {/* Time grid */}
+            <div className="overflow-y-auto" style={{ maxHeight: "520px" }}>
+              {GRID_SLOTS.map((slot) => {
+                const inWork = isInWorkHours(slot, wh);
+                const slotBookings = slotMap.get(slot) ?? [];
+                const isHour = slot.endsWith(":00");
+                return (
+                  <div key={slot} className={`flex min-h-[44px] border-b border-gray-50 last:border-b-0 transition-colors ${
+                    inWork ? "bg-white" : "bg-gray-50/70"
+                  }`}>
+                    {/* Time label */}
+                    <div className={`w-14 shrink-0 flex items-start justify-end pr-3 pt-2 ${
+                      isHour ? "text-[11px] font-bold text-gray-500" : "text-[10px] text-gray-300"
+                    }`}>
+                      {isHour ? slot : "·"}
+                    </div>
+                    {/* Left border indicator: solid for work hours, dashed-like for off */}
+                    <div className={`w-px self-stretch shrink-0 ${inWork ? "bg-blue-100" : "bg-gray-200"}`} />
+                    {/* Slot content */}
+                    <div className="flex-1 px-3 py-1.5 flex flex-col gap-1 justify-center">
+                      {slotBookings.length === 0 && inWork && (
+                        <button onClick={() => setShowNew(true)}
+                          className="w-full text-left text-[10px] text-gray-200 hover:text-blue-400 transition py-1 rounded group">
+                          <span className="group-hover:underline">+ cita</span>
+                        </button>
+                      )}
+                      {slotBookings.map((b) => {
+                        const pal = palOf(b.doctor);
+                        const isCancelled = b.status === "cancelled";
+                        return (
+                          <button key={b.id} onClick={() => setSelectedBooking(b)}
+                            className={`w-full text-left flex items-center gap-2.5 px-2.5 py-2 rounded-xl border hover:shadow-sm transition group ${
+                              isCancelled ? "opacity-40 line-through" : ""
+                            }`}
+                            style={{ background: pal.bg, borderColor: `${pal.dot}40` }}>
+                            {/* Time exact */}
+                            <span className="text-[10px] font-black tabular-nums shrink-0" style={{ color: pal.dot }}>
+                              {b.time}
+                            </span>
+                            {/* Color dot */}
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: pal.dot }} />
+                            {/* Doctor */}
+                            {!doctorFilter && (
+                              <span className="text-[10px] font-bold shrink-0 hidden sm:block" style={{ color: pal.text }}>
+                                {b.doctor.replace(/Dra?\. /, "").split(" ")[0]}
+                              </span>
+                            )}
+                            {/* Patient */}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold truncate" style={{ color: pal.text }}>{b.patientName ?? "—"}</p>
+                              {b.service && <p className="text-[10px] truncate" style={{ color: pal.text, opacity: 0.7 }}>{b.service}</p>}
+                            </div>
+                            {/* Status + pay */}
+                            <div className="flex flex-col items-end gap-0.5 shrink-0">
+                              <StatusPill status={b.status} />
+                              <PayPill status={b.paymentStatus} />
+                            </div>
+                            <span className="text-[10px] opacity-30 group-hover:opacity-60 transition">›</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                  {/* Phone */}
-                  {b.patientPhone && (
-                    <span className="text-xs text-gray-400 shrink-0 hidden lg:block">{b.patientPhone}</span>
-                  )}
-                  {/* Status */}
-                  <StatusPill status={b.status} />
-                  {/* Edit hint */}
-                  <span className="text-xs text-gray-300 group-hover:text-gray-400 transition shrink-0">›</span>
-                </button>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        )}
-      </div>
+        );
+      })()}
 
       {selectedBooking && (
         <BookingModal
           booking={selectedBooking}
           onClose={() => setSelectedBooking(null)}
-          onSave={async (id, status, notes) => { await handleSave(id, status, notes); setSelectedBooking(null); }}
+          onSave={async (id, patch) => { await handleSave(id, patch); setSelectedBooking(null); }}
           onCancel={async (id) => { await handleCancel(id); setSelectedBooking(null); }}
         />
       )}

@@ -22,6 +22,10 @@ export async function clinicRoutes(app: FastifyInstance) {
       const days = Number(req.query.days ?? 30);
       const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
       const [
         totalSessions,
         totalLeads,
@@ -32,6 +36,10 @@ export async function clinicRoutes(app: FastifyInstance) {
         totalBookings,
         recentLeads,
         sessionsByDay,
+        paymentThisMonth,
+        paymentLastMonth,
+        paymentByStatus,
+        incomeByMonth,
       ] = await Promise.all([
         // Total conversaciones
         prisma.session.count({ where: { clinicId } }),
@@ -88,6 +96,42 @@ export async function clinicRoutes(app: FastifyInstance) {
           GROUP BY DATE(s."createdAt")
           ORDER BY day ASC
         `,
+
+        // Ingresos este mes
+        prisma.booking.aggregate({
+          where: { clinicId, paymentStatus: { in: ["paid", "partial"] }, paidAt: { gte: monthStart } },
+          _sum: { amountPaid: true },
+          _count: true,
+        }),
+
+        // Ingresos mes anterior
+        prisma.booking.aggregate({
+          where: { clinicId, paymentStatus: { in: ["paid", "partial"] }, paidAt: { gte: prevMonthStart, lt: monthStart } },
+          _sum: { amountPaid: true },
+          _count: true,
+        }),
+
+        // Desglose por paymentStatus
+        prisma.booking.groupBy({
+          by: ["paymentStatus"],
+          where: { clinicId, status: { not: "cancelled" }, paymentStatus: { not: null } },
+          _count: true,
+          _sum: { amountTotal: true, amountPaid: true },
+        }),
+
+        // Ingresos por mes (últimos 6 meses)
+        prisma.$queryRaw<Array<{ month: string; income: number; count: bigint }>>`
+          SELECT
+            TO_CHAR("paidAt", 'YYYY-MM') as month,
+            COALESCE(SUM("amountPaid"), 0)::float as income,
+            COUNT(*)::int as count
+          FROM bookings
+          WHERE "clinicId" = ${clinicId}
+            AND "paymentStatus" IN ('paid', 'partial')
+            AND "paidAt" >= ${new Date(now.getFullYear(), now.getMonth() - 5, 1)}
+          GROUP BY TO_CHAR("paidAt", 'YYYY-MM')
+          ORDER BY month ASC
+        `,
       ]);
 
       const readyToBook = intentCounts.find((i) => i.intent === "ready_to_book")?._count ?? 0;
@@ -121,6 +165,27 @@ export async function clinicRoutes(app: FastifyInstance) {
           createdAt: l.session.createdAt,
         })),
         sessionsByDay: sessionsByDay.map((r) => ({ day: r.day, count: Number(r.count) })),
+        payments: {
+          thisMonth: {
+            income: paymentThisMonth._sum.amountPaid ?? 0,
+            count: paymentThisMonth._count,
+          },
+          lastMonth: {
+            income: paymentLastMonth._sum.amountPaid ?? 0,
+            count: paymentLastMonth._count,
+          },
+          byStatus: paymentByStatus.map((p) => ({
+            status: p.paymentStatus,
+            count: p._count,
+            totalCharged: p._sum.amountTotal ?? 0,
+            totalPaid: p._sum.amountPaid ?? 0,
+          })),
+          incomeByMonth: incomeByMonth.map((r) => ({
+            month: r.month,
+            income: Number(r.income),
+            count: Number(r.count),
+          })),
+        },
       });
     }
   );

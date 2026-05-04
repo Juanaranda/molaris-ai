@@ -44,6 +44,12 @@ interface Analytics {
     slotBooked: boolean; channel: string; createdAt: string;
   }[];
   sessionsByDay: { day: string; count: number }[];
+  payments?: {
+    thisMonth: { income: number; count: number };
+    lastMonth: { income: number; count: number };
+    byStatus: { status: string | null; count: number; totalCharged: number; totalPaid: number }[];
+    incomeByMonth: { month: string; income: number; count: number }[];
+  };
 }
 
 /* ─── Helpers visuales ─────────────────────────────────────────────────────── */
@@ -309,6 +315,105 @@ export default function PartnersDashboard() {
                       <StatCard label="Citas agendadas" value={analytics.totals.bookings}
                         sub={analytics.totals.leads > 0 ? `${analytics.bookingRate}% conversión` : undefined} />
                     </div>
+
+                    {/* ── Sección financiera ─────────────────────────────────── */}
+                    {(() => {
+                      const pay = analytics.payments;
+                      const fmtCLP = (n: number) =>
+                        n >= 1_000_000
+                          ? `$${(n / 1_000_000).toFixed(1)}M`
+                          : `$${(n / 1_000).toFixed(0)}k`;
+                      const pctChange = pay && pay.lastMonth.income > 0
+                        ? Math.round(((pay.thisMonth.income - pay.lastMonth.income) / pay.lastMonth.income) * 100)
+                        : null;
+                      const maxIncome = pay ? Math.max(...pay.incomeByMonth.map((r) => r.income), 1) : 1;
+                      const MONTH_LABELS: Record<string, string> = {
+                        "01":"Ene","02":"Feb","03":"Mar","04":"Abr","05":"May","06":"Jun",
+                        "07":"Jul","08":"Ago","09":"Sep","10":"Oct","11":"Nov","12":"Dic",
+                      };
+
+                      return (
+                        <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                          <div className="flex items-center justify-between mb-5">
+                            <h2 className="font-semibold text-gray-900">Ingresos</h2>
+                            {pay && pay.thisMonth.count === 0 && (
+                              <span className="text-xs text-gray-400">Registra pagos desde la agenda para ver datos</span>
+                            )}
+                          </div>
+
+                          {/* KPIs */}
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+                            <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 mb-1">Este mes</p>
+                              <p className="text-2xl font-black text-emerald-700 leading-none">
+                                {pay ? fmtCLP(pay.thisMonth.income) : "—"}
+                              </p>
+                              {pay && pay.thisMonth.count > 0 && (
+                                <p className="text-xs text-emerald-600 mt-1">{pay.thisMonth.count} pago{pay.thisMonth.count !== 1 ? "s" : ""}</p>
+                              )}
+                              {pctChange !== null && (
+                                <p className={`text-xs font-semibold mt-1 ${pctChange >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                                  {pctChange >= 0 ? "+" : ""}{pctChange}% vs mes anterior
+                                </p>
+                              )}
+                            </div>
+                            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Mes anterior</p>
+                              <p className="text-2xl font-black text-gray-700 leading-none">
+                                {pay ? fmtCLP(pay.lastMonth.income) : "—"}
+                              </p>
+                              {pay && pay.lastMonth.count > 0 && (
+                                <p className="text-xs text-gray-500 mt-1">{pay.lastMonth.count} pago{pay.lastMonth.count !== 1 ? "s" : ""}</p>
+                              )}
+                            </div>
+                            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 sm:block hidden">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Estado pagos</p>
+                              <div className="flex flex-col gap-1.5">
+                                {[
+                                  { key: "paid",    label: "Pagado",    color: "#10B981" },
+                                  { key: "partial", label: "Parcial",   color: "#F59E0B" },
+                                  { key: "pending", label: "Pendiente", color: "#9CA3AF" },
+                                  { key: "waived",  label: "Bonificado",color: "#8B5CF6" },
+                                ].map(({ key, label, color }) => {
+                                  const entry = pay?.byStatus.find((s) => s.status === key);
+                                  if (!entry) return null;
+                                  return (
+                                    <div key={key} className="flex items-center gap-1.5 text-xs">
+                                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                                      <span className="text-gray-500 flex-1">{label}</span>
+                                      <span className="font-bold text-gray-700">{entry.count}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Income by month bar chart */}
+                          {pay && pay.incomeByMonth.length > 0 && (
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3">Últimos 6 meses</p>
+                              <div className="flex items-end gap-2 h-20">
+                                {pay.incomeByMonth.map((r) => {
+                                  const pct = Math.round((r.income / maxIncome) * 100);
+                                  const [, mm] = r.month.split("-");
+                                  return (
+                                    <div key={r.month} className="flex-1 flex flex-col items-center gap-1 group">
+                                      <span className="text-[9px] text-gray-400 opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
+                                        {fmtCLP(r.income)}
+                                      </span>
+                                      <div className="w-full rounded-t-lg bg-emerald-500 transition-all hover:bg-emerald-400"
+                                        style={{ height: `${Math.max(pct, 4)}%`, minHeight: "4px" }} />
+                                      <span className="text-[10px] text-gray-400">{MONTH_LABELS[mm] ?? mm}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </section>
+                      );
+                    })()}
 
                     {/* Score promedio + embudo */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

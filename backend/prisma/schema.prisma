@@ -200,6 +200,12 @@ model Booking {
   notes            String?
   reminderDaySent  Boolean      @default(false)
   reminderHourSent Boolean      @default(false)
+  // Pagos
+  paymentStatus    String?      // "pending" | "paid" | "partial" | "waived"
+  amountTotal      Float?       // Monto cobrado / cotizado (CLP)
+  amountPaid       Float?       // Monto efectivamente pagado
+  paymentMethod    String?      // "cash" | "transfer" | "card" | "other"
+  paidAt           DateTime?
   createdAt        DateTime     @default(now())
 
   @@map("bookings")
