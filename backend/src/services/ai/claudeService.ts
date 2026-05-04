@@ -28,12 +28,23 @@ export interface AIRequestParams {
   clinic: Clinic;
   sessionId: string;
   currentContext?: Partial<PatientContextUpdate>;
+  availabilityHint?: string;
+}
+
+export interface BookingAction {
+  doctor: string;
+  date: string;
+  time: string;
+  patientName: string;
+  patientRut: string;
+  service?: string;
 }
 
 export interface AIResponse {
   reply: string;
   context: PatientContextUpdate | null;
   isFarewell: boolean;
+  bookingAction?: BookingAction;
   usage?: { model: string; tier: string; tokensIn: number; tokensOut: number; costUsd: number; latencyMs: number };
 }
 
@@ -108,9 +119,29 @@ const TOOLS = [
           email:           { type: "string", description: "Email del paciente (opcional)" },
           serviceInterest: { type: "string" },
           urgency:         { type: "string", enum: ["high", "medium", "low"] },
-          intent:          { type: "string", enum: ["ready_to_book", "evaluating", "just_browsing"] },
+          intent:          { type: "string", enum: ["ready_to_book", "booking_via_chat", "evaluating", "just_browsing"] },
           score:           { type: "number" },
           notes:           { type: "string" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_booking",
+      description:
+        "Crea una cita confirmada cuando el paciente eligió agendar por el chat y ya tienes TODOS los datos: doctor, fecha (YYYY-MM-DD), hora (HH:MM), nombre completo y RUT del paciente. NO llames esta función si falta algún dato.",
+      parameters: {
+        type: "object",
+        required: ["doctor", "date", "time", "patientName", "patientRut"],
+        properties: {
+          doctor:      { type: "string", description: "Nombre exacto del doctor, tal como aparece en la lista del equipo médico" },
+          date:        { type: "string", description: "Fecha en formato YYYY-MM-DD" },
+          time:        { type: "string", description: "Hora en formato HH:MM (ej: 10:30)" },
+          patientName: { type: "string", description: "Nombre completo del paciente" },
+          patientRut:  { type: "string", description: "RUT del paciente sin puntos ni guión" },
+          service:     { type: "string", description: "Tipo de consulta (opcional)" },
         },
       },
     },
@@ -237,6 +268,7 @@ export async function getAIResponse({
   clinic,
   sessionId,
   currentContext = {},
+  availabilityHint,
 }: AIRequestParams): Promise<AIResponse> {
 
   // Capa 1: rate limit por sesión (async — puede recuperar desde DB)
@@ -283,6 +315,7 @@ export async function getAIResponse({
     { role: "system", content: systemPrompt },
     ...(contextHint ? [{ role: "system" as const, content: contextHint }] : []),
     { role: "system", content: stateHint },
+    ...(availabilityHint ? [{ role: "system" as const, content: availabilityHint }] : []),
     ...history,
   ];
 
@@ -316,11 +349,20 @@ export async function getAIResponse({
 
   const rawContent = orMsg.content ?? "";
 
-  // Extraer contexto del tool_call
+  // Extraer tool calls — puede haber múltiples (update_patient_context + create_booking)
   let context: PatientContextUpdate | null = null;
-  const toolCall = orMsg.tool_calls?.[0];
-  if (toolCall?.function?.arguments) {
-    try { context = JSON.parse(toolCall.function.arguments) as PatientContextUpdate; } catch {}
+  let bookingAction: BookingAction | undefined;
+
+  for (const tc of orMsg.tool_calls ?? []) {
+    if (!tc?.function?.arguments) continue;
+    try {
+      const args = JSON.parse(tc.function.arguments);
+      if (tc.function.name === "update_patient_context") {
+        context = args as PatientContextUpdate;
+      } else if (tc.function.name === "create_booking") {
+        bookingAction = args as BookingAction;
+      }
+    } catch {}
   }
 
   // Fallback: parsear tags inline que algunos modelos emiten como texto
@@ -399,6 +441,7 @@ export async function getAIResponse({
     reply: replyText,
     context: mergedContext,
     isFarewell,
+    bookingAction,
     usage: { model: usedModel, tier, tokensIn, tokensOut, costUsd: calcCost(usedModel, tokensIn, tokensOut), latencyMs },
   };
 }

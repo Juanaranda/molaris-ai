@@ -188,13 +188,25 @@ model Booking {
   patientUser   PatientUser? @relation(fields: [patientUserId], references: [id])
   sessionId     String?
   patientName   String?
+  patientRut    String?
+  patientPhone  String?
+  patientEmail  String?
   service       String?
   date          DateTime
   time          String
   doctor        String
   box           String?
-  status        String       @default("pending") // "pending" | "confirmed" | "cancelled"
-  createdAt     DateTime     @default(now())
+  status           String       @default("pending") // "pending" | "confirmed" | "cancelled"
+  notes            String?
+  reminderDaySent  Boolean      @default(false)
+  reminderHourSent Boolean      @default(false)
+  // Pagos
+  paymentStatus    String?      // "pending" | "paid" | "partial" | "waived"
+  amountTotal      Float?       // Monto cobrado / cotizado (CLP)
+  amountPaid       Float?       // Monto efectivamente pagado
+  paymentMethod    String?      // "cash" | "transfer" | "card" | "other"
+  paidAt           DateTime?
+  createdAt        DateTime     @default(now())
 
   @@map("bookings")
 }

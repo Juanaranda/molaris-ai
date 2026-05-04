@@ -140,6 +140,37 @@ export async function getAvailableSlots(
   return res.json();
 }
 
+export interface MyBooking {
+  id: string;
+  doctor: string;
+  date: string;
+  time: string;
+  service: string | null;
+  status: string;
+  patientName: string | null;
+}
+
+export async function getMyBookings(slug: string): Promise<{ bookings: MyBooking[]; clinicName: string }> {
+  const token = getPatientToken();
+  const res = await fetch(`${API}/api/book/${slug}/my-appointments`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error("Error cargando tus citas");
+  return res.json();
+}
+
+export async function cancelMyBooking(slug: string, bookingId: string): Promise<void> {
+  const token = getPatientToken();
+  const res = await fetch(`${API}/api/book/${slug}/appointments/${bookingId}/cancel`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error ?? "Error al cancelar");
+  }
+}
+
 export async function createBooking(
   slug: string,
   data: {
