@@ -183,11 +183,11 @@ function ChatMockup({ header, headerBg, messages, inputBg, sendBg, label, sublab
         </div>
         <div className="px-3 py-3 space-y-2 min-h-[200px]" style={{ backgroundColor: inputBg }}>
           {messages.map((m, i) => (
-            <div key={i} className={`flex ${m.from === "user" ? "justify-start" : "justify-end"}`}>
+            <div key={i} className={`flex ${m.from === "user" ? "justify-end" : "justify-start"}`}>
               <div className="max-w-[85%] px-3 py-1.5 rounded-2xl text-xs leading-relaxed"
                 style={m.from === "user"
-                  ? { background: "#fff", color: "#1a1a1a", borderRadius: "16px 16px 16px 4px" }
-                  : { background: sendBg, color: "#fff", borderRadius: "16px 16px 4px 16px" }}>
+                  ? { background: sendBg, color: "#fff", borderRadius: "16px 16px 4px 16px" }
+                  : { background: "#fff", color: "#1a1a1a", borderRadius: "16px 16px 16px 4px" }}>
                 {m.text}
               </div>
             </div>
