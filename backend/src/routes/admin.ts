@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
+import { runReminderCheck } from "../services/notifications/reminderService";
 
 export async function adminRoutes(app: FastifyInstance) {
 
@@ -165,4 +166,15 @@ export async function adminRoutes(app: FastifyInstance) {
       });
     }
   );
+
+  // POST /api/admin/reminders/run — trigger manual para pruebas
+  app.post("/admin/reminders/run", async (req, reply) => {
+    if (!requireSuperAdmin(req, reply)) return;
+    try {
+      await runReminderCheck();
+      return reply.send({ ok: true, message: "Reminder check ejecutado" });
+    } catch (err: any) {
+      return reply.status(500).send({ error: err?.message ?? "Error desconocido" });
+    }
+  });
 }

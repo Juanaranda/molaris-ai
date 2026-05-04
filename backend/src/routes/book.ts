@@ -1,6 +1,5 @@
 import { FastifyInstance } from "fastify";
 import prisma from "../config/prisma";
-import { verifyPatientToken } from "./patient-auth";
 import { sendBookingNotification } from "../services/notifications/whatsappService";
 
 interface DoctorConfig {
@@ -175,26 +174,25 @@ export async function bookRoutes(app: FastifyInstance) {
   });
 
 
-  // POST /api/book/:slug/appointments — requiere auth de paciente
+  // POST /api/book/:slug/appointments — booking de invitado (sin auth requerida)
   app.post<{
     Params: { slug: string };
     Body: {
-      doctor: string; date: string; time: string; service?: string;
-      patientData?: { firstName: string; lastName: string; rut?: string };
+      doctor: string;
+      date: string;
+      time: string;
+      service?: string;
+      guest: { firstName: string; lastName: string; rut: string; phone?: string; email?: string };
     };
   }>("/book/:slug/appointments", async (req, reply) => {
-    let payload;
-    try {
-      payload = verifyPatientToken(req.headers.authorization);
-    } catch {
-      return reply.status(401).send({ error: "Debes iniciar sesión para agendar" });
-    }
-
     const { slug } = req.params;
-    const { doctor, date, time, service, patientData } = req.body ?? {};
+    const { doctor, date, time, service, guest } = req.body ?? {};
 
     if (!doctor || !date || !time) {
       return reply.status(400).send({ error: "Faltan campos: doctor, date, time" });
+    }
+    if (!guest?.firstName || !guest?.lastName || !guest?.rut) {
+      return reply.status(400).send({ error: "Faltan datos del paciente: nombre, apellido y RUT" });
     }
 
     const clinic = await prisma.clinic.findUnique({
@@ -202,82 +200,105 @@ export async function bookRoutes(app: FastifyInstance) {
       select: { id: true, slug: true, name: true, phone: true, whatsapp: true, config: true, active: true },
     });
     if (!clinic || !clinic.active) return reply.status(404).send({ error: "Clínica no encontrada" });
-    if (clinic.id !== payload.clinicId) {
-      return reply.status(403).send({ error: "No autorizado para esta clínica" });
-    }
 
-    const patientUser = await prisma.patientUser.findUnique({
-      where: { id: payload.patientUserId },
-      include: { identity: true },
-    });
-    if (!patientUser) return reply.status(401).send({ error: "Paciente no encontrado" });
-
-    // Verificar que el slot sigue disponible
     const requestedDate = new Date(`${date}T12:00:00.000Z`);
     const startOfDay    = new Date(`${date}T00:00:00`);
     const endOfDay      = new Date(`${date}T23:59:59`);
 
     const conflict = await prisma.booking.findFirst({
-      where: {
-        clinicId: clinic.id,
-        date: { gte: startOfDay, lte: endOfDay },
-        doctor,
-        time,
-        status: { not: "cancelled" },
-      },
+      where: { clinicId: clinic.id, date: { gte: startOfDay, lte: endOfDay }, doctor, time, status: { not: "cancelled" } },
     });
-
     if (conflict) {
       return reply.status(409).send({ error: "Ese horario ya fue reservado. Por favor elige otro." });
     }
 
-    // Si viene patientData, la cita es para otra persona (ej: padre agendando para hijo)
-    const bookingPatientName = patientData?.firstName
-      ? `${patientData.firstName} ${patientData.lastName}`
-      : `${patientUser.identity.firstName} ${patientUser.identity.lastName}`;
+    const patientName = `${guest.firstName.trim()} ${guest.lastName.trim()}`;
 
     const booking = await prisma.booking.create({
       data: {
-        clinicId:      clinic.id,
-        patientUserId: patientUser.id,
-        patientName:   bookingPatientName,
+        clinicId:     clinic.id,
+        patientName,
+        patientRut:   guest.rut.trim(),
+        patientPhone: guest.phone?.trim() || null,
+        patientEmail: guest.email?.trim() || null,
         doctor,
-        date:          requestedDate,
+        date:         requestedDate,
         time,
-        service:       service ?? null,
-        status:        "confirmed",
+        service:      service ?? null,
+        status:       "confirmed",
       },
     });
 
-    // Notificación WhatsApp (no bloquea la respuesta)
     if (clinic.whatsapp) {
       const DAY_NAMES_ES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
       const dayName = DAY_NAMES_ES[new Date(`${date}T12:00:00`).getDay()];
       sendBookingNotification({
-        clinicName:     clinic.name,
-        clinicWhatsapp: clinic.whatsapp,
-        patientName:    `${patientUser.identity.firstName} ${patientUser.identity.lastName}`,
-        service:        service ?? "A confirmar",
-        date,
-        dayName,
-        time,
-        doctor,
-        box:            null,
-        sessionId:      booking.id,
+        clinicName: clinic.name, clinicWhatsapp: clinic.whatsapp,
+        patientName, service: service ?? "A confirmar",
+        date, dayName, time, doctor, box: null, sessionId: booking.id,
       }).catch(() => {});
     }
 
     return reply.status(201).send({
       booking: {
-        id:          booking.id,
-        doctor:      booking.doctor,
-        date:        booking.date,
-        time:        booking.time,
-        service:     booking.service,
-        status:      booking.status,
-        patientName: booking.patientName,
-        clinicName:  clinic.name,
+        id: booking.id, doctor: booking.doctor, date: booking.date,
+        time: booking.time, service: booking.service, status: booking.status,
+        patientName: booking.patientName, clinicName: clinic.name,
       },
     });
   });
+
+  // GET /api/book/:slug/my-appointments — citas del paciente autenticado
+  app.get<{ Params: { slug: string } }>("/book/:slug/my-appointments", async (req, reply) => {
+    let payload;
+    try { payload = verifyPatientToken(req.headers.authorization); }
+    catch { return reply.status(401).send({ error: "No autorizado" }); }
+
+    const clinic = await prisma.clinic.findUnique({ where: { slug: req.params.slug } });
+    if (!clinic) return reply.status(404).send({ error: "Clínica no encontrada" });
+
+    const bookings = await prisma.booking.findMany({
+      where: { patientUserId: payload.patientUserId, clinicId: clinic.id },
+      orderBy: { date: "desc" },
+      take: 50,
+    });
+
+    return reply.send({ bookings, clinicName: clinic.name });
+  });
+
+  // PATCH /api/book/:slug/appointments/:id/cancel — el paciente cancela su propia cita
+  app.patch<{ Params: { slug: string; id: string } }>(
+    "/book/:slug/appointments/:id/cancel",
+    async (req, reply) => {
+      let payload;
+      try { payload = verifyPatientToken(req.headers.authorization); }
+      catch { return reply.status(401).send({ error: "No autorizado" }); }
+
+      const booking = await prisma.booking.findFirst({
+        where: { id: req.params.id, patientUserId: payload.patientUserId },
+      });
+      if (!booking) return reply.status(404).send({ error: "Cita no encontrada" });
+      if (booking.status === "cancelled") {
+        return reply.status(400).send({ error: "La cita ya está cancelada" });
+      }
+
+      // No permitir cancelar con menos de 2h de anticipación
+      const bookingDateTime = new Date(booking.date);
+      const [h, m] = booking.time.split(":").map(Number);
+      bookingDateTime.setHours(h, m, 0, 0);
+      const twoHoursFromNow = new Date(Date.now() + 2 * 60 * 60 * 1000);
+      if (bookingDateTime < twoHoursFromNow) {
+        return reply.status(400).send({
+          error: "No puedes cancelar con menos de 2 horas de anticipación. Por favor llámanos directamente.",
+        });
+      }
+
+      const updated = await prisma.booking.update({
+        where: { id: booking.id },
+        data: { status: "cancelled" },
+      });
+
+      return reply.send(updated);
+    }
+  );
 }

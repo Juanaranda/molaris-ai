@@ -7,10 +7,20 @@ import { useRouter } from "next/navigation";
 import { getMe, getToken, logout, updateClinic, AuthUser, ClinicData } from "@/lib/auth";
 import { DoctorsEditor, DoctorRow } from "@/components/DoctorsEditor";
 import { ServicesEditor, ServiceRow } from "@/components/ServicesEditor";
+import { BookingsTab } from "@/components/BookingsTab";
+import { SetupChecklist } from "@/components/SetupChecklist";
+import { AgendaTab } from "@/components/AgendaTab";
+import { PatientsTab } from "@/components/PatientsTab";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 /* ─── Tipos ────────────────────────────────────────────────────────────────── */
+interface ReminderConfig {
+  enabled: boolean;
+  dayBefore: boolean;
+  twoHours: boolean;
+}
+
 interface ClinicConfig {
   tone?: string;
   assistantName?: string;
@@ -18,6 +28,7 @@ interface ClinicConfig {
   services?: ServiceRow[];
   boxes?: number;
   schedule?: { weekdays?: string; saturday?: string; sunday?: string };
+  reminders?: ReminderConfig;
 }
 
 interface Analytics {
@@ -33,6 +44,22 @@ interface Analytics {
     slotBooked: boolean; channel: string; createdAt: string;
   }[];
   sessionsByDay: { day: string; count: number }[];
+  payments?: {
+    thisMonth: { income: number; count: number };
+    lastMonth: { income: number; count: number };
+    byStatus: { status: string | null; count: number; totalCharged: number; totalPaid: number }[];
+    incomeByMonth: { month: string; income: number; count: number }[];
+  };
+  doctors?: { doctor: string; bookings: number; cancelled: number; cancellationRate: number; income: number }[];
+  patients?: { total: number; newThisMonth: number; returning: number; retentionRate: number };
+  operations?: {
+    cancellationRate: number;
+    bookingsByDow: { dow: number; count: number }[];
+    bookingsByHour: { hour: number; count: number }[];
+    avgTicket: number;
+    paidBookings: number;
+  };
+  services?: { service: string; count: number; income: number }[];
 }
 
 /* ─── Helpers visuales ─────────────────────────────────────────────────────── */
@@ -96,7 +123,512 @@ function InfoField({ label, value, editable, onChange, placeholder }: {
   );
 }
 
-type Tab = "analytics" | "config";
+type Tab = "agenda" | "analytics" | "patients" | "bookings" | "config";
+
+/* ─── Analytics Panel ──────────────────────────────────────────────────────── */
+const MONTH_LABELS: Record<string, string> = {
+  "01":"Ene","02":"Feb","03":"Mar","04":"Abr","05":"May","06":"Jun",
+  "07":"Jul","08":"Ago","09":"Sep","10":"Oct","11":"Nov","12":"Dic",
+};
+const DOW_LABELS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+const fmtCLP = (n: number) =>
+  n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : `$${(n / 1_000).toFixed(0)}k`;
+
+type AnalyticsSub = "resumen" | "doctores" | "pacientes" | "servicios" | "operaciones";
+
+function MiniBar({ value, max, color = "#3B82F6" }: { value: number; max: number; color?: string }) {
+  return (
+    <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+      <div className="h-full rounded-full transition-all" style={{ width: `${Math.round((value / Math.max(max, 1)) * 100)}%`, background: color }} />
+    </div>
+  );
+}
+
+function AnalyticsPanel({ clinic, analytics, loading, onGoToConfig, onRetry }: {
+  clinic: ClinicData;
+  analytics: Analytics | null;
+  loading: boolean;
+  onGoToConfig: () => void;
+  onRetry: () => void;
+}) {
+  const [sub, setSub] = useState<AnalyticsSub>("resumen");
+
+  return (
+    <div className="flex flex-col gap-5">
+      <SetupChecklist clinic={clinic} onGoToConfig={onGoToConfig} />
+
+      {loading && (
+        <div className="flex items-center justify-center py-16">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+
+      {!loading && !analytics && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center text-sm text-gray-400">
+          No se pudieron cargar los datos.{" "}
+          <button onClick={onRetry} className="text-blue-600 hover:underline">Reintentar</button>
+        </div>
+      )}
+
+      {!loading && analytics && (
+        <>
+          {/* Sub-tabs */}
+          <div className="flex gap-1 overflow-x-auto">
+            {([
+              ["resumen",     "Resumen"],
+              ["doctores",    "Doctores"],
+              ["pacientes",   "Pacientes"],
+              ["servicios",   "Servicios"],
+              ["operaciones", "Operaciones"],
+            ] as [AnalyticsSub, string][]).map(([key, label]) => (
+              <button key={key} onClick={() => setSub(key)}
+                className={`px-4 py-2 text-xs font-semibold rounded-xl whitespace-nowrap transition ${
+                  sub === key ? "bg-blue-600 text-white" : "bg-white border border-gray-200 text-gray-500 hover:border-gray-300"
+                }`}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* ── RESUMEN ──────────────────────────────────── */}
+          {sub === "resumen" && (
+            <div className="flex flex-col gap-4">
+              {/* KPIs */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <StatCard label="Conversaciones" value={analytics.totals.sessions} />
+                <StatCard label="Leads captados" value={analytics.totals.leads}
+                  sub={analytics.totals.sessions > 0 ? `${Math.round(analytics.totals.leads / analytics.totals.sessions * 100)}% del total` : undefined} />
+                <StatCard label="Quieren agendar" value={`${analytics.conversionRate}%`}
+                  sub={`${analytics.totals.readyToBook} leads`} accent />
+                <StatCard label="Citas agendadas" value={analytics.totals.bookings}
+                  sub={analytics.totals.leads > 0 ? `${analytics.bookingRate}% conversión` : undefined} />
+              </div>
+
+              {/* Ingresos resumen */}
+              {analytics.payments && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { label: "Ingresos este mes", val: fmtCLP(analytics.payments.thisMonth.income), color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-100" },
+                    { label: "Mes anterior",       val: fmtCLP(analytics.payments.lastMonth.income), color: "text-gray-700",    bg: "bg-gray-50 border-gray-100" },
+                    { label: "Ticket promedio",    val: analytics.operations?.avgTicket ? fmtCLP(analytics.operations.avgTicket) : "—", color: "text-blue-700", bg: "bg-blue-50 border-blue-100" },
+                    { label: "Pacientes únicos",   val: analytics.patients?.total ?? "—", color: "text-purple-700", bg: "bg-purple-50 border-purple-100" },
+                  ].map(({ label, val, color, bg }) => (
+                    <div key={label} className={`rounded-2xl p-4 border ${bg}`}>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">{label}</p>
+                      <p className={`text-2xl font-black leading-none ${color}`}>{val}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Score + urgencia + top servicios */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Score IA promedio</p>
+                  <div className="flex items-end gap-2">
+                    <span className={`text-5xl font-black leading-none ${
+                      analytics.totals.avgScore >= 70 ? "text-green-600" : analytics.totals.avgScore >= 40 ? "text-yellow-500" : "text-gray-400"
+                    }`}>{analytics.totals.avgScore}</span>
+                    <span className="text-gray-400 text-sm mb-1">/100</span>
+                  </div>
+                  <div className="mt-3 h-2 rounded-full bg-gray-100 overflow-hidden">
+                    <div className={`h-full rounded-full ${analytics.totals.avgScore >= 70 ? "bg-green-500" : analytics.totals.avgScore >= 40 ? "bg-yellow-400" : "bg-gray-300"}`}
+                      style={{ width: `${analytics.totals.avgScore}%` }} />
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Urgencia de leads</p>
+                  <div className="flex flex-col gap-2">
+                    {[["high","Alta","#EF4444"],["medium","Media","#FBBF24"],["low","Baja","#9CA3AF"]].map(([key, label, color]) => {
+                      const count = analytics.urgencyBreakdown.find((u) => u.urgency === key)?.count ?? 0;
+                      const total = analytics.urgencyBreakdown.reduce((a, b) => a + b.count, 0) || 1;
+                      return (
+                        <div key={key} className="flex items-center gap-2 text-sm">
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                          <span className="text-gray-500 flex-1">{label}</span>
+                          <span className="font-semibold text-gray-800">{count}</span>
+                          <MiniBar value={count} max={total} color={color} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Servicios de interés</p>
+                  {analytics.topServices.length === 0 ? (
+                    <p className="text-sm text-gray-400">Sin datos</p>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {analytics.topServices.slice(0, 5).map((s) => (
+                        <div key={s.name} className="flex flex-col gap-0.5">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-700 truncate max-w-[140px]">{s.name}</span>
+                            <span className="text-gray-400 shrink-0 ml-1">{s.count}</span>
+                          </div>
+                          <MiniBar value={s.count} max={analytics.topServices[0]?.count ?? 1} color="#60A5FA" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Ingresos por mes */}
+              {analytics.payments && analytics.payments.incomeByMonth.length > 0 && (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-4">Ingresos últimos 6 meses</p>
+                  <div className="flex items-end gap-2 h-24">
+                    {analytics.payments.incomeByMonth.map((r) => {
+                      const max = Math.max(...analytics.payments!.incomeByMonth.map((x) => x.income), 1);
+                      const pct = Math.round((r.income / max) * 100);
+                      const [, mm] = r.month.split("-");
+                      return (
+                        <div key={r.month} className="flex-1 flex flex-col items-center gap-1 group">
+                          <span className="text-[9px] text-gray-400 opacity-0 group-hover:opacity-100 transition whitespace-nowrap">{fmtCLP(r.income)}</span>
+                          <div className="w-full rounded-t-lg bg-emerald-500 hover:bg-emerald-400 transition-all" style={{ height: `${Math.max(pct, 4)}%`, minHeight: 4 }} />
+                          <span className="text-[10px] text-gray-400">{MONTH_LABELS[mm] ?? mm}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Leads recientes */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-semibold text-gray-900">Leads recientes</h2>
+                  <span className="text-xs text-gray-400">{analytics.recentLeads.length} conversaciones</span>
+                </div>
+                {analytics.recentLeads.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <p className="text-sm text-gray-400">Sin conversaciones aún.</p>
+                    <Link href={`/demo/${clinic.slug}`} className="text-sm text-blue-600 mt-2 inline-block hover:underline">Probar asistente →</Link>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto -mx-2">
+                    <table className="w-full text-sm min-w-[540px]">
+                      <thead><tr className="border-b border-gray-100">
+                        {["Paciente","Servicio","Score","Intención","Urg.","Canal","Fecha"].map((h) => (
+                          <th key={h} className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider pb-3 px-2">{h}</th>
+                        ))}
+                      </tr></thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {analytics.recentLeads.map((lead) => (
+                          <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="py-2.5 px-2 font-medium text-gray-800">
+                              {lead.patientName ?? <span className="text-gray-300 font-normal">Anónimo</span>}
+                              {lead.slotBooked && <span className="ml-1.5 text-[10px] bg-green-50 text-green-700 border border-green-100 px-1.5 py-0.5 rounded-full">agendado</span>}
+                            </td>
+                            <td className="py-2.5 px-2 text-gray-600 max-w-[140px] truncate">{lead.serviceInterest ?? "—"}</td>
+                            <td className="py-2.5 px-2"><ScoreBadge score={lead.score} /></td>
+                            <td className="py-2.5 px-2"><IntentBadge intent={lead.intent} /></td>
+                            <td className="py-2.5 px-2"><UrgencyDot urgency={lead.urgency} /></td>
+                            <td className="py-2.5 px-2 text-gray-400 capitalize text-xs">{lead.channel}</td>
+                            <td className="py-2.5 px-2 text-gray-400 text-xs whitespace-nowrap">
+                              {new Date(lead.createdAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" })}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── DOCTORES ─────────────────────────────────── */}
+          {sub === "doctores" && (
+            <div className="flex flex-col gap-4">
+              {!analytics.doctors?.length ? (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center text-sm text-gray-400">Sin citas registradas aún</div>
+              ) : (
+                <>
+                  {/* Tabla de doctores */}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-50">
+                      <h2 className="font-semibold text-gray-900">Rendimiento por profesional</h2>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead><tr className="border-b border-gray-100 bg-gray-50/50">
+                          {["Profesional","Citas activas","Canceladas","Tasa cancel.","Ingresos"].map((h) => (
+                            <th key={h} className="text-left text-[10px] font-bold uppercase tracking-wider text-gray-400 px-5 py-3">{h}</th>
+                          ))}
+                        </tr></thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {analytics.doctors.map((d) => {
+                            const maxCitas = Math.max(...analytics.doctors!.map((x) => x.bookings), 1);
+                            return (
+                              <tr key={d.doctor} className="hover:bg-gray-50 transition-colors">
+                                <td className="px-5 py-3.5 font-semibold text-gray-800">{d.doctor}</td>
+                                <td className="px-5 py-3.5">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-gray-800 w-8 shrink-0">{d.bookings}</span>
+                                    <MiniBar value={d.bookings} max={maxCitas} color="#3B82F6" />
+                                  </div>
+                                </td>
+                                <td className="px-5 py-3.5 text-gray-500">{d.cancelled}</td>
+                                <td className="px-5 py-3.5">
+                                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                                    d.cancellationRate <= 10 ? "bg-green-50 text-green-700" :
+                                    d.cancellationRate <= 25 ? "bg-yellow-50 text-yellow-700" : "bg-red-50 text-red-700"
+                                  }`}>{d.cancellationRate}%</span>
+                                </td>
+                                <td className="px-5 py-3.5 font-semibold text-emerald-700">
+                                  {d.income > 0 ? fmtCLP(d.income) : <span className="text-gray-300">—</span>}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Bar chart citas por doctor */}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-4">Citas por profesional</p>
+                    <div className="flex flex-col gap-3">
+                      {analytics.doctors.map((d) => {
+                        const max = Math.max(...analytics.doctors!.map((x) => x.bookings), 1);
+                        const name = d.doctor.replace(/Dra?\. /, "");
+                        return (
+                          <div key={d.doctor} className="flex items-center gap-3 text-sm">
+                            <span className="w-32 shrink-0 text-gray-600 truncate text-xs">{name}</span>
+                            <div className="flex-1 h-5 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-full rounded-full bg-blue-500 flex items-center pl-2 transition-all"
+                                style={{ width: `${Math.round((d.bookings / max) * 100)}%` }}>
+                                {d.bookings > 0 && <span className="text-[10px] text-white font-bold">{d.bookings}</span>}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ── PACIENTES ────────────────────────────────── */}
+          {sub === "pacientes" && (
+            <div className="flex flex-col gap-4">
+              {/* KPIs pacientes */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: "Total pacientes",    val: analytics.patients?.total ?? 0,         color: "text-blue-700",   bg: "bg-blue-50 border-blue-100" },
+                  { label: "Nuevos este mes",    val: analytics.patients?.newThisMonth ?? 0,   color: "text-emerald-700",bg: "bg-emerald-50 border-emerald-100" },
+                  { label: "Pacientes recurrentes", val: analytics.patients?.returning ?? 0,   color: "text-purple-700", bg: "bg-purple-50 border-purple-100" },
+                  { label: "Tasa retención",     val: `${analytics.patients?.retentionRate ?? 0}%`, color: "text-amber-700",  bg: "bg-amber-50 border-amber-100" },
+                ].map(({ label, val, color, bg }) => (
+                  <div key={label} className={`rounded-2xl p-5 border ${bg}`}>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">{label}</p>
+                    <p className={`text-3xl font-black leading-none ${color}`}>{val}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Visualización retención */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <h2 className="font-semibold text-gray-900 mb-4">Retención de pacientes</h2>
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <div className="flex justify-between text-sm mb-1.5">
+                      <span className="text-gray-600">Pacientes con 2+ visitas</span>
+                      <span className="font-bold text-gray-800">{analytics.patients?.retentionRate ?? 0}%</span>
+                    </div>
+                    <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-purple-500 rounded-full transition-all"
+                        style={{ width: `${analytics.patients?.retentionRate ?? 0}%` }} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 pt-2">
+                    <div className="text-center p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                      <p className="text-2xl font-black text-blue-700">{analytics.patients?.total ?? 0}</p>
+                      <p className="text-xs text-blue-600 mt-1">Total únicos</p>
+                    </div>
+                    <div className="text-center p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+                      <p className="text-2xl font-black text-emerald-700">{analytics.patients?.newThisMonth ?? 0}</p>
+                      <p className="text-xs text-emerald-600 mt-1">Nuevos este mes</p>
+                    </div>
+                    <div className="text-center p-4 bg-purple-50 rounded-2xl border border-purple-100">
+                      <p className="text-2xl font-black text-purple-700">{analytics.patients?.returning ?? 0}</p>
+                      <p className="text-xs text-purple-600 mt-1">Han vuelto</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── SERVICIOS ────────────────────────────────── */}
+          {sub === "servicios" && (
+            <div className="flex flex-col gap-4">
+              {!analytics.services?.length ? (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center text-sm text-gray-400">
+                  Sin datos de servicios. Asegúrate de registrar el servicio al crear las citas.
+                </div>
+              ) : (
+                <>
+                  {/* Tabla de servicios */}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-50">
+                      <h2 className="font-semibold text-gray-900">Ingresos y demanda por servicio</h2>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead><tr className="border-b border-gray-100 bg-gray-50/50">
+                          {["Servicio","Citas","Ingresos","% del total"].map((h) => (
+                            <th key={h} className="text-left text-[10px] font-bold uppercase tracking-wider text-gray-400 px-5 py-3">{h}</th>
+                          ))}
+                        </tr></thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {analytics.services.map((s) => {
+                            const totalIncome = analytics.services!.reduce((a, b) => a + b.income, 0) || 1;
+                            const maxCitas    = analytics.services![0]?.count ?? 1;
+                            return (
+                              <tr key={s.service} className="hover:bg-gray-50 transition-colors">
+                                <td className="px-5 py-3.5 font-medium text-gray-800">{s.service}</td>
+                                <td className="px-5 py-3.5">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-gray-700 w-6 shrink-0">{s.count}</span>
+                                    <MiniBar value={s.count} max={maxCitas} color="#60A5FA" />
+                                  </div>
+                                </td>
+                                <td className="px-5 py-3.5 font-semibold text-emerald-700">
+                                  {s.income > 0 ? fmtCLP(s.income) : <span className="text-gray-300 font-normal">—</span>}
+                                </td>
+                                <td className="px-5 py-3.5">
+                                  <span className="text-xs text-gray-500">{Math.round((s.income / totalIncome) * 100)}%</span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Desglose de pagos */}
+                  {analytics.payments && (
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                      <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-4">Estado de pagos (todas las citas)</p>
+                      <div className="flex flex-col gap-2">
+                        {[
+                          { key: "paid",    label: "Pagado",     color: "#10B981" },
+                          { key: "partial", label: "Parcial",    color: "#F59E0B" },
+                          { key: "pending", label: "Pendiente",  color: "#9CA3AF" },
+                          { key: "waived",  label: "Bonificado", color: "#8B5CF6" },
+                        ].map(({ key, label, color }) => {
+                          const entry = analytics.payments!.byStatus.find((s) => s.status === key);
+                          if (!entry) return null;
+                          const total = analytics.payments!.byStatus.reduce((a, b) => a + b.count, 0) || 1;
+                          return (
+                            <div key={key} className="flex items-center gap-3 text-sm">
+                              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                              <span className="text-gray-500 w-24 shrink-0">{label}</span>
+                              <MiniBar value={entry.count} max={total} color={color} />
+                              <span className="font-bold text-gray-700 w-8 text-right shrink-0">{entry.count}</span>
+                              <span className="text-xs text-gray-400 w-16 text-right shrink-0">{entry.totalPaid > 0 ? fmtCLP(entry.totalPaid) : ""}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ── OPERACIONES ──────────────────────────────── */}
+          {sub === "operaciones" && (
+            <div className="flex flex-col gap-4">
+              {/* KPIs operacionales */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Tasa cancelación</p>
+                  <p className={`text-3xl font-black leading-none ${
+                    (analytics.operations?.cancellationRate ?? 0) <= 10 ? "text-green-600" :
+                    (analytics.operations?.cancellationRate ?? 0) <= 25 ? "text-yellow-500" : "text-red-600"
+                  }`}>{analytics.operations?.cancellationRate ?? 0}%</p>
+                  <p className="text-xs text-gray-400 mt-1">De todas las citas creadas</p>
+                </div>
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Ticket promedio</p>
+                  <p className="text-3xl font-black text-blue-600 leading-none">
+                    {analytics.operations?.avgTicket ? fmtCLP(analytics.operations.avgTicket) : "—"}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">{analytics.operations?.paidBookings ?? 0} citas con pago registrado</p>
+                </div>
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Total citas</p>
+                  <p className="text-3xl font-black text-gray-800 leading-none">{analytics.totals.bookings}</p>
+                  <p className="text-xs text-gray-400 mt-1">Sin contar canceladas</p>
+                </div>
+              </div>
+
+              {/* Citas por día de semana */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-4">Citas por día de semana</p>
+                {!analytics.operations?.bookingsByDow?.length ? (
+                  <p className="text-sm text-gray-400">Sin datos suficientes</p>
+                ) : (
+                  <div className="flex items-end gap-2 h-24">
+                    {[0,1,2,3,4,5,6].map((dow) => {
+                      const entry = analytics.operations!.bookingsByDow.find((d) => d.dow === dow);
+                      const count = entry?.count ?? 0;
+                      const max = Math.max(...analytics.operations!.bookingsByDow.map((d) => d.count), 1);
+                      const pct = Math.round((count / max) * 100);
+                      const isWorkDay = dow >= 1 && dow <= 5;
+                      return (
+                        <div key={dow} className="flex-1 flex flex-col items-center gap-1 group">
+                          <span className="text-[9px] text-gray-400 opacity-0 group-hover:opacity-100 transition">{count}</span>
+                          <div className={`w-full rounded-t-lg transition-all hover:opacity-80 ${isWorkDay ? "bg-blue-500" : "bg-blue-200"}`}
+                            style={{ height: `${Math.max(pct, 4)}%`, minHeight: 4 }} />
+                          <span className={`text-[10px] font-medium ${isWorkDay ? "text-gray-500" : "text-gray-300"}`}>{DOW_LABELS[dow]}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Citas por hora */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-4">Demanda horaria</p>
+                {!analytics.operations?.bookingsByHour?.length ? (
+                  <p className="text-sm text-gray-400">Sin datos suficientes</p>
+                ) : (
+                  <div className="flex items-end gap-1 h-20">
+                    {Array.from({ length: 11 }, (_, i) => i + 9).map((hour) => {
+                      const entry = analytics.operations!.bookingsByHour.find((h) => h.hour === hour);
+                      const count = entry?.count ?? 0;
+                      const max = Math.max(...analytics.operations!.bookingsByHour.map((h) => h.count), 1);
+                      const pct = Math.round((count / max) * 100);
+                      return (
+                        <div key={hour} className="flex-1 flex flex-col items-center gap-1 group">
+                          <div className="w-full rounded-t bg-indigo-400 hover:bg-indigo-500 transition-all"
+                            style={{ height: `${Math.max(pct, 4)}%`, minHeight: 4 }} />
+                          <span className="text-[9px] text-gray-400">{hour}h</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 /* ─── Dashboard principal ──────────────────────────────────────────────────── */
 export default function PartnersDashboard() {
@@ -104,7 +636,7 @@ export default function PartnersDashboard() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [clinic, setClinic] = useState<ClinicData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<Tab>("analytics");
+  const [activeTab, setActiveTab] = useState<Tab>("agenda");
 
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
@@ -121,12 +653,17 @@ export default function PartnersDashboard() {
   const [schedSaving, setSchedSaving] = useState(false);
   const [schedMsg, setSchedMsg] = useState("");
 
+  // Reminders
+  const [remForm, setRemForm] = useState<ReminderConfig>({ enabled: true, dayBefore: true, twoHours: true });
+  const [remSaving, setRemSaving] = useState(false);
+  const [remMsg, setRemMsg] = useState("");
+
   useEffect(() => {
     getMe().then((data) => {
       if (!data) { router.push("/login"); return; }
       setUser(data.user);
       setClinic(data.clinic);
-      if (data.clinic) { syncForm(data.clinic); syncSchedForm(data.clinic); }
+      if (data.clinic) { syncForm(data.clinic); syncSchedForm(data.clinic); syncRemForm(data.clinic); }
       setLoading(false);
       if (data.clinic) fetchAnalytics(data.clinic.id);
     });
@@ -152,6 +689,10 @@ export default function PartnersDashboard() {
   function syncSchedForm(c: ClinicData) {
     const cfg = c.config as ClinicConfig;
     setSchedForm({ weekdays: cfg.schedule?.weekdays ?? "", saturday: cfg.schedule?.saturday ?? "", sunday: cfg.schedule?.sunday ?? "" });
+  }
+  function syncRemForm(c: ClinicData) {
+    const cfg = c.config as ClinicConfig;
+    setRemForm({ enabled: cfg.reminders?.enabled !== false, dayBefore: cfg.reminders?.dayBefore !== false, twoHours: cfg.reminders?.twoHours !== false });
   }
 
   function handleLogout() { logout(); router.push("/"); }
@@ -179,6 +720,18 @@ export default function PartnersDashboard() {
       setSchedMsg("Guardado"); setTimeout(() => setSchedMsg(""), 3000);
     } catch (e) { setSchedMsg(e instanceof Error ? e.message : "Error"); }
     finally { setSchedSaving(false); }
+  }
+
+  async function saveReminders() {
+    if (!clinic) return;
+    setRemSaving(true); setRemMsg("");
+    try {
+      const cfg = { ...(clinic.config as ClinicConfig), reminders: remForm };
+      const updated = await updateClinic(clinic.id, { config: cfg as Record<string, unknown> });
+      setClinic(updated); syncRemForm(updated);
+      setRemMsg("Guardado"); setTimeout(() => setRemMsg(""), 3000);
+    } catch (e) { setRemMsg(e instanceof Error ? e.message : "Error"); }
+    finally { setRemSaving(false); }
   }
 
   async function saveDoctors(doctors: DoctorRow[], boxes: number) {
@@ -210,7 +763,7 @@ export default function PartnersDashboard() {
       <nav className="flex items-center justify-between px-6 sm:px-8 py-4 bg-white border-b border-gray-100 sticky top-0 z-10">
         <Link href="/"><Image src="/logo.svg" alt="molari.ai" width={120} height={32} priority /></Link>
         <div className="flex items-center gap-4">
-          {user && <div className="flex items-center gap-2">
+{user && <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600 hidden sm:block">{user.name}</span>
             <RoleBadge role={user.role} />
           </div>}
@@ -243,7 +796,7 @@ export default function PartnersDashboard() {
           <>
             {/* Tabs */}
             <div className="flex border-b border-gray-200 gap-1">
-              {([["analytics", "Analítica"], ["config", "Configuración"]] as [Tab, string][]).map(([tab, label]) => (
+              {([["agenda", "Agenda"], ["analytics", "Analítica"], ["patients", "Pacientes"], ["bookings", "Citas"], ["config", "Configuración"]] as [Tab, string][]).map(([tab, label]) => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
                   className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
                     activeTab === tab
@@ -257,146 +810,28 @@ export default function PartnersDashboard() {
 
             {/* ══ TAB ANALÍTICA ══════════════════════════════════════════════ */}
             {activeTab === "analytics" && (
-              <div className="flex flex-col gap-6">
-                {analyticsLoading && (
-                  <div className="flex items-center justify-center py-16">
-                    <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                  </div>
-                )}
+              <AnalyticsPanel
+                clinic={clinic}
+                analytics={analytics}
+                loading={analyticsLoading}
+                onGoToConfig={() => setActiveTab("config")}
+                onRetry={() => fetchAnalytics(clinic.id)}
+              />
+            )}
 
-                {!analyticsLoading && analytics && (
-                  <>
-                    {/* Stat cards */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <StatCard label="Conversaciones" value={analytics.totals.sessions} />
-                      <StatCard label="Leads captados" value={analytics.totals.leads}
-                        sub={analytics.totals.sessions > 0 ? `${Math.round(analytics.totals.leads / analytics.totals.sessions * 100)}% del total` : undefined} />
-                      <StatCard label="Quieren agendar" value={`${analytics.conversionRate}%`}
-                        sub={`${analytics.totals.readyToBook} leads`} accent />
-                      <StatCard label="Citas agendadas" value={analytics.totals.bookings}
-                        sub={analytics.totals.leads > 0 ? `${analytics.bookingRate}% conversión` : undefined} />
-                    </div>
+            {/* ══ TAB AGENDA ═════════════════════════════════════════════════ */}
+            {activeTab === "agenda" && user && (
+              <AgendaTab user={user} boxes={(clinic.config as ClinicConfig).boxes ?? 2} />
+            )}
 
-                    {/* Score promedio + embudo */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {/* Score */}
-                      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Score promedio</p>
-                        <div className="flex items-end gap-2">
-                          <span className={`text-5xl font-black leading-none ${
-                            analytics.totals.avgScore >= 70 ? "text-green-600" : analytics.totals.avgScore >= 40 ? "text-yellow-500" : "text-gray-400"
-                          }`}>{analytics.totals.avgScore}</span>
-                          <span className="text-gray-400 text-sm mb-1">/100</span>
-                        </div>
-                        <div className="mt-3 h-2 rounded-full bg-gray-100 overflow-hidden">
-                          <div className={`h-full rounded-full transition-all ${
-                            analytics.totals.avgScore >= 70 ? "bg-green-500" : analytics.totals.avgScore >= 40 ? "bg-yellow-400" : "bg-gray-300"
-                          }`} style={{ width: `${analytics.totals.avgScore}%` }} />
-                        </div>
-                      </div>
+            {/* ══ TAB PACIENTES ══════════════════════════════════════════════ */}
+            {activeTab === "patients" && (
+              <PatientsTab />
+            )}
 
-                      {/* Urgencia */}
-                      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Urgencia</p>
-                        <div className="flex flex-col gap-2">
-                          {[["high", "Alta", "bg-red-500"], ["medium", "Media", "bg-yellow-400"], ["low", "Baja", "bg-gray-300"]].map(([key, label, color]) => {
-                            const count = analytics.urgencyBreakdown.find((u) => u.urgency === key)?.count ?? 0;
-                            const total = analytics.urgencyBreakdown.reduce((a, b) => a + b.count, 0) || 1;
-                            return (
-                              <div key={key} className="flex items-center gap-2 text-sm">
-                                <div className={`w-2 h-2 rounded-full shrink-0 ${color}`} />
-                                <span className="text-gray-500 flex-1">{label}</span>
-                                <span className="font-semibold text-gray-800">{count}</span>
-                                <div className="w-16 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                                  <div className={`h-full rounded-full ${color}`} style={{ width: `${Math.round(count / total * 100)}%` }} />
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Top servicios */}
-                      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Top servicios</p>
-                        {analytics.topServices.length === 0 ? (
-                          <p className="text-sm text-gray-400">Sin datos aún</p>
-                        ) : (
-                          <div className="flex flex-col gap-2">
-                            {analytics.topServices.slice(0, 5).map((s) => {
-                              const max = analytics.topServices[0]?.count || 1;
-                              return (
-                                <div key={s.name} className="flex flex-col gap-0.5">
-                                  <div className="flex justify-between text-xs">
-                                    <span className="text-gray-700 truncate max-w-[140px]">{s.name}</span>
-                                    <span className="text-gray-400 shrink-0 ml-1">{s.count}</span>
-                                  </div>
-                                  <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                                    <div className="h-full rounded-full bg-blue-400" style={{ width: `${Math.round(s.count / max * 100)}%` }} />
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Tabla de leads recientes */}
-                    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                      <div className="flex items-center justify-between mb-5">
-                        <h2 className="font-semibold text-gray-900">Leads recientes</h2>
-                        <span className="text-xs text-gray-400">{analytics.recentLeads.length} conversaciones</span>
-                      </div>
-
-                      {analytics.recentLeads.length === 0 ? (
-                        <div className="py-10 text-center">
-                          <p className="text-sm text-gray-400">Aún no hay conversaciones registradas.</p>
-                          <Link href={`/demo/${clinic.slug}`} className="text-sm text-blue-600 mt-2 inline-block hover:underline">
-                            Probar el asistente →
-                          </Link>
-                        </div>
-                      ) : (
-                        <div className="overflow-x-auto -mx-2">
-                          <table className="w-full text-sm min-w-[540px]">
-                            <thead>
-                              <tr className="border-b border-gray-100">
-                                {["Paciente", "Servicio", "Score", "Intención", "Urg.", "Canal", "Fecha"].map((h) => (
-                                  <th key={h} className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider pb-3 px-2">{h}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                              {analytics.recentLeads.map((lead) => (
-                                <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
-                                  <td className="py-2.5 px-2 font-medium text-gray-800">
-                                    {lead.patientName ?? <span className="text-gray-300 font-normal">Anónimo</span>}
-                                    {lead.slotBooked && <span className="ml-1.5 text-[10px] bg-green-50 text-green-700 border border-green-100 px-1.5 py-0.5 rounded-full">agendado</span>}
-                                  </td>
-                                  <td className="py-2.5 px-2 text-gray-600 max-w-[140px] truncate">{lead.serviceInterest ?? "—"}</td>
-                                  <td className="py-2.5 px-2"><ScoreBadge score={lead.score} /></td>
-                                  <td className="py-2.5 px-2"><IntentBadge intent={lead.intent} /></td>
-                                  <td className="py-2.5 px-2"><UrgencyDot urgency={lead.urgency} /></td>
-                                  <td className="py-2.5 px-2 text-gray-400 capitalize text-xs">{lead.channel}</td>
-                                  <td className="py-2.5 px-2 text-gray-400 text-xs whitespace-nowrap">
-                                    {new Date(lead.createdAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" })}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </section>
-                  </>
-                )}
-
-                {!analyticsLoading && !analytics && (
-                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center text-sm text-gray-400">
-                    No se pudieron cargar los datos. <button onClick={() => fetchAnalytics(clinic.id)} className="text-blue-600 hover:underline">Reintentar</button>
-                  </div>
-                )}
-              </div>
+            {/* ══ TAB CITAS ══════════════════════════════════════════════════ */}
+            {activeTab === "bookings" && (
+              <BookingsTab clinicId={clinic.id} />
             )}
 
             {/* ══ TAB CONFIGURACIÓN ══════════════════════════════════════════ */}
@@ -492,6 +927,58 @@ export default function PartnersDashboard() {
 
                 <DoctorsEditor doctors={cfg.doctors ?? []} boxes={cfg.boxes ?? 1} canEdit={canEdit} onSave={saveDoctors} />
                 <ServicesEditor services={(cfg.services as ServiceRow[]) ?? []} canEdit={canEdit} onSave={saveServices} />
+
+                {/* Recordatorios automáticos */}
+                <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="font-semibold text-gray-900">Recordatorios automáticos</h2>
+                    <div className="flex items-center gap-3">
+                      {remMsg && <span className={`text-xs ${remMsg === "Guardado" ? "text-green-600" : "text-red-600"}`}>{remMsg}</span>}
+                      {canEdit && (
+                        <button onClick={saveReminders} disabled={remSaving}
+                          className="text-sm bg-blue-600 text-white font-medium px-4 py-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                          {remSaving ? "Guardando..." : "Guardar"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-400 mb-4">Se envían por WhatsApp al paciente si tiene número registrado.</p>
+                  <div className="flex flex-col gap-3">
+                    {[
+                      { key: "enabled",   label: "Recordatorios activos",           desc: "Habilita o deshabilita todos los recordatorios" },
+                      { key: "dayBefore", label: "Recordatorio día anterior",       desc: "Avisa al paciente la noche antes de su cita" },
+                      { key: "twoHours",  label: "Recordatorio 2 horas antes",     desc: "Avisa al paciente 2 horas antes de su cita" },
+                    ].map(({ key, label, desc }) => (
+                      <label key={key} className={`flex items-center justify-between gap-4 p-3 rounded-xl border transition-colors cursor-pointer ${canEdit ? "hover:bg-gray-50" : "opacity-70 cursor-default"}`}
+                        style={{ borderColor: "#f1f5f9" }}>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">{label}</p>
+                          <p className="text-xs text-gray-400">{desc}</p>
+                        </div>
+                        <div
+                          onClick={() => canEdit && setRemForm((f) => ({ ...f, [key]: !f[key as keyof ReminderConfig] }))}
+                          className={`w-10 h-6 rounded-full relative transition-colors ${remForm[key as keyof ReminderConfig] ? "bg-blue-600" : "bg-gray-200"}`}
+                        >
+                          <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${remForm[key as keyof ReminderConfig] ? "translate-x-5" : "translate-x-1"}`} />
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </section>
+
+                {/* Webhook WhatsApp */}
+                <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <h2 className="font-semibold text-gray-900 mb-1">Webhook WhatsApp (inbound)</h2>
+                  <p className="text-xs text-gray-400 mb-4">
+                    Configura esta URL en tu consola de Twilio para que los mensajes entrantes de WhatsApp lleguen al asistente.
+                  </p>
+                  <div className="bg-gray-50 rounded-xl border border-gray-200 px-4 py-3 font-mono text-xs text-gray-700 break-all select-all">
+                    {typeof window !== "undefined" ? window.location.origin : "https://tu-dominio.com"}/api/webhooks/whatsapp/{clinic.slug}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-3">
+                    En Twilio: <strong>Sandbox Settings → When a message comes in</strong> → pega la URL → método POST.
+                  </p>
+                </section>
               </div>
             )}
           </>
