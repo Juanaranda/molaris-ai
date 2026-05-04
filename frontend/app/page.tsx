@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { HeroShowcase } from "@/components/HeroShowcase";
 
 /* ─── Icons ─────────────────────────────────────────────────────────── */
 function IconBot() {
@@ -208,58 +209,6 @@ function ChatMockup({ header, headerBg, messages, inputBg, sendBg, label, sublab
   );
 }
 
-/* ─── Analytics mockup ───────────────────────────────────────────────── */
-function AnalyticsMockup() {
-  const metrics = [
-    { label: "Leads calificados", value: "147", up: "+23%", color: "#1A5C7A" },
-    { label: "Citas confirmadas", value: "89",  up: "+41%", color: "#10B981" },
-    { label: "Score promedio",    value: "72",  up: "+8p",  color: "#8B5CF6" },
-    { label: "Tasa de conv.",     value: "61%", up: "+12%", color: "#D95F45" },
-  ];
-  const bars = [40, 65, 55, 80, 72, 90, 68];
-  const dayLabels = ["L", "M", "X", "J", "V", "S", "D"];
-
-  return (
-    <div style={{ background: "#FDFCFB", borderRadius: 16, border: "1px solid #E5E0D9",
-      overflow: "hidden", boxShadow: "0 8px 32px rgba(12,27,38,0.08)" }}>
-      {/* Header */}
-      <div style={{ padding: "14px 18px", borderBottom: "1px solid #E5E0D9", display: "flex",
-        alignItems: "center", justifyContent: "space-between" }}>
-        <p style={{ fontSize: 13, fontWeight: 800, color: "#0C1B26", margin: 0 }}>Analytics · Esta semana</p>
-        <span style={{ fontSize: 10, background: "#D1FAE5", color: "#065F46", fontWeight: 700,
-          padding: "2px 8px", borderRadius: 20 }}>En vivo</span>
-      </div>
-      {/* Metrics grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: "#E5E0D9" }}>
-        {metrics.map((m) => (
-          <div key={m.label} style={{ background: "#FDFCFB", padding: "12px 14px" }}>
-            <p style={{ fontSize: 10, color: "#607281", margin: "0 0 4px", fontWeight: 600 }}>{m.label}</p>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-              <span style={{ fontSize: 22, fontWeight: 900, color: m.color, lineHeight: 1 }}>{m.value}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: "#10B981" }}>{m.up}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-      {/* Bar chart */}
-      <div style={{ padding: "14px 18px 16px" }}>
-        <p style={{ fontSize: 10, color: "#607281", margin: "0 0 10px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-          Citas por día
-        </p>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 5, height: 52 }}>
-          {bars.map((h, i) => (
-            <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-              <div style={{ width: "100%", height: `${h * 0.52}px`, borderRadius: 4,
-                background: i === 5 ? "#D95F45" : "#1A5C7A", opacity: i === 5 ? 1 : 0.55 }} />
-              <span style={{ fontSize: 9, color: "#607281", fontWeight: 600 }}>{dayLabels[i]}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ─── Page ─────────────────────────────────────────────────────────── */
 export default function Home() {
   const pillars = [
@@ -392,72 +341,9 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Right: live activity + analytics */}
-            <div className="hidden lg:flex flex-col gap-4 animate-fade-up animate-fade-up-delay-2">
-              {/* Activity card */}
-              <div className="rounded-2xl p-5 shadow-xl" style={{ backgroundColor: "#0B2F42" }}>
-                <div className="flex items-center justify-between mb-4">
-                  <p className="text-xs font-semibold text-white/60 uppercase tracking-wider">Actividad en vivo</p>
-                  <span className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: "#4ade80" }}>
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                    En línea
-                  </span>
-                </div>
-                <div className="space-y-2.5">
-                  {[
-                    { canal: "WhatsApp", msg: "Nueva cita — Dra. Aranda · 10:30", dot: "#25D366", time: "2 min" },
-                    { canal: "Instagram", msg: "Lead calificado — ortodoncia", dot: "#E1306C", time: "5 min" },
-                    { canal: "Agenda", msg: "Recordatorio enviado — Pedro R.", dot: "#8B5CF6", time: "8 min" },
-                  ].map((item) => (
-                    <div key={item.canal} className="flex items-start gap-3 p-3 rounded-xl" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
-                      <span className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: item.dot }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-white/80 mb-0.5">{item.canal}</p>
-                        <p className="text-xs text-white/50 truncate">{item.msg}</p>
-                      </div>
-                      <p className="text-[10px] text-white/30 shrink-0 mt-0.5">hace {item.time}</p>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4 pt-4 flex justify-between text-xs" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-                  <span style={{ color: "rgba(255,255,255,0.4)" }}>Citas hoy</span>
-                  <span className="font-bold" style={{ color: "#D95F45" }}>7 confirmadas</span>
-                </div>
-              </div>
-              {/* Analytics mini */}
-              <AnalyticsMockup />
-            </div>
-
-            {/* Mobile preview */}
-            <div className="lg:hidden mt-2 animate-fade-up animate-fade-up-delay-3">
-              <div className="rounded-2xl p-4 shadow-xl" style={{ backgroundColor: "#0B2F42" }}>
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.5)" }}>Actividad en vivo</p>
-                  <span className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: "#4ade80" }}>
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                    En línea
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {[
-                    { canal: "WhatsApp", msg: "Nueva cita — Dra. Aranda", dot: "#25D366" },
-                    { canal: "Web", msg: "Lead calificado — ortodoncia",  dot: "#1A5C7A" },
-                    { canal: "Agenda", msg: "Recordatorio enviado",        dot: "#8B5CF6" },
-                  ].map((item) => (
-                    <div key={item.canal} className="flex items-center gap-3 px-3 py-2.5 rounded-xl" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.dot }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.75)" }}>{item.canal}</p>
-                        <p className="text-[11px] truncate" style={{ color: "rgba(255,255,255,0.45)" }}>{item.msg}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-3 pt-3 flex justify-between text-xs" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-                  <span style={{ color: "rgba(255,255,255,0.4)" }}>Citas hoy</span>
-                  <span className="font-bold" style={{ color: "#D95F45" }}>7 confirmadas</span>
-                </div>
-              </div>
+            {/* Right: rotating showcase */}
+            <div className="animate-fade-up animate-fade-up-delay-2">
+              <HeroShowcase />
             </div>
 
           </div>
