@@ -9,6 +9,7 @@ import { DoctorsEditor, DoctorRow } from "@/components/DoctorsEditor";
 import { ServicesEditor, ServiceRow } from "@/components/ServicesEditor";
 import { BookingsTab } from "@/components/BookingsTab";
 import { SetupChecklist } from "@/components/SetupChecklist";
+import { AgendaTab } from "@/components/AgendaTab";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -105,7 +106,7 @@ function InfoField({ label, value, editable, onChange, placeholder }: {
   );
 }
 
-type Tab = "analytics" | "bookings" | "config";
+type Tab = "analytics" | "agenda" | "bookings" | "config";
 
 /* ─── Dashboard principal ──────────────────────────────────────────────────── */
 export default function PartnersDashboard() {
@@ -113,7 +114,7 @@ export default function PartnersDashboard() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [clinic, setClinic] = useState<ClinicData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<Tab>("analytics");
+  const [activeTab, setActiveTab] = useState<Tab>("agenda");
 
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
@@ -240,11 +241,7 @@ export default function PartnersDashboard() {
       <nav className="flex items-center justify-between px-6 sm:px-8 py-4 bg-white border-b border-gray-100 sticky top-0 z-10">
         <Link href="/"><Image src="/logo.svg" alt="molari.ai" width={120} height={32} priority /></Link>
         <div className="flex items-center gap-4">
-          <Link href="/partners/agenda"
-            className="text-sm font-semibold px-4 py-2 rounded-full border border-gray-200 text-gray-700 hover:border-blue-500 hover:text-blue-600 transition-colors">
-            📅 Agenda
-          </Link>
-          {user && <div className="flex items-center gap-2">
+{user && <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600 hidden sm:block">{user.name}</span>
             <RoleBadge role={user.role} />
           </div>}
@@ -277,7 +274,7 @@ export default function PartnersDashboard() {
           <>
             {/* Tabs */}
             <div className="flex border-b border-gray-200 gap-1">
-              {([["analytics", "Analítica"], ["bookings", "Citas"], ["config", "Configuración"]] as [Tab, string][]).map(([tab, label]) => (
+              {([["analytics", "Analítica"], ["agenda", "📅 Agenda"], ["bookings", "Citas"], ["config", "Configuración"]] as [Tab, string][]).map(([tab, label]) => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
                   className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
                     activeTab === tab
@@ -432,6 +429,11 @@ export default function PartnersDashboard() {
                   </div>
                 )}
               </div>
+            )}
+
+            {/* ══ TAB AGENDA ═════════════════════════════════════════════════ */}
+            {activeTab === "agenda" && user && (
+              <AgendaTab user={user} />
             )}
 
             {/* ══ TAB CITAS ══════════════════════════════════════════════════ */}
