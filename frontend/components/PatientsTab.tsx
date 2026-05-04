@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getToken } from "@/lib/auth";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -138,19 +138,228 @@ function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => 
   );
 }
 
+/* ── CSV Import modal ────────────────────────────────────────────────── */
+type ImportStep = "upload" | "preview" | "result";
+
+interface ImportResult { created: number; skipped: number; total: number; errors: string[]; }
+interface PreviewRow { [col: string]: string; }
+
+function ImportCSVModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [step, setStep]         = useState<ImportStep>("upload");
+  const [csvText, setCsvText]   = useState("");
+  const [fileName, setFileName] = useState("");
+  const [preview, setPreview]   = useState<PreviewRow[]>([]);
+  const [headers, setHeaders]   = useState<string[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [result, setResult]     = useState<ImportResult | null>(null);
+  const [error, setError]       = useState("");
+
+  function parsePreview(text: string) {
+    const lines = text.trim().split(/\r?\n/).filter((l) => l.trim());
+    if (lines.length < 2) return;
+    const delim = lines[0].split(";").length > lines[0].split(",").length ? ";" : ",";
+    const hdrs = lines[0].split(delim).map((h) => h.trim().replace(/^["']|["']$/g, ""));
+    const rows = lines.slice(1, 6).map((line) => {
+      const vals = line.split(delim).map((v) => v.trim().replace(/^["']|["']$/g, ""));
+      const row: PreviewRow = {};
+      hdrs.forEach((h, i) => { row[h] = vals[i] ?? ""; });
+      return row;
+    });
+    setHeaders(hdrs);
+    setPreview(rows);
+  }
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      setCsvText(text);
+      parsePreview(text);
+      setStep("preview");
+      setError("");
+    };
+    reader.readAsText(file, "UTF-8");
+  }
+
+  async function handleImport() {
+    setImporting(true); setError("");
+    try {
+      const token = getToken();
+      const res = await fetch(`${API}/api/patients/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ csv: csvText }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Error al importar"); return; }
+      setResult(data);
+      setStep("result");
+      onSuccess();
+    } catch {
+      setError("Error de conexión");
+    } finally { setImporting(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+      onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-2xl w-full max-w-2xl overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-black text-gray-900">Importar pacientes desde CSV</h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {step === "upload" && "Sube un archivo CSV de Reservo, Dentalink u otro sistema"}
+              {step === "preview" && `${fileName} — ${preview.length} fila${preview.length !== 1 ? "s" : ""} de preview`}
+              {step === "result" && "Importación completada"}
+            </p>
+          </div>
+          <button onClick={onClose}
+            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500 shrink-0">✕</button>
+        </div>
+
+        <div className="px-6 py-5">
+          {/* Step: upload */}
+          {step === "upload" && (
+            <div className="flex flex-col gap-5">
+              {/* Drop zone */}
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="border-2 border-dashed border-gray-200 rounded-2xl p-10 text-center hover:border-blue-300 hover:bg-blue-50 transition cursor-pointer w-full">
+                <div className="text-4xl mb-3">📄</div>
+                <p className="text-sm font-bold text-gray-700 mb-1">Haz clic para seleccionar un archivo CSV</p>
+                <p className="text-xs text-gray-400">Compatible con Reservo, Dentalink, Excel exportado como CSV</p>
+              </button>
+              <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleFile} />
+
+              {/* Format guide */}
+              <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                <p className="text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Columnas aceptadas</p>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+                  {[
+                    ["Nombre paciente", "nombre, paciente, name"],
+                    ["RUT",             "rut, run, dni"],
+                    ["Teléfono",        "telefono, celular, phone"],
+                    ["Email",           "email, correo, mail"],
+                    ["Fecha",           "fecha, date (DD/MM/YYYY)"],
+                    ["Hora",            "hora, time (HH:MM)"],
+                    ["Doctor",          "doctor, profesional, dentista"],
+                    ["Servicio",        "servicio, tratamiento"],
+                  ].map(([campo, cols]) => (
+                    <div key={campo} className="flex gap-2 text-xs">
+                      <span className="font-semibold text-slate-700 w-28 shrink-0">{campo}:</span>
+                      <span className="text-slate-400">{cols}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-3">La fila "Nombre paciente" y "Fecha" son obligatorias. El separador puede ser coma (,) o punto y coma (;).</p>
+              </div>
+            </div>
+          )}
+
+          {/* Step: preview */}
+          {step === "preview" && (
+            <div className="flex flex-col gap-4">
+              <div className="overflow-x-auto rounded-xl border border-gray-100">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      {headers.map((h) => (
+                        <th key={h} className="px-3 py-2 text-left font-bold text-gray-500 whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {preview.map((row, i) => (
+                      <tr key={i}>
+                        {headers.map((h) => (
+                          <td key={h} className="px-3 py-2 text-gray-700 whitespace-nowrap max-w-[160px] truncate">{row[h] ?? ""}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-gray-400 text-center">
+                Mostrando máx. 5 filas de preview. El sistema detectará automáticamente las columnas.
+              </p>
+              {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
+              <div className="flex gap-3">
+                <button onClick={() => { setStep("upload"); setError(""); }}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 transition">
+                  Cambiar archivo
+                </button>
+                <button onClick={handleImport} disabled={importing}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+                  style={{ backgroundColor: "#D95F45" }}>
+                  {importing ? "Importando..." : "Confirmar importación"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step: result */}
+          {step === "result" && result && (
+            <div className="flex flex-col items-center gap-5 py-4">
+              <div className="w-16 h-16 rounded-full bg-emerald-50 border-2 border-emerald-200 flex items-center justify-center text-3xl">
+                ✅
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-gray-900 text-center mb-1">¡Importación completada!</h3>
+                <p className="text-sm text-gray-500 text-center">{result.total} filas procesadas</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4 w-full max-w-xs">
+                <div className="bg-emerald-50 rounded-xl p-4 text-center border border-emerald-100">
+                  <p className="text-3xl font-black text-emerald-600">{result.created}</p>
+                  <p className="text-xs font-semibold text-emerald-600 mt-1">Creadas</p>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-4 text-center border border-gray-100">
+                  <p className="text-3xl font-black text-gray-400">{result.skipped}</p>
+                  <p className="text-xs font-semibold text-gray-400 mt-1">Omitidas</p>
+                </div>
+              </div>
+              {result.errors.length > 0 && (
+                <div className="w-full bg-amber-50 border border-amber-100 rounded-xl p-3">
+                  <p className="text-xs font-bold text-amber-700 mb-1">Advertencias ({result.errors.length})</p>
+                  <ul className="text-xs text-amber-600 space-y-0.5">
+                    {result.errors.map((e, i) => <li key={i}>• {e}</li>)}
+                  </ul>
+                </div>
+              )}
+              <button onClick={onClose}
+                className="px-8 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition">
+                Listo
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Main PatientsTab ─────────────────────────────────────────────────── */
 export function PatientsTab() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading]   = useState(true);
   const [search, setSearch]     = useState("");
+  const [showImport, setShowImport] = useState(false);
   const [selected, setSelected] = useState<Patient | null>(null);
 
-  useEffect(() => {
+  function loadPatients() {
     const token = getToken(); if (!token) return;
+    setLoading(true);
     fetch(`${API}/api/patients`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then(setPatients)
       .finally(() => setLoading(false));
-  }, []);
+  }
+
+  useEffect(() => { loadPatients(); }, []);
 
   const filtered = patients.filter((p) => {
     const q = search.toLowerCase();
@@ -159,7 +368,7 @@ export function PatientsTab() {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Search + count */}
+      {/* Search + import */}
       <div className="flex items-center gap-3">
         <div className="flex-1 relative">
           <input
@@ -173,7 +382,16 @@ export function PatientsTab() {
             <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
           </svg>
         </div>
-        <span className="text-xs font-semibold text-gray-400 shrink-0">{filtered.length} paciente{filtered.length !== 1 ? "s" : ""}</span>
+        <span className="text-xs font-semibold text-gray-400 shrink-0 hidden sm:block">
+          {filtered.length} paciente{filtered.length !== 1 ? "s" : ""}
+        </span>
+        <button onClick={() => setShowImport(true)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-600 hover:border-blue-300 hover:text-blue-600 transition shrink-0">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+          </svg>
+          Importar CSV
+        </button>
       </div>
 
       {/* Patient list */}
@@ -228,6 +446,13 @@ export function PatientsTab() {
       </div>
 
       {selected && <PatientDetail patient={selected} onClose={() => setSelected(null)} />}
+
+      {showImport && (
+        <ImportCSVModal
+          onClose={() => setShowImport(false)}
+          onSuccess={() => { setShowImport(false); loadPatients(); }}
+        />
+      )}
     </div>
   );
 }
