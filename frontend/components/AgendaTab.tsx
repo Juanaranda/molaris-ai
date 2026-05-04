@@ -499,27 +499,29 @@ function AdminAgenda({ boxes }: { boxes: number }) {
   return (
     <div className="flex flex-col gap-5">
       {/* Week nav */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
           <button onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d); }}
-            className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-gray-300 transition flex items-center justify-center font-bold">‹</button>
-          <span className="text-sm font-semibold text-gray-700 min-w-[200px] text-center capitalize">{weekLabel}</span>
+            className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-gray-300 transition flex items-center justify-center font-bold shrink-0">‹</button>
+          <span className="text-xs sm:text-sm font-semibold text-gray-700 text-center capitalize truncate">
+            {weekLabel}
+          </span>
           <button onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d); }}
-            className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-gray-300 transition flex items-center justify-center font-bold">›</button>
+            className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-gray-300 transition flex items-center justify-center font-bold shrink-0">›</button>
           <button onClick={() => { setWeekStart(getMondayOf(new Date())); setSelectedDate(todayStr); }}
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition ml-1">
+            className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition shrink-0">
             Hoy
           </button>
         </div>
         <button onClick={() => setShowNew(true)}
-          className="text-sm font-bold px-4 py-2 rounded-xl text-white hover:opacity-90 transition"
+          className="text-xs sm:text-sm font-bold px-3 sm:px-4 py-2 rounded-xl text-white hover:opacity-90 transition shrink-0"
           style={{ backgroundColor: "#D95F45", boxShadow: "0 2px 8px rgba(217,95,69,0.3)" }}>
           + Nueva cita
         </button>
       </div>
 
       {/* Day strip */}
-      <div className="grid grid-cols-6 gap-2">
+      <div className="grid grid-cols-6 gap-1 sm:gap-2">
         {loading ? Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="h-[76px] rounded-2xl bg-gray-100 animate-pulse" />
         )) : days.map((day) => {
@@ -529,17 +531,17 @@ function AdminAgenda({ boxes }: { boxes: number }) {
           const cnt = activeCnt(day);
           return (
             <button key={day.date} onClick={() => setSelectedDate(day.date)}
-              className={`flex flex-col items-center gap-1 py-3 px-1 rounded-2xl border transition cursor-pointer ${
+              className={`flex flex-col items-center gap-1 py-2 sm:py-3 px-0.5 sm:px-1 rounded-xl sm:rounded-2xl border transition cursor-pointer ${
                 isSelected
                   ? "border-blue-600 bg-blue-600 shadow-md"
                   : isToday
                   ? "border-blue-200 bg-blue-50"
                   : "border-gray-100 bg-white hover:border-gray-200 hover:shadow-sm"
               }`}>
-              <span className={`text-[9px] font-bold uppercase tracking-wide ${isSelected ? "text-blue-200" : isToday ? "text-blue-500" : "text-gray-400"}`}>
+              <span className={`text-[8px] sm:text-[9px] font-bold uppercase tracking-wide ${isSelected ? "text-blue-200" : isToday ? "text-blue-500" : "text-gray-400"}`}>
                 {DAY_SHORT[d.getDay()]}
               </span>
-              <span className={`text-xl font-black leading-none ${isSelected ? "text-white" : isToday ? "text-blue-600" : "text-gray-800"}`}>
+              <span className={`text-base sm:text-xl font-black leading-none ${isSelected ? "text-white" : isToday ? "text-blue-600" : "text-gray-800"}`}>
                 {d.getDate()}
               </span>
               {cnt > 0 ? (
@@ -555,7 +557,8 @@ function AdminAgenda({ boxes }: { boxes: number }) {
       </div>
 
       {/* Doctor filter pills */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-none"
+        style={{ scrollbarWidth: "none" }}>
         <span className="text-xs font-semibold text-gray-400">Ver:</span>
         <button onClick={() => setDoctorFilter(null)}
           className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition ${

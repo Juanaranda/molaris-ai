@@ -795,17 +795,19 @@ export default function PartnersDashboard() {
         {clinic && (
           <>
             {/* Tabs */}
-            <div className="flex border-b border-gray-200 gap-1">
-              {([["agenda", "Agenda"], ["analytics", "Analítica"], ["patients", "Pacientes"], ["bookings", "Citas"], ["config", "Configuración"]] as [Tab, string][]).map(([tab, label]) => (
-                <button key={tab} onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
-                    activeTab === tab
-                      ? "border-blue-600 text-blue-600"
-                      : "border-transparent text-gray-500 hover:text-gray-700"
-                  }`}>
-                  {label}
-                </button>
-              ))}
+            <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+              <div className="flex border-b border-gray-200 gap-1 min-w-max sm:min-w-0">
+                {([["agenda", "Agenda"], ["analytics", "Analítica"], ["patients", "Pacientes"], ["bookings", "Citas"], ["config", "Config"]] as [Tab, string][]).map(([tab, label]) => (
+                  <button key={tab} onClick={() => setActiveTab(tab)}
+                    className={`px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
+                      activeTab === tab
+                        ? "border-blue-600 text-blue-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* ══ TAB ANALÍTICA ══════════════════════════════════════════════ */}
@@ -823,7 +825,7 @@ export default function PartnersDashboard() {
             {activeTab === "agenda" && user && (
               <div className="flex flex-col gap-4">
                 {/* Canales activos */}
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                   {/* WhatsApp */}
                   <a
                     href={clinic.whatsapp ? `https://wa.me/${clinic.whatsapp.replace(/\D/g, "")}` : undefined}
