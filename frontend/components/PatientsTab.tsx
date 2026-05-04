@@ -217,6 +217,9 @@ function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => 
   const [plans, setPlans] = useState<TreatmentPlan[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [showNewPlan, setShowNewPlan] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [noteText, setNoteText] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
 
   useEffect(() => {
     if (!patient.rut) return;
@@ -345,29 +348,91 @@ function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => 
                 <p className="text-sm text-gray-400 text-center py-8">Sin historial disponible</p>
               ) : (
                 <div className="divide-y divide-gray-50">
-                  {history.map((h) => (
-                    <div key={h.id} className="flex items-center gap-3 px-5 py-3">
-                      <div className="shrink-0 text-center w-16">
-                        <p className="text-xs font-bold text-gray-800">{h.time}</p>
-                        <p className="text-[10px] text-gray-400">{fmtDate(h.date)}</p>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-gray-700 truncate">{h.doctor.replace(/Dra?\. /,"")}</p>
-                        {h.service && <p className="text-[11px] text-gray-400 truncate">{h.service}</p>}
-                        {h.amountTotal && (
-                          <p className="text-[11px] text-gray-400 mt-0.5">
-                            {h.amountPaid ? fmtCLP(h.amountPaid) : "—"}
-                            {h.amountTotal !== h.amountPaid && ` / ${fmtCLP(h.amountTotal)}`}
-                            {h.paymentMethod && ` · ${{ cash:"Efectivo",transfer:"Transferencia",card:"Tarjeta",other:"Otro" }[h.paymentMethod] ?? h.paymentMethod}`}
-                          </p>
+                  {history.map((h) => {
+                    const isEditing = editingNoteId === h.id;
+                    return (
+                      <div key={h.id} className="px-5 py-3 flex flex-col gap-2">
+                        {/* Row top: date + doctor + pills */}
+                        <div className="flex items-start gap-3">
+                          <div className="shrink-0 text-center w-16">
+                            <p className="text-xs font-bold text-gray-800">{h.time}</p>
+                            <p className="text-[10px] text-gray-400">{fmtDate(h.date)}</p>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-gray-700 truncate">{h.doctor.replace(/Dra?\. /,"")}</p>
+                            {h.service && <p className="text-[11px] text-gray-400 truncate">{h.service}</p>}
+                            {h.amountTotal && (
+                              <p className="text-[11px] text-gray-400 mt-0.5">
+                                {h.amountPaid ? fmtCLP(h.amountPaid) : "—"}
+                                {h.amountTotal !== h.amountPaid && ` / ${fmtCLP(h.amountTotal)}`}
+                                {h.paymentMethod && ` · ${{ cash:"Efectivo",transfer:"Transferencia",card:"Tarjeta",other:"Otro" }[h.paymentMethod] ?? h.paymentMethod}`}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <StatusPill status={h.status} />
+                            <PayPill status={h.paymentStatus} />
+                          </div>
+                        </div>
+
+                        {/* Clinical note */}
+                        {isEditing ? (
+                          <div className="ml-[76px] flex flex-col gap-2">
+                            <textarea
+                              autoFocus
+                              value={noteText}
+                              onChange={(e) => setNoteText(e.target.value)}
+                              rows={3}
+                              placeholder="Observaciones clínicas, evolución, indicaciones…"
+                              className="w-full px-3 py-2 rounded-xl border border-blue-300 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none bg-blue-50/30"
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                disabled={savingNote}
+                                onClick={async () => {
+                                  setSavingNote(true);
+                                  const token = getToken();
+                                  await fetch(`${API}/api/agenda/bookings/${h.id}`, {
+                                    method: "PATCH",
+                                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                                    body: JSON.stringify({ notes: noteText }),
+                                  });
+                                  setHistory((prev) => prev.map((e) => e.id === h.id ? { ...e, notes: noteText } : e));
+                                  setEditingNoteId(null);
+                                  setSavingNote(false);
+                                }}
+                                className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50">
+                                {savingNote ? "Guardando…" : "Guardar"}
+                              </button>
+                              <button
+                                onClick={() => setEditingNoteId(null)}
+                                className="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition">
+                                Cancelar
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="ml-[76px]">
+                            {h.notes ? (
+                              <button
+                                onClick={() => { setEditingNoteId(h.id); setNoteText(h.notes ?? ""); }}
+                                className="w-full text-left group">
+                                <p className="text-[11px] text-gray-600 bg-slate-50 rounded-lg px-2.5 py-2 border border-slate-100 group-hover:border-blue-200 group-hover:bg-blue-50/30 transition leading-relaxed whitespace-pre-wrap">
+                                  {h.notes}
+                                </p>
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => { setEditingNoteId(h.id); setNoteText(""); }}
+                                className="text-[10px] text-gray-300 hover:text-blue-500 transition font-semibold flex items-center gap-1">
+                                <span>+</span> Agregar nota clínica
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
-                      <div className="flex flex-col items-end gap-1 shrink-0">
-                        <StatusPill status={h.status} />
-                        <PayPill status={h.paymentStatus} />
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
