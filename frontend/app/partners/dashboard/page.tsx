@@ -984,7 +984,7 @@ export default function PartnersDashboard() {
             {/* Tabs */}
             <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
               <div className="flex border-b border-gray-200 gap-1 min-w-max sm:min-w-0">
-                {([["agenda", "Agenda"], ["analytics", "Analítica"], ["patients", "Pacientes"], ["bookings", "Citas"], ["config", "Config"]] as [Tab, string][]).map(([tab, label]) => (
+                {([["agenda", "Agenda"], ["analytics", "Analítica"], ["patients", "Pacientes"], ["bookings", "Citas"], ["config", "Configuración"]] as [Tab, string][]).map(([tab, label]) => (
                   <button key={tab} onClick={() => setActiveTab(tab)}
                     className={`px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
                       activeTab === tab

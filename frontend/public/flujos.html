@@ -5,897 +5,772 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>molari.ai — Flujos y Arquitectura</title>
 <style>
-  :root {
-    --teal:   #0B2F42;
-    --teal2:  #1A5C7A;
-    --coral:  #D95F45;
-    --coral2: #F47B60;
-    --cream:  #F7F5F1;
-    --ink:    #0C1B26;
-    --muted:  #607281;
-    --border: #E5E0D9;
-    --emerald:#10B981;
-    --amber:  #F59E0B;
-    --purple: #8B5CF6;
-  }
+/* ── Reset & tokens ──────────────────────────────────────────────────── */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --teal:    #0B2F42;
+  --teal2:   #1A5C7A;
+  --coral:   #D95F45;
+  --coral2:  #F47B60;
+  --cream:   #F7F5F1;
+  --ink:     #0C1B26;
+  --muted:   #607281;
+  --border:  #E5E0D9;
+  --green:   #059669;
+  --amber:   #D97706;
+  --purple:  #7C3AED;
+  --radius:  20px;
+}
 
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-    background: var(--cream);
-    color: var(--ink);
-    line-height: 1.5;
-  }
+html { scroll-behavior: smooth; }
 
-  /* ── Layout ─────────────────────────────────────────────────────────── */
-  .page { max-width: 1100px; margin: 0 auto; padding: 0 24px 80px; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  background: var(--cream);
+  color: var(--ink);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
 
-  /* ── Nav ─────────────────────────────────────────────────────────────── */
-  nav {
-    background: var(--teal);
-    padding: 18px 32px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-  .logo { color: white; font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
-  .logo span { color: var(--coral); }
-  .nav-pill {
-    background: rgba(255,255,255,0.12);
-    color: rgba(255,255,255,0.75);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 6px 14px;
-    border-radius: 99px;
-  }
+/* ── Scroll-triggered fade-in ────────────────────────────────────────── */
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity .55s ease, transform .55s ease;
+}
+.reveal.in { opacity:1; transform:none; }
 
-  /* ── Hero ───────────────────────────────────────────────────────────── */
-  .hero {
-    text-align: center;
-    padding: 72px 0 56px;
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .badge-dot, .shimmer, .arrow-line::after, .h-line::after {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
   }
-  .hero-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: white;
-    border: 1px solid var(--border);
-    border-radius: 99px;
-    padding: 5px 14px 5px 8px;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--muted);
-    margin-bottom: 24px;
-  }
-  .badge-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: var(--coral);
-    animation: pulse 2s infinite;
-  }
-  @keyframes pulse {
-    0%,100% { opacity: 1; transform: scale(1); }
-    50% { opacity: .6; transform: scale(1.4); }
-  }
-  .hero h1 {
-    font-size: clamp(32px, 5vw, 54px);
-    font-weight: 900;
-    letter-spacing: -2px;
-    line-height: 1.05;
-    color: var(--ink);
-    margin-bottom: 16px;
-  }
-  .hero h1 em { color: var(--teal2); font-style: normal; }
-  .hero p {
-    font-size: 17px;
-    color: var(--muted);
-    max-width: 520px;
-    margin: 0 auto;
-  }
+}
 
-  /* ── Section titles ─────────────────────────────────────────────────── */
-  .section { padding: 64px 0 0; }
-  .section-label {
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--coral);
-    margin-bottom: 10px;
-  }
-  .section-title {
-    font-size: clamp(22px, 3vw, 32px);
-    font-weight: 900;
-    letter-spacing: -1px;
-    color: var(--ink);
-    margin-bottom: 8px;
-  }
-  .section-sub {
-    font-size: 15px;
-    color: var(--muted);
-    max-width: 580px;
-    margin-bottom: 40px;
-  }
+/* ── Layout ──────────────────────────────────────────────────────────── */
+.page { max-width: 1100px; margin: 0 auto; padding: 0 20px 96px; }
 
-  /* ── Flow diagram ───────────────────────────────────────────────────── */
-  .flow {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    overflow-x: auto;
-    padding: 32px 0;
-    -webkit-overflow-scrolling: touch;
-  }
-  .flow-step {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    flex: 1;
-    min-width: 120px;
-    opacity: 0;
-    transform: translateY(16px);
-    transition: opacity .5s ease, transform .5s ease;
-  }
-  .flow-step.visible { opacity: 1; transform: translateY(0); }
+/* ── Nav ─────────────────────────────────────────────────────────────── */
+nav {
+  background: var(--teal);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky; top:0; z-index:100;
+}
+.logo { color:white; font-size:17px; font-weight:800; letter-spacing:-0.5px; }
+.logo b { color:var(--coral); font-weight:inherit; }
+.nav-pill {
+  background: rgba(255,255,255,.12);
+  color: rgba(255,255,255,.75);
+  font-size:11px; font-weight:700;
+  letter-spacing:.08em; text-transform:uppercase;
+  padding:7px 14px; border-radius:99px;
+  white-space: nowrap;
+}
 
-  .step-icon {
-    width: 56px; height: 56px;
-    border-radius: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    position: relative;
-  }
-  .step-icon::after {
-    content: '';
-    position: absolute;
-    inset: -2px;
-    border-radius: 18px;
-    background: linear-gradient(135deg, rgba(255,255,255,.4), rgba(255,255,255,0));
-    pointer-events: none;
-  }
+/* ── Hero ────────────────────────────────────────────────────────────── */
+.hero { text-align:center; padding:64px 0 48px; }
 
-  .step-label {
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--ink);
-    text-align: center;
-    line-height: 1.3;
-    max-width: 100px;
-  }
-  .step-sub {
-    font-size: 10px;
-    color: var(--muted);
-    text-align: center;
-    max-width: 100px;
-    line-height: 1.4;
-  }
+.badge {
+  display:inline-flex; align-items:center; gap:7px;
+  background:white; border:1px solid var(--border);
+  border-radius:99px; padding:5px 16px 5px 8px;
+  font-size:12px; font-weight:600; color:var(--muted);
+  margin-bottom:22px;
+}
+.badge-dot {
+  width:8px; height:8px; border-radius:50%;
+  background:var(--coral);
+  animation: pulse 2.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,100% { opacity:1; transform:scale(1); }
+  50%      { opacity:.5; transform:scale(1.5); }
+}
 
-  .flow-arrow {
-    display: flex;
-    align-items: center;
-    padding: 0 4px;
-    color: var(--border);
-    flex-shrink: 0;
-    position: relative;
-    overflow: hidden;
-  }
-  .arrow-line {
-    width: 40px;
-    height: 2px;
-    background: linear-gradient(90deg, var(--border), var(--teal2));
-    border-radius: 2px;
-    position: relative;
-    overflow: hidden;
-  }
-  .arrow-line::after {
-    content: '';
-    position: absolute;
-    top: 0; left: -100%;
-    width: 100%; height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,.8), transparent);
-    animation: shimmer 2s infinite;
-  }
-  @keyframes shimmer { to { left: 200%; } }
-  .arrow-head {
-    width: 0; height: 0;
-    border-top: 5px solid transparent;
-    border-bottom: 5px solid transparent;
-    border-left: 7px solid var(--teal2);
-  }
+.hero h1 {
+  font-size: clamp(30px, 6vw, 54px);
+  font-weight:900; letter-spacing:-2px; line-height:1.05;
+  color:var(--ink); margin-bottom:14px;
+}
+.hero h1 em { color:var(--teal2); font-style:normal; }
+.hero p { font-size:16px; color:var(--muted); max-width:480px; margin:0 auto; }
 
-  /* ── Color tokens per flow ──────────────────────────────────────────── */
-  .c-patient  { background: #EEF7F3; }
-  .c-clinic   { background: #EEF3FF; }
-  .c-ai       { background: #F5F0FF; }
-  .c-alert    { background: #FFF8F1; }
-  .c-dark     { background: var(--teal); }
+/* ── Section ─────────────────────────────────────────────────────────── */
+.section { padding:60px 0 0; }
+.label {
+  font-size:11px; font-weight:800;
+  letter-spacing:.1em; text-transform:uppercase;
+  color:var(--coral); margin-bottom:8px;
+}
+.title {
+  font-size:clamp(20px, 3vw, 30px);
+  font-weight:900; letter-spacing:-0.8px;
+  color:var(--ink); margin-bottom:8px;
+}
+.sub { font-size:14px; color:var(--muted); max-width:540px; margin-bottom:36px; line-height:1.6; }
 
-  /* ── Architecture grid ──────────────────────────────────────────────── */
-  .arch-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 16px;
-    margin-top: 8px;
-  }
-  .arch-card {
-    background: white;
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    opacity: 0;
-    transform: translateY(20px);
-    transition: opacity .5s ease, transform .5s ease, box-shadow .2s;
-  }
-  .arch-card:hover { box-shadow: 0 8px 32px rgba(0,0,0,.08); }
-  .arch-card.visible { opacity: 1; transform: translateY(0); }
-  .arch-card-icon {
-    width: 44px; height: 44px;
-    border-radius: 12px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 20px;
-  }
-  .arch-card h3 { font-size: 14px; font-weight: 800; color: var(--ink); }
-  .arch-card p  { font-size: 12px; color: var(--muted); line-height: 1.5; }
-  .arch-tag {
-    display: inline-block;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 3px 8px;
-    border-radius: 99px;
-    margin-right: 4px;
-    margin-top: 4px;
-  }
+/* ── FLOW — desktop: horizontal row / mobile: vertical steps ─────────── */
+.flow-wrap { position:relative; }
 
-  /* ── Metrics row ────────────────────────────────────────────────────── */
-  .metrics {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-    gap: 12px;
-    margin: 8px 0;
-  }
-  .metric {
-    background: white;
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    opacity: 0;
-    transform: translateY(16px);
-    transition: opacity .5s ease, transform .5s ease;
-  }
-  .metric.visible { opacity: 1; transform: translateY(0); }
-  .metric-value {
-    font-size: 28px;
-    font-weight: 900;
-    letter-spacing: -1px;
-    line-height: 1;
-  }
-  .metric-label { font-size: 12px; color: var(--muted); font-weight: 500; }
+/* Desktop */
+.flow {
+  display:flex; align-items:center;
+  padding:28px 0;
+  gap:0;
+}
+.flow-step {
+  display:flex; flex-direction:column; align-items:center;
+  gap:9px; flex:1; min-width:110px;
+}
+.step-icon {
+  width:54px; height:54px; border-radius:15px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:22px; flex-shrink:0;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+.step-label { font-size:12px; font-weight:700; color:var(--ink); text-align:center; line-height:1.3; max-width:96px; }
+.step-sub   { font-size:10px; color:var(--muted); text-align:center; max-width:96px; line-height:1.4; }
 
-  /* ── Journey section ────────────────────────────────────────────────── */
-  .journey {
-    background: var(--teal);
-    border-radius: 24px;
-    padding: 40px;
-    margin-top: 64px;
-    color: white;
-  }
-  .journey .section-label { color: var(--coral2); }
-  .journey .section-title { color: white; }
-  .journey .section-sub   { color: rgba(255,255,255,.6); }
-  .journey-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 16px;
-  }
-  .journey-card {
-    background: rgba(255,255,255,.06);
-    border: 1px solid rgba(255,255,255,.1);
-    border-radius: 16px;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    opacity: 0;
-    transform: translateY(20px);
-    transition: opacity .5s ease, transform .5s ease;
-  }
-  .journey-card.visible { opacity: 1; transform: translateY(0); }
-  .journey-icon { font-size: 24px; }
-  .journey-card h4 { font-size: 13px; font-weight: 800; color: white; }
-  .journey-card p  { font-size: 12px; color: rgba(255,255,255,.55); line-height: 1.5; }
-  .journey-card .step-num {
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-    color: var(--coral2);
-    margin-bottom: 4px;
-  }
+.arrow {
+  display:flex; align-items:center; flex-shrink:0; padding:0 2px;
+  padding-bottom:30px; /* align with icon center */
+}
+.arrow-line {
+  width:36px; height:2px;
+  background:linear-gradient(90deg, var(--border), var(--teal2));
+  border-radius:2px; position:relative; overflow:hidden;
+}
+.arrow-line::after {
+  content:''; position:absolute; top:0; left:-100%;
+  width:100%; height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.85),transparent);
+  animation:shimmer 2.2s infinite;
+}
+@keyframes shimmer { to { left:200%; } }
+.arrow-head {
+  width:0; height:0;
+  border-top:5px solid transparent; border-bottom:5px solid transparent;
+  border-left:7px solid var(--teal2);
+}
 
-  /* ── ROI table ──────────────────────────────────────────────────────── */
-  .compare-table {
-    background: white;
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    overflow: hidden;
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-    margin-top: 8px;
+/* Mobile: vertical numbered list */
+@media (max-width: 640px) {
+  .flow { display:none; }
+  .flow-mobile { display:flex; flex-direction:column; gap:0; padding:4px 0 24px; }
+  .fm-step {
+    display:flex; align-items:flex-start; gap:14px;
+    position:relative; padding-bottom:20px;
   }
-  .compare-table th {
-    background: var(--ink);
-    color: white;
-    padding: 14px 18px;
-    text-align: left;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .05em;
-    text-transform: uppercase;
+  .fm-step:last-child { padding-bottom:0; }
+  .fm-left { display:flex; flex-direction:column; align-items:center; flex-shrink:0; }
+  .fm-num {
+    width:36px; height:36px; border-radius:11px;
+    background:var(--teal); color:white;
+    font-size:13px; font-weight:800;
+    display:flex; align-items:center; justify-content:center;
   }
-  .compare-table th:first-child { background: var(--teal); }
-  .compare-table th.highlight { background: var(--teal2); }
-  .compare-table td {
-    padding: 12px 18px;
-    border-bottom: 1px solid var(--border);
-    color: var(--ink);
-  }
-  .compare-table tr:last-child td { border-bottom: none; }
-  .compare-table tr:hover td { background: #F7F5F1; }
-  .check { color: var(--emerald); font-weight: 800; }
-  .cross { color: #D1D5DB; font-weight: 800; }
-  .partial { color: var(--amber); font-weight: 800; }
+  .fm-line { width:2px; flex:1; min-height:20px; background:var(--border); margin-top:4px; }
+  .fm-step:last-child .fm-line { display:none; }
+  .fm-body { padding-top:7px; }
+  .fm-title { font-size:14px; font-weight:700; color:var(--ink); }
+  .fm-sub   { font-size:12px; color:var(--muted); margin-top:2px; line-height:1.4; }
+  .fm-icon  { font-size:18px; margin-bottom:2px; }
+}
+@media (min-width: 641px) { .flow-mobile { display:none; } }
 
-  /* ── CTA ────────────────────────────────────────────────────────────── */
-  .cta-block {
-    background: linear-gradient(135deg, var(--teal), var(--teal2));
-    border-radius: 24px;
-    padding: 56px 40px;
-    text-align: center;
-    margin-top: 64px;
-    position: relative;
-    overflow: hidden;
-  }
-  .cta-block::before {
-    content: '';
-    position: absolute;
-    top: -60px; right: -60px;
-    width: 240px; height: 240px;
-    border-radius: 50%;
-    background: rgba(255,255,255,.04);
-    pointer-events: none;
-  }
-  .cta-block::after {
-    content: '';
-    position: absolute;
-    bottom: -80px; left: -40px;
-    width: 300px; height: 300px;
-    border-radius: 50%;
-    background: rgba(217,95,69,.1);
-    pointer-events: none;
-  }
-  .cta-block h2 { font-size: 32px; font-weight: 900; color: white; letter-spacing: -1px; margin-bottom: 12px; }
-  .cta-block p  { font-size: 15px; color: rgba(255,255,255,.65); margin-bottom: 32px; }
-  .cta-btn {
-    display: inline-block;
-    background: var(--coral);
-    color: white;
-    font-size: 14px;
-    font-weight: 800;
-    padding: 14px 32px;
-    border-radius: 14px;
-    text-decoration: none;
-    transition: opacity .2s, transform .2s;
-    position: relative;
-    z-index: 1;
-  }
-  .cta-btn:hover { opacity: .9; transform: translateY(-1px); }
+/* ── Metrics ─────────────────────────────────────────────────────────── */
+.metrics {
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px,1fr));
+  gap:12px; margin:4px 0;
+}
+.metric {
+  background:white; border:1px solid var(--border);
+  border-radius:16px; padding:18px;
+  display:flex; flex-direction:column; gap:4px;
+}
+.metric-val {
+  font-size:26px; font-weight:900;
+  letter-spacing:-1px; line-height:1;
+}
+.metric-lbl { font-size:11px; color:var(--muted); font-weight:500; line-height:1.4; }
 
-  /* ── Connection diagram ─────────────────────────────────────────────── */
-  .conn-wrap {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0;
-    margin: 40px 0;
-    flex-wrap: wrap;
-  }
-  .conn-col {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    align-items: center;
-  }
-  .conn-node {
-    background: white;
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 12px 16px;
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--ink);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 130px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.04);
-    opacity: 0;
-    transform: scale(.96);
-    transition: opacity .5s ease, transform .5s ease;
-  }
-  .conn-node.visible { opacity: 1; transform: scale(1); }
-  .conn-node.central {
-    background: var(--teal);
-    color: white;
-    border-color: transparent;
-    min-width: 160px;
-    padding: 20px 24px;
-    border-radius: 20px;
-    box-shadow: 0 8px 32px rgba(11,47,66,.25);
-  }
-  .conn-node.central .node-icon { font-size: 28px; }
-  .conn-node.central .node-label { font-size: 14px; font-weight: 900; }
-  .conn-node.central .node-sub { font-size: 11px; color: rgba(255,255,255,.6); }
-  .node-icon { font-size: 18px; }
-  .node-sub { font-size: 10px; color: var(--muted); display: block; margin-top: 1px; }
+/* ── Connection hub ──────────────────────────────────────────────────── */
+/* Desktop: 3-column hub */
+.hub {
+  display:grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap:0; align-items:center;
+  margin:36px 0;
+}
+.hub-inputs, .hub-outputs {
+  display:flex; flex-direction:column; gap:10px;
+}
+.hub-node {
+  background:white; border:1px solid var(--border);
+  border-radius:13px; padding:11px 14px;
+  font-size:12px; font-weight:700; color:var(--ink);
+  display:flex; align-items:center; gap:9px;
+  box-shadow:0 2px 6px rgba(0,0,0,.04);
+}
+.hub-node-icon { font-size:17px; flex-shrink:0; }
+.hub-node-sub  { font-size:10px; color:var(--muted); display:block; margin-top:1px; }
+.hub-center { display:flex; flex-direction:column; align-items:center; gap:10px; padding:0 24px; }
+.hub-brain {
+  background:var(--teal); color:white;
+  border-radius:18px; padding:20px 22px;
+  text-align:center;
+  box-shadow:0 8px 28px rgba(11,47,66,.22);
+  min-width:150px;
+}
+.hub-brain-icon { font-size:30px; display:block; margin-bottom:6px; }
+.hub-brain-title { font-size:14px; font-weight:900; display:block; }
+.hub-brain-sub   { font-size:10px; color:rgba(255,255,255,.6); display:block; margin-top:2px; }
+.hub-connectors {
+  display:flex; flex-direction:column; gap:10px; align-items:center;
+}
+.hub-connector { display:flex; align-items:center; gap:3px; }
+.hc-line {
+  width:40px; height:2px;
+  background:linear-gradient(90deg,var(--border),var(--teal2));
+  border-radius:2px; position:relative; overflow:hidden;
+}
+.hc-line::after {
+  content:''; position:absolute; top:0; left:-100%;
+  width:100%; height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.85),transparent);
+  animation:shimmer 2s infinite;
+}
+.hc-arr { color:var(--teal2); font-size:11px; }
 
-  .conn-lines {
-    display: flex;
-    align-items: center;
-    padding: 0 12px;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .conn-line-wrap {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  .h-line {
-    width: 48px; height: 2px;
-    background: linear-gradient(90deg, var(--border), var(--teal2));
-    border-radius: 2px;
-    position: relative;
-    overflow: hidden;
-  }
-  .h-line::after {
-    content: '';
-    position: absolute;
-    top: 0; left: -100%;
-    width: 100%; height: 100%;
-    background: linear-gradient(90deg, transparent, white, transparent);
-    animation: shimmer 1.8s infinite;
-  }
-  .conn-line-wrap .arr { color: var(--teal2); font-size: 12px; }
+/* Mobile hub: vertical list */
+@media (max-width: 640px) {
+  .hub { display:flex; flex-direction:column; gap:10px; margin:20px 0; }
+  .hub-inputs, .hub-outputs { flex-direction:column; }
+  .hub-center { padding:4px 0; }
+  .hub-connectors { display:none; }
+  .hub-brain { align-self:stretch; text-align:left; display:flex; gap:12px; align-items:center; padding:16px 18px; border-radius:16px; }
+  .hub-brain-icon { margin-bottom:0; font-size:24px; }
+  .hub-brain-title { font-size:13px; }
+  .hub-brain-lhs { display:flex; flex-direction:column; }
+}
+@media (min-width: 641px) { .hub-brain-lhs { display:contents; } }
 
-  /* ── Responsive ─────────────────────────────────────────────────────── */
-  @media (max-width: 640px) {
-    .flow { gap: 0; }
-    .arrow-line { width: 20px; }
-    .journey { padding: 28px 20px; }
-    .cta-block { padding: 40px 24px; }
-    .conn-wrap { gap: 16px; }
-    .conn-lines { display: none; }
-  }
+/* ── Journey (dark) ──────────────────────────────────────────────────── */
+.journey {
+  background:var(--teal); border-radius:24px;
+  padding:40px; margin-top:60px;
+}
+.journey .label  { color:var(--coral2); }
+.journey .title  { color:white; }
+.journey .sub    { color:rgba(255,255,255,.6); }
+.journey-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+  gap:14px;
+}
+.jcard {
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:15px; padding:18px;
+  display:flex; flex-direction:column; gap:7px;
+}
+.jcard-step { font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--coral2); }
+.jcard-icon { font-size:22px; }
+.jcard h4   { font-size:13px; font-weight:800; color:white; }
+.jcard p    { font-size:11px; color:rgba(255,255,255,.55); line-height:1.55; }
+
+@media (max-width:640px) {
+  .journey { padding:28px 20px; border-radius:18px; }
+  .journey-grid { grid-template-columns:1fr 1fr; gap:10px; }
+}
+@media (max-width:400px) {
+  .journey-grid { grid-template-columns:1fr; }
+}
+
+/* ── Tech stack cards ────────────────────────────────────────────────── */
+.arch-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+  gap:14px; margin-top:6px;
+}
+.acard {
+  background:white; border:1px solid var(--border);
+  border-radius:18px; padding:22px;
+  display:flex; flex-direction:column; gap:9px;
+  transition:box-shadow .2s;
+}
+.acard:hover { box-shadow:0 6px 28px rgba(0,0,0,.07); }
+.acard-icon { width:42px; height:42px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:19px; }
+.acard h3 { font-size:13px; font-weight:800; color:var(--ink); }
+.acard p  { font-size:11px; color:var(--muted); line-height:1.55; }
+.tags { display:flex; flex-wrap:wrap; gap:5px; margin-top:3px; }
+.tag {
+  font-size:10px; font-weight:700;
+  padding:3px 9px; border-radius:99px;
+}
+
+/* ── Comparison table ────────────────────────────────────────────────── */
+.table-wrap {
+  overflow-x:auto; -webkit-overflow-scrolling:touch;
+  border:1px solid var(--border); border-radius:var(--radius);
+  margin-top:6px;
+}
+.compare-table {
+  background:white; width:100%;
+  border-collapse:collapse; font-size:13px;
+  min-width:560px;
+}
+.compare-table th {
+  background:var(--ink); color:white;
+  padding:13px 16px; text-align:left;
+  font-size:10px; font-weight:700;
+  letter-spacing:.05em; text-transform:uppercase;
+  white-space:nowrap;
+}
+.compare-table th:first-child  { background:var(--teal); }
+.compare-table th.hi           { background:var(--teal2); }
+.compare-table td {
+  padding:11px 16px; border-bottom:1px solid var(--border);
+  color:var(--ink); vertical-align:middle;
+}
+.compare-table tr:last-child td  { border-bottom:none; }
+.compare-table tbody tr:hover td { background:#F7F5F1; }
+.check   { color:#059669; font-weight:800; }
+.cross   { color:#CBD5E1; font-weight:800; }
+.partial { color:var(--amber); font-weight:700; }
+
+/* Sticky first column on mobile */
+.compare-table td:first-child,
+.compare-table th:first-child {
+  position:sticky; left:0; z-index:1;
+  background:white;
+}
+.compare-table th:first-child { background:var(--teal); }
+.compare-table tbody tr:hover td:first-child { background:#F7F5F1; }
+
+/* Mobile hint */
+.scroll-hint {
+  display:none; font-size:11px; color:var(--muted);
+  text-align:right; margin-bottom:4px;
+}
+@media (max-width:640px) { .scroll-hint { display:block; } }
+
+/* ── CTA ─────────────────────────────────────────────────────────────── */
+.cta {
+  background:linear-gradient(135deg,var(--teal),var(--teal2));
+  border-radius:24px; padding:52px 32px;
+  text-align:center; margin-top:60px;
+  position:relative; overflow:hidden;
+}
+.cta::before {
+  content:''; position:absolute; top:-50px; right:-50px;
+  width:220px; height:220px; border-radius:50%;
+  background:rgba(255,255,255,.04); pointer-events:none;
+}
+.cta h2 { font-size:clamp(24px,4vw,34px); font-weight:900; color:white; letter-spacing:-1px; margin-bottom:10px; }
+.cta p  { font-size:14px; color:rgba(255,255,255,.65); margin-bottom:28px; }
+.cta-btn {
+  display:inline-block; background:var(--coral);
+  color:white; font-size:14px; font-weight:800;
+  padding:15px 36px; border-radius:14px;
+  text-decoration:none; position:relative; z-index:1;
+  transition:opacity .2s, transform .15s;
+  min-height:48px; /* solid touch target */
+}
+.cta-btn:hover { opacity:.88; transform:translateY(-1px); }
+
+@media (max-width:640px) {
+  .cta { padding:40px 22px; border-radius:18px; }
+  .cta-btn { width:100%; text-align:center; }
+}
+
+/* ── Print ────────────────────────────────────────────────────────────── */
+@media print {
+  nav { position:static; background:#0B2F42 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .reveal { opacity:1; transform:none; }
+  .cta-btn { background:#D95F45 !important; }
+  .arrow-line::after, .h-line::after, .badge-dot { animation:none; }
+}
 </style>
 </head>
 <body>
 
 <!-- NAV -->
 <nav>
-  <div class="logo">molari<span>.</span>ai</div>
-  <div class="nav-pill">Arquitectura & Flujos</div>
+  <div class="logo">molari<b>.</b>ai</div>
+  <div class="nav-pill">Arquitectura &amp; Flujos</div>
 </nav>
 
 <div class="page">
 
-  <!-- HERO -->
-  <div class="hero">
-    <div class="hero-badge">
-      <div class="badge-dot"></div>
-      Sistema activo · Galana Clínica Dental
-    </div>
-    <h1>La clínica dental<br /><em>que trabaja sola</em></h1>
-    <p>IA conversacional + agenda inteligente + analytics en tiempo real, todo integrado en un sistema único.</p>
+<!-- ── HERO ──────────────────────────────────────────────────────────── -->
+<div class="hero reveal">
+  <div class="badge">
+    <div class="badge-dot"></div>
+    Sistema activo · Galana Clínica Dental
   </div>
+  <h1>La clínica dental<br><em>que trabaja sola</em></h1>
+  <p>IA conversacional + agenda inteligente + analytics en tiempo real, integrados en un sistema único.</p>
+</div>
 
-  <!-- ═══════════════════════════════════════════════════════════════════ -->
-  <!-- SECTION 1: PATIENT JOURNEY -->
-  <!-- ═══════════════════════════════════════════════════════════════════ -->
-  <div class="section">
-    <div class="section-label">01 · Flujo del paciente</div>
-    <div class="section-title">De desconocido a cita confirmada</div>
-    <p class="section-sub">El asistente IA gestiona todo el ciclo de conversión, 24 horas al día, sin intervención humana.</p>
 
-    <div class="flow" id="flow1">
-      <div class="flow-step">
-        <div class="step-icon" style="background:#E8F5E9">📱</div>
-        <div class="step-label">Descubre la clínica</div>
-        <div class="step-sub">WhatsApp, Instagram o web</div>
-      </div>
-      <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+<!-- ══════════════════════════════════════════════════════════════════════
+     01 · PATIENT FLOW
+════════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="label reveal">01 · Flujo del paciente</div>
+  <div class="title reveal">De desconocido a cita confirmada</div>
+  <p class="sub reveal">El asistente IA gestiona todo el ciclo de conversión, 24 horas al día, sin intervención humana.</p>
 
-      <div class="flow-step">
-        <div class="step-icon" style="background:#EEF3FF">🤖</div>
-        <div class="step-label">IA responde al instante</div>
-        <div class="step-sub">&lt;2 segundos, 24/7</div>
-      </div>
-      <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
-
-      <div class="flow-step">
-        <div class="step-icon" style="background:#FFF8F0">🎯</div>
-        <div class="step-label">Lead scoring</div>
-        <div class="step-sub">0-100 · intención · urgencia</div>
-      </div>
-      <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
-
-      <div class="flow-step">
-        <div class="step-icon" style="background:#EEF7F3">📅</div>
-        <div class="step-label">Agenda la cita</div>
-        <div class="step-sub">Doctor, horario y box disponible</div>
-      </div>
-      <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
-
-      <div class="flow-step">
-        <div class="step-icon" style="background:#FDF0F5">🔔</div>
-        <div class="step-label">Recordatorio automático</div>
-        <div class="step-sub">24h antes y 2h antes</div>
-      </div>
-      <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
-
-      <div class="flow-step">
-        <div class="step-icon c-patient">✅</div>
-        <div class="step-label">Paciente asiste</div>
-        <div class="step-sub">Historial clínico actualizado</div>
-      </div>
+  <!-- Desktop flow -->
+  <div class="flow reveal" id="flow1">
+    <div class="flow-step">
+      <div class="step-icon" style="background:#E8F5E9">📱</div>
+      <div class="step-label">Descubre la clínica</div>
+      <div class="step-sub">WhatsApp, Instagram o web</div>
     </div>
-
-    <!-- Metrics -->
-    <div class="metrics" id="metrics1">
-      <div class="metric">
-        <div class="metric-value" style="color:var(--teal2)">&lt;2s</div>
-        <div class="metric-label">Tiempo de respuesta promedio</div>
-      </div>
-      <div class="metric">
-        <div class="metric-value" style="color:var(--emerald)">24/7</div>
-        <div class="metric-label">Disponibilidad del asistente</div>
-      </div>
-      <div class="metric">
-        <div class="metric-value" style="color:var(--coral)">3×</div>
-        <div class="metric-label">Más conversiones vs. llamadas</div>
-      </div>
-      <div class="metric">
-        <div class="metric-value" style="color:var(--purple)">0</div>
-        <div class="metric-label">Horas hombre para agendar</div>
-      </div>
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+    <div class="flow-step">
+      <div class="step-icon" style="background:#EEF3FF">🤖</div>
+      <div class="step-label">IA responde al instante</div>
+      <div class="step-sub">&lt;2 segundos, 24/7</div>
+    </div>
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+    <div class="flow-step">
+      <div class="step-icon" style="background:#FFF8F0">🎯</div>
+      <div class="step-label">Lead scoring</div>
+      <div class="step-sub">0–100 · intención · urgencia</div>
+    </div>
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+    <div class="flow-step">
+      <div class="step-icon" style="background:#EEF7F3">📅</div>
+      <div class="step-label">Agenda la cita</div>
+      <div class="step-sub">Doctor, horario y box</div>
+    </div>
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+    <div class="flow-step">
+      <div class="step-icon" style="background:#FDF0F5">🔔</div>
+      <div class="step-label">Recordatorio automático</div>
+      <div class="step-sub">24h antes y 2h antes</div>
+    </div>
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+    <div class="flow-step">
+      <div class="step-icon" style="background:#EEF7F3">✅</div>
+      <div class="step-label">Paciente asiste</div>
+      <div class="step-sub">Historial clínico actualizado</div>
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════════ -->
-  <!-- SECTION 2: CONNECTION DIAGRAM -->
-  <!-- ═══════════════════════════════════════════════════════════════════ -->
-  <div class="section">
-    <div class="section-label">02 · Integración de canales</div>
-    <div class="section-title">Un cerebro, todos los canales</div>
-    <p class="section-sub">Todos los mensajes, sin importar el origen, pasan por el mismo motor de IA con contexto unificado del paciente.</p>
-
-    <div class="conn-wrap" id="conn-wrap">
-      <!-- Inputs -->
-      <div class="conn-col">
-        <div class="conn-node" style="transition-delay:.0s">
-          <span class="node-icon">💬</span>
-          <div>
-            <div>WhatsApp Business</div>
-            <span class="node-sub">Mensajes directos</span>
-          </div>
-        </div>
-        <div class="conn-node" style="transition-delay:.1s">
-          <span class="node-icon">📸</span>
-          <div>
-            <div>Instagram DMs</div>
-            <span class="node-sub">Direct messages</span>
-          </div>
-        </div>
-        <div class="conn-node" style="transition-delay:.2s">
-          <span class="node-icon">🌐</span>
-          <div>
-            <div>Widget Web</div>
-            <span class="node-sub">Chat embebido</span>
-          </div>
-        </div>
+  <!-- Mobile flow (vertical) -->
+  <div class="flow-mobile reveal">
+    <div class="fm-step">
+      <div class="fm-left"><div class="fm-num">1</div><div class="fm-line"></div></div>
+      <div class="fm-body">
+        <div class="fm-icon">📱</div>
+        <div class="fm-title">Descubre la clínica</div>
+        <div class="fm-sub">WhatsApp, Instagram o widget web</div>
       </div>
-
-      <div class="conn-lines">
-        <div class="conn-line-wrap"><div class="h-line"></div><span class="arr">▶</span></div>
-        <div class="conn-line-wrap"><div class="h-line"></div><span class="arr">▶</span></div>
-        <div class="conn-line-wrap"><div class="h-line"></div><span class="arr">▶</span></div>
+    </div>
+    <div class="fm-step">
+      <div class="fm-left"><div class="fm-num">2</div><div class="fm-line"></div></div>
+      <div class="fm-body">
+        <div class="fm-icon">🤖</div>
+        <div class="fm-title">IA responde al instante</div>
+        <div class="fm-sub">&lt;2 segundos, disponible 24/7</div>
       </div>
-
-      <!-- Central AI -->
-      <div class="conn-col">
-        <div class="conn-node central" style="transition-delay:.3s">
-          <span class="node-icon">🧠</span>
-          <div>
-            <div class="node-label">Motor IA</div>
-            <span class="node-sub">Llama 3 · Groq · Fastify</span>
-          </div>
-        </div>
+    </div>
+    <div class="fm-step">
+      <div class="fm-left"><div class="fm-num">3</div><div class="fm-line"></div></div>
+      <div class="fm-body">
+        <div class="fm-icon">🎯</div>
+        <div class="fm-title">Lead scoring automático</div>
+        <div class="fm-sub">Intención, urgencia y puntuación 0–100</div>
       </div>
-
-      <div class="conn-lines">
-        <div class="conn-line-wrap"><span class="arr">▶</span><div class="h-line"></div></div>
-        <div class="conn-line-wrap"><span class="arr">▶</span><div class="h-line"></div></div>
-        <div class="conn-line-wrap"><span class="arr">▶</span><div class="h-line"></div></div>
+    </div>
+    <div class="fm-step">
+      <div class="fm-left"><div class="fm-num">4</div><div class="fm-line"></div></div>
+      <div class="fm-body">
+        <div class="fm-icon">📅</div>
+        <div class="fm-title">Agenda la cita</div>
+        <div class="fm-sub">Doctor, horario disponible y box asignado</div>
       </div>
-
-      <!-- Outputs -->
-      <div class="conn-col">
-        <div class="conn-node" style="transition-delay:.4s">
-          <span class="node-icon">📅</span>
-          <div>
-            <div>Agenda inteligente</div>
-            <span class="node-sub">Citas + historial</span>
-          </div>
-        </div>
-        <div class="conn-node" style="transition-delay:.5s">
-          <span class="node-icon">📊</span>
-          <div>
-            <div>Analytics</div>
-            <span class="node-sub">Leads · conversión · ingresos</span>
-          </div>
-        </div>
-        <div class="conn-node" style="transition-delay:.6s">
-          <span class="node-icon">🦷</span>
-          <div>
-            <div>Odontograma</div>
-            <span class="node-sub">Presupuestos + planes</span>
-          </div>
-        </div>
+    </div>
+    <div class="fm-step">
+      <div class="fm-left"><div class="fm-num">5</div><div class="fm-line"></div></div>
+      <div class="fm-body">
+        <div class="fm-icon">🔔</div>
+        <div class="fm-title">Recordatorio automático</div>
+        <div class="fm-sub">WhatsApp 24h antes y 2h antes</div>
+      </div>
+    </div>
+    <div class="fm-step">
+      <div class="fm-left"><div class="fm-num">6</div></div>
+      <div class="fm-body">
+        <div class="fm-icon">✅</div>
+        <div class="fm-title">Paciente asiste</div>
+        <div class="fm-sub">Historial clínico actualizado</div>
       </div>
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════════ -->
-  <!-- SECTION 3: CLINIC JOURNEY (dark cards) -->
-  <!-- ═══════════════════════════════════════════════════════════════════ -->
-  <div class="journey" id="journey-section">
-    <div class="section-label">03 · Flujo de la clínica</div>
-    <div class="section-title">Operación sin fricciones</div>
-    <p class="section-sub">Desde que abres el panel hasta que cierras el día, cada paso está optimizado.</p>
+  <!-- Metrics -->
+  <div class="metrics" id="metrics1">
+    <div class="metric reveal"><div class="metric-val" style="color:var(--teal2)">&lt;2s</div><div class="metric-lbl">Tiempo de respuesta promedio</div></div>
+    <div class="metric reveal" style="transition-delay:.08s"><div class="metric-val" style="color:var(--green)">24/7</div><div class="metric-lbl">Disponibilidad del asistente</div></div>
+    <div class="metric reveal" style="transition-delay:.16s"><div class="metric-val" style="color:var(--coral)">3×</div><div class="metric-lbl">Más conversiones vs. llamadas</div></div>
+    <div class="metric reveal" style="transition-delay:.24s"><div class="metric-val" style="color:var(--purple)">0</div><div class="metric-lbl">Horas hombre para agendar</div></div>
+  </div>
+</div>
 
-    <div class="journey-grid">
-      <div class="journey-card" style="transition-delay:.0s">
-        <div class="step-num">Mañana</div>
-        <div class="journey-icon">☀️</div>
-        <h4>Resumen del día</h4>
-        <p>Ves quiénes llegan hoy, con servicio, doctor asignado y estado de pago de un vistazo.</p>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     02 · CHANNEL HUB
+════════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="label reveal">02 · Integración de canales</div>
+  <div class="title reveal">Un cerebro, todos los canales</div>
+  <p class="sub reveal">Todos los mensajes, sin importar el origen, pasan por el mismo motor de IA con contexto unificado del paciente.</p>
+
+  <div class="hub" id="hub">
+    <!-- Inputs -->
+    <div class="hub-inputs">
+      <div class="hub-node reveal">
+        <span class="hub-node-icon">💬</span>
+        <div><div>WhatsApp Business</div><span class="hub-node-sub">Mensajes directos</span></div>
       </div>
-      <div class="journey-card" style="transition-delay:.1s">
-        <div class="step-num">Durante el día</div>
-        <div class="journey-icon">🦷</div>
-        <h4>Ficha clínica + presupuesto</h4>
-        <p>Abre la ficha del paciente, anota en el odontograma y genera un presupuesto con un click.</p>
+      <div class="hub-node reveal" style="transition-delay:.1s">
+        <span class="hub-node-icon">📸</span>
+        <div><div>Instagram DMs</div><span class="hub-node-sub">Direct messages</span></div>
       </div>
-      <div class="journey-card" style="transition-delay:.2s">
-        <div class="step-num">Cobro</div>
-        <div class="journey-icon">💳</div>
-        <h4>Registro de pagos</h4>
-        <p>Marca el método y monto pagado. El dashboard actualiza ingresos y saldo pendiente en tiempo real.</p>
-      </div>
-      <div class="journey-card" style="transition-delay:.3s">
-        <div class="step-num">Cierre</div>
-        <div class="journey-icon">📊</div>
-        <h4>Analytics del período</h4>
-        <p>Consulta conversión de leads, ingresos por doctor, servicios más solicitados y tendencias.</p>
-      </div>
-      <div class="journey-card" style="transition-delay:.4s">
-        <div class="step-num">Automático</div>
-        <div class="journey-icon">🔔</div>
-        <h4>Recordatorios enviados</h4>
-        <p>Whatsapp automático 24h y 2h antes de cada cita. Sin secretaria que llame uno a uno.</p>
-      </div>
-      <div class="journey-card" style="transition-delay:.5s">
-        <div class="step-num">Seguimiento</div>
-        <div class="journey-icon">📋</div>
-        <h4>Planes de tratamiento</h4>
-        <p>Seguimiento de sesiones, pagos parciales y progreso por paciente para tratamientos largos.</p>
+      <div class="hub-node reveal" style="transition-delay:.2s">
+        <span class="hub-node-icon">🌐</span>
+        <div><div>Widget Web</div><span class="hub-node-sub">Chat embebido</span></div>
       </div>
     </div>
-  </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════════ -->
-  <!-- SECTION 4: TECH STACK -->
-  <!-- ═══════════════════════════════════════════════════════════════════ -->
-  <div class="section">
-    <div class="section-label">04 · Stack tecnológico</div>
-    <div class="section-title">Infraestructura de vanguardia</div>
-    <p class="section-sub">Cada capa elegida para velocidad, seguridad y escalabilidad multi-clínica.</p>
+    <!-- Connectors (desktop only) -->
+    <div class="hub-connectors">
+      <div class="hub-connector"><div class="hc-line"></div><span class="hc-arr">▶</span></div>
+      <div class="hub-connector"><div class="hc-line"></div><span class="hc-arr">▶</span></div>
+      <div class="hub-connector"><div class="hc-line"></div><span class="hc-arr">▶</span></div>
+    </div>
 
-    <div class="arch-grid" id="arch-grid">
-      <div class="arch-card" style="transition-delay:.0s">
-        <div class="arch-card-icon" style="background:#F5F0FF">🧠</div>
-        <h3>IA Conversacional</h3>
-        <p>Llama 3.3 70B via Groq — inferencia &lt;500ms, contexto de sesión persistente por paciente.</p>
-        <div>
-          <span class="arch-tag" style="background:#F5F0FF;color:#7C3AED">Llama 3.3</span>
-          <span class="arch-tag" style="background:#EEF3FF;color:#3B82F6">Groq API</span>
-        </div>
-      </div>
-      <div class="arch-card" style="transition-delay:.1s">
-        <div class="arch-card-icon" style="background:#EEF7F3">⚡</div>
-        <h3>Backend</h3>
-        <p>Fastify + TypeScript. Multi-tenant desde el diseño. JWT por clínica. Webhook-ready.</p>
-        <div>
-          <span class="arch-tag" style="background:#EEF7F3;color:#059669">Fastify</span>
-          <span class="arch-tag" style="background:#EEF3FF;color:#3B82F6">TypeScript</span>
-          <span class="arch-tag" style="background:#FFF8F1;color:#D97706">PostgreSQL</span>
-        </div>
-      </div>
-      <div class="arch-card" style="transition-delay:.2s">
-        <div class="arch-card-icon" style="background:#EEF3FF">🎨</div>
-        <h3>Frontend</h3>
-        <p>Next.js 15 App Router + Tailwind CSS. Carga instantánea, responsive mobile-first.</p>
-        <div>
-          <span class="arch-tag" style="background:#000;color:#fff">Next.js 15</span>
-          <span class="arch-tag" style="background:#EEF3FF;color:#3B82F6">Tailwind v4</span>
-        </div>
-      </div>
-      <div class="arch-card" style="transition-delay:.3s">
-        <div class="arch-card-icon" style="background:#FFF8F1">🗃️</div>
-        <h3>Base de datos</h3>
-        <p>PostgreSQL + Prisma ORM. Multi-tenant aislado por clinicId. Migraciones seguras.</p>
-        <div>
-          <span class="arch-tag" style="background:#FFF8F1;color:#D97706">Prisma</span>
-          <span class="arch-tag" style="background:#EEF7F3;color:#059669">PostgreSQL</span>
-        </div>
-      </div>
-      <div class="arch-card" style="transition-delay:.4s">
-        <div class="arch-card-icon" style="background:#FDF0F5">🔐</div>
-        <h3>Seguridad</h3>
-        <p>JWT firmado, bcrypt 12 rounds, roles por clínica (SUPERADMIN / ADMIN / USER). CORS estricto.</p>
-        <div>
-          <span class="arch-tag" style="background:#FDF0F5;color:#DB2777">JWT</span>
-          <span class="arch-tag" style="background:#F5F0FF;color:#7C3AED">Roles RBAC</span>
-        </div>
-      </div>
-      <div class="arch-card" style="transition-delay:.5s">
-        <div class="arch-card-icon" style="background:#EEF7F3">📬</div>
-        <h3>Notificaciones</h3>
-        <p>Cron de recordatorios automáticos vía WhatsApp. Webhooks para eventos de citas.</p>
-        <div>
-          <span class="arch-tag" style="background:#EEF7F3;color:#059669">Cron jobs</span>
-          <span class="arch-tag" style="background:#E8F5E9;color:#16A34A">WhatsApp</span>
+    <!-- Brain -->
+    <div class="hub-center reveal" style="transition-delay:.3s">
+      <div class="hub-brain">
+        <div class="hub-brain-lhs">
+          <span class="hub-brain-icon">🧠</span>
+          <span class="hub-brain-title">Motor IA</span>
+          <span class="hub-brain-sub">Llama 3 · Groq · Fastify</span>
         </div>
       </div>
     </div>
+
+    <!-- Connectors (desktop only) -->
+    <div class="hub-connectors">
+      <div class="hub-connector"><span class="hc-arr">▶</span><div class="hc-line"></div></div>
+      <div class="hub-connector"><span class="hc-arr">▶</span><div class="hc-line"></div></div>
+      <div class="hub-connector"><span class="hc-arr">▶</span><div class="hc-line"></div></div>
+    </div>
+
+    <!-- Outputs -->
+    <div class="hub-outputs">
+      <div class="hub-node reveal" style="transition-delay:.4s">
+        <span class="hub-node-icon">📅</span>
+        <div><div>Agenda inteligente</div><span class="hub-node-sub">Citas + historial</span></div>
+      </div>
+      <div class="hub-node reveal" style="transition-delay:.5s">
+        <span class="hub-node-icon">📊</span>
+        <div><div>Analytics</div><span class="hub-node-sub">Leads · conversión · ingresos</span></div>
+      </div>
+      <div class="hub-node reveal" style="transition-delay:.6s">
+        <span class="hub-node-icon">🦷</span>
+        <div><div>Odontograma</div><span class="hub-node-sub">Presupuestos + planes</span></div>
+      </div>
+    </div>
   </div>
+</div>
 
-  <!-- ═══════════════════════════════════════════════════════════════════ -->
-  <!-- SECTION 5: COMPARISON TABLE -->
-  <!-- ═══════════════════════════════════════════════════════════════════ -->
-  <div class="section">
-    <div class="section-label">05 · Comparación</div>
-    <div class="section-title">Por qué molari.ai</div>
-    <p class="section-sub">Frente a las alternativas del mercado chileno, molari.ai es la única solución que combina IA, agenda y analytics en un solo sistema.</p>
 
+<!-- ══════════════════════════════════════════════════════════════════════
+     03 · CLINIC JOURNEY
+════════════════════════════════════════════════════════════════════════ -->
+<div class="journey" id="journey">
+  <div class="label">03 · Flujo de la clínica</div>
+  <div class="title">Operación sin fricciones</div>
+  <p class="sub">Desde que abres el panel hasta que cierras el día, cada paso está optimizado.</p>
+
+  <div class="journey-grid">
+    <div class="jcard reveal">
+      <div class="jcard-step">Mañana</div>
+      <div class="jcard-icon">☀️</div>
+      <h4>Resumen del día</h4>
+      <p>Quiénes llegan hoy, servicio, doctor y estado de pago de un vistazo.</p>
+    </div>
+    <div class="jcard reveal" style="transition-delay:.08s">
+      <div class="jcard-step">Durante el día</div>
+      <div class="jcard-icon">🦷</div>
+      <h4>Ficha + presupuesto</h4>
+      <p>Odontograma interactivo y presupuesto generado en segundos.</p>
+    </div>
+    <div class="jcard reveal" style="transition-delay:.16s">
+      <div class="jcard-step">Cobro</div>
+      <div class="jcard-icon">💳</div>
+      <h4>Registro de pagos</h4>
+      <p>Método, monto y saldo pendiente actualizados en tiempo real.</p>
+    </div>
+    <div class="jcard reveal" style="transition-delay:.24s">
+      <div class="jcard-step">Cierre</div>
+      <div class="jcard-icon">📊</div>
+      <h4>Analytics del período</h4>
+      <p>Conversión, ingresos por doctor y tendencias de servicios.</p>
+    </div>
+    <div class="jcard reveal" style="transition-delay:.32s">
+      <div class="jcard-step">Automático</div>
+      <div class="jcard-icon">🔔</div>
+      <h4>Recordatorios enviados</h4>
+      <p>WhatsApp automático 24h y 2h antes de cada cita. Cero llamadas manuales.</p>
+    </div>
+    <div class="jcard reveal" style="transition-delay:.40s">
+      <div class="jcard-step">Seguimiento</div>
+      <div class="jcard-icon">📋</div>
+      <h4>Planes de tratamiento</h4>
+      <p>Sesiones, pagos parciales y progreso por paciente para tratamientos largos.</p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     04 · TECH STACK
+════════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="label reveal">04 · Stack tecnológico</div>
+  <div class="title reveal">Infraestructura de vanguardia</div>
+  <p class="sub reveal">Cada capa elegida para velocidad, seguridad y escalabilidad multi-clínica.</p>
+
+  <div class="arch-grid">
+    <div class="acard reveal">
+      <div class="acard-icon" style="background:#F5F0FF">🧠</div>
+      <h3>IA Conversacional</h3>
+      <p>Llama 3.3 70B via Groq — inferencia &lt;500ms, contexto de sesión persistente por paciente.</p>
+      <div class="tags">
+        <span class="tag" style="background:#F5F0FF;color:#7C3AED">Llama 3.3</span>
+        <span class="tag" style="background:#EEF3FF;color:#3B82F6">Groq API</span>
+      </div>
+    </div>
+    <div class="acard reveal" style="transition-delay:.08s">
+      <div class="acard-icon" style="background:#EEF7F3">⚡</div>
+      <h3>Backend</h3>
+      <p>Fastify + TypeScript. Multi-tenant desde el diseño. JWT por clínica. Webhook-ready.</p>
+      <div class="tags">
+        <span class="tag" style="background:#EEF7F3;color:#059669">Fastify</span>
+        <span class="tag" style="background:#EEF3FF;color:#3B82F6">TypeScript</span>
+      </div>
+    </div>
+    <div class="acard reveal" style="transition-delay:.16s">
+      <div class="acard-icon" style="background:#EEF3FF">🎨</div>
+      <h3>Frontend</h3>
+      <p>Next.js 15 App Router + Tailwind CSS v4. Carga instantánea, responsive mobile-first.</p>
+      <div class="tags">
+        <span class="tag" style="background:#111;color:#fff">Next.js 15</span>
+        <span class="tag" style="background:#EEF3FF;color:#3B82F6">Tailwind v4</span>
+      </div>
+    </div>
+    <div class="acard reveal" style="transition-delay:.24s">
+      <div class="acard-icon" style="background:#FFF8F1">🗃️</div>
+      <h3>Base de datos</h3>
+      <p>PostgreSQL + Prisma ORM. Multi-tenant aislado por clinicId. Migraciones seguras.</p>
+      <div class="tags">
+        <span class="tag" style="background:#FFF8F1;color:#D97706">Prisma</span>
+        <span class="tag" style="background:#EEF7F3;color:#059669">PostgreSQL</span>
+      </div>
+    </div>
+    <div class="acard reveal" style="transition-delay:.32s">
+      <div class="acard-icon" style="background:#FDF0F5">🔐</div>
+      <h3>Seguridad</h3>
+      <p>JWT firmado, bcrypt 12 rounds, roles RBAC (SUPERADMIN / ADMIN / USER). CORS estricto.</p>
+      <div class="tags">
+        <span class="tag" style="background:#FDF0F5;color:#DB2777">JWT</span>
+        <span class="tag" style="background:#F5F0FF;color:#7C3AED">RBAC</span>
+      </div>
+    </div>
+    <div class="acard reveal" style="transition-delay:.40s">
+      <div class="acard-icon" style="background:#EEF7F3">📬</div>
+      <h3>Notificaciones</h3>
+      <p>Cron de recordatorios automáticos vía WhatsApp. Webhooks para eventos de citas.</p>
+      <div class="tags">
+        <span class="tag" style="background:#EEF7F3;color:#059669">Cron jobs</span>
+        <span class="tag" style="background:#E8F5E9;color:#16A34A">WhatsApp</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     05 · COMPARISON
+════════════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="label reveal">05 · Comparación</div>
+  <div class="title reveal">Por qué molari.ai</div>
+  <p class="sub reveal">La única solución que combina IA, agenda y analytics en un sistema único para clínicas dentales.</p>
+
+  <p class="scroll-hint">← Desliza para ver más →</p>
+  <div class="table-wrap reveal">
     <table class="compare-table">
       <thead>
         <tr>
           <th>Funcionalidad</th>
-          <th class="highlight">molari.ai</th>
-          <th>Sistema de agenda tradicional</th>
+          <th class="hi">molari.ai</th>
+          <th>Agenda tradicional</th>
           <th>Chatbot genérico</th>
         </tr>
       </thead>
       <tbody>
-        <tr>
-          <td>Asistente IA conversacional 24/7</td>
-          <td class="check">✓</td>
-          <td class="cross">✗</td>
-          <td class="partial">~ Básico</td>
-        </tr>
-        <tr>
-          <td>Agendamiento automático sin secretaria</td>
-          <td class="check">✓</td>
-          <td class="partial">~ Manual</td>
-          <td class="cross">✗</td>
-        </tr>
-        <tr>
-          <td>Lead scoring e intención del paciente</td>
-          <td class="check">✓</td>
-          <td class="cross">✗</td>
-          <td class="cross">✗</td>
-        </tr>
-        <tr>
-          <td>WhatsApp + Instagram + Web unificados</td>
-          <td class="check">✓</td>
-          <td class="cross">✗</td>
-          <td class="partial">~ Separados</td>
-        </tr>
-        <tr>
-          <td>Odontograma + presupuestos digitales</td>
-          <td class="check">✓</td>
-          <td class="partial">~ Algunos</td>
-          <td class="cross">✗</td>
-        </tr>
-        <tr>
-          <td>Planes de tratamiento + seguimiento</td>
-          <td class="check">✓</td>
-          <td class="partial">~ Básico</td>
-          <td class="cross">✗</td>
-        </tr>
-        <tr>
-          <td>Analytics de conversión y financiero</td>
-          <td class="check">✓</td>
-          <td class="partial">~ Reportes</td>
-          <td class="cross">✗</td>
-        </tr>
-        <tr>
-          <td>Recordatorios automáticos</td>
-          <td class="check">✓</td>
-          <td class="partial">~ Email</td>
-          <td class="cross">✗</td>
-        </tr>
-        <tr>
-          <td>Setup en &lt;10 minutos</td>
-          <td class="check">✓</td>
-          <td class="cross">✗ (semanas)</td>
-          <td class="partial">~ Días</td>
-        </tr>
-        <tr>
-          <td>Precio</td>
-          <td style="color:var(--teal2);font-weight:800">Desde $29.900/mes</td>
-          <td style="color:var(--muted)">$50k-200k/mes</td>
-          <td style="color:var(--muted)">$30k-100k/mes</td>
-        </tr>
+        <tr><td>Asistente IA conversacional 24/7</td><td class="check">✓</td><td class="cross">✗</td><td class="partial">~ Básico</td></tr>
+        <tr><td>Agendamiento automático</td><td class="check">✓</td><td class="partial">~ Manual</td><td class="cross">✗</td></tr>
+        <tr><td>Lead scoring e intención</td><td class="check">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+        <tr><td>WhatsApp + Instagram + Web unificados</td><td class="check">✓</td><td class="cross">✗</td><td class="partial">~ Separados</td></tr>
+        <tr><td>Odontograma + presupuestos digitales</td><td class="check">✓</td><td class="partial">~ Algunos</td><td class="cross">✗</td></tr>
+        <tr><td>Planes de tratamiento</td><td class="check">✓</td><td class="partial">~ Básico</td><td class="cross">✗</td></tr>
+        <tr><td>Analytics de conversión y financiero</td><td class="check">✓</td><td class="partial">~ Reportes</td><td class="cross">✗</td></tr>
+        <tr><td>Recordatorios automáticos WhatsApp</td><td class="check">✓</td><td class="partial">~ Email</td><td class="cross">✗</td></tr>
+        <tr><td>Setup en &lt;10 minutos</td><td class="check">✓</td><td class="cross">✗ (semanas)</td><td class="partial">~ Días</td></tr>
+        <tr><td>Precio mensual</td><td style="color:var(--teal2);font-weight:800">Desde $29.900</td><td style="color:var(--muted)">$50k–200k</td><td style="color:var(--muted)">$30k–100k</td></tr>
       </tbody>
     </table>
   </div>
+</div>
 
-  <!-- CTA -->
-  <div class="cta-block">
-    <h2>Empieza gratis hoy</h2>
-    <p>30 días de prueba sin tarjeta de crédito. Configuración en 3 minutos.</p>
-    <a href="/register" class="cta-btn">Crear mi clínica →</a>
-  </div>
+
+<!-- ── CTA ──────────────────────────────────────────────────────────── -->
+<div class="cta reveal">
+  <h2>Empieza gratis hoy</h2>
+  <p>30 días de prueba · Sin tarjeta de crédito · Configuración en 3 minutos</p>
+  <a href="/register" class="cta-btn">Crear mi clínica →</a>
+</div>
 
 </div><!-- /page -->
 
 <script>
-  // Intersection Observer for scroll animations
-  const io = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        const children = entry.target.querySelectorAll(
-          '.flow-step, .metric, .arch-card, .journey-card, .conn-node'
-        );
-        children.forEach((el, i) => {
-          setTimeout(() => el.classList.add('visible'), i * 80);
-        });
-        io.unobserve(entry.target);
-      }
-    });
-  }, { threshold: 0.1 });
-
-  document.querySelectorAll('#flow1, #metrics1, #arch-grid, #journey-section, #conn-wrap').forEach(el => {
-    io.observe(el);
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('in');
+      io.unobserve(e.target);
+    }
   });
-</script>
+}, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
 
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
 </body>
 </html>
