@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getToken } from "@/lib/auth";
+import { DentalQuoteTab } from "./DentalQuoteTab";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -211,7 +212,7 @@ function NewPlanModal({
 }
 
 function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => void }) {
-  const [tab, setTab] = useState<"history" | "plans">("history");
+  const [tab, setTab] = useState<"history" | "plans" | "quotes">("history");
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [plans, setPlans] = useState<TreatmentPlan[]>([]);
@@ -320,11 +321,11 @@ function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => 
         </div>
 
         {/* Tab bar */}
-        <div className="flex border-b border-gray-100">
-          {(["history", "plans"] as const).map((t) => (
+        <div className="flex border-b border-gray-100 overflow-x-auto">
+          {(["history", "plans", "quotes"] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
-              className={`flex-1 py-3 text-xs font-bold transition ${tab === t ? "text-blue-600 border-b-2 border-blue-500" : "text-gray-400 hover:text-gray-600"}`}>
-              {t === "history" ? "Historial de citas" : `Planes de tratamiento${plans.length > 0 ? ` (${plans.length})` : ""}`}
+              className={`flex-1 py-3 text-xs font-bold transition whitespace-nowrap px-2 ${tab === t ? "text-blue-600 border-b-2 border-blue-500" : "text-gray-400 hover:text-gray-600"}`}>
+              {t === "history" ? "Historial" : t === "plans" ? `Planes${plans.length > 0 ? ` (${plans.length})` : ""}` : "Presupuesto"}
             </button>
           ))}
         </div>
@@ -514,6 +515,12 @@ function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => 
                 </div>
               )}
             </div>
+          </div>
+        )}
+        {/* Tab: Quotes */}
+        {tab === "quotes" && (
+          <div className="overflow-y-auto" style={{ maxHeight: 340 }}>
+            <DentalQuoteTab patient={{ name: patient.name, rut: patient.rut }} />
           </div>
         )}
       </div>

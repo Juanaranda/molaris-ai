@@ -36,6 +36,7 @@ model Clinic {
   patientUsers    PatientUser[]
   usageEvents     UsageEvent[]
   treatmentPlans  TreatmentPlan[]
+  dentalQuotes    DentalQuote[]
 
   @@map("clinics")
 }
@@ -204,6 +205,46 @@ model TreatmentPlan {
   @@index([clinicId])
   @@index([patientRut])
   @@map("treatment_plans")
+}
+
+// ─── PRESUPUESTOS DENTALES (ODONTOGRAMA) ─────────────────────────────────────
+model DentalQuote {
+  id          String           @id @default(cuid())
+  clinicId    String
+  clinic      Clinic           @relation(fields: [clinicId], references: [id])
+  patientRut  String?
+  patientName String
+  doctor      String?
+  status      String           @default("draft") // "draft" | "sent" | "accepted" | "rejected"
+  discount    Float            @default(0)        // % descuento general
+  totalAmount Float            @default(0)        // calculado
+  notes       String?
+  paymentInfo String?
+  accepted    Boolean          @default(false)
+  sentAt      DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  items       DentalQuoteItem[]
+
+  @@index([clinicId])
+  @@index([patientRut])
+  @@map("dental_quotes")
+}
+
+model DentalQuoteItem {
+  id         String      @id @default(cuid())
+  quoteId    String
+  quote      DentalQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  toothFDI   String?     // "1.1", "3.6", null = no asociada a pieza
+  surfaces   String?     // "V,D,O" — comma-separated
+  prestacion String      // "Endodoncia", "Implante", "Corona"...
+  unitPrice  Float
+  quantity   Int         @default(1)
+  discount   Float       @default(0)
+  total      Float
+
+  @@map("dental_quote_items")
 }
 
 // ─── BOOKINGS (CITAS CONFIRMADAS) ────────────────────────────────────────────
