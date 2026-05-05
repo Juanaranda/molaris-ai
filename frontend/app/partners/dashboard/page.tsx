@@ -792,6 +792,29 @@ export default function PartnersDashboard() {
           </div>
         )}
 
+        {clinic && (() => {
+          const cfg = clinic.config as Record<string, unknown>;
+          const doctorsArr = Array.isArray(cfg.doctors) ? cfg.doctors : [];
+          const onboardingDone = cfg.onboardingDone === true || doctorsArr.length > 0;
+          return !onboardingDone ? (
+            <div className="flex items-center gap-4 px-5 py-4 rounded-2xl border"
+              style={{ backgroundColor: "#FFF8F1", borderColor: "#FDD9A0" }}>
+              <span className="text-2xl shrink-0">⚡</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold" style={{ color: "#92400E" }}>Completa la configuración inicial</p>
+                <p className="text-xs mt-0.5" style={{ color: "#B45309" }}>
+                  Agrega tus doctores, horario y canales para que el asistente funcione correctamente.
+                </p>
+              </div>
+              <Link href="/partners/setup"
+                className="shrink-0 px-4 py-2 rounded-xl text-xs font-bold text-white transition hover:opacity-90"
+                style={{ backgroundColor: "#D95F45" }}>
+                Configurar →
+              </Link>
+            </div>
+          ) : null;
+        })()}
+
         {clinic && (
           <>
             {/* Tabs */}

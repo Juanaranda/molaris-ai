@@ -53,9 +53,9 @@ export default function RegisterPage() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error ?? "Error al registrar");
       }
-      const { slug } = await res.json();
+      await res.json();
       await login(admin.email, admin.password);
-      router.push(`/demo/${slug}?welcome=1`);
+      router.push("/partners/setup");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al registrar");
     } finally {
