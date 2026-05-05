@@ -31,6 +31,22 @@ function buildMessage(b: BookingNotification): string {
     .join("\n");
 }
 
+export async function sendWhatsAppMessage(to: string, body: string): Promise<void> {
+  const { accountSid, authToken, from } = config.twilio;
+  const toFmt = `whatsapp:+${to.replace(/\D/g, "")}`;
+  if (!accountSid || !authToken || !from) {
+    console.info("[WhatsApp] Twilio no configurado. Mensaje simulado:", { to: toFmt, body });
+    return;
+  }
+  try {
+    const twilio = (await import("twilio")).default;
+    const client = twilio(accountSid, authToken);
+    await client.messages.create({ from, to: toFmt, body });
+  } catch (err: any) {
+    console.error("[WhatsApp] Error al enviar:", err?.message ?? err);
+  }
+}
+
 export async function sendBookingNotification(data: BookingNotification): Promise<void> {
   const msg = buildMessage(data);
   const { accountSid, authToken, from } = config.twilio;

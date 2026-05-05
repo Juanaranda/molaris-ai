@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
+import { sendWhatsAppMessage } from "../services/notifications/whatsappService";
 
 export async function clinicRoutes(app: FastifyInstance) {
 
@@ -528,5 +529,87 @@ export async function clinicRoutes(app: FastifyInstance) {
     });
 
     return reply.status(201).send({ clinicId: newClinic.id, slug: newClinic.slug, message: "Clínica registrada correctamente" });
+  });
+
+  // POST /api/clinics/:id/recall/run — dispara campaña de recall manual
+  app.post<{
+    Params: { id: string };
+    Body: { daysInactive?: number; message?: string };
+  }>("/clinics/:id/recall/run", async (req, reply) => {
+    let payload;
+    try { payload = verifyToken(req.headers.authorization); } catch {
+      return reply.status(401).send({ error: "No autorizado" });
+    }
+    if (payload.role === "USER") return reply.status(403).send({ error: "Sin permisos" });
+    if (payload.role !== "SUPERADMIN" && payload.clinicId !== req.params.id) {
+      return reply.status(403).send({ error: "Acceso denegado" });
+    }
+
+    const daysInactive = req.body?.daysInactive ?? 90;
+    const message = req.body?.message ?? "Hola {nombre}, te echamos de menos en {clinica}. ¿Qué tal si agendamos tu próximo control?";
+    const cutoff = new Date(Date.now() - daysInactive * 24 * 60 * 60 * 1000);
+
+    const clinic = await prisma.clinic.findUnique({
+      where: { id: req.params.id },
+      select: { name: true, slug: true },
+    });
+    if (!clinic) return reply.status(404).send({ error: "Clínica no encontrada" });
+
+    // Última cita por teléfono (solo pacientes con teléfono)
+    const lastBookings = await prisma.booking.findMany({
+      where: { clinicId: req.params.id, patientPhone: { not: null }, status: { not: "cancelled" } },
+      orderBy: { date: "desc" },
+      select: { patientPhone: true, patientName: true, date: true },
+    });
+
+    // Agrupar por teléfono — solo la más reciente
+    const byPhone = new Map<string, { name: string | null; lastDate: Date }>();
+    for (const b of lastBookings) {
+      if (!b.patientPhone) continue;
+      const phone = b.patientPhone.replace(/\D/g, "");
+      if (!byPhone.has(phone)) byPhone.set(phone, { name: b.patientName, lastDate: b.date });
+    }
+
+    // Filtrar inactivos
+    const targets: { phone: string; name: string | null }[] = [];
+    for (const [phone, { name, lastDate }] of byPhone) {
+      if (lastDate < cutoff) targets.push({ phone, name });
+    }
+
+    // Enviar mensajes (fire-and-forget)
+    let sent = 0;
+    for (const t of targets) {
+      const body = message
+        .replace("{nombre}", t.name?.split(" ")[0] ?? "")
+        .replace("{clinica}", clinic.name);
+      await sendWhatsAppMessage(t.phone, body);
+      sent++;
+    }
+
+    return reply.send({ sent, total: targets.length, daysInactive });
+  });
+
+  // POST /api/clinics/:id/survey/send — envía encuesta post-cita a un paciente
+  app.post<{
+    Params: { id: string };
+    Body: { phone: string; patientName?: string; clinicName?: string };
+  }>("/clinics/:id/survey/send", async (req, reply) => {
+    let payload;
+    try { payload = verifyToken(req.headers.authorization); } catch {
+      return reply.status(401).send({ error: "No autorizado" });
+    }
+    if (payload.role === "USER") return reply.status(403).send({ error: "Sin permisos" });
+    if (payload.role !== "SUPERADMIN" && payload.clinicId !== req.params.id) {
+      return reply.status(403).send({ error: "Acceso denegado" });
+    }
+
+    const { phone, patientName, clinicName } = req.body ?? {};
+    if (!phone) return reply.status(400).send({ error: "Teléfono requerido" });
+
+    const name = patientName?.split(" ")[0] ?? "";
+    const body = `Hola ${name}! 😊 Gracias por visitar ${clinicName ?? "nuestra clínica"}. ¿Cómo fue tu experiencia? ¿Nos dejarías una reseña en Google? Tu opinión nos ayuda mucho 🙏`;
+    await sendWhatsAppMessage(phone, body);
+
+    return reply.send({ ok: true });
   });
 }

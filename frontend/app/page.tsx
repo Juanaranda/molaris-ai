@@ -5,7 +5,7 @@ import { HeroShowcase } from "@/components/HeroShowcase";
 /* ─── Icons ─────────────────────────────────────────────────────────── */
 function IconBot() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-6 h-6">
       <rect x="3" y="11" width="18" height="11" rx="3" />
       <path d="M8 11V7a4 4 0 018 0v4" />
       <circle cx="9" cy="16.5" r="1" fill="currentColor" stroke="none" />
@@ -15,7 +15,7 @@ function IconBot() {
 }
 function IconCalendar() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-6 h-6">
       <rect x="3" y="4" width="18" height="18" rx="3" />
       <path d="M16 2v4M8 2v4M3 10h18" />
       <rect x="7" y="14" width="3" height="3" rx="0.5" fill="currentColor" stroke="none" />
@@ -24,7 +24,7 @@ function IconCalendar() {
 }
 function IconChart() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-6 h-6">
       <path d="M3 3v18h18" />
       <path d="M7 16l4-6 4 3 4-7" />
     </svg>
@@ -56,6 +56,16 @@ function IconUsers() {
     </svg>
   );
 }
+function IconFile() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5">
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="9" y1="13" x2="15" y2="13" />
+      <line x1="9" y1="17" x2="12" y2="17" />
+    </svg>
+  );
+}
 
 /* ─── Agenda Calendar Mockup ────────────────────────────────────────── */
 function AgendaMockup() {
@@ -78,8 +88,6 @@ function AgendaMockup() {
   return (
     <div style={{ background: "#0B2F42", borderRadius: 20, overflow: "hidden",
       boxShadow: "0 32px 80px rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.08)" }}>
-
-      {/* Fake OS title bar */}
       <div style={{ background: "#071E2B", padding: "10px 16px", display: "flex", alignItems: "center", gap: 6,
         borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#FF5F57", display: "inline-block" }} />
@@ -89,10 +97,7 @@ function AgendaMockup() {
           molari.ai — Agenda · Lun 5 de mayo
         </span>
       </div>
-
-      {/* Calendar grid */}
       <div style={{ padding: "0 0 4px" }}>
-        {/* Doctor headers */}
         <div style={{ display: "grid", gridTemplateColumns: "52px repeat(3, 1fr)",
           borderBottom: "1px solid rgba(255,255,255,0.08)", padding: "12px 12px 10px" }}>
           <div />
@@ -109,12 +114,9 @@ function AgendaMockup() {
             </div>
           ))}
         </div>
-
-        {/* Slots */}
         {slots.map((slot, rowIdx) => (
           <div key={slot} style={{ display: "grid", gridTemplateColumns: "52px repeat(3, 1fr)",
             minHeight: 44, borderBottom: rowIdx % 2 === 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
-            {/* Time label */}
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "flex-end",
               paddingRight: 10, paddingTop: 6 }}>
               {rowIdx % 2 === 0 && (
@@ -123,7 +125,6 @@ function AgendaMockup() {
                 </span>
               )}
             </div>
-            {/* Doctor cells */}
             {doctors.map((doc, colIdx) => {
               const appt = appts.find((a) => a.doctor === colIdx && a.slot === rowIdx);
               return (
@@ -143,8 +144,6 @@ function AgendaMockup() {
           </div>
         ))}
       </div>
-
-      {/* Bottom bar */}
       <div style={{ padding: "10px 16px", borderTop: "1px solid rgba(255,255,255,0.07)",
         display: "flex", alignItems: "center", justifyContent: "space-between",
         background: "rgba(0,0,0,0.2)" }}>
@@ -160,7 +159,7 @@ function AgendaMockup() {
   );
 }
 
-/* ─── Chat mockup (reutilizable) ─────────────────────────────────────── */
+/* ─── Chat mockup ─────────────────────────────────────────────────── */
 function ChatMockup({ header, headerBg, messages, inputBg, sendBg, label, sublabel }: {
   header: { name: string; sub: string; initial: string };
   headerBg: string;
@@ -211,49 +210,10 @@ function ChatMockup({ header, headerBg, messages, inputBg, sendBg, label, sublab
 
 /* ─── Page ─────────────────────────────────────────────────────────── */
 export default function Home() {
-  const pillars = [
-    {
-      icon: <IconBot />,
-      title: "IA 24/7 en tus canales",
-      desc: "Responde consultas, informa precios y horarios en WhatsApp, Instagram y tu web — sin intervención humana.",
-      color: "#1A5C7A", bg: "#E8F3F7",
-    },
-    {
-      icon: <IconCalendar />,
-      title: "Agenda inteligente",
-      desc: "Vista de calendario por profesional, gestión de citas con un clic — sin herramientas adicionales, incluido en tu plan.",
-      color: "#7C3AED", bg: "#F3E8FF",
-    },
-    {
-      icon: <IconChart />,
-      title: "Dashboard de analytics",
-      desc: "Métricas en tiempo real: leads calificados, tasa de conversión, servicios más consultados y mucho más.",
-      color: "#0B2F42", bg: "#E8F3F7",
-    },
-    {
-      icon: <IconTarget />,
-      title: "Lead scoring",
-      desc: "Detecta urgencia e intención de cada paciente para que nunca pierdas un lead de alto valor.",
-      color: "#D95F45", bg: "#FEF0ED",
-    },
-    {
-      icon: <IconBell />,
-      title: "Recordatorios automáticos",
-      desc: "El día anterior y 2 horas antes de cada cita — sin que nadie en tu equipo tenga que hacer nada.",
-      color: "#059669", bg: "#D1FAE5",
-    },
-    {
-      icon: <IconUsers />,
-      title: "Gestión completa de pacientes",
-      desc: "Historial de citas, notas clínicas editables, ficha por paciente y seguimiento de pagos — todo en un lugar.",
-      color: "#1A5C7A", bg: "#E8F3F7",
-    },
-  ];
-
   const problems = [
-    { num: "01", title: "Mensajes sin respuesta", desc: "Pacientes que escriben por WhatsApp o Instagram y esperan horas sin obtener respuesta." },
-    { num: "02", title: "Agenda gestionada a mano", desc: "Anotar en papeles o coordinar citas por chat consume tiempo valioso de tu equipo." },
-    { num: "03", title: "Leads que se enfrían", desc: "Consultas que llegan pero nunca convierten porque nadie hace seguimiento a tiempo." },
+    { num: "01", title: "Mensajes sin respuesta", desc: "Pacientes que escriben por WhatsApp o Instagram y esperan horas — y se van a la clínica de al lado." },
+    { num: "02", title: "Agenda gestionada a mano", desc: "Papeles, llamadas y grupos de WhatsApp para coordinar citas le consumen horas valiosas a tu equipo." },
+    { num: "03", title: "Sin historial, sin control", desc: "Fichas dispersas, pagos sin registro y planes de tratamiento que no tienen seguimiento real." },
   ];
 
   const stats = [
@@ -261,6 +221,51 @@ export default function Home() {
     { value: "<2s",  label: "Tiempo de respuesta" },
     { value: "+60%", label: "Más citas confirmadas" },
     { value: "0",    label: "Llamadas de coordinación" },
+  ];
+
+  const features = [
+    {
+      icon: <IconBot />,
+      color: "#1A5C7A",
+      bg: "#E8F3F7",
+      accent: "#1A5C7A",
+      title: "IA que atiende sola",
+      desc: "El asistente responde, califica y agenda en WhatsApp, Instagram y tu sitio web — las 24 horas, sin que nadie de tu equipo intervenga.",
+      bullets: [
+        { icon: <IconBot />, text: "Chatbot con IA en 3 canales simultáneos" },
+        { icon: <IconTarget />, text: "Lead scoring automático por urgencia e intención" },
+        { icon: <IconBell />, text: "Recordatorios de citas el día anterior y 2h antes" },
+        { icon: <IconUsers />, text: "Cada conversación queda registrada y calificada" },
+      ],
+    },
+    {
+      icon: <IconCalendar />,
+      color: "#7C3AED",
+      bg: "#F3E8FF",
+      accent: "#7C3AED",
+      title: "Agenda + clínica completa",
+      desc: "Vista de calendario semanal por profesional, historial clínico, planes de tratamiento con seguimiento y odontograma — todo en una sola plataforma.",
+      bullets: [
+        { icon: <IconCalendar />, text: "Agenda por doctor, citas en tiempo real desde el chat" },
+        { icon: <IconFile />, text: "Historial y notas clínicas editables por cita" },
+        { icon: <IconUsers />, text: "Planes de tratamiento con progreso y pagos parciales" },
+        { icon: <IconFile />, text: "Presupuestos con odontograma FDI y 19 prestaciones" },
+      ],
+    },
+    {
+      icon: <IconChart />,
+      color: "#059669",
+      bg: "#D1FAE5",
+      accent: "#059669",
+      title: "Analytics y finanzas",
+      desc: "Dashboard en tiempo real con leads, conversión por canal, ingresos del mes, saldo pendiente y rendimiento de cada profesional.",
+      bullets: [
+        { icon: <IconChart />, text: "Leads calificados y tasa de conversión por canal" },
+        { icon: <IconChart />, text: "Ingresos, cobros pendientes y desglose por doctor" },
+        { icon: <IconTarget />, text: "Servicios más consultados y métricas de agenda" },
+        { icon: <IconBell />, text: "Vista de hoy filtrada por profesional para cada doctor" },
+      ],
+    },
   ];
 
   return (
@@ -293,22 +298,19 @@ export default function Home() {
       <section className="relative overflow-hidden" style={{ backgroundColor: "#F7F5F1" }}>
         <div className="relative max-w-6xl mx-auto px-6 sm:px-10 pt-16 sm:pt-24 pb-12 sm:pb-20">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-
-            {/* Left: copy */}
             <div>
               <span className="inline-flex items-center gap-2 text-xs font-bold px-4 py-1.5 rounded-full mb-8 animate-fade-up" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A", border: "1px solid rgba(26,92,122,0.2)" }}>
                 <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#D95F45" }} />
-                Sistema completo para clínicas dentales
+                IA + agenda + clínica — todo en uno
               </span>
 
               <h1 className="font-display text-5xl sm:text-6xl font-bold leading-[1.08] tracking-tight mb-6 animate-fade-up animate-fade-up-delay-1">
-                IA, agenda y<br />
-                <span style={{ color: "#D95F45" }}>analytics — todo<br />en uno.</span>
+                Tu clínica dental,<br />
+                <span style={{ color: "#D95F45" }}>automatizada<br />de verdad.</span>
               </h1>
 
               <p className="text-base sm:text-lg max-w-md mb-10 animate-fade-up animate-fade-up-delay-2" style={{ color: "#607281" }}>
-                molari.ai automatiza la atención en WhatsApp, Instagram y tu web,
-                gestiona tu agenda completa y te muestra cada lead en tiempo real.
+                molari.ai atiende pacientes en WhatsApp, Instagram y tu web, gestiona tu agenda, lleva la ficha clínica y te muestra cada métrica en tiempo real.
               </p>
 
               <div className="flex flex-col gap-3 animate-fade-up animate-fade-up-delay-3">
@@ -330,7 +332,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Trust */}
               <div className="flex items-center gap-3 mt-10 animate-fade-up animate-fade-up-delay-3">
                 <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ backgroundColor: "#E8F3F7", border: "1px solid rgba(26,92,122,0.15)" }}>
                   <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#1A5C7A" }} />
@@ -341,11 +342,9 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Right: rotating showcase */}
             <div className="animate-fade-up animate-fade-up-delay-2">
               <HeroShowcase />
             </div>
-
           </div>
         </div>
       </section>
@@ -364,83 +363,76 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FUNCIONES (6 pillars) */}
-      <section id="funciones" className="py-16 sm:py-24" style={{ backgroundColor: "#F7F5F1" }}>
-        <div className="max-w-5xl mx-auto px-6 sm:px-10">
-          <p className="text-xs font-bold uppercase tracking-[0.15em] text-center mb-3" style={{ color: "#1A5C7A" }}>
-            El sistema completo
+      {/* PROBLEMAS — antes de las funciones para crear contexto */}
+      <section className="py-14 sm:py-20" style={{ backgroundColor: "#F7F5F1" }}>
+        <div className="max-w-4xl mx-auto px-6 sm:px-10">
+          <p className="text-xs font-bold uppercase tracking-[0.15em] text-center mb-3" style={{ color: "#D95F45" }}>
+            ¿Te suena familiar?
           </p>
-          <h2 className="font-display text-3xl sm:text-4xl font-bold text-center mb-4">
-            Todo lo que necesita tu clínica
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-center mb-12">
+            Los problemas que molari.ai resuelve
           </h2>
-          <p className="text-sm text-center max-w-xl mx-auto mb-14" style={{ color: "#607281" }}>
-            No es solo un chatbot. Es IA + agenda + analytics en una sola plataforma, diseñada para clínicas dentales chilenas.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {pillars.map((p) => (
-              <div key={p.title} className="flex gap-4 p-5 sm:p-6 rounded-2xl transition-shadow hover:shadow-md"
-                style={{ backgroundColor: "#FDFCFB", border: "1px solid #E5E0D9" }}>
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ backgroundColor: p.bg, color: p.color }}>
-                  {p.icon}
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-1 text-sm">{p.title}</h3>
-                  <p className="text-sm leading-relaxed" style={{ color: "#607281" }}>{p.desc}</p>
-                </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            {problems.map((item) => (
+              <div key={item.num} className="rounded-2xl p-6 sm:p-7"
+                style={{ backgroundColor: "#FDFCFB", borderTop: "2.5px solid #D95F45", boxShadow: "0 1px 3px rgba(12,27,38,0.05)" }}>
+                <p className="font-display text-5xl font-bold mb-5" style={{ color: "rgba(217,95,69,0.18)" }}>{item.num}</p>
+                <h3 className="font-semibold text-base mb-2">{item.title}</h3>
+                <p className="text-sm leading-relaxed" style={{ color: "#607281" }}>{item.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* AGENDA PREVIEW */}
-      <section style={{ backgroundColor: "#0B2F42" }} className="py-16 sm:py-24 overflow-hidden">
+      {/* FUNCIONES — 3 grandes tarjetas */}
+      <section id="funciones" className="py-16 sm:py-24" style={{ backgroundColor: "#FDFCFB" }}>
         <div className="max-w-5xl mx-auto px-6 sm:px-10">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.15em] mb-3" style={{ color: "rgba(255,255,255,0.4)" }}>
-                Agenda incluida
-              </p>
-              <h2 className="font-display text-3xl sm:text-4xl font-bold text-white mb-5 leading-tight">
-                Agenda completa,<br />con IA incluida.
-              </h2>
-              <p className="text-sm sm:text-base leading-relaxed mb-8" style={{ color: "rgba(255,255,255,0.6)" }}>
-                Vista de calendario semanal con columna por profesional, citas confirmadas y pendientes,
-                recordatorios automáticos y creación de citas con un clic — sin pagar por otra herramienta.
-              </p>
-              <ul className="flex flex-col gap-3 mb-8">
-                {[
-                  "Vista semanal con eje horario (09:00 – 19:00)",
-                  "Columna por profesional, código de color por doctor",
-                  "Crear, editar y cancelar citas directamente",
-                  "Recordatorios automáticos el día anterior y 2h antes",
-                  "Las citas del chatbot aparecen aquí al instante",
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-3 text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>
-                    <span className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5"
-                      style={{ background: "rgba(217,95,69,0.2)", color: "#D95F45", fontSize: 10, fontWeight: 800 }}>
-                      ✓
-                    </span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <Link href="/login"
-                className="inline-flex items-center gap-2 font-semibold px-6 py-3 rounded-full text-sm transition-opacity hover:opacity-90"
-                style={{ border: "1.5px solid rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.85)" }}>
-                Acceder al panel
-              </Link>
-            </div>
-            <div className="w-full">
-              <AgendaMockup />
-            </div>
+          <p className="text-xs font-bold uppercase tracking-[0.15em] text-center mb-3" style={{ color: "#1A5C7A" }}>
+            Una plataforma para todo
+          </p>
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-center mb-4">
+            Todo lo que necesita tu clínica
+          </h2>
+          <p className="text-sm text-center max-w-xl mx-auto mb-14" style={{ color: "#607281" }}>
+            No es solo un chatbot. Es IA, agenda, historial clínico y analytics — diseñado específicamente para clínicas dentales chilenas.
+          </p>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {features.map((f) => (
+              <div key={f.title}
+                className="rounded-3xl p-7 flex flex-col gap-5 transition-shadow hover:shadow-lg"
+                style={{ backgroundColor: "white", border: "1px solid #E5E0D9" }}>
+                {/* Icon */}
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
+                  style={{ backgroundColor: f.bg, color: f.color }}>
+                  {f.icon}
+                </div>
+                {/* Title + desc */}
+                <div>
+                  <h3 className="font-bold text-lg mb-2" style={{ color: "#0C1B26" }}>{f.title}</h3>
+                  <p className="text-sm leading-relaxed" style={{ color: "#607281" }}>{f.desc}</p>
+                </div>
+                {/* Bullets */}
+                <ul className="flex flex-col gap-2.5 mt-auto">
+                  {f.bullets.map((b, i) => (
+                    <li key={i} className="flex items-start gap-2.5 text-sm" style={{ color: "#3D5166" }}>
+                      <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5"
+                        style={{ backgroundColor: f.bg, color: f.color, fontSize: 9 }}>
+                        ✓
+                      </span>
+                      {b.text}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* PLATFORMS */}
-      <section className="py-16 sm:py-24" style={{ backgroundColor: "#FDFCFB" }}>
+      <section className="py-16 sm:py-24" style={{ backgroundColor: "#F7F5F1" }}>
         <div className="max-w-5xl mx-auto px-6 sm:px-10">
           <p className="text-xs font-bold uppercase tracking-[0.15em] text-center mb-3" style={{ color: "#1A5C7A" }}>
             Multiplataforma
@@ -498,112 +490,60 @@ export default function Home() {
         </div>
       </section>
 
-      {/* GESTIÓN CLÍNICA */}
-      <section className="py-16 sm:py-24" style={{ backgroundColor: "#FDFCFB" }}>
+      {/* AGENDA PREVIEW */}
+      <section style={{ backgroundColor: "#0B2F42" }} className="py-16 sm:py-24 overflow-hidden">
         <div className="max-w-5xl mx-auto px-6 sm:px-10">
-          <p className="text-xs font-bold uppercase tracking-[0.15em] text-center mb-3" style={{ color: "#D95F45" }}>
-            Más que un chatbot
-          </p>
-          <h2 className="font-display text-3xl sm:text-4xl font-bold text-center mb-4">
-            Tu sistema clínico, integrado
-          </h2>
-          <p className="text-sm text-center max-w-xl mx-auto mb-14" style={{ color: "#607281" }}>
-            No solo agenda y atiende — también lleva la ficha clínica, registra pagos, genera presupuestos con odontograma y hace seguimiento de tratamientos largos.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-
-            {/* Ficha clínica */}
-            <div className="rounded-2xl p-6 sm:p-7 flex flex-col gap-4" style={{ backgroundColor: "#F0F7FF", border: "1px solid #C7DFF7" }}>
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: "#DBEAFE" }}>📋</div>
-              <div>
-                <h3 className="font-bold text-base mb-1.5" style={{ color: "#1E3A5F" }}>Historial clínico por paciente</h3>
-                <p className="text-sm leading-relaxed" style={{ color: "#3B6EA5" }}>
-                  Cada visita queda registrada con notas clínicas editables. Accede al historial completo, las notas del doctor y el estado de cada cita desde la ficha del paciente.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2 mt-auto">
-                {["Notas por cita", "Importación CSV", "Búsqueda por RUT"].map((t) => (
-                  <span key={t} className="text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: "#DBEAFE", color: "#1D4ED8" }}>{t}</span>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.15em] mb-3" style={{ color: "rgba(255,255,255,0.4)" }}>
+                Agenda incluida
+              </p>
+              <h2 className="font-display text-3xl sm:text-4xl font-bold text-white mb-5 leading-tight">
+                Agenda completa,<br />con IA incluida.
+              </h2>
+              <p className="text-sm sm:text-base leading-relaxed mb-8" style={{ color: "rgba(255,255,255,0.6)" }}>
+                Vista de calendario semanal con columna por profesional, citas confirmadas y pendientes,
+                recordatorios automáticos y creación de citas con un clic — sin pagar por otra herramienta.
+              </p>
+              <ul className="flex flex-col gap-3 mb-8">
+                {[
+                  "Vista semanal con eje horario (09:00 – 19:00)",
+                  "Columna por profesional, código de color por doctor",
+                  "Crear, editar y cancelar citas directamente",
+                  "Recordatorios automáticos el día anterior y 2h antes",
+                  "Las citas del chatbot aparecen aquí al instante",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-3 text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5"
+                      style={{ background: "rgba(217,95,69,0.2)", color: "#D95F45", fontSize: 10, fontWeight: 800 }}>
+                      ✓
+                    </span>
+                    {item}
+                  </li>
                 ))}
-              </div>
+              </ul>
+              <Link href="/login"
+                className="inline-flex items-center gap-2 font-semibold px-6 py-3 rounded-full text-sm transition-opacity hover:opacity-90"
+                style={{ border: "1.5px solid rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.85)" }}>
+                Acceder al panel
+              </Link>
             </div>
-
-            {/* Pagos */}
-            <div className="rounded-2xl p-6 sm:p-7 flex flex-col gap-4" style={{ backgroundColor: "#F0FDF4", border: "1px solid #BBF7D0" }}>
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: "#D1FAE5" }}>💳</div>
-              <div>
-                <h3 className="font-bold text-base mb-1.5" style={{ color: "#14532D" }}>Registro de pagos por cita</h3>
-                <p className="text-sm leading-relaxed" style={{ color: "#166534" }}>
-                  Registra el monto cobrado, lo pagado, el método (efectivo, transferencia, tarjeta) y el saldo pendiente. El dashboard muestra ingresos y deudas en tiempo real.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2 mt-auto">
-                {["Ingreso mensual", "Saldo pendiente", "Por doctor"].map((t) => (
-                  <span key={t} className="text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: "#D1FAE5", color: "#065F46" }}>{t}</span>
-                ))}
-              </div>
+            <div className="w-full">
+              <AgendaMockup />
             </div>
-
-            {/* Planes de tratamiento */}
-            <div className="rounded-2xl p-6 sm:p-7 flex flex-col gap-4" style={{ backgroundColor: "#FFF8F1", border: "1px solid #FED7AA" }}>
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: "#FFEDD5" }}>📈</div>
-              <div>
-                <h3 className="font-bold text-base mb-1.5" style={{ color: "#7C2D12" }}>Planes de tratamiento</h3>
-                <p className="text-sm leading-relaxed" style={{ color: "#92400E" }}>
-                  Para ortodoncia, implantes o cualquier tratamiento largo: define sesiones totales, seguimiento de avance, pagos parciales y el porcentaje completado de cada plan.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2 mt-auto">
-                {["Progreso en %", "Pagos parciales", "Multi-sesión"].map((t) => (
-                  <span key={t} className="text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: "#FFEDD5", color: "#C2410C" }}>{t}</span>
-                ))}
-              </div>
-            </div>
-
-            {/* Odontograma */}
-            <div className="rounded-2xl p-6 sm:p-7 flex flex-col gap-4" style={{ backgroundColor: "#FAF5FF", border: "1px solid #E9D5FF" }}>
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: "#EDE9FE" }}>🦷</div>
-              <div>
-                <h3 className="font-bold text-base mb-1.5" style={{ color: "#4C1D95" }}>Presupuestos con odontograma</h3>
-                <p className="text-sm leading-relaxed" style={{ color: "#5B21B6" }}>
-                  Selecciona las piezas dentales (FDI), define superficies y agrega las prestaciones con sus precios. Genera el presupuesto, aplica descuentos y envíalo al paciente.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2 mt-auto">
-                {["32 piezas FDI", "19 prestaciones", "PDF exportable"].map((t) => (
-                  <span key={t} className="text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: "#EDE9FE", color: "#6D28D9" }}>{t}</span>
-                ))}
-              </div>
-            </div>
-
           </div>
         </div>
       </section>
 
-      {/* PROBLEMAS */}
-      <section className="py-14 sm:py-20" style={{ backgroundColor: "#F7F5F1" }}>
+      {/* CÓMO FUNCIONA — fondo claro para romper el patrón oscuro */}
+      <section id="como-funciona" className="py-16 sm:py-24" style={{ backgroundColor: "#FDFCFB" }}>
         <div className="max-w-4xl mx-auto px-6 sm:px-10">
-          <h2 className="font-display text-3xl sm:text-4xl font-bold text-center mb-12">¿Te suena familiar?</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            {problems.map((item) => (
-              <div key={item.num} className="rounded-2xl p-6 sm:p-7"
-                style={{ backgroundColor: "#FDFCFB", borderTop: "2.5px solid #D95F45", boxShadow: "0 1px 3px rgba(12,27,38,0.05)" }}>
-                <p className="font-display text-5xl font-bold mb-5" style={{ color: "rgba(217,95,69,0.18)" }}>{item.num}</p>
-                <h3 className="font-semibold text-base mb-2">{item.title}</h3>
-                <p className="text-sm" style={{ color: "#607281" }}>{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CÓMO FUNCIONA */}
-      <section id="como-funciona" className="py-16 sm:py-24" style={{ backgroundColor: "#0B2F42" }}>
-        <div className="max-w-4xl mx-auto px-6 sm:px-10">
-          <p className="text-xs font-bold uppercase tracking-[0.15em] text-center mb-3" style={{ color: "rgba(255,255,255,0.4)" }}>
+          <p className="text-xs font-bold uppercase tracking-[0.15em] text-center mb-3" style={{ color: "#1A5C7A" }}>
             Proceso
           </p>
-          <h2 className="font-display text-3xl sm:text-4xl font-bold text-center text-white mb-14">En marcha en minutos</h2>
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-center mb-14" style={{ color: "#0C1B26" }}>
+            En marcha en minutos
+          </h2>
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-0">
             {[
               { step: "01", title: "Conectamos tus canales", desc: "WhatsApp Business, Instagram y widget web en una configuración inicial guiada." },
@@ -612,10 +552,10 @@ export default function Home() {
               { step: "04", title: "Tú ves los resultados", desc: "Dashboard con leads, citas y conversión por canal. Todo en un solo lugar." },
             ].map((item, i) => (
               <div key={item.step} className="relative flex flex-col px-6 sm:px-7 py-8 sm:py-0"
-                style={i > 0 ? { borderLeft: "1px solid rgba(255,255,255,0.1)" } : {}}>
-                <p className="font-display text-5xl font-bold mb-5" style={{ color: "#D95F45", opacity: 0.6 }}>{item.step}</p>
-                <h3 className="text-base font-bold text-white mb-2">{item.title}</h3>
-                <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>{item.desc}</p>
+                style={i > 0 ? { borderLeft: "1px solid #E5E0D9" } : {}}>
+                <p className="font-display text-5xl font-bold mb-5" style={{ color: "#D95F45", opacity: 0.4 }}>{item.step}</p>
+                <h3 className="text-base font-bold mb-2" style={{ color: "#0C1B26" }}>{item.title}</h3>
+                <p className="text-sm leading-relaxed" style={{ color: "#607281" }}>{item.desc}</p>
               </div>
             ))}
           </div>
@@ -623,7 +563,7 @@ export default function Home() {
       </section>
 
       {/* PRICING */}
-      <section id="pricing" className="py-16 sm:py-24" style={{ backgroundColor: "#FDFCFB" }}>
+      <section id="pricing" className="py-16 sm:py-24" style={{ backgroundColor: "#F7F5F1" }}>
         <div className="max-w-5xl mx-auto px-6 sm:px-10">
           <h2 className="font-display text-3xl sm:text-4xl font-bold text-center mb-3">Planes y precios</h2>
           <p className="text-sm text-center mb-12" style={{ color: "#607281" }}>Sin contratos largos. Cancela cuando quieras.</p>
@@ -638,7 +578,7 @@ export default function Home() {
               </div>
               <p className="text-sm mb-6" style={{ color: "#607281" }}>Para clínicas pequeñas (1 box)</p>
               <ul className="flex flex-col gap-2.5 text-sm mb-8 flex-1">
-                {["Chatbot con IA 24/7", "Agendamiento por chat", "Agenda con vista de calendario", "1 canal de atención"].map((f) => (
+                {["Chatbot con IA 24/7", "Agendamiento por chat", "Agenda con vista de calendario", "Historial clínico básico", "1 canal de atención"].map((f) => (
                   <li key={f} className="flex items-center gap-2.5">
                     <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A" }}>✓</span>
                     {f}
@@ -664,7 +604,15 @@ export default function Home() {
               </div>
               <p className="text-sm mb-6" style={{ color: "#607281" }}>Para clínicas medianas (2–5 boxes)</p>
               <ul className="flex flex-col gap-2.5 text-sm mb-8 flex-1">
-                {["Todo lo del plan Starter", "Lead scoring de pacientes", "Recordatorios automáticos", "Analytics de conversión en tiempo real", "Múltiples canales de atención"].map((f) => (
+                {[
+                  "Todo lo del plan Starter",
+                  "Lead scoring de pacientes",
+                  "Recordatorios automáticos",
+                  "Planes de tratamiento y odontograma",
+                  "Registro de pagos y saldo pendiente",
+                  "Analytics de conversión en tiempo real",
+                  "Múltiples canales de atención",
+                ].map((f) => (
                   <li key={f} className="flex items-center gap-2.5">
                     <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#FDECEA", color: "#D95F45" }}>✓</span>
                     {f}
@@ -686,7 +634,14 @@ export default function Home() {
               </div>
               <p className="text-sm mb-6" style={{ color: "#607281" }}>Para cadenas o grupos dentales</p>
               <ul className="flex flex-col gap-2.5 text-sm mb-8 flex-1">
-                {["Todo lo del plan Pro", "Multi-sucursal", "API e integraciones a medida", "Onboarding dedicado", "SLA garantizado"].map((f) => (
+                {[
+                  "Todo lo del plan Pro",
+                  "Multi-sucursal y multi-marca",
+                  "API e integraciones a medida",
+                  "Formularios de consentimiento digital",
+                  "Onboarding dedicado",
+                  "SLA garantizado",
+                ].map((f) => (
                   <li key={f} className="flex items-center gap-2.5">
                     <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A" }}>✓</span>
                     {f}
@@ -712,7 +667,7 @@ export default function Home() {
             ¿Tienes una clínica dental?
           </h2>
           <p className="mb-10 text-sm sm:text-base" style={{ color: "rgba(255,255,255,0.6)" }}>
-            Regístrate, configura tu clínica y activa todo el sistema — chatbot, agenda y analytics incluidos.
+            Regístrate, configura tu clínica y activa todo el sistema — chatbot, agenda, historial y analytics incluidos.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/register"

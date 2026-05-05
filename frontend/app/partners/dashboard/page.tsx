@@ -21,6 +21,12 @@ interface ReminderConfig {
   twoHours: boolean;
 }
 
+interface RecallConfig {
+  enabled: boolean;
+  daysInactive: number;
+  message: string;
+}
+
 interface ClinicConfig {
   tone?: string;
   assistantName?: string;
@@ -29,6 +35,8 @@ interface ClinicConfig {
   boxes?: number;
   schedule?: { weekdays?: string; saturday?: string; sunday?: string };
   reminders?: ReminderConfig;
+  recallCampaign?: RecallConfig;
+  postApptSurvey?: boolean;
 }
 
 interface Analytics {
@@ -818,12 +826,24 @@ export default function PartnersDashboard() {
   const [remSaving, setRemSaving] = useState(false);
   const [remMsg, setRemMsg] = useState("");
 
+  // Recall campaign
+  const DEFAULT_RECALL_MSG = "Hola {nombre}, te echamos de menos en {clinica}. ¿Qué tal si agendamos tu próximo control?";
+  const [recallForm, setRecallForm] = useState<RecallConfig>({ enabled: false, daysInactive: 90, message: DEFAULT_RECALL_MSG });
+  const [recallSaving, setRecallSaving] = useState(false);
+  const [recallMsg, setRecallMsg] = useState("");
+  const [recallTriggering, setRecallTriggering] = useState(false);
+
+  // Post-appt survey
+  const [surveyEnabled, setSurveyEnabled] = useState(false);
+  const [surveySaving, setSurveySaving] = useState(false);
+  const [surveyMsg, setSurveyMsg] = useState("");
+
   useEffect(() => {
     getMe().then((data) => {
       if (!data) { router.push("/login"); return; }
       setUser(data.user);
       setClinic(data.clinic);
-      if (data.clinic) { syncForm(data.clinic); syncSchedForm(data.clinic); syncRemForm(data.clinic); }
+      if (data.clinic) { syncForm(data.clinic); syncSchedForm(data.clinic); syncRemForm(data.clinic); syncRecallForm(data.clinic); syncSurveyForm(data.clinic); }
       setLoading(false);
       if (data.clinic) fetchAnalytics(data.clinic.id);
     });
@@ -853,6 +873,18 @@ export default function PartnersDashboard() {
   function syncRemForm(c: ClinicData) {
     const cfg = c.config as ClinicConfig;
     setRemForm({ enabled: cfg.reminders?.enabled !== false, dayBefore: cfg.reminders?.dayBefore !== false, twoHours: cfg.reminders?.twoHours !== false });
+  }
+  function syncRecallForm(c: ClinicData) {
+    const cfg = c.config as ClinicConfig;
+    setRecallForm({
+      enabled: cfg.recallCampaign?.enabled ?? false,
+      daysInactive: cfg.recallCampaign?.daysInactive ?? 90,
+      message: cfg.recallCampaign?.message ?? DEFAULT_RECALL_MSG,
+    });
+  }
+  function syncSurveyForm(c: ClinicData) {
+    const cfg = c.config as ClinicConfig;
+    setSurveyEnabled(cfg.postApptSurvey ?? false);
   }
 
   function handleLogout() { logout(); router.push("/"); }
@@ -892,6 +924,47 @@ export default function PartnersDashboard() {
       setRemMsg("Guardado"); setTimeout(() => setRemMsg(""), 3000);
     } catch (e) { setRemMsg(e instanceof Error ? e.message : "Error"); }
     finally { setRemSaving(false); }
+  }
+
+  async function saveRecall() {
+    if (!clinic) return;
+    setRecallSaving(true); setRecallMsg("");
+    try {
+      const cfg = { ...(clinic.config as ClinicConfig), recallCampaign: recallForm };
+      const updated = await updateClinic(clinic.id, { config: cfg as Record<string, unknown> });
+      setClinic(updated); syncRecallForm(updated);
+      setRecallMsg("Guardado"); setTimeout(() => setRecallMsg(""), 3000);
+    } catch (e) { setRecallMsg(e instanceof Error ? e.message : "Error"); }
+    finally { setRecallSaving(false); }
+  }
+
+  async function triggerRecall() {
+    if (!clinic) return;
+    setRecallTriggering(true);
+    try {
+      const token = getToken();
+      const r = await fetch(`${API}/api/clinics/${clinic.id}/recall/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ daysInactive: recallForm.daysInactive, message: recallForm.message }),
+      });
+      const data = await r.json();
+      setRecallMsg(`Enviado a ${data.sent} de ${data.total} pacientes inactivos.`);
+      setTimeout(() => setRecallMsg(""), 6000);
+    } catch { setRecallMsg("Error al ejecutar campaña"); }
+    finally { setRecallTriggering(false); }
+  }
+
+  async function saveSurvey() {
+    if (!clinic) return;
+    setSurveySaving(true); setSurveyMsg("");
+    try {
+      const cfg = { ...(clinic.config as ClinicConfig), postApptSurvey: surveyEnabled };
+      const updated = await updateClinic(clinic.id, { config: cfg as Record<string, unknown> });
+      setClinic(updated); syncSurveyForm(updated);
+      setSurveyMsg("Guardado"); setTimeout(() => setSurveyMsg(""), 3000);
+    } catch (e) { setSurveyMsg(e instanceof Error ? e.message : "Error"); }
+    finally { setSurveySaving(false); }
   }
 
   async function saveDoctors(doctors: DoctorRow[], boxes: number) {
@@ -1224,6 +1297,127 @@ export default function PartnersDashboard() {
                         </div>
                       </label>
                     ))}
+                  </div>
+                </section>
+
+                {/* Auto-agendamiento público */}
+                {clinic && (
+                  <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                    <h2 className="font-semibold text-gray-900 mb-1">Auto-agendamiento público</h2>
+                    <p className="text-xs text-gray-400 mb-4">
+                      Comparte este link para que tus pacientes agenden directamente — sin llamadas ni WhatsApp.
+                      Ponlo en tu bio de Instagram, tu página web o envíalo por mensaje.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <div className="flex-1 bg-gray-50 rounded-xl border border-gray-200 px-4 py-3 text-xs text-gray-700 font-mono break-all select-all">
+                        {typeof window !== "undefined" ? window.location.origin : "https://tu-dominio.com"}/book/{clinic.slug}
+                      </div>
+                      <button
+                        onClick={() => {
+                          const url = `${window.location.origin}/book/${clinic.slug}`;
+                          navigator.clipboard.writeText(url);
+                        }}
+                        className="text-xs font-semibold px-4 py-2 rounded-xl border transition-colors hover:bg-gray-50"
+                        style={{ borderColor: "#E5E0D9", color: "#1A5C7A" }}>
+                        Copiar link
+                      </button>
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <a href={`/book/${clinic.slug}`} target="_blank" rel="noopener noreferrer"
+                        className="text-xs font-semibold underline underline-offset-2" style={{ color: "#607281" }}>
+                        Ver página →
+                      </a>
+                    </div>
+                  </section>
+                )}
+
+                {/* Encuesta post-cita */}
+                <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="font-semibold text-gray-900">Encuesta post-cita (WhatsApp)</h2>
+                      <p className="text-xs text-gray-400 mt-0.5">Envía un mensaje de satisfacción al paciente después de su cita.</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {surveyMsg && <span className={`text-xs ${surveyMsg === "Guardado" ? "text-green-600" : "text-red-600"}`}>{surveyMsg}</span>}
+                      {canEdit && (
+                        <button onClick={saveSurvey} disabled={surveySaving}
+                          className="text-sm bg-blue-600 text-white font-medium px-4 py-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                          {surveySaving ? "Guardando..." : "Guardar"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <label className={`flex items-center justify-between gap-4 p-3 rounded-xl border transition-colors cursor-pointer ${canEdit ? "hover:bg-gray-50" : "opacity-70 cursor-default"}`}
+                    style={{ borderColor: "#f1f5f9" }}>
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">Encuesta activa</p>
+                      <p className="text-xs text-gray-400">
+                        Envía &quot;¿Cómo fue tu visita? ⭐&quot; por WhatsApp tras cada cita completada.
+                        Ideal para conseguir reseñas en Google.
+                      </p>
+                    </div>
+                    <div onClick={() => canEdit && setSurveyEnabled((v) => !v)}
+                      className={`w-10 h-6 rounded-full relative transition-colors shrink-0 ${surveyEnabled ? "bg-blue-600" : "bg-gray-200"}`}>
+                      <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${surveyEnabled ? "translate-x-5" : "translate-x-1"}`} />
+                    </div>
+                  </label>
+                </section>
+
+                {/* Campañas de recall */}
+                <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="font-semibold text-gray-900">Campañas de recall</h2>
+                      <p className="text-xs text-gray-400 mt-0.5">Mensajes automáticos para pacientes que no han vuelto en X días.</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {recallMsg && <span className={`text-xs ${recallMsg.startsWith("Enviado") ? "text-green-600" : recallMsg === "Guardado" ? "text-green-600" : "text-red-600"}`}>{recallMsg}</span>}
+                      {canEdit && (
+                        <button onClick={saveRecall} disabled={recallSaving}
+                          className="text-sm bg-blue-600 text-white font-medium px-4 py-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                          {recallSaving ? "Guardando..." : "Guardar config"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-4">
+                    <label className={`flex items-center justify-between gap-4 p-3 rounded-xl border transition-colors cursor-pointer ${canEdit ? "hover:bg-gray-50" : "opacity-70 cursor-default"}`}
+                      style={{ borderColor: "#f1f5f9" }}>
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">Recall activado</p>
+                        <p className="text-xs text-gray-400">Habilita las campañas de re-contacto por WhatsApp.</p>
+                      </div>
+                      <div onClick={() => canEdit && setRecallForm((f) => ({ ...f, enabled: !f.enabled }))}
+                        className={`w-10 h-6 rounded-full relative transition-colors shrink-0 ${recallForm.enabled ? "bg-blue-600" : "bg-gray-200"}`}>
+                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${recallForm.enabled ? "translate-x-5" : "translate-x-1"}`} />
+                      </div>
+                    </label>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
+                        Días de inactividad para enviar
+                      </label>
+                      <input type="number" min={30} max={365} value={recallForm.daysInactive}
+                        disabled={!canEdit}
+                        onChange={(e) => setRecallForm((f) => ({ ...f, daysInactive: Number(e.target.value) }))}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-70" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
+                        Mensaje — usa {"{nombre}"} y {"{clinica}"}
+                      </label>
+                      <textarea rows={3} value={recallForm.message}
+                        disabled={!canEdit}
+                        onChange={(e) => setRecallForm((f) => ({ ...f, message: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:opacity-70" />
+                    </div>
+                    {canEdit && (
+                      <button onClick={triggerRecall} disabled={recallTriggering}
+                        className="flex items-center gap-2 self-start text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors disabled:opacity-50"
+                        style={{ backgroundColor: "#F7F5F1", border: "1.5px solid #E5E0D9", color: "#0C1B26" }}>
+                        {recallTriggering ? "Enviando..." : "▶ Ejecutar campaña ahora"}
+                      </button>
+                    )}
                   </div>
                 </section>
 
