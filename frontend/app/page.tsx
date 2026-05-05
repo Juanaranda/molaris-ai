@@ -244,8 +244,8 @@ export default function Home() {
     },
     {
       icon: <IconUsers />,
-      title: "Flujo de agendamiento",
-      desc: "Desde la consulta inicial hasta la cita confirmada, sin formularios engorrosos — solo nombre y RUT.",
+      title: "Gestión completa de pacientes",
+      desc: "Historial de citas, notas clínicas editables, ficha por paciente y seguimiento de pagos — todo en un lugar.",
       color: "#1A5C7A", bg: "#E8F3F7",
     },
   ];
@@ -494,6 +494,88 @@ export default function Home() {
               label="Web Widget"
               sublabel="Integrado en tu sitio web"
             />
+          </div>
+        </div>
+      </section>
+
+      {/* GESTIÓN CLÍNICA */}
+      <section className="py-16 sm:py-24" style={{ backgroundColor: "#FDFCFB" }}>
+        <div className="max-w-5xl mx-auto px-6 sm:px-10">
+          <p className="text-xs font-bold uppercase tracking-[0.15em] text-center mb-3" style={{ color: "#D95F45" }}>
+            Más que un chatbot
+          </p>
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-center mb-4">
+            Tu sistema clínico, integrado
+          </h2>
+          <p className="text-sm text-center max-w-xl mx-auto mb-14" style={{ color: "#607281" }}>
+            No solo agenda y atiende — también lleva la ficha clínica, registra pagos, genera presupuestos con odontograma y hace seguimiento de tratamientos largos.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+
+            {/* Ficha clínica */}
+            <div className="rounded-2xl p-6 sm:p-7 flex flex-col gap-4" style={{ backgroundColor: "#F0F7FF", border: "1px solid #C7DFF7" }}>
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: "#DBEAFE" }}>📋</div>
+              <div>
+                <h3 className="font-bold text-base mb-1.5" style={{ color: "#1E3A5F" }}>Historial clínico por paciente</h3>
+                <p className="text-sm leading-relaxed" style={{ color: "#3B6EA5" }}>
+                  Cada visita queda registrada con notas clínicas editables. Accede al historial completo, las notas del doctor y el estado de cada cita desde la ficha del paciente.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-auto">
+                {["Notas por cita", "Importación CSV", "Búsqueda por RUT"].map((t) => (
+                  <span key={t} className="text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: "#DBEAFE", color: "#1D4ED8" }}>{t}</span>
+                ))}
+              </div>
+            </div>
+
+            {/* Pagos */}
+            <div className="rounded-2xl p-6 sm:p-7 flex flex-col gap-4" style={{ backgroundColor: "#F0FDF4", border: "1px solid #BBF7D0" }}>
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: "#D1FAE5" }}>💳</div>
+              <div>
+                <h3 className="font-bold text-base mb-1.5" style={{ color: "#14532D" }}>Registro de pagos por cita</h3>
+                <p className="text-sm leading-relaxed" style={{ color: "#166534" }}>
+                  Registra el monto cobrado, lo pagado, el método (efectivo, transferencia, tarjeta) y el saldo pendiente. El dashboard muestra ingresos y deudas en tiempo real.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-auto">
+                {["Ingreso mensual", "Saldo pendiente", "Por doctor"].map((t) => (
+                  <span key={t} className="text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: "#D1FAE5", color: "#065F46" }}>{t}</span>
+                ))}
+              </div>
+            </div>
+
+            {/* Planes de tratamiento */}
+            <div className="rounded-2xl p-6 sm:p-7 flex flex-col gap-4" style={{ backgroundColor: "#FFF8F1", border: "1px solid #FED7AA" }}>
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: "#FFEDD5" }}>📈</div>
+              <div>
+                <h3 className="font-bold text-base mb-1.5" style={{ color: "#7C2D12" }}>Planes de tratamiento</h3>
+                <p className="text-sm leading-relaxed" style={{ color: "#92400E" }}>
+                  Para ortodoncia, implantes o cualquier tratamiento largo: define sesiones totales, seguimiento de avance, pagos parciales y el porcentaje completado de cada plan.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-auto">
+                {["Progreso en %", "Pagos parciales", "Multi-sesión"].map((t) => (
+                  <span key={t} className="text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: "#FFEDD5", color: "#C2410C" }}>{t}</span>
+                ))}
+              </div>
+            </div>
+
+            {/* Odontograma */}
+            <div className="rounded-2xl p-6 sm:p-7 flex flex-col gap-4" style={{ backgroundColor: "#FAF5FF", border: "1px solid #E9D5FF" }}>
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: "#EDE9FE" }}>🦷</div>
+              <div>
+                <h3 className="font-bold text-base mb-1.5" style={{ color: "#4C1D95" }}>Presupuestos con odontograma</h3>
+                <p className="text-sm leading-relaxed" style={{ color: "#5B21B6" }}>
+                  Selecciona las piezas dentales (FDI), define superficies y agrega las prestaciones con sus precios. Genera el presupuesto, aplica descuentos y envíalo al paciente.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-auto">
+                {["32 piezas FDI", "19 prestaciones", "PDF exportable"].map((t) => (
+                  <span key={t} className="text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: "#EDE9FE", color: "#6D28D9" }}>{t}</span>
+                ))}
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
