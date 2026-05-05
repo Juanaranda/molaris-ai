@@ -309,7 +309,7 @@ export default function SetupPage() {
                       </p>
                       {doctors.length > 1 && (
                         <button onClick={() => removeDoctor(doc._id)}
-                          className="w-6 h-6 rounded-full bg-gray-100 hover:bg-red-50 hover:text-red-500 transition text-gray-400 text-xs flex items-center justify-center">
+                          className="w-11 h-11 rounded-xl bg-gray-100 hover:bg-red-50 hover:text-red-500 transition text-gray-500 text-sm flex items-center justify-center shrink-0 -m-2">
                           ✕
                         </button>
                       )}
@@ -348,7 +348,7 @@ export default function SetupPage() {
                               key={key}
                               type="button"
                               onClick={() => toggleDay(doc._id, key)}
-                              className={`w-10 h-10 rounded-xl text-xs font-bold transition ${
+                              className={`h-11 w-11 rounded-xl text-xs font-bold transition ${
                                 active ? "text-white" : "text-gray-400 bg-gray-100 hover:bg-gray-200"
                               }`}
                               style={active ? { backgroundColor: "#1A5C7A", color: "white" } : {}}>
@@ -426,12 +426,12 @@ export default function SetupPage() {
                           <div className="flex items-center gap-2 text-sm">
                             <input type="time" value={day.from}
                               onChange={(e) => updateScheduleDay(key, "from", e.target.value)}
-                              className="px-2 py-1 rounded-lg border text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                              className="px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
                               style={{ borderColor: "#E5E0D9" }} />
                             <span className="text-gray-400 text-xs">a</span>
                             <input type="time" value={day.to}
                               onChange={(e) => updateScheduleDay(key, "to", e.target.value)}
-                              className="px-2 py-1 rounded-lg border text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                              className="px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
                               style={{ borderColor: "#E5E0D9" }} />
                           </div>
                         ) : (
@@ -535,7 +535,7 @@ export default function SetupPage() {
                   </div>
                 </div>
                 <div className="relative">
-                  <pre className="text-xs bg-slate-900 text-emerald-300 rounded-xl p-4 overflow-x-auto leading-relaxed">
+                  <pre className="text-xs bg-slate-900 text-emerald-300 rounded-xl p-4 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
                     {embedCode}
                   </pre>
                   <button
