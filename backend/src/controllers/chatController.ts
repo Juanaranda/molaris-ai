@@ -4,12 +4,14 @@ import { getAIResponse } from "../services/ai/claudeService";
 import prisma from "../config/prisma";
 import { config } from "../config/env";
 import { sendBookingNotification } from "../services/notifications/whatsappService";
+import { buildJuanPrompt } from "../services/ai/promptBuilder";
 
 const bodySchema = z.object({
   message: z.string().min(1),
   clinicSlug: z.string().default("galana"),
   sessionId: z.string().optional(),
   slotBooked: z.boolean().optional(),
+  isDemoMode: z.boolean().optional(),
 });
 
 // ─── Helpers de disponibilidad ────────────────────────────────────────────────
@@ -95,7 +97,7 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
     return reply.status(400).send({ error: parsed.error.flatten() });
   }
 
-  const { message, clinicSlug, sessionId, slotBooked } = parsed.data;
+  const { message, clinicSlug, sessionId, slotBooked, isDemoMode } = parsed.data;
 
   try {
     const clinic = await prisma.clinic.findUnique({ where: { slug: clinicSlug } });
@@ -109,7 +111,7 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
 
     if (!session) {
       session = await prisma.session.create({
-        data: { clinicId: clinic.id, channel: "web" },
+        data: { clinicId: clinic.id, channel: isDemoMode ? "demo" : "web" },
       });
     }
 
@@ -119,9 +121,9 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
 
     const existingCtx = await prisma.patientContext.findUnique({ where: { sessionId: session.id } });
 
-    // Inyectar disponibilidad cuando el paciente eligió agendar por chat
+    // En modo demo Juan no inyecta disponibilidad de citas reales
     let availabilityHint: string | undefined;
-    if (existingCtx?.intent === "booking_via_chat") {
+    if (!isDemoMode && existingCtx?.intent === "booking_via_chat") {
       availabilityHint = await buildAvailabilityHint(clinic.id, clinic.config as ClinicCfg);
     }
 
@@ -130,6 +132,7 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
       clinic,
       sessionId: session.id,
       availabilityHint,
+      overrideSystemPrompt: isDemoMode ? buildJuanPrompt() : undefined,
       currentContext: {
         patientName:     existingCtx?.patientName     ?? undefined,
         rut:             existingCtx?.rut             ?? undefined,
