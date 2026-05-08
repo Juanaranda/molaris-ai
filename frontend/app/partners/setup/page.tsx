@@ -6,8 +6,8 @@ import { getMe, updateClinic } from "@/lib/auth";
 
 type Step = 1 | 2 | 3 | 4;
 
-const DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"] as const;
-const DAY_KEYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
+const DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"] as const;
+const DAY_KEYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
 type DayKey = (typeof DAY_KEYS)[number];
 
 const SPECIALTIES = [
@@ -65,6 +65,28 @@ function uid() {
   return Math.random().toString(36).slice(2, 9);
 }
 
+/* ─── Time slot select (07:00–22:00, every 30 min) ──────────────────────── */
+const TIME_SLOTS: string[] = [];
+for (let h = 7; h <= 22; h++) {
+  TIME_SLOTS.push(`${String(h).padStart(2, "0")}:00`);
+  if (h < 22) TIME_SLOTS.push(`${String(h).padStart(2, "0")}:30`);
+}
+
+function TimeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="px-3 py-2 rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+      style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
+    >
+      {TIME_SLOTS.map((t) => (
+        <option key={t} value={t}>{t}</option>
+      ))}
+    </select>
+  );
+}
+
 export default function SetupPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>(1);
@@ -76,6 +98,7 @@ export default function SetupPage() {
   ]);
   const [schedule, setSchedule] = useState<Schedule>(DEFAULT_SCHEDULE);
   const [boxes, setBoxes] = useState(2);
+  const [boxesCustom, setBoxesCustom] = useState(false);
   const [whatsapp, setWhatsapp] = useState("");
   const [instagram, setInstagram] = useState("");
   const [saving, setSaving] = useState(false);
@@ -423,16 +446,10 @@ export default function SetupPage() {
                           {labels[key]}
                         </span>
                         {day.open ? (
-                          <div className="flex items-center gap-2 text-sm">
-                            <input type="time" value={day.from}
-                              onChange={(e) => updateScheduleDay(key, "from", e.target.value)}
-                              className="px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-                              style={{ borderColor: "#E5E0D9" }} />
+                          <div className="flex items-center gap-2">
+                            <TimeSelect value={day.from} onChange={(v) => updateScheduleDay(key, "from", v)} />
                             <span className="text-gray-400 text-xs">a</span>
-                            <input type="time" value={day.to}
-                              onChange={(e) => updateScheduleDay(key, "to", e.target.value)}
-                              className="px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-                              style={{ borderColor: "#E5E0D9" }} />
+                            <TimeSelect value={day.to} onChange={(v) => updateScheduleDay(key, "to", v)} />
                           </div>
                         ) : (
                           <span className="text-xs text-gray-400">Cerrado</span>
@@ -448,15 +465,37 @@ export default function SetupPage() {
                 <label className="block text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#607281" }}>
                   Número de boxes / sillones
                 </label>
-                <div className="flex gap-3">
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <button key={n} type="button" onClick={() => setBoxes(n)}
-                      className={`w-12 h-12 rounded-xl text-sm font-bold transition ${boxes === n ? "text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
-                      style={boxes === n ? { backgroundColor: "#1A5C7A", color: "white" } : {}}>
+                <div className="flex flex-wrap gap-2">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                    <button key={n} type="button"
+                      onClick={() => { setBoxes(n); setBoxesCustom(false); }}
+                      className={`w-12 h-12 rounded-xl text-sm font-bold transition ${!boxesCustom && boxes === n ? "text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+                      style={!boxesCustom && boxes === n ? { backgroundColor: "#1A5C7A", color: "white" } : {}}>
                       {n}
                     </button>
                   ))}
+                  <button type="button"
+                    onClick={() => { setBoxesCustom(true); setBoxes(11); }}
+                    className={`px-3 h-12 rounded-xl text-xs font-bold transition ${boxesCustom ? "text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+                    style={boxesCustom ? { backgroundColor: "#1A5C7A", color: "white" } : {}}>
+                    +10
+                  </button>
                 </div>
+                {boxesCustom && (
+                  <div className="mt-3 flex items-center gap-3">
+                    <input
+                      type="number"
+                      min={11}
+                      value={boxes}
+                      onChange={(e) => setBoxes(Math.max(11, parseInt(e.target.value) || 11))}
+                      placeholder="Ej: 15"
+                      className="w-28 px-3 py-2 rounded-xl border text-sm font-bold focus:outline-none focus:ring-2"
+                      style={{ borderColor: "#1A5C7A", color: "#1A5C7A" }}
+                      autoFocus
+                    />
+                    <span className="text-xs text-gray-400">boxes / sillones</span>
+                  </div>
+                )}
               </div>
 
               <button onClick={() => setStep(4)}

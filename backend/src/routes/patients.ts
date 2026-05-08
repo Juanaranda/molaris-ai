@@ -29,22 +29,42 @@ function parseCSV(content: string): Record<string, string>[] {
   }).filter((row) => Object.values(row).some((v) => v !== ""));
 }
 
+// Columns that contain "fecha" but are NOT appointment dates — excluded from date detection
+const DATE_EXCLUSIONS = ["nacimiento", "nac.", "registro", "ingreso", "alta"];
+
 const COL_ALIASES: Record<string, string[]> = {
-  patientName:  ["nombre", "paciente", "nombre paciente", "name", "patient"],
-  patientRut:   ["rut", "run", "dni", "id"],
-  patientPhone: ["telefono", "teléfono", "phone", "celular", "fono", "movil", "móvil"],
-  patientEmail: ["email", "correo", "mail", "e-mail"],
-  date:         ["fecha", "date", "fecha cita", "fecha consulta", "día"],
-  time:         ["hora", "time", "horario", "hora cita"],
-  doctor:       ["doctor", "profesional", "dentista", "medico", "médico", "dr", "dra"],
-  service:      ["servicio", "tratamiento", "prestacion", "prestación", "service", "procedimiento"],
-  status:       ["estado", "status"],
+  // Full name (generic CSVs)
+  patientName:      ["nombre paciente", "paciente", "nombre completo", "name", "patient"],
+  // Separate name parts (DentaLink / other dental software)
+  firstName:        ["nombre"],
+  lastNamePaternal: ["apellido paterno", "primer apellido", "apellido1", "paterno"],
+  lastNameMaternal: ["apellido materno", "segundo apellido", "apellido2", "materno"],
+  patientRut:       ["rut", "run", "dni", "id paciente", "ficha"],
+  // Mobile preferred over landline
+  patientPhone:     ["teléfono móvil", "telefono movil", "celular", "movil", "móvil", "telefono", "teléfono", "phone", "fono"],
+  patientEmail:     ["correo electrónico", "correo electronico", "email", "correo", "mail", "e-mail"],
+  // Specific appointment-date aliases — do NOT match "fecha nacimiento" or "fecha registro"
+  date:             ["fecha cita", "fecha consulta", "fecha agenda", "fecha atencion", "fecha atención", "cita", "date"],
+  // Registration date as fallback
+  registrationDate: ["fecha registro", "fecha de registro", "fecha ingreso", "fecha alta"],
+  time:             ["hora", "time", "horario", "hora cita"],
+  doctor:           ["doctor", "profesional", "dentista", "medico", "médico", "dr.", "dra."],
+  service:          ["servicio", "tratamiento", "prestacion", "prestación", "service", "procedimiento"],
+  status:           ["estado", "status"],
 };
 
 function detectColumns(headers: string[]): Record<string, string | null> {
   const result: Record<string, string | null> = {};
   for (const [field, aliases] of Object.entries(COL_ALIASES)) {
-    result[field] = headers.find((h) => aliases.some((a) => h.includes(a))) ?? null;
+    // For the 'date' field, skip headers that look like birthdate/registration columns
+    if (field === "date") {
+      result[field] = headers.find((h) =>
+        aliases.some((a) => h === a || h.startsWith(a)) &&
+        !DATE_EXCLUSIONS.some((ex) => h.includes(ex))
+      ) ?? null;
+    } else {
+      result[field] = headers.find((h) => aliases.some((a) => h === a || h.includes(a))) ?? null;
+    }
   }
   return result;
 }
@@ -167,7 +187,16 @@ export async function patientsRoutes(app: FastifyInstance) {
       const row = rows[i];
       const lineNum = i + 2;
 
-      const patientName = cols.patientName ? row[cols.patientName] : null;
+      // Build patient name — support split columns (DentaLink) or full-name column
+      let patientName: string | null = null;
+      if (cols.firstName && (cols.lastNamePaternal || cols.lastNameMaternal)) {
+        const first = (cols.firstName ? row[cols.firstName] : "") || "";
+        const lastP = (cols.lastNamePaternal ? row[cols.lastNamePaternal] : "") || "";
+        const lastM = (cols.lastNameMaternal ? row[cols.lastNameMaternal] : "") || "";
+        patientName = `${first} ${lastP} ${lastM}`.replace(/\s+/g, " ").trim() || null;
+      } else if (cols.patientName) {
+        patientName = row[cols.patientName] || null;
+      }
       if (!patientName) { skipped++; continue; }
 
       const patientRut   = cols.patientRut   ? row[cols.patientRut]   || null : null;
@@ -181,13 +210,23 @@ export async function patientsRoutes(app: FastifyInstance) {
         ? "confirmed" : ["cancel","cancelad"].some((s) => statusRaw?.includes(s) ?? false)
         ? "cancelled" : "confirmed";
 
+      // Date: try appointment date first, then registration date, then today (patient roster mode)
       const dateStr = cols.date ? row[cols.date] : null;
-      const date = dateStr ? parseDate(dateStr) : null;
-      if (!date) { errors.push(`Fila ${lineNum}: fecha inválida "${dateStr ?? ""}"`); skipped++; continue; }
+      const regDateStr = cols.registrationDate ? row[cols.registrationDate] : null;
+      let date: Date | null = null;
+      if (dateStr) {
+        date = parseDate(dateStr);
+        if (!date) { errors.push(`Fila ${lineNum}: fecha inválida "${dateStr}"`); skipped++; continue; }
+      } else if (regDateStr) {
+        date = parseDate(regDateStr);
+      }
+      if (!date) {
+        // Patient roster mode — no appointment date; use today as placeholder
+        date = new Date(); date.setHours(12, 0, 0, 0);
+      }
 
       const timeStr = cols.time ? row[cols.time] : null;
-      const time = timeStr ? parseTime(timeStr) : "10:00";
-      if (!time) { errors.push(`Fila ${lineNum}: hora inválida "${timeStr ?? ""}"`); skipped++; continue; }
+      const time = timeStr ? (parseTime(timeStr) ?? "10:00") : "10:00";
 
       // Skip duplicates: same clinic + rut/name + date + doctor
       const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0);

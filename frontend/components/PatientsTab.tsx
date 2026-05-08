@@ -146,10 +146,15 @@ function NewPlanModal({
     finally { setSaving(false); }
   }
 
-  const DOCTORS = [
-    "Dra. Ana Aranda","Dra. Ivonne Poblete","Dr. Pedro Engel",
-    "Dr. Juan Garcés","Dra. Jacqueline Pérez",
-  ];
+  const [DOCTORS, setDoctors] = useState<string[]>([]);
+  useEffect(() => {
+    import("@/lib/auth").then(({ getMe }) =>
+      getMe().then((data) => {
+        const cfg = data?.clinic?.config as { doctors?: { name: string }[] } | undefined;
+        if (cfg?.doctors) setDoctors(cfg.doctors.map((d) => d.name));
+      })
+    );
+  }, []);
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
@@ -254,21 +259,23 @@ function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-2xl w-full max-w-lg overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-2xl w-full max-w-2xl overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-br from-slate-800 to-slate-700 px-6 py-5">
+        <div className="bg-gradient-to-br from-slate-800 to-slate-700 px-7 py-6">
           <div className="flex items-start justify-between">
-            <div>
-              <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white font-black text-sm mb-3">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center text-white font-black text-lg shrink-0">
                 {patient.name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
               </div>
-              <h2 className="text-lg font-black text-white">{patient.name}</h2>
-              {patient.rut && <p className="text-sm text-white/60 mt-0.5">{patient.rut}</p>}
+              <div>
+                <h2 className="text-xl font-black text-white leading-tight">{patient.name}</h2>
+                {patient.rut && <p className="text-sm text-white/60 mt-0.5">{patient.rut}</p>}
+              </div>
             </div>
             <button onClick={onClose}
-              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center text-white/70">✕</button>
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center text-white/70 shrink-0">✕</button>
           </div>
-          <div className="grid grid-cols-2 gap-3 mt-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5">
             {patient.phone && (
               <div>
                 <p className="text-[10px] text-white/40 font-bold uppercase tracking-wide">Teléfono</p>
@@ -276,9 +283,9 @@ function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => 
               </div>
             )}
             {patient.email && (
-              <div>
+              <div className="min-w-0">
                 <p className="text-[10px] text-white/40 font-bold uppercase tracking-wide">Email</p>
-                <p className="text-sm font-semibold text-white/90">{patient.email}</p>
+                <p className="text-sm font-semibold text-white/90 truncate">{patient.email}</p>
               </div>
             )}
             <div>
@@ -332,7 +339,7 @@ function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => 
 
         {/* Tab: History */}
         {tab === "history" && (
-          <div className="flex flex-col overflow-hidden" style={{ maxHeight: 340 }}>
+          <div className="flex flex-col overflow-hidden" style={{ maxHeight: 440 }}>
             {patient.pendingCount > 0 && (
               <div className="px-5 py-2 border-b border-gray-50 flex justify-end">
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
@@ -442,7 +449,7 @@ function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => 
 
         {/* Tab: Plans */}
         {tab === "plans" && (
-          <div className="flex flex-col overflow-hidden" style={{ maxHeight: 340 }}>
+          <div className="flex flex-col overflow-hidden" style={{ maxHeight: 440 }}>
             <div className="px-5 py-2.5 border-b border-gray-50 flex justify-end">
               <button onClick={() => setShowNewPlan(true)}
                 className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 transition">
@@ -519,7 +526,7 @@ function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => 
         )}
         {/* Tab: Quotes */}
         {tab === "quotes" && (
-          <div className="overflow-y-auto" style={{ maxHeight: 340 }}>
+          <div className="overflow-y-auto px-5 py-4" style={{ maxHeight: "70vh" }}>
             <DentalQuoteTab patient={{ name: patient.name, rut: patient.rut }} />
           </div>
         )}
@@ -632,25 +639,25 @@ function ImportCSVModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
 
               {/* Format guide */}
               <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                <p className="text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Columnas aceptadas</p>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+                <p className="text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Columnas detectadas automáticamente</p>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1 mb-3">
                   {[
-                    ["Nombre paciente", "nombre, paciente, name"],
-                    ["RUT",             "rut, run, dni"],
-                    ["Teléfono",        "telefono, celular, phone"],
-                    ["Email",           "email, correo, mail"],
-                    ["Fecha",           "fecha, date (DD/MM/YYYY)"],
-                    ["Hora",            "hora, time (HH:MM)"],
-                    ["Doctor",          "doctor, profesional, dentista"],
-                    ["Servicio",        "servicio, tratamiento"],
-                  ].map(([campo, cols]) => (
+                    ["Nombre",    "Nombre + Apellido paterno/materno (DentaLink) o columna combinada"],
+                    ["RUT",       "rut, run, dni"],
+                    ["Teléfono",  "Teléfono móvil (preferido), teléfono, celular"],
+                    ["Email",     "Correo electrónico, email, correo"],
+                    ["Fecha cita","fecha cita, fecha consulta (DD-MM-YYYY o YYYY-MM-DD)"],
+                    ["Hora",      "hora, time (HH:MM)"],
+                    ["Doctor",    "doctor, profesional, dentista"],
+                    ["Servicio",  "servicio, tratamiento, prestación"],
+                  ].map(([campo, desc]) => (
                     <div key={campo} className="flex gap-2 text-xs">
-                      <span className="font-semibold text-slate-700 w-28 shrink-0">{campo}:</span>
-                      <span className="text-slate-400">{cols}</span>
+                      <span className="font-semibold text-slate-700 w-24 shrink-0">{campo}:</span>
+                      <span className="text-slate-400">{desc}</span>
                     </div>
                   ))}
                 </div>
-                <p className="text-[10px] text-slate-400 mt-3">La fila "Nombre paciente" y "Fecha" son obligatorias. El separador puede ser coma (,) o punto y coma (;).</p>
+                <p className="text-[10px] text-slate-400">Compatible con DentaLink, Dentalink, y otros exportados CSV. El separador puede ser coma (,) o punto y coma (;). Si no hay fecha de cita, los pacientes se registran con fecha de hoy.</p>
               </div>
             </div>
           )}

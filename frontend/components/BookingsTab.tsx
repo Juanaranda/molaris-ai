@@ -101,8 +101,8 @@ export function BookingsTab({ clinicId }: Props) {
   today.setHours(0, 0, 0, 0);
 
   const filtered = bookings.filter((b) => {
-    const bookingDate = new Date(b.date);
-    bookingDate.setHours(0, 0, 0, 0);
+    const [y, m, d] = String(b.date).slice(0, 10).split("-").map(Number);
+    const bookingDate = new Date(y, m - 1, d);
     return view === "upcoming" ? bookingDate >= today : bookingDate < today;
   });
 
@@ -182,8 +182,8 @@ export function BookingsTab({ clinicId }: Props) {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filtered.map((b) => {
-                  const dateObj = new Date(b.date + "T12:00:00");
-                  const dateStr = dateObj.toLocaleDateString("es-CL", { weekday: "short", day: "numeric", month: "short" });
+                  const [dy, dm, dd] = String(b.date).slice(0, 10).split("-").map(Number);
+                  const dateStr = new Date(dy, dm - 1, dd).toLocaleDateString("es-CL", { weekday: "short", day: "numeric", month: "short" });
                   const name = patientDisplayName(b);
                   const phone = b.patientUser?.identity?.phone;
                   return (

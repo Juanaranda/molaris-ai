@@ -216,13 +216,6 @@ export default function Home() {
     { num: "03", title: "Sin historial, sin control", desc: "Fichas dispersas, pagos sin registro y planes de tratamiento que no tienen seguimiento real." },
   ];
 
-  const stats = [
-    { value: "24/7", label: "Disponible siempre" },
-    { value: "<2s",  label: "Tiempo de respuesta" },
-    { value: "+60%", label: "Más citas confirmadas" },
-    { value: "0",    label: "Llamadas de coordinación" },
-  ];
-
   const features = [
     {
       icon: <IconBot />,
@@ -349,14 +342,20 @@ export default function Home() {
         </div>
       </section>
 
-      {/* STATS */}
+      {/* PILARES DEL PRODUCTO */}
       <section style={{ backgroundColor: "#0B2F42" }}>
-        <div className="max-w-4xl mx-auto px-6 sm:px-10 py-12 sm:py-14">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
-            {stats.map((s) => (
-              <div key={s.label}>
-                <p className="font-display text-3xl sm:text-4xl font-bold" style={{ color: "#D95F45" }}>{s.value}</p>
-                <p className="text-xs mt-1.5" style={{ color: "rgba(255,255,255,0.55)" }}>{s.label}</p>
+        <div className="max-w-5xl mx-auto px-6 sm:px-10 py-12 sm:py-14">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8">
+            {[
+              { icon: "🤖", value: "IA en 3 canales", label: "WhatsApp, Instagram y tu web — atiende sola las 24 horas" },
+              { icon: "📅", value: "Agenda incluida", label: "Calendario por profesional, sin pagar otra herramienta" },
+              { icon: "🦷", value: "Historial clínico", label: "Notas, planes de tratamiento, odontograma y pagos" },
+              { icon: "📊", value: "Analytics en vivo", label: "Ingresos, leads, conversión y rendimiento por doctor" },
+            ].map((s) => (
+              <div key={s.value} className="flex flex-col gap-2">
+                <span className="text-2xl">{s.icon}</span>
+                <p className="font-bold text-sm sm:text-base leading-tight" style={{ color: "rgba(255,255,255,0.95)" }}>{s.value}</p>
+                <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>{s.label}</p>
               </div>
             ))}
           </div>
@@ -487,6 +486,30 @@ export default function Home() {
               sublabel="Integrado en tu sitio web"
             />
           </div>
+
+          {/* Métricas del asistente — integradas en contexto */}
+          <div className="mt-14 rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(26,92,122,0.12)", backgroundColor: "#FDFCFB" }}>
+            <div className="px-6 py-3 border-b" style={{ borderColor: "rgba(26,92,122,0.08)", backgroundColor: "#F7F5F1" }}>
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-center" style={{ color: "#607281" }}>
+                Asistente IA · resultados en producción
+              </p>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0" style={{ borderColor: "rgba(26,92,122,0.08)" }}>
+              {[
+                { value: "342",   label: "Conversaciones / mes",   color: "#0C1B26",  sub: "3 canales activos" },
+                { value: "68%",   label: "Leads convertidos",      color: "#D95F45",  sub: "vs media sector ~22%" },
+                { value: "127",   label: "Citas generadas por IA", color: "#1A5C7A",  sub: "sin intervención humana" },
+                { value: "< 2 s", label: "Tiempo de respuesta",    color: "#059669",  sub: "disponible 24 / 7" },
+              ].map((m) => (
+                <div key={m.label} className="flex flex-col items-center justify-center gap-1 py-6 px-4 text-center">
+                  <p className="font-display text-3xl sm:text-4xl font-bold leading-none" style={{ color: m.color }}>{m.value}</p>
+                  <p className="text-xs font-semibold mt-1" style={{ color: "#0C1B26" }}>{m.label}</p>
+                  <p className="text-[10px]" style={{ color: "#9CA8B3" }}>{m.sub}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
         </div>
       </section>
 
