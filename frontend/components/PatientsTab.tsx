@@ -832,9 +832,11 @@ export function PatientsTab() {
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-gray-800 truncate">{p.name}</p>
-                        {p.services.length > 0 && (
+                        {p.email ? (
+                          <p className="text-[11px] text-gray-400 truncate">{p.email}</p>
+                        ) : p.services.length > 0 ? (
                           <p className="text-[11px] text-gray-400 truncate">{p.services.slice(0, 2).join(", ")}</p>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                     <span className="text-xs text-gray-500 hidden sm:block">{p.rut ?? "—"}</span>

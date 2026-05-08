@@ -32,7 +32,7 @@ function parseCSV(content: string): Record<string, string>[] {
 // Headers que jamás deben usarse como fecha de cita, sin importar el alias que coincida
 const DATE_EXCLUSIONS = [
   "nacimiento", "nac.", "nacim", "birth", "born",
-  "registro", "ingreso", "alta", "creation", "creación",
+  "ingreso", "alta", "creation", "creación",
   "actualizacion", "actualización", "modificacion", "modificación",
 ];
 
@@ -61,6 +61,7 @@ const COL_ALIASES: Record<string, string[]> = {
   doctor:  ["doctor", "profesional", "dentista", "medico", "médico", "dr.", "dra."],
   service: ["servicio", "tratamiento", "prestacion", "prestación", "service", "procedimiento"],
   status:  ["estado", "status", "estado de la reserva", "estado de la cita"],
+  registrationDate: ["fecha registro", "fecha de registro", "fecha ingreso", "fecha alta", "registro", "ingreso"],
 };
 
 function isExcludedDateColumn(h: string): boolean {
@@ -234,24 +235,23 @@ export async function patientsRoutes(app: FastifyInstance) {
         ? "confirmed" : ["cancel","cancelad"].some((s) => statusRaw?.includes(s) ?? false)
         ? "cancelled" : "confirmed";
 
-      // Date: appointment date only — if absent or outside plausible range, default to today.
-      // Never use birth dates or registration dates as appointment date.
+      // Date: appointment date preferred; registration date as fallback for patient rosters.
+      // Never use birth dates as appointment date.
+      const currentYear = new Date().getFullYear();
       const dateStr = cols.date ? row[cols.date] : null;
+      const regDateStr = cols.registrationDate ? row[cols.registrationDate] : null;
       let date: Date | null = null;
-      if (dateStr) {
-        const parsed = parseDate(dateStr);
+
+      for (const raw of [dateStr, regDateStr]) {
+        if (!raw || date) continue;
+        const parsed = parseDate(raw);
         if (parsed) {
           const year = parsed.getFullYear();
-          const currentYear = new Date().getFullYear();
-          // Reject dates outside a plausible appointment window (catches birth dates, typos, etc.)
-          if (year >= 2000 && year <= currentYear + 3) {
-            date = parsed;
-          }
-          // else: silently fall through to today (don't error-skip — still a valid patient row)
+          if (year >= 2000 && year <= currentYear + 3) { date = parsed; }
         }
       }
       if (!date) {
-        // Patient roster mode — no appointment date or invalid year; use today as placeholder
+        // No usable date — use today as last-resort placeholder
         date = new Date(); date.setHours(12, 0, 0, 0);
       }
 
