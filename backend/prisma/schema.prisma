@@ -165,20 +165,26 @@ model PatientContext {
 
 // ─── EVENTOS DE USO (MONITOREO INTERNO) ──────────────────────────────────────
 model UsageEvent {
-  id         String   @id @default(cuid())
-  clinicId   String
-  clinic     Clinic   @relation(fields: [clinicId], references: [id])
-  sessionId  String?
-  model      String
-  tier       String   // "fast" | "balanced" | "smart"
-  tokensIn   Int      @default(0)
-  tokensOut  Int      @default(0)
-  costUsd    Float    @default(0)
-  latencyMs  Int?
-  createdAt  DateTime @default(now())
+  id           String   @id @default(cuid())
+  clinicId     String
+  clinic       Clinic   @relation(fields: [clinicId], references: [id])
+  sessionId    String?
+  model        String
+  tier         String   // "fast" | "balanced" | "smart"
+  tokensIn     Int      @default(0)
+  tokensOut    Int      @default(0)
+  costUsd      Float    @default(0)
+  latencyMs    Int?
+  success      Boolean  @default(true)
+  errorType    String?  // "timeout" | "rate_limit" | "content_filter" | "model_error" | "parse_error" | "unknown"
+  errorMessage String?
+  isSandbox    Boolean  @default(false)
+  channel      String?  // "web" | "whatsapp" | "sandbox" | "demo"
+  createdAt    DateTime @default(now())
 
   @@index([clinicId])
   @@index([createdAt])
+  @@index([success])
   @@map("usage_events")
 }
 

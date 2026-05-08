@@ -90,6 +90,17 @@ async function buildAvailabilityHint(clinicId: string, cfg: ClinicCfg): Promise<
   return lines.join("\n");
 }
 
+// ─── Error classifier ─────────────────────────────────────────────────────────
+function classifyError(err: unknown): string {
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  if (msg.includes("timeout") || msg.includes("timed out") || msg.includes("econnreset")) return "timeout";
+  if (msg.includes("rate limit") || msg.includes("429") || msg.includes("too many")) return "rate_limit";
+  if (msg.includes("content") && msg.includes("filter")) return "content_filter";
+  if (msg.includes("404") || msg.includes("not found") || msg.includes("model")) return "model_error";
+  if (msg.includes("parse") || msg.includes("json") || msg.includes("syntax")) return "parse_error";
+  return "unknown";
+}
+
 // ─── Controller ───────────────────────────────────────────────────────────────
 
 export async function chatController(req: FastifyRequest, reply: FastifyReply) {
@@ -99,6 +110,7 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
   }
 
   const { message, clinicSlug, sessionId, slotBooked, isDemoMode, isSandbox } = parsed.data;
+  const callStart = Date.now();
 
   try {
     const clinic = await prisma.clinic.findUnique({ where: { slug: clinicSlug } });
@@ -148,6 +160,7 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
       },
     });
 
+    const channel = isDemoMode ? "demo" : isSandbox ? "sandbox" : "web";
     if (usage) {
       prisma.usageEvent.create({
         data: {
@@ -155,6 +168,7 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
           model: usage.model, tier: usage.tier,
           tokensIn: usage.tokensIn, tokensOut: usage.tokensOut,
           costUsd: usage.costUsd, latencyMs: usage.latencyMs,
+          success: true, isSandbox: isSandbox ?? false, channel,
         },
       }).catch((e) => console.error("[usage]", e));
     }
@@ -245,6 +259,30 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     req.log.error({ err }, `[chat] Error inesperado: ${msg}`);
+
+    // Intentar registrar el fallo en usage_events para trazabilidad
+    try {
+      const body = req.body as Record<string, unknown>;
+      const slug = typeof body?.clinicSlug === "string" ? body.clinicSlug : "galana";
+      const clinic = await prisma.clinic.findUnique({ where: { slug }, select: { id: true } });
+      if (clinic) {
+        await prisma.usageEvent.create({
+          data: {
+            clinicId: clinic.id,
+            sessionId: typeof body?.sessionId === "string" ? body.sessionId : null,
+            model: "unknown", tier: "unknown",
+            tokensIn: 0, tokensOut: 0, costUsd: 0,
+            latencyMs: Date.now() - callStart,
+            success: false,
+            errorType: classifyError(err),
+            errorMessage: msg.slice(0, 300),
+            isSandbox: body?.isSandbox === true,
+            channel: body?.isDemoMode === true ? "demo" : body?.isSandbox === true ? "sandbox" : "web",
+          },
+        });
+      }
+    } catch { /* no propagar errores del log */ }
+
     return reply.send({
       reply: "En este momento estamos con alta demanda. Por favor escríbenos directamente al WhatsApp y te atendemos de inmediato. 🦷",
       sessionId: (req.body as { sessionId?: string })?.sessionId ?? null,
