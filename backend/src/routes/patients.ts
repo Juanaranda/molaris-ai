@@ -77,18 +77,23 @@ function detectColumns(headers: string[]): Record<string, string | null> {
   const result: Record<string, string | null> = {};
   for (const [field, aliases] of Object.entries(COL_ALIASES)) {
     if (field === "date") {
-      // Para fecha de cita: busca por includes (para cubrir "de la", artículos, etc.)
-      // pero excluye explícitamente columnas de nacimiento/registro
       result[field] = headers.find((h) => {
         if (isExcludedDateColumn(normalize(h))) return false;
         const hn = normalize(h);
         return aliases.some((a) => hn === normalize(a) || hn.includes(normalize(a)));
       }) ?? null;
     } else {
-      result[field] = headers.find((h) => {
-        const hn = normalize(h);
-        return aliases.some((a) => hn === normalize(a) || hn.includes(normalize(a)));
-      }) ?? null;
+      // Prioriza aliases en orden: el primer alias que matchea un header gana.
+      // Evita que columnas secundarias (ej. "Ficha") capturen un campo antes que la columna real (ej. "RUT").
+      let found: string | null = null;
+      for (const a of aliases) {
+        const match = headers.find((h) => {
+          const hn = normalize(h);
+          return hn === normalize(a) || hn.includes(normalize(a));
+        });
+        if (match) { found = match; break; }
+      }
+      result[field] = found;
     }
   }
   return result;

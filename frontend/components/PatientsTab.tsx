@@ -813,8 +813,8 @@ export function PatientsTab() {
         ) : (
           <>
             {/* Table header */}
-            <div className="hidden sm:grid grid-cols-[1fr_110px_120px_110px_80px_100px_40px] gap-4 px-5 py-2.5 border-b border-gray-50">
-              {["Paciente", "RUT", "Teléfono", "Última visita", "Visitas", "Pago", ""].map((h) => (
+            <div className="hidden sm:grid grid-cols-[1fr_110px_120px_110px_140px_100px_40px] gap-4 px-5 py-2.5 border-b border-gray-50">
+              {["Paciente", "RUT", "Teléfono", "Última visita", "Profesional", "Pago", ""].map((h) => (
                 <span key={h} className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{h}</span>
               ))}
             </div>
@@ -824,7 +824,7 @@ export function PatientsTab() {
                 const hasPending = p.pendingCount > 0;
                 return (
                   <button key={p.key} onClick={() => setSelected(p)}
-                    className="w-full text-left px-5 py-3.5 hover:bg-gray-50 transition group flex sm:grid sm:grid-cols-[1fr_110px_120px_110px_80px_100px_40px] sm:gap-4 items-center gap-3">
+                    className="w-full text-left px-5 py-3.5 hover:bg-gray-50 transition group flex sm:grid sm:grid-cols-[1fr_110px_120px_110px_140px_100px_40px] sm:gap-4 items-center gap-3">
                     {/* Name + initials */}
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-black text-slate-500 shrink-0">
@@ -842,7 +842,7 @@ export function PatientsTab() {
                     <span className="text-xs text-gray-500 hidden sm:block">{p.rut ?? "—"}</span>
                     <span className="text-xs text-gray-500 hidden sm:block">{p.phone ?? "—"}</span>
                     <span className="text-xs text-gray-500 hidden sm:block">{fmtDate(p.lastVisit)}</span>
-                    <span className="text-xs font-bold text-blue-600 hidden sm:block">{p.visits}</span>
+                    <span className="text-xs text-gray-500 hidden sm:block truncate">{p.lastDoctor && p.lastDoctor !== "Sin asignar" ? p.lastDoctor : "—"}</span>
                     {/* Estado pago */}
                     <div className="hidden sm:flex flex-col gap-0.5">
                       {p.totalCharged > 0 ? (
