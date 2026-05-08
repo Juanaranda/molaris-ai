@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 const galanaConfig = {
   tone: "profesional pero cercano, lenguaje chileno natural",
-  assistantName: "Gala",
+  assistantName: "Anita",
   schedule: {
     weekdays: "Lunes a Viernes: 10:00 - 18:00",
     saturday: "Sábado: 10:00 - 14:00",
