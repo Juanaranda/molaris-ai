@@ -304,7 +304,7 @@ export default function RegisterPage() {
             <div className="hidden lg:flex justify-end mb-6">
               <Link href="/login" className="text-sm transition-colors hover:opacity-70"
                 style={{ color: "var(--ink-muted, #607281)" }}>
-                Ya tengo cuenta →
+                Ya tengo cuenta
               </Link>
             </div>
 
@@ -371,7 +371,7 @@ export default function RegisterPage() {
                       onCommune={(co) => setClinic((c) => ({ ...c, commune: co }))}
                     />
                     {error && <ErrorMsg msg={error} />}
-                    <SubmitBtn label="Continuar →" disabled={false} loading={false} />
+                    <SubmitBtn label="Continuar" disabled={false} loading={false} />
                   </form>
                 </>
               )}
@@ -444,7 +444,7 @@ export default function RegisterPage() {
                     </label>
                     {error && <ErrorMsg msg={error} />}
                     <SubmitBtn
-                      label="Crear cuenta y ver mi demo →"
+                      label="Crear cuenta y ver mi demo"
                       disabled={loading || !acceptedTerms}
                       loading={loading}
                     />

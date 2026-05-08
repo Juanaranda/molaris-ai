@@ -301,7 +301,7 @@ export default function SetupPage() {
               <button onClick={() => setStep(2)}
                 className="w-full py-4 rounded-2xl text-sm font-bold text-white transition hover:opacity-90"
                 style={{ backgroundColor: "#0B2F42" }}>
-                Comenzar configuración →
+                Comenzar configuración
               </button>
               <button onClick={() => router.push("/partners/dashboard")}
                 className="text-center text-xs hover:opacity-70 transition" style={{ color: "#607281" }}>
@@ -402,7 +402,7 @@ export default function SetupPage() {
                 }}
                 className="w-full py-4 rounded-2xl text-sm font-bold text-white transition hover:opacity-90"
                 style={{ backgroundColor: "#0B2F42" }}>
-                Continuar →
+                Continuar
               </button>
               {error && <p className="text-xs text-red-600 text-center">{error}</p>}
             </div>
@@ -501,7 +501,7 @@ export default function SetupPage() {
               <button onClick={() => setStep(4)}
                 className="w-full py-4 rounded-2xl text-sm font-bold text-white transition hover:opacity-90"
                 style={{ backgroundColor: "#0B2F42" }}>
-                Continuar →
+                Continuar
               </button>
             </div>
           )}
@@ -600,7 +600,7 @@ export default function SetupPage() {
                 disabled={saving}
                 className="w-full py-4 rounded-2xl text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
                 style={{ backgroundColor: "#D95F45" }}>
-                {saving ? "Guardando…" : "Finalizar configuración →"}
+                {saving ? "Guardando…" : "Finalizar configuración"}
               </button>
               <button onClick={() => router.push("/partners/dashboard")}
                 className="text-center text-xs hover:opacity-70 transition" style={{ color: "#607281" }}>

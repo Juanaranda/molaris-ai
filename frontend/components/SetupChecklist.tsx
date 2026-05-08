@@ -88,7 +88,7 @@ export function SetupChecklist({ clinic, onGoToConfig }: Props) {
         onClick={onGoToConfig}
         className="mt-4 text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors"
       >
-        Ir a Configuración →
+        Ir a Configuración
       </button>
     </div>
   );

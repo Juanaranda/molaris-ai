@@ -18,7 +18,7 @@ function DemoContent({ slug }: { slug: string }) {
         <p style={{ color: "#1A5C7A" }}>
           Estás hablando con <strong>Juan</strong>, el agente de molari.ai. Él te explicará cómo funciona el sistema y cómo sería el asistente real de tu clínica.{" "}
           <Link href="/register" className="font-semibold underline underline-offset-2 hover:opacity-80">
-            Registra tu clínica gratis →
+            Registra tu clínica gratis
           </Link>
         </p>
       </div>
@@ -43,7 +43,7 @@ export default function DemoPage({ params }: { params: Promise<{ slug: string }>
           <Link href="/partners/dashboard"
             className="text-xs font-semibold px-3 py-1.5 rounded-full transition-colors hover:opacity-80"
             style={{ backgroundColor: "var(--teal-dark, #0B2F42)", color: "white" }}>
-            Mi panel →
+            Mi panel
           </Link>
         </div>
       </nav>

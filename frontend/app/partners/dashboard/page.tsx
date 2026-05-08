@@ -325,7 +325,7 @@ function AnalyticsPanel({ clinic, analytics, loading, onGoToConfig, onRetry }: {
                 {analytics.recentLeads.length === 0 ? (
                   <div className="py-8 text-center">
                     <p className="text-sm text-gray-400">Sin conversaciones aún.</p>
-                    <Link href={`/demo/${clinic.slug}`} className="text-sm text-blue-600 mt-2 inline-block hover:underline">Probar asistente →</Link>
+                    <Link href={`/demo/${clinic.slug}`} className="text-sm text-blue-600 mt-2 inline-block hover:underline">Probar asistente</Link>
                   </div>
                 ) : (
                   <div className="overflow-x-auto -mx-2">
@@ -1068,7 +1068,7 @@ export default function PartnersDashboard() {
               <Link href="/partners/setup"
                 className="shrink-0 px-4 py-2 rounded-xl text-xs font-bold text-white transition hover:opacity-90"
                 style={{ backgroundColor: "#D95F45" }}>
-                Configurar →
+                Configurar
               </Link>
             </div>
           ) : null;
@@ -1410,7 +1410,7 @@ export default function PartnersDashboard() {
                     <div className="mt-3 flex gap-2">
                       <a href={`/book/${clinic.slug}`} target="_blank" rel="noopener noreferrer"
                         className="text-xs font-semibold underline underline-offset-2" style={{ color: "#607281" }}>
-                        Ver página →
+                        Ver página
                       </a>
                     </div>
                   </section>
