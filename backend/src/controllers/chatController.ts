@@ -12,6 +12,7 @@ const bodySchema = z.object({
   sessionId: z.string().optional(),
   slotBooked: z.boolean().optional(),
   isDemoMode: z.boolean().optional(),
+  isSandbox: z.boolean().optional(),  // true = /partners/preview, no crea bookings reales
 });
 
 // ─── Helpers de disponibilidad ────────────────────────────────────────────────
@@ -97,7 +98,7 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
     return reply.status(400).send({ error: parsed.error.flatten() });
   }
 
-  const { message, clinicSlug, sessionId, slotBooked, isDemoMode } = parsed.data;
+  const { message, clinicSlug, sessionId, slotBooked, isDemoMode, isSandbox } = parsed.data;
 
   try {
     const clinic = await prisma.clinic.findUnique({ where: { slug: clinicSlug } });
@@ -111,7 +112,11 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
 
     if (!session) {
       session = await prisma.session.create({
-        data: { clinicId: clinic.id, channel: isDemoMode ? "demo" : "web" },
+        data: {
+          clinicId: clinic.id,
+          channel: isDemoMode ? "demo" : isSandbox ? "sandbox" : "web",
+          isSandbox: isSandbox ?? false,
+        },
       });
     }
 
@@ -158,7 +163,7 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
     let finalReply = aiReply;
     let chatBookingConfirmed = false;
 
-    if (bookingAction) {
+    if (bookingAction && !isSandbox) {
       try {
         const { doctor, date, time, patientName, patientRut, service } = bookingAction;
 

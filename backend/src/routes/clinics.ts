@@ -53,30 +53,30 @@ export async function clinicRoutes(app: FastifyInstance) {
         avgTicket,
         bookingsByHour,
       ] = await Promise.all([
-        // Total conversaciones
-        prisma.session.count({ where: { clinicId } }),
+        // Total conversaciones (excluye sandbox y demo interna)
+        prisma.session.count({ where: { clinicId, isSandbox: false, channel: { not: "demo" } } }),
 
-        // Leads (sesiones con contexto capturado)
-        prisma.patientContext.count({ where: { session: { clinicId } } }),
+        // Leads (sesiones con contexto capturado, excluye sandbox)
+        prisma.patientContext.count({ where: { session: { clinicId, isSandbox: false } } }),
 
         // Desglose por intent
         prisma.patientContext.groupBy({
           by: ["intent"],
-          where: { session: { clinicId }, intent: { not: null } },
+          where: { session: { clinicId, isSandbox: false }, intent: { not: null } },
           _count: true,
         }),
 
         // Desglose por urgencia
         prisma.patientContext.groupBy({
           by: ["urgency"],
-          where: { session: { clinicId }, urgency: { not: null } },
+          where: { session: { clinicId, isSandbox: false }, urgency: { not: null } },
           _count: true,
         }),
 
         // Top servicios
         prisma.patientContext.groupBy({
           by: ["serviceInterest"],
-          where: { session: { clinicId }, serviceInterest: { not: null } },
+          where: { session: { clinicId, isSandbox: false }, serviceInterest: { not: null } },
           _count: { serviceInterest: true },
           orderBy: { _count: { serviceInterest: "desc" } },
           take: 6,
@@ -84,27 +84,28 @@ export async function clinicRoutes(app: FastifyInstance) {
 
         // Score promedio
         prisma.patientContext.aggregate({
-          where: { session: { clinicId }, score: { not: null } },
+          where: { session: { clinicId, isSandbox: false }, score: { not: null } },
           _avg: { score: true },
         }),
 
         // Citas agendadas (booking page)
         prisma.booking.count({ where: { clinicId } }),
 
-        // Leads recientes con detalle
+        // Leads recientes con detalle (excluye sandbox)
         prisma.patientContext.findMany({
-          where: { session: { clinicId } },
+          where: { session: { clinicId, isSandbox: false } },
           include: { session: { select: { createdAt: true, channel: true } } },
           orderBy: { session: { createdAt: "desc" } },
           take: 25,
         }),
 
-        // Sesiones por día (últimos N días)
+        // Sesiones por día (últimos N días, excluye sandbox)
         prisma.$queryRaw<Array<{ day: string; count: bigint }>>`
           SELECT DATE(s."createdAt") as day, COUNT(*)::int as count
           FROM sessions s
           WHERE s."clinicId" = ${clinicId}
             AND s."createdAt" >= ${since}
+            AND s."isSandbox" = false
           GROUP BY DATE(s."createdAt")
           ORDER BY day ASC
         `,

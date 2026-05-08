@@ -120,10 +120,11 @@ model Session {
   clinic    Clinic   @relation(fields: [clinicId], references: [id])
   patientId String?
   patient   Patient? @relation(fields: [patientId], references: [id])
-  channel   String   @default("web")
-  status    String   @default("open")  // "open" | "booked" | "closed"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  channel    String   @default("web")
+  isSandbox  Boolean  @default(false)  // true = sesión de prueba desde /partners/preview
+  status     String   @default("open")  // "open" | "booked" | "closed"
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   messages  Message[]
   context   PatientContext?

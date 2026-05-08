@@ -65,7 +65,7 @@ export default function PreviewPage() {
         </div>
 
         {/* isDemoMode=false → usa el asistente real de la clínica */}
-        <ChatDemo clinicSlug={clinic.slug} clinicName={clinic.name} isDemoMode={false} />
+        <ChatDemo clinicSlug={clinic.slug} clinicName={clinic.name} isDemoMode={false} isSandbox={true} />
       </div>
     </div>
   );

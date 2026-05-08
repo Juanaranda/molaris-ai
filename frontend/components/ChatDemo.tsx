@@ -22,6 +22,7 @@ interface Props {
   clinicSlug?: string;
   clinicName?: string;
   isDemoMode?: boolean;
+  isSandbox?: boolean;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -44,7 +45,7 @@ const SCORE_COLOR = (score: number) => {
   return "text-gray-400";
 };
 
-export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica Dental", isDemoMode = false }: Props = {}) {
+export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica Dental", isDemoMode = false, isSandbox = false }: Props = {}) {
   const [assistantName, setAssistantName] = useState<string | null>(isDemoMode ? "Juan" : null);
   const [displayClinicName, setDisplayClinicName] = useState(isDemoMode ? "molari.ai" : clinicName);
 
@@ -105,7 +106,7 @@ export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica 
       const res = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, clinicSlug, sessionId: sessionId ?? undefined, isDemoMode: isDemoMode || undefined }),
+        body: JSON.stringify({ message: text, clinicSlug, sessionId: sessionId ?? undefined, isDemoMode: isDemoMode || undefined, isSandbox: isSandbox || undefined }),
       });
       const data = await res.json();
       if (!sessionId && data.sessionId) setSessionId(data.sessionId);
