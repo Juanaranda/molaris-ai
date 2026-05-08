@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently --names \"backend,frontend\" --prefix-colors \"cyan,magenta\" \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "dev": "concurrently --names \"backend,frontend,admin\" --prefix-colors \"cyan,magenta,yellow\" \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\" \"PORT=3002 npm run dev --prefix admin\"",
     "dev:backend": "npm run dev --prefix backend",
     "dev:frontend": "npm run dev --prefix frontend",
-    "build": "npm run build --prefix backend && npm run build --prefix frontend",
+    "dev:admin": "PORT=3002 npm run dev --prefix admin",
+    "build": "npm run build --prefix backend && npm run build --prefix frontend && npm run build --prefix admin",
     "seed": "npm run --prefix backend prisma:seed"
   },
   "devDependencies": {
