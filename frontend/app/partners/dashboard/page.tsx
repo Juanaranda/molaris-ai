@@ -325,7 +325,7 @@ function AnalyticsPanel({ clinic, analytics, loading, onGoToConfig, onRetry }: {
                 {analytics.recentLeads.length === 0 ? (
                   <div className="py-8 text-center">
                     <p className="text-sm text-gray-400">Sin conversaciones aún.</p>
-                    <Link href={`/demo/${clinic.slug}`} className="text-sm text-blue-600 mt-2 inline-block hover:underline">Probar asistente</Link>
+                    <Link href="/partners/preview" className="text-sm text-blue-600 mt-2 inline-block hover:underline">Probar asistente</Link>
                   </div>
                 ) : (
                   <div className="overflow-x-auto -mx-2">
@@ -1037,10 +1037,10 @@ export default function PartnersDashboard() {
             <p className="text-sm text-gray-500 mt-0.5">Panel de administración · molari.ai</p>
           </div>
           {clinic && (
-            <Link href={`/demo/${clinic.slug}`}
+            <Link href="/partners/preview"
               className="text-sm text-white font-bold px-5 py-2.5 rounded-full shadow-md hover:shadow-lg hover:scale-105 transition-all duration-150 active:scale-95"
               style={{ backgroundColor: "#D95F45" }}>
-              Ver demo
+              Probar asistente
             </Link>
           )}
         </div>
@@ -1157,7 +1157,7 @@ export default function PartnersDashboard() {
 
                   {/* Web Widget */}
                   <a
-                    href={`/demo/${clinic.slug}`}
+                    href="/partners/preview"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-3 px-4 py-3 rounded-2xl border transition-shadow hover:shadow-md"
@@ -1170,7 +1170,7 @@ export default function PartnersDashboard() {
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs font-bold text-gray-800">Web Widget</p>
-                      <p className="text-[10px] font-semibold text-blue-600">Ver demo</p>
+                      <p className="text-[10px] font-semibold text-blue-600">Probar asistente</p>
                     </div>
                     <span className="ml-auto w-2 h-2 rounded-full bg-blue-400 animate-pulse shrink-0" />
                   </a>
