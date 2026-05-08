@@ -29,8 +29,11 @@ function parseCSV(content: string): Record<string, string>[] {
   }).filter((row) => Object.values(row).some((v) => v !== ""));
 }
 
-// Columns that contain "fecha" but are NOT appointment dates — excluded from date detection
-const DATE_EXCLUSIONS = ["nacimiento", "nac.", "registro", "ingreso", "alta"];
+// Columns that contain these terms are NEVER appointment dates (birth/registration/etc.)
+const DATE_EXCLUSIONS = [
+  "nacimiento", "nac.", "nacim", "birth", "born",
+  "registro", "ingreso", "alta", "creation", "creación",
+];
 
 const COL_ALIASES: Record<string, string[]> = {
   // Full name (generic CSVs)
@@ -43,24 +46,26 @@ const COL_ALIASES: Record<string, string[]> = {
   // Mobile preferred over landline
   patientPhone:     ["teléfono móvil", "telefono movil", "celular", "movil", "móvil", "telefono", "teléfono", "phone", "fono"],
   patientEmail:     ["correo electrónico", "correo electronico", "email", "correo", "mail", "e-mail"],
-  // Specific appointment-date aliases — do NOT match "fecha nacimiento" or "fecha registro"
+  // Appointment date — must not match birth/registration columns (enforced via DATE_EXCLUSIONS)
   date:             ["fecha cita", "fecha consulta", "fecha agenda", "fecha atencion", "fecha atención", "cita", "date"],
-  // Registration date as fallback
-  registrationDate: ["fecha registro", "fecha de registro", "fecha ingreso", "fecha alta"],
   time:             ["hora", "time", "horario", "hora cita"],
   doctor:           ["doctor", "profesional", "dentista", "medico", "médico", "dr.", "dra."],
   service:          ["servicio", "tratamiento", "prestacion", "prestación", "service", "procedimiento"],
   status:           ["estado", "status"],
 };
 
+function isExcludedDateColumn(h: string): boolean {
+  return DATE_EXCLUSIONS.some((ex) => h.includes(ex));
+}
+
 function detectColumns(headers: string[]): Record<string, string | null> {
   const result: Record<string, string | null> = {};
   for (const [field, aliases] of Object.entries(COL_ALIASES)) {
-    // For the 'date' field, skip headers that look like birthdate/registration columns
     if (field === "date") {
+      // Appointment date: strict startsWith match + exclusion of birth/registration columns
       result[field] = headers.find((h) =>
-        aliases.some((a) => h === a || h.startsWith(a)) &&
-        !DATE_EXCLUSIONS.some((ex) => h.includes(ex))
+        !isExcludedDateColumn(h) &&
+        aliases.some((a) => h === a || h.startsWith(a))
       ) ?? null;
     } else {
       result[field] = headers.find((h) => aliases.some((a) => h === a || h.includes(a))) ?? null;
@@ -210,18 +215,24 @@ export async function patientsRoutes(app: FastifyInstance) {
         ? "confirmed" : ["cancel","cancelad"].some((s) => statusRaw?.includes(s) ?? false)
         ? "cancelled" : "confirmed";
 
-      // Date: try appointment date first, then registration date, then today (patient roster mode)
+      // Date: appointment date only — if absent or outside plausible range, default to today.
+      // Never use birth dates or registration dates as appointment date.
       const dateStr = cols.date ? row[cols.date] : null;
-      const regDateStr = cols.registrationDate ? row[cols.registrationDate] : null;
       let date: Date | null = null;
       if (dateStr) {
-        date = parseDate(dateStr);
-        if (!date) { errors.push(`Fila ${lineNum}: fecha inválida "${dateStr}"`); skipped++; continue; }
-      } else if (regDateStr) {
-        date = parseDate(regDateStr);
+        const parsed = parseDate(dateStr);
+        if (parsed) {
+          const year = parsed.getFullYear();
+          const currentYear = new Date().getFullYear();
+          // Reject dates outside a plausible appointment window (catches birth dates, typos, etc.)
+          if (year >= 2000 && year <= currentYear + 3) {
+            date = parsed;
+          }
+          // else: silently fall through to today (don't error-skip — still a valid patient row)
+        }
       }
       if (!date) {
-        // Patient roster mode — no appointment date; use today as placeholder
+        // Patient roster mode — no appointment date or invalid year; use today as placeholder
         date = new Date(); date.setHours(12, 0, 0, 0);
       }
 
