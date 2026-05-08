@@ -1038,9 +1038,9 @@ export default function PartnersDashboard() {
           </div>
           {clinic && (
             <Link href={`/demo/${clinic.slug}`}
-              className="text-sm text-white font-semibold px-4 py-2 rounded-full transition-opacity hover:opacity-90"
+              className="text-sm text-white font-bold px-5 py-2.5 rounded-full shadow-md hover:shadow-lg hover:scale-105 transition-all duration-150 active:scale-95"
               style={{ backgroundColor: "#D95F45" }}>
-              Ver demo →
+              Ver demo
             </Link>
           )}
         </div>
@@ -1170,7 +1170,7 @@ export default function PartnersDashboard() {
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs font-bold text-gray-800">Web Widget</p>
-                      <p className="text-[10px] font-semibold text-blue-600">Ver demo →</p>
+                      <p className="text-[10px] font-semibold text-blue-600">Ver demo</p>
                     </div>
                     <span className="ml-auto w-2 h-2 rounded-full bg-blue-400 animate-pulse shrink-0" />
                   </a>
