@@ -29,46 +29,65 @@ function parseCSV(content: string): Record<string, string>[] {
   }).filter((row) => Object.values(row).some((v) => v !== ""));
 }
 
-// Columns that contain these terms are NEVER appointment dates (birth/registration/etc.)
+// Headers que jamás deben usarse como fecha de cita, sin importar el alias que coincida
 const DATE_EXCLUSIONS = [
   "nacimiento", "nac.", "nacim", "birth", "born",
   "registro", "ingreso", "alta", "creation", "creación",
+  "actualizacion", "actualización", "modificacion", "modificación",
 ];
 
 const COL_ALIASES: Record<string, string[]> = {
-  // Full name (generic CSVs)
+  // Nombre completo (CSVs genéricos)
   patientName:      ["nombre paciente", "paciente", "nombre completo", "name", "patient"],
-  // Separate name parts (DentaLink / other dental software)
+  // Columnas separadas (DentaLink / Reservo / otros)
   firstName:        ["nombre"],
   lastNamePaternal: ["apellido paterno", "primer apellido", "apellido1", "paterno"],
   lastNameMaternal: ["apellido materno", "segundo apellido", "apellido2", "materno"],
   patientRut:       ["rut", "run", "dni", "id paciente", "ficha"],
-  // Mobile preferred over landline
+  // Teléfono: móvil primero
   patientPhone:     ["teléfono móvil", "telefono movil", "celular", "movil", "móvil", "telefono", "teléfono", "phone", "fono"],
   patientEmail:     ["correo electrónico", "correo electronico", "email", "correo", "mail", "e-mail"],
-  // Appointment date — must not match birth/registration columns (enforced via DATE_EXCLUSIONS)
-  date:             ["fecha cita", "fecha consulta", "fecha agenda", "fecha atencion", "fecha atención", "cita", "date"],
-  time:             ["hora", "time", "horario", "hora cita"],
-  doctor:           ["doctor", "profesional", "dentista", "medico", "médico", "dr.", "dra."],
-  service:          ["servicio", "tratamiento", "prestacion", "prestación", "service", "procedimiento"],
-  status:           ["estado", "status"],
+  // Fecha de cita (Reservo: "fecha de la reserva" / "inicio" / "fecha de la cita")
+  // Se detecta con h.includes(alias) para cubrir variantes con artículos ("de la", etc.)
+  // DATE_EXCLUSIONS impide que fechas de nacimiento sean capturadas
+  date: [
+    "fecha cita", "fecha de la cita", "fecha consulta", "fecha agenda",
+    "fecha atencion", "fecha atención", "fecha de atencion", "fecha de atención",
+    "fecha reserva", "fecha de la reserva", "fecha de reserva",
+    "fecha inicio", "inicio de la cita", "inicio",
+    "cita", "reserva", "date", "appointment",
+  ],
+  time:    ["hora inicio", "hora de inicio", "hora cita", "hora de la cita", "hora", "time", "horario"],
+  doctor:  ["doctor", "profesional", "dentista", "medico", "médico", "dr.", "dra."],
+  service: ["servicio", "tratamiento", "prestacion", "prestación", "service", "procedimiento"],
+  status:  ["estado", "status", "estado de la reserva", "estado de la cita"],
 };
 
 function isExcludedDateColumn(h: string): boolean {
   return DATE_EXCLUSIONS.some((ex) => h.includes(ex));
 }
 
+// Normaliza texto para comparar sin acentos
+function normalize(s: string): string {
+  return s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+}
+
 function detectColumns(headers: string[]): Record<string, string | null> {
   const result: Record<string, string | null> = {};
   for (const [field, aliases] of Object.entries(COL_ALIASES)) {
     if (field === "date") {
-      // Appointment date: strict startsWith match + exclusion of birth/registration columns
-      result[field] = headers.find((h) =>
-        !isExcludedDateColumn(h) &&
-        aliases.some((a) => h === a || h.startsWith(a))
-      ) ?? null;
+      // Para fecha de cita: busca por includes (para cubrir "de la", artículos, etc.)
+      // pero excluye explícitamente columnas de nacimiento/registro
+      result[field] = headers.find((h) => {
+        if (isExcludedDateColumn(normalize(h))) return false;
+        const hn = normalize(h);
+        return aliases.some((a) => hn === normalize(a) || hn.includes(normalize(a)));
+      }) ?? null;
     } else {
-      result[field] = headers.find((h) => aliases.some((a) => h === a || h.includes(a))) ?? null;
+      result[field] = headers.find((h) => {
+        const hn = normalize(h);
+        return aliases.some((a) => hn === normalize(a) || hn.includes(normalize(a)));
+      }) ?? null;
     }
   }
   return result;
