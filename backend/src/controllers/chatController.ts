@@ -5,6 +5,7 @@ import prisma from "../config/prisma";
 import { config } from "../config/env";
 import { sendBookingNotification } from "../services/notifications/whatsappService";
 import { buildJuanPrompt } from "../services/ai/promptBuilder";
+import { calculateLeadScore } from "../lib/leadScoring";
 
 const bodySchema = z.object({
   message: z.string().min(1),
@@ -172,6 +173,9 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
         },
       }).catch((e) => console.error("[usage]", e));
     }
+
+    // ── Lead scoring (fire-and-forget) ───────────────────────────────────────
+    calculateLeadScore(session.id).catch(console.error);
 
     // ── Ejecutar booking si el AI lo solicitó ────────────────────────────────
     let finalReply = aiReply;

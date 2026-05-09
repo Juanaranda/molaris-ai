@@ -123,6 +123,7 @@ model Session {
   channel    String   @default("web")
   isSandbox  Boolean  @default(false)  // true = sesión de prueba desde /partners/preview
   status     String   @default("open")  // "open" | "booked" | "closed"
+  leadScore  Int      @default(0)       // 0-100, calculado por leadScoring.ts
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
