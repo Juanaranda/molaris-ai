@@ -108,28 +108,30 @@ const PRESTACION_CATEGORIES = [
   "Endodoncia", "Cirugía", "Implantes", "Ortodoncia", "Estética", "Prótesis",
 ] as const;
 type PrestacionCategory = typeof PRESTACION_CATEGORIES[number];
-interface Prestacion { name: string; price: number; category: PrestacionCategory }
+// scope "per_arch" = se realiza una sola vez (boca completa, arcada o visita)
+// scope "per_tooth" = se aplica por pieza dental
+interface Prestacion { name: string; price: number; category: PrestacionCategory; scope?: "per_tooth" | "per_arch" }
 
 const DEFAULT_PRESTACIONES: Prestacion[] = [
-  { name: "Consulta general",         price: 15000,   category: "Diagnóstico"  },
-  { name: "Radiografía periapical",   price: 8000,    category: "Diagnóstico"  },
-  { name: "Radiografía panorámica",   price: 25000,   category: "Diagnóstico"  },
-  { name: "Limpieza dental",          price: 35000,   category: "Higiene"      },
-  { name: "Obturación (resina)",      price: 45000,   category: "Restauración" },
-  { name: "Corona cerámica",          price: 350000,  category: "Restauración" },
-  { name: "Corona metalcerámica",     price: 280000,  category: "Restauración" },
-  { name: "Carilla de porcelana",     price: 450000,  category: "Restauración" },
-  { name: "Endodoncia unirradicular", price: 180000,  category: "Endodoncia"   },
-  { name: "Endodoncia birradicular",  price: 220000,  category: "Endodoncia"   },
-  { name: "Endodoncia multirrad.",    price: 260000,  category: "Endodoncia"   },
-  { name: "Extracción simple",        price: 35000,   category: "Cirugía"      },
-  { name: "Extracción quirúrgica",    price: 80000,   category: "Cirugía"      },
-  { name: "Implante dental",          price: 750000,  category: "Implantes"    },
-  { name: "Corona sobre implante",    price: 350000,  category: "Implantes"    },
-  { name: "Ortodoncia (setup)",       price: 1200000, category: "Ortodoncia"   },
-  { name: "Control ortodoncia",       price: 30000,   category: "Ortodoncia"   },
-  { name: "Blanqueamiento clínico",   price: 120000,  category: "Estética"     },
-  { name: "Prótesis removible",       price: 320000,  category: "Prótesis"     },
+  { name: "Consulta general",         price: 15000,   category: "Diagnóstico",  scope: "per_arch"  },
+  { name: "Radiografía periapical",   price: 8000,    category: "Diagnóstico",  scope: "per_tooth" },
+  { name: "Radiografía panorámica",   price: 25000,   category: "Diagnóstico",  scope: "per_arch"  },
+  { name: "Limpieza dental",          price: 35000,   category: "Higiene",      scope: "per_arch"  },
+  { name: "Obturación (resina)",      price: 45000,   category: "Restauración", scope: "per_tooth" },
+  { name: "Corona cerámica",          price: 350000,  category: "Restauración", scope: "per_tooth" },
+  { name: "Corona metalcerámica",     price: 280000,  category: "Restauración", scope: "per_tooth" },
+  { name: "Carilla de porcelana",     price: 450000,  category: "Restauración", scope: "per_tooth" },
+  { name: "Endodoncia unirradicular", price: 180000,  category: "Endodoncia",   scope: "per_tooth" },
+  { name: "Endodoncia birradicular",  price: 220000,  category: "Endodoncia",   scope: "per_tooth" },
+  { name: "Endodoncia multirrad.",    price: 260000,  category: "Endodoncia",   scope: "per_tooth" },
+  { name: "Extracción simple",        price: 35000,   category: "Cirugía",      scope: "per_tooth" },
+  { name: "Extracción quirúrgica",    price: 80000,   category: "Cirugía",      scope: "per_tooth" },
+  { name: "Implante dental",          price: 750000,  category: "Implantes",    scope: "per_tooth" },
+  { name: "Corona sobre implante",    price: 350000,  category: "Implantes",    scope: "per_tooth" },
+  { name: "Ortodoncia (setup)",       price: 1200000, category: "Ortodoncia",   scope: "per_arch"  },
+  { name: "Control ortodoncia",       price: 30000,   category: "Ortodoncia",   scope: "per_arch"  },
+  { name: "Blanqueamiento clínico",   price: 120000,  category: "Estética",     scope: "per_arch"  },
+  { name: "Prótesis removible",       price: 320000,  category: "Prótesis",     scope: "per_arch"  },
 ];
 
 export interface ClinicService {
@@ -628,6 +630,7 @@ function AddItemForm({
   prestaciones,
   onAdd,
   onAddAll,
+  onAddOnce,
 }: {
   selectedTeeth: Set<string>;
   activeToothFdi: string | null;
@@ -637,6 +640,7 @@ function AddItemForm({
   prestaciones: Prestacion[];
   onAdd: (item: AddItemBase) => void;
   onAddAll: (item: AddItemBase) => void;
+  onAddOnce: (item: AddItemBase) => void;
 }) {
   const [prestacion, setPrestacion]             = useState("");
   const [customPrestacion, setCustomPrestacion] = useState("");
@@ -653,6 +657,10 @@ function AddItemForm({
   const selectedPreset = prestaciones.find((p) => p.name === prestacion);
   const teethArr = Array.from(selectedTeeth);
   const teethCount = teethArr.length;
+
+  // Detectar si la prestación seleccionada es por boca (no por pieza)
+  const isPerArch = selectedPreset?.scope === "per_arch";
+  const showArchWarning = isPerArch && teethCount > 1;
 
   // Surfaces are per-tooth and shown only for the active tooth
   const activeSurfaces = activeToothFdi ? (surfacesByTooth.get(activeToothFdi) ?? []) : [];
@@ -680,6 +688,14 @@ function AddItemForm({
     const base = buildBase();
     if (!base) return;
     onAddAll(base);
+    resetForm();
+  }
+
+  // Para prestaciones per_arch con muchas piezas: agregar una sola vez sin pieza específica
+  function handleAddArchOnce() {
+    const base = buildBase();
+    if (!base) return;
+    onAddOnce(base);
     resetForm();
   }
 
@@ -803,21 +819,47 @@ function AddItemForm({
         </div>
       </div>
 
+      {/* Aviso per_arch cuando hay múltiples piezas seleccionadas */}
+      {showArchWarning && (
+        <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200">
+          <span className="text-amber-500 text-sm shrink-0 mt-0.5">⚠</span>
+          <div>
+            <p className="text-[11px] font-bold text-amber-700">Prestación por boca completa</p>
+            <p className="text-[10px] text-amber-600 mt-0.5">
+              "{selectedPreset?.name}" se realiza una sola vez, no por pieza.
+              Usa el botón de abajo para agregarla correctamente.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col gap-1.5">
-        <button onClick={handleAdd}
-          disabled={!prestacion || (!selectedPreset && !unitPrice && !customPrestacion)}
-          className="w-full py-2 rounded-xl text-xs font-bold text-white transition disabled:opacity-40"
-          style={{ background: "#1A5C7A" }}>
-          {activeToothFdi
-            ? `+ Agregar a pieza ${activeToothFdi}`
-            : "+ Agregar al presupuesto (sin pieza)"}
-        </button>
-        {teethCount > 1 && (
-          <button onClick={handleAddAll}
+        {showArchWarning ? (
+          /* Modo per_arch con múltiples piezas: solo ofrecer agregar una vez */
+          <button onClick={handleAddArchOnce}
             disabled={!prestacion || (!selectedPreset && !unitPrice && !customPrestacion)}
-            className="w-full py-1.5 rounded-xl text-xs font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition disabled:opacity-40">
-            Aplicar misma prestación a las {teethCount} piezas seleccionadas
+            className="w-full py-2 rounded-xl text-xs font-bold text-white transition disabled:opacity-40"
+            style={{ background: "#B45309" }}>
+            + Agregar una vez (boca completa) — {selectedPreset ? fmtCLP(selectedPreset.price) : ""}
           </button>
+        ) : (
+          <>
+            <button onClick={handleAdd}
+              disabled={!prestacion || (!selectedPreset && !unitPrice && !customPrestacion)}
+              className="w-full py-2 rounded-xl text-xs font-bold text-white transition disabled:opacity-40"
+              style={{ background: "#1A5C7A" }}>
+              {activeToothFdi
+                ? `+ Agregar a pieza ${activeToothFdi}`
+                : "+ Agregar al presupuesto (sin pieza)"}
+            </button>
+            {teethCount > 1 && !isPerArch && (
+              <button onClick={handleAddAll}
+                disabled={!prestacion || (!selectedPreset && !unitPrice && !customPrestacion)}
+                className="w-full py-1.5 rounded-xl text-xs font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition disabled:opacity-40">
+                Aplicar misma prestación a las {teethCount} piezas seleccionadas
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -923,6 +965,12 @@ function QuoteBuilderModal({
     setActiveToothFdi(null);
   }
 
+  // Prestaciones por boca (per_arch): agregar una sola vez sin pieza específica
+  function addArchItem(base: AddItemBase) {
+    const total = base.unitPrice * base.quantity * (1 - base.discount / 100);
+    setItems((prev) => [...prev, { ...base, toothFDI: null, surfaces: null, total }]);
+  }
+
   function removeItem(idx: number) {
     setItems((prev) => prev.filter((_, i) => i !== idx));
   }
@@ -1014,6 +1062,7 @@ function QuoteBuilderModal({
                 prestaciones={prestaciones}
                 onAdd={addItemToActive}
                 onAddAll={addItemsToAll}
+                onAddOnce={addArchItem}
               />
             </div>
 
