@@ -201,93 +201,171 @@ const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
 };
 
 /* ─── SVG tooth crown ────────────────────────────────────────────────────── */
-function ToothCrown({ w, h, type, jaw, fill, stroke, sw, tint }: {
-  w: number; h: number; type: ToothType; jaw: JawType;
-  fill: string; stroke: string; sw: number; tint: string;
+type ToothState = "normal" | "primary" | "selected" | "active" | "treatment" | "missing";
+
+function ToothCrown({ w, h, type, jaw, state }: {
+  w: number; h: number; type: ToothType; jaw: JawType; state: ToothState;
 }) {
   const hw = w / 2, hh = h / 2;
   const labY  = jaw === "upper" ?  hh : -hh;
   const lingY = jaw === "upper" ? -hh :  hh;
 
+  const fillId =
+    state === "active"    ? "url(#og-active)"
+    : state === "selected"  ? "url(#og-selected)"
+    : state === "treatment" ? "url(#og-treat)"
+    : state === "primary"   ? "url(#og-primary)"
+    : state === "missing"   ? "#E8EEF3"
+    : "url(#og-enamel)";
+
+  const strokeColor =
+    state === "active"    ? "#0d3d52"
+    : state === "selected"  ? "#1565A0"
+    : state === "treatment" ? "#2563EB"
+    : state === "primary"   ? "#C47B3A"
+    : state === "missing"   ? "#CBD5E1"
+    : "#9BAFC0";
+
+  const sw = state === "active" || state === "selected" ? 2 : 1.2;
+
+  const grooveColor =
+    state === "missing"   ? "#CBD5E1"
+    : state === "active"    ? "#5dbbd8"
+    : state === "selected"  ? "#7EC8DF"
+    : state === "treatment" ? "#93C5FD"
+    : state === "primary"   ? "#E8B87A"
+    : "#BDD0DC";
+
+  const filterRef = state === "active" || state === "selected" ? "url(#og-glow)" : undefined;
+  const hiOpacity = state === "missing" ? 0 : state === "active" || state === "selected" ? 0.18 : 0.38;
+
   if (type === "incisor") {
-    const labW = hw, lingW = hw * 0.68;
+    const labW = hw * 0.96, lingW = hw * 0.65;
+    const r = 2.4;
+    const topY = lingY, botY = labY;
+    const topW = lingW, botW = labW;
+    const sign = botY > topY ? 1 : -1;
+    const d = [
+      `M${-topW + r},${topY}`,
+      `L${topW - r},${topY}`,
+      `Q${topW},${topY} ${topW},${topY + sign * r}`,
+      `L${botW},${botY - sign * r}`,
+      `Q${botW},${botY} ${botW - r},${botY}`,
+      `L${-botW + r},${botY}`,
+      `Q${-botW},${botY} ${-botW},${botY - sign * r}`,
+      `L${-topW},${topY + sign * r}`,
+      `Q${-topW},${topY} ${-topW + r},${topY} Z`,
+    ].join(" ");
     return (
-      <path d={`M${-lingW},${lingY} L${lingW},${lingY} L${labW},${labY} L${-labW},${labY} Z`}
-        fill={fill} stroke={stroke} strokeWidth={sw} strokeLinejoin="round" />
+      <g filter={filterRef}>
+        <path d={d} fill={fillId} stroke={strokeColor} strokeWidth={sw} strokeLinejoin="round" />
+        {state !== "missing" && (
+          <>
+            <line x1={-hw * 0.27} y1={labY * 0.88} x2={-hw * 0.27} y2={labY * 0.58}
+              stroke={grooveColor} strokeWidth={0.7} strokeLinecap="round" />
+            <line x1={hw * 0.27} y1={labY * 0.88} x2={hw * 0.27} y2={labY * 0.58}
+              stroke={grooveColor} strokeWidth={0.7} strokeLinecap="round" />
+          </>
+        )}
+        <ellipse cx={-hw * 0.12} cy={(lingY + labY) * 0.26}
+          rx={hw * 0.36} ry={hh * 0.2} fill="white" fillOpacity={hiOpacity} />
+      </g>
     );
   }
+
   if (type === "canine") {
-    const shoulder = hh * 0.35;
+    const shoulderH = hh * 0.32;
+    const tipY = labY + (jaw === "upper" ? 2 : -2);
+    const d = [
+      `M0,${tipY}`,
+      `L${hw * 0.82},${lingY + shoulderH}`,
+      `Q${hw},${lingY + shoulderH * 0.4} ${hw},${lingY}`,
+      `L${-hw},${lingY}`,
+      `Q${-hw},${lingY + shoulderH * 0.4} ${-hw * 0.82},${lingY + shoulderH} Z`,
+    ].join(" ");
     return (
-      <path
-        d={`M0,${labY + (jaw === "upper" ? 2 : -2)} L${hw},${lingY + shoulder} L${hw},${lingY} L${-hw},${lingY} L${-hw},${lingY + shoulder} Z`}
-        fill={fill} stroke={stroke} strokeWidth={sw} strokeLinejoin="round"
-      />
+      <g filter={filterRef}>
+        <path d={d} fill={fillId} stroke={strokeColor} strokeWidth={sw} strokeLinejoin="round" />
+        {state !== "missing" && (
+          <line x1={0} y1={tipY} x2={0} y2={lingY + shoulderH * 0.55}
+            stroke={grooveColor} strokeWidth={0.85} strokeLinecap="round" opacity={0.75} />
+        )}
+        <ellipse cx={-hw * 0.1} cy={(lingY * 0.55 + labY * 0.45)}
+          rx={hw * 0.28} ry={hh * 0.17} fill="white" fillOpacity={hiOpacity} />
+      </g>
     );
   }
+
   if (type === "premolar") {
-    const rx = hw * 0.9, ry = hh;
-    const grooveY = (jaw === "upper" ? -1 : 1) * hh * 0.1;
-    const buccalY = (jaw === "upper" ? 1 : -1) * hh * 0.42;
+    const rx = hw * 0.88, ry = hh * 0.92;
+    const grooveY = (jaw === "upper" ? -1 : 1) * hh * 0.07;
+    const buccalY = (jaw === "upper" ? 1 : -1) * hh * 0.4;
     return (
-      <>
-        <ellipse cx={0} cy={0} rx={rx} ry={ry} fill={fill} stroke={stroke} strokeWidth={sw} />
-        <ellipse cx={0} cy={buccalY} rx={rx * 0.72} ry={hh * 0.4} fill="none" stroke={tint} strokeWidth={1} />
-        <line x1={-rx * 0.55} y1={grooveY} x2={rx * 0.55} y2={grooveY} stroke={tint} strokeWidth={1.2} strokeLinecap="round" />
-      </>
+      <g filter={filterRef}>
+        <ellipse cx={0} cy={0} rx={rx} ry={ry} fill={fillId} stroke={strokeColor} strokeWidth={sw} />
+        <ellipse cx={0} cy={buccalY} rx={rx * 0.62} ry={hh * 0.29}
+          fill="none" stroke={grooveColor} strokeWidth={0.85} />
+        <line x1={-rx * 0.46} y1={grooveY} x2={rx * 0.46} y2={grooveY}
+          stroke={grooveColor} strokeWidth={1.05} strokeLinecap="round" />
+        <ellipse cx={-hw * 0.14} cy={(jaw === "upper" ? -1 : 1) * hh * 0.28}
+          rx={hw * 0.33} ry={hh * 0.18} fill="white" fillOpacity={hiOpacity} />
+      </g>
     );
   }
-  const r = Math.min(3.5, hw * 0.25);
-  const cpx = hw * 0.38, cpy = hh * 0.36;
+
+  // Molar
+  const r = Math.min(4.5, hw * 0.34);
+  const cuspR = Math.min(hw, hh) * 0.19;
+  const cpx = hw * 0.36, cpy = hh * 0.29;
   return (
-    <>
-      <rect x={-hw} y={-hh} width={w} height={h} rx={r + 1} fill={fill} stroke={stroke} strokeWidth={sw} />
-      <line x1={-hw + 4} y1={-hh + 3} x2={hw - 4} y2={hh - 3} stroke={tint} strokeWidth={1.1} strokeLinecap="round" />
-      <line x1={hw - 4}  y1={-hh + 3} x2={-hw + 4} y2={hh - 3} stroke={tint} strokeWidth={1.1} strokeLinecap="round" />
+    <g filter={filterRef}>
+      <rect x={-hw} y={-hh} width={w} height={h} rx={r + 1.5}
+        fill={fillId} stroke={strokeColor} strokeWidth={sw} />
+      <line x1={-hw + 3.5} y1={0} x2={hw - 3.5} y2={0}
+        stroke={grooveColor} strokeWidth={1} strokeLinecap="round" />
+      <line x1={0} y1={-hh + 3} x2={0} y2={hh - 3}
+        stroke={grooveColor} strokeWidth={1} strokeLinecap="round" />
       {([-1, 1] as const).flatMap((sx) =>
         ([-1, 1] as const).map((sy) => (
-          <circle key={`${sx}${sy}`} cx={sx * cpx} cy={sy * cpy}
-            r={Math.min(hw, hh) * 0.26} fill="none" stroke={tint} strokeWidth={0.9} />
+          <ellipse key={`${sx}${sy}`} cx={sx * cpx} cy={sy * cpy}
+            rx={cuspR * 1.15} ry={cuspR}
+            fill="none" stroke={grooveColor} strokeWidth={0.8} />
         ))
       )}
-    </>
+      <circle cx={0} cy={0} r={1.3} fill={grooveColor} opacity={0.55} />
+      <ellipse cx={-hw * 0.19} cy={-hh * 0.25} rx={hw * 0.34} ry={hh * 0.17}
+        fill="white" fillOpacity={hiOpacity} />
+    </g>
   );
 }
 
 function ToothShape({ tooth, selected, active, hasItems, missing }: {
   tooth: ToothDef; selected: boolean; active: boolean; hasItems: boolean; missing: boolean;
 }) {
-  const fill   = missing  ? "#F1F5F9"
-               : active   ? "#1A5C7A"
-               : selected ? "#2B87A8"
-               : hasItems ? "#DBEAFE"
-               : tooth.primary ? "#FFF7ED" : "#FAFBFC";
-  const stroke = missing  ? "#CBD5E1"
-               : active   ? "#0e4560"
-               : selected ? "#1A5C7A"
-               : hasItems ? "#3B82F6"
-               : tooth.primary ? "#FDBA74" : "#B8C4CE";
-  const sw     = (active || selected) ? 2 : 1.4;
-  const tint   = missing  ? "#CBD5E1"
-               : (active || selected) ? "#6db8d4"
-               : hasItems ? "#93C5FD" : "#D1DCE5";
-  const dotY   = tooth.jaw === "upper" ? -tooth.h / 2 - 3 : tooth.h / 2 + 3;
+  const state: ToothState =
+    missing    ? "missing"
+    : active   ? "active"
+    : selected ? "selected"
+    : hasItems ? "treatment"
+    : tooth.primary ? "primary"
+    : "normal";
+
+  const dotY = tooth.jaw === "upper" ? -tooth.h / 2 - 3 : tooth.h / 2 + 3;
 
   return (
     <g transform={`rotate(${tooth.rot}, ${tooth.cx}, ${tooth.cy})`}>
       <g transform={`translate(${tooth.cx}, ${tooth.cy})`}>
-        <ToothCrown w={tooth.w} h={tooth.h} type={tooth.type} jaw={tooth.jaw}
-          fill={fill} stroke={stroke} sw={sw} tint={tint} />
+        <ToothCrown w={tooth.w} h={tooth.h} type={tooth.type} jaw={tooth.jaw} state={state} />
         {missing && (
           <>
-            <line x1={-tooth.w * 0.3} y1={-tooth.h * 0.3} x2={tooth.w * 0.3} y2={tooth.h * 0.3}
-              stroke="#EF4444" strokeWidth={1.8} strokeLinecap="round" />
-            <line x1={tooth.w * 0.3} y1={-tooth.h * 0.3} x2={-tooth.w * 0.3} y2={tooth.h * 0.3}
-              stroke="#EF4444" strokeWidth={1.8} strokeLinecap="round" />
+            <line x1={-tooth.w * 0.28} y1={-tooth.h * 0.28} x2={tooth.w * 0.28} y2={tooth.h * 0.28}
+              stroke="#EF4444" strokeWidth={2} strokeLinecap="round" />
+            <line x1={tooth.w * 0.28} y1={-tooth.h * 0.28} x2={-tooth.w * 0.28} y2={tooth.h * 0.28}
+              stroke="#EF4444" strokeWidth={2} strokeLinecap="round" />
           </>
         )}
         {hasItems && !selected && !active && !missing && (
-          <circle cx={tooth.w / 2 - 2} cy={dotY} r={3} fill="#3B82F6" />
+          <circle cx={tooth.w / 2 - 2} cy={dotY} r={3} fill="#2563EB" />
         )}
       </g>
     </g>
@@ -440,6 +518,42 @@ function OdontogramPicker({
       {/* ── SVG Odontograma ───────────────────────────────────────────────── */}
       <svg viewBox={vb} width="100%" style={{ display: "block", overflow: "visible", transition: "all 0.2s" }}
         aria-label="Odontograma dental FDI">
+        <defs>
+          {/* Esmalte base: blanco brillante → azul grisáceo */}
+          <radialGradient id="og-enamel" cx="38%" cy="30%" r="68%" gradientUnits="objectBoundingBox">
+            <stop offset="0%"   stopColor="#FFFFFF" />
+            <stop offset="42%"  stopColor="#EDF4FC" />
+            <stop offset="100%" stopColor="#B4C8D6" />
+          </radialGradient>
+          {/* Diente temporal: marfil cálido */}
+          <radialGradient id="og-primary" cx="38%" cy="30%" r="68%" gradientUnits="objectBoundingBox">
+            <stop offset="0%"   stopColor="#FFFCF4" />
+            <stop offset="40%"  stopColor="#FEEFD2" />
+            <stop offset="100%" stopColor="#EAB97A" />
+          </radialGradient>
+          {/* Seleccionado: degradado teal */}
+          <radialGradient id="og-selected" cx="38%" cy="28%" r="70%" gradientUnits="objectBoundingBox">
+            <stop offset="0%"   stopColor="#91D5EE" />
+            <stop offset="45%"  stopColor="#2B87A8" />
+            <stop offset="100%" stopColor="#1A5C7A" />
+          </radialGradient>
+          {/* Activo: degradado azul oscuro más brillante */}
+          <radialGradient id="og-active" cx="38%" cy="28%" r="70%" gradientUnits="objectBoundingBox">
+            <stop offset="0%"   stopColor="#42AFCF" />
+            <stop offset="45%"  stopColor="#1A5C7A" />
+            <stop offset="100%" stopColor="#0c3548" />
+          </radialGradient>
+          {/* Con tratamiento: azul claro */}
+          <radialGradient id="og-treat" cx="38%" cy="30%" r="68%" gradientUnits="objectBoundingBox">
+            <stop offset="0%"   stopColor="#EFF8FF" />
+            <stop offset="50%"  stopColor="#BFDBFE" />
+            <stop offset="100%" stopColor="#93C5FD" />
+          </radialGradient>
+          {/* Glow para seleccionado/activo */}
+          <filter id="og-glow" x="-28%" y="-28%" width="156%" height="156%">
+            <feDropShadow dx="0" dy="1.5" stdDeviation="2.8" floodColor="#1A5C7A" floodOpacity="0.55" />
+          </filter>
+        </defs>
         {(view === "all" || view === "upper") && (
           <path d="M18,105 Q60,50 201,30 Q342,50 384,105" fill="none" stroke="#FDA4AF" strokeWidth="6" strokeLinecap="round" opacity="0.35" />
         )}
