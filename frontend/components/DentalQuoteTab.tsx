@@ -360,26 +360,84 @@ function OdontogramPicker({
 
   return (
     <div style={{ background: "#F8FAFC", borderRadius: 14, padding: "10px 10px 8px", border: "1px solid #E2E8F0" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#94a3b8", marginRight: 2 }}>
-            Dentición
-          </span>
-          {(["definitiva", "temporal", "mixta"] as DentitionType[]).map((d) => (
-            <button key={d} onClick={() => setDentitionType(d)} className={dentCls(d)}>
-              {d.charAt(0).toUpperCase() + d.slice(1)}
-            </button>
-          ))}
+
+      {/* ── Row 1: Dentición + Vista ───────────────────────────────────────── */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
+        <div>
+          <p style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#94a3b8", marginBottom: 4 }}>
+            Tipo de dentición
+          </p>
+          <div style={{ display: "flex", gap: 4 }}>
+            {(["definitiva", "temporal", "mixta"] as DentitionType[]).map((d) => (
+              <button key={d} onClick={() => setDentitionType(d)} className={dentCls(d)}>
+                {d === "definitiva" ? "Definitiva (adulto)" : d === "temporal" ? "Temporal (niño)" : "Mixta"}
+              </button>
+            ))}
+          </div>
+          <p style={{ fontSize: 9, color: "#b0bec5", marginTop: 3 }}>
+            {dentitionType === "definitiva" && "Dentición permanente — 32 piezas FDI 1–4"}
+            {dentitionType === "temporal" && "Dentición de leche — 20 piezas FDI 5–8"}
+            {dentitionType === "mixta" && "Molares definitivos + piezas temporales anteriores"}
+          </p>
         </div>
-        <div style={{ display: "flex", gap: 4 }}>
-          {(["all", "upper", "lower"] as ArchView[]).map((v) => (
-            <button key={v} onClick={() => setView(v)} className={tabCls(v)}>
-              {v === "all" ? "Boca completa" : v === "upper" ? "Maxilar" : "Mandíbula"}
-            </button>
-          ))}
+        <div style={{ textAlign: "right" }}>
+          <p style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#94a3b8", marginBottom: 4 }}>
+            Vista del odontograma
+          </p>
+          <div style={{ display: "flex", gap: 4 }}>
+            {(["all", "upper", "lower"] as ArchView[]).map((v) => (
+              <button key={v} onClick={() => setView(v)} className={tabCls(v)}>
+                {v === "all" ? "Boca completa" : v === "upper" ? "Maxilar sup." : "Mandíbula inf."}
+              </button>
+            ))}
+          </div>
+          <p style={{ fontSize: 9, color: "#b0bec5", marginTop: 3 }}>
+            Filtra el diagrama para ver solo el arco que necesitas
+          </p>
         </div>
       </div>
 
+      {/* ── Row 2: Selección rápida + Marcar ausente (ARRIBA del SVG) ─────── */}
+      <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #E8EDF2", padding: "7px 10px", marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#94a3b8", whiteSpace: "nowrap" }}>
+              Selección rápida
+            </span>
+            {selectedCount > 0 && (
+              <button onClick={() => onSetTeeth(new Set())}
+                className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#1A5C7A]/10 text-[#1A5C7A] hover:bg-[#1A5C7A]/20 transition">
+                ✕ Limpiar ({selectedCount})
+              </button>
+            )}
+            {QUICK_GROUPS.map((g) => (
+              <button key={g.key} onClick={() => selectGroup(g.filter)}
+                className="px-2 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-500 hover:bg-gray-200 transition">
+                {g.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 9, color: "#b0bec5" }}>|</span>
+            <button
+              onClick={() => setMode((m) => m === "select" ? "missing" : "select")}
+              className={`px-2.5 py-0.5 rounded text-[10px] font-semibold transition border ${
+                mode === "missing"
+                  ? "bg-red-50 text-red-600 border-red-200"
+                  : "bg-white text-gray-400 border-gray-200 hover:text-red-500 hover:border-red-200"
+              }`}>
+              {mode === "missing" ? "✕ Cancelar ausentes" : "Marcar pieza ausente"}
+            </button>
+          </div>
+        </div>
+        {mode === "missing" && (
+          <p style={{ fontSize: 9, fontWeight: 700, color: "#EF4444", marginTop: 5 }}>
+            Modo ausente activo — toca la pieza en el diagrama para marcarla. Tócala de nuevo para reactivarla.
+          </p>
+        )}
+      </div>
+
+      {/* ── SVG Odontograma ───────────────────────────────────────────────── */}
       <svg viewBox={vb} width="100%" style={{ display: "block", overflow: "visible", transition: "all 0.2s" }}
         aria-label="Odontograma dental FDI">
         {(view === "all" || view === "upper") && (
@@ -428,47 +486,17 @@ function OdontogramPicker({
         })}
       </svg>
 
-      {/* Quick-select groups + missing mode toggle */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 6, flexWrap: "wrap", gap: 4 }}>
-        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-          {selectedCount > 0 && (
-            <button onClick={() => onSetTeeth(new Set())}
-              className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#1A5C7A]/10 text-[#1A5C7A] hover:bg-[#1A5C7A]/20 transition">
-              ✕ Limpiar ({selectedCount})
-            </button>
-          )}
-          {QUICK_GROUPS.map((g) => (
-            <button key={g.key} onClick={() => selectGroup(g.filter)}
-              className="px-2 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-500 hover:bg-gray-200 transition">
-              {g.label}
-            </button>
-          ))}
-        </div>
-        <button
-          onClick={() => setMode((m) => m === "select" ? "missing" : "select")}
-          className={`px-2.5 py-0.5 rounded text-[10px] font-semibold transition border ${
-            mode === "missing"
-              ? "bg-red-50 text-red-600 border-red-200"
-              : "bg-white text-gray-400 border-gray-200 hover:text-red-500 hover:border-red-200"
-          }`}>
-          {mode === "missing" ? "✕ Marcando ausentes" : "Marcar ausente"}
-        </button>
-      </div>
-
+      {/* ── Estado de selección (debajo del SVG) ─────────────────────────── */}
       <div style={{ textAlign: "center", marginTop: 4 }}>
-        {mode === "missing" ? (
-          <p style={{ fontSize: 10, fontWeight: 700, color: "#EF4444", margin: 0 }}>
-            Toca una pieza para marcarla ausente · tócala de nuevo para reactivarla
-          </p>
-        ) : selectedCount > 0 ? (
+        {selectedCount > 0 ? (
           <p style={{ fontSize: 10, fontWeight: 700, color: "#1A5C7A", margin: 0 }}>
             {selectedCount === 1
-              ? `Pieza ${activeToothFdi} activa — elige la prestación y agrega`
-              : `${selectedCount} piezas seleccionadas · activa: ${activeToothFdi} — agrega una prestación distinta por pieza o usa "Aplicar a todas"`}
+              ? `Pieza ${activeToothFdi} seleccionada — elige la prestación y agrega`
+              : `${selectedCount} piezas seleccionadas · activa: ${activeToothFdi}`}
           </p>
         ) : (
           <p style={{ fontSize: 10, color: "#94a3b8", margin: 0 }}>
-            Toca una o más piezas · usa los grupos rápidos · o deja sin pieza para prestaciones generales
+            Toca una pieza en el diagrama · usa los grupos rápidos · o agrega prestaciones sin pieza específica
           </p>
         )}
       </div>
