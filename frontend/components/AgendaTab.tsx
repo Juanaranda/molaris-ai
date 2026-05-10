@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { getToken } from "@/lib/auth";
 import type { AuthUser } from "@/lib/auth";
+import { DentalQuoteTab } from "./DentalQuoteTab";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -133,7 +134,30 @@ function PayPill({ status }: { status: string | null }) {
   return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${s.cls}`}>{s.label}</span>;
 }
 
-function BookingModal({ booking, onClose, onSave, onCancel }: {
+/* ── Quick-quote modal ───────────────────────────────────────────────── */
+function QuickQuoteModal({ patient, onClose }: {
+  patient: { name: string; rut: string | null };
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col bg-white overflow-hidden"
+      style={{ paddingTop: "env(safe-area-inset-top)" }}>
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 bg-white shrink-0">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Presupuesto rápido</p>
+          <h2 className="text-base font-black text-gray-900 leading-tight">{patient.name}</h2>
+        </div>
+        <button onClick={onClose}
+          className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500 shrink-0">✕</button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4">
+        <DentalQuoteTab patient={patient} />
+      </div>
+    </div>
+  );
+}
+
+function BookingModal({ booking, onClose, onSave, onCancel, onNewQuote }: {
   booking: Booking;
   onClose: () => void;
   onSave: (id: string, patch: {
@@ -141,6 +165,7 @@ function BookingModal({ booking, onClose, onSave, onCancel }: {
     paymentStatus: string; amountTotal: string; amountPaid: string; paymentMethod: string;
   }) => Promise<void>;
   onCancel: (id: string) => Promise<void>;
+  onNewQuote?: (patient: { name: string; rut: string | null }) => void;
 }) {
   const [status, setStatus]             = useState(booking.status);
   const [notes, setNotes]               = useState(booking.notes ?? "");
@@ -287,6 +312,15 @@ function BookingModal({ booking, onClose, onSave, onCancel }: {
                 </p>
               )}
             </>
+          )}
+
+          {/* Presupuesto rápido */}
+          {onNewQuote && booking.patientName && (
+            <button
+              onClick={() => { onClose(); onNewQuote({ name: booking.patientName!, rut: booking.patientRut }); }}
+              className="w-full py-2.5 rounded-xl text-sm font-bold text-[#1A5C7A] bg-[#E8F4F8] hover:bg-[#D0EBF4] transition border border-[#B0D8E8]">
+              + Nuevo presupuesto para {booking.patientName.split(" ")[0]}
+            </button>
           )}
 
           {/* Actions */}
@@ -444,6 +478,7 @@ function AdminAgenda({
   const [doctorFilter, setDoctorFilter] = useState<string | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showNew, setShowNew]         = useState(false);
+  const [quotePatient, setQuotePatient] = useState<{ name: string; rut: string | null } | null>(null);
 
   const fetchWeek = useCallback(async (start: Date) => {
     const token = getToken(); if (!token) return;
@@ -841,7 +876,11 @@ function AdminAgenda({
           onClose={() => setSelectedBooking(null)}
           onSave={async (id, patch) => { await handleSave(id, patch); setSelectedBooking(null); }}
           onCancel={async (id) => { await handleCancel(id); setSelectedBooking(null); }}
+          onNewQuote={(p) => setQuotePatient(p)}
         />
+      )}
+      {quotePatient && (
+        <QuickQuoteModal patient={quotePatient} onClose={() => setQuotePatient(null)} />
       )}
       {showNew && (
         <NewBookingModal

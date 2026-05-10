@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import prisma from "../config/prisma";
 import { sendBookingNotification } from "../services/notifications/whatsappService";
+import { verifyPatientToken } from "./patient-auth";
 
 interface DoctorConfig {
   name: string;

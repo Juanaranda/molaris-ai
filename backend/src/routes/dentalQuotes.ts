@@ -164,6 +164,7 @@ export async function dentalQuotesRoutes(app: FastifyInstance) {
       // Recalculate total with existing items
       const existingItems = await prisma.dentalQuoteItem.findMany({ where: { quoteId: req.params.id } });
       const pseudoItems = existingItems.map((i) => ({
+        prestacion: i.prestacion ?? "",
         unitPrice: i.unitPrice,
         quantity: i.quantity,
         discount: i.discount,

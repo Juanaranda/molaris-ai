@@ -216,7 +216,8 @@ function NewPlanModal({
   );
 }
 
-function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => void }) {
+function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient; onClose: () => void }) {
+  const [patient, setPatient] = useState(initialPatient);
   const [tab, setTab] = useState<"history" | "plans" | "quotes">("history");
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -226,6 +227,27 @@ function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => 
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({ name: patient.name, phone: patient.phone ?? "", email: patient.email ?? "" });
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  async function savePatientEdit() {
+    setSavingEdit(true);
+    try {
+      const token = getToken();
+      await fetch(`${API}/api/patients/${encodeURIComponent(patient.key)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name:  editForm.name  || undefined,
+          phone: editForm.phone || undefined,
+          email: editForm.email || undefined,
+        }),
+      });
+      setPatient((p) => ({ ...p, name: editForm.name || p.name, phone: editForm.phone || null, email: editForm.email || null }));
+      setEditMode(false);
+    } finally { setSavingEdit(false); }
+  }
 
   useEffect(() => {
     if (!patient.rut) return;
@@ -268,26 +290,69 @@ function PatientDetail({ patient, onClose }: { patient: Patient; onClose: () => 
                 {patient.name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
               </div>
               <div>
-                <h2 className="text-xl font-black text-white leading-tight">{patient.name}</h2>
+                {editMode ? (
+                  <input
+                    value={editForm.name}
+                    onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                    className="text-xl font-black bg-white/10 text-white border border-white/30 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-white/40 w-full"
+                    placeholder="Nombre completo"
+                  />
+                ) : (
+                  <h2 className="text-xl font-black text-white leading-tight">{patient.name}</h2>
+                )}
                 {patient.rut && <p className="text-sm text-white/60 mt-0.5">{patient.rut}</p>}
               </div>
             </div>
-            <button onClick={onClose}
-              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center text-white/70 shrink-0">✕</button>
+            <div className="flex items-center gap-2">
+              {editMode ? (
+                <>
+                  <button onClick={() => { setEditMode(false); setEditForm({ name: patient.name, phone: patient.phone ?? "", email: patient.email ?? "" }); }}
+                    className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white/10 text-white/70 hover:bg-white/20 transition">
+                    Cancelar
+                  </button>
+                  <button onClick={savePatientEdit} disabled={savingEdit}
+                    className="text-xs font-bold px-3 py-1.5 rounded-lg bg-white text-slate-800 hover:bg-white/90 transition disabled:opacity-50">
+                    {savingEdit ? "Guardando…" : "Guardar"}
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => setEditMode(true)}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center text-white/70 shrink-0"
+                  title="Editar datos del paciente">
+                  ✎
+                </button>
+              )}
+              <button onClick={onClose}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center text-white/70 shrink-0">✕</button>
+            </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5">
-            {patient.phone && (
-              <div>
-                <p className="text-[10px] text-white/40 font-bold uppercase tracking-wide">Teléfono</p>
-                <p className="text-sm font-semibold text-white/90">{patient.phone}</p>
-              </div>
-            )}
-            {patient.email && (
-              <div className="min-w-0">
-                <p className="text-[10px] text-white/40 font-bold uppercase tracking-wide">Email</p>
-                <p className="text-sm font-semibold text-white/90 truncate">{patient.email}</p>
-              </div>
-            )}
+            <div>
+              <p className="text-[10px] text-white/40 font-bold uppercase tracking-wide">Teléfono</p>
+              {editMode ? (
+                <input
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                  placeholder="+56 9 …"
+                  className="text-sm bg-white/10 text-white border border-white/30 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-white/40 w-full mt-0.5"
+                />
+              ) : (
+                <p className="text-sm font-semibold text-white/90">{patient.phone || "—"}</p>
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] text-white/40 font-bold uppercase tracking-wide">Email</p>
+              {editMode ? (
+                <input
+                  value={editForm.email}
+                  onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                  placeholder="correo@ejemplo.com"
+                  className="text-sm bg-white/10 text-white border border-white/30 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-white/40 w-full mt-0.5"
+                />
+              ) : (
+                <p className="text-sm font-semibold text-white/90 truncate">{patient.email || "—"}</p>
+              )}
+            </div>
             <div>
               <p className="text-[10px] text-white/40 font-bold uppercase tracking-wide">Visitas totales</p>
               <p className="text-sm font-semibold text-white/90">{patient.visits}</p>

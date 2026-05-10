@@ -193,6 +193,49 @@ export async function patientsRoutes(app: FastifyInstance) {
     return reply.send(bookings);
   });
 
+  // PATCH /api/patients/:key — actualiza teléfono/email/nombre en todos los bookings del paciente
+  app.patch<{
+    Params: { key: string };
+    Body: { name?: string; phone?: string; email?: string };
+  }>("/patients/:key", async (req, reply) => {
+    let payload;
+    try { payload = verifyToken(req.headers.authorization); }
+    catch { return reply.status(401).send({ error: "No autorizado" }); }
+    if (!payload.clinicId) return reply.status(403).send({ error: "Sin clínica asignada" });
+
+    const key = decodeURIComponent(req.params.key);
+    const { name, phone, email } = req.body ?? {};
+    const updateData: Record<string, string | null> = {};
+    if (name  !== undefined) updateData.patientName  = name  || null;
+    if (phone !== undefined) updateData.patientPhone = phone || null;
+    if (email !== undefined) updateData.patientEmail = email || null;
+    if (Object.keys(updateData).length === 0)
+      return reply.status(400).send({ error: "Nada que actualizar" });
+
+    const byRut = await prisma.booking.count({
+      where: { clinicId: payload.clinicId, patientRut: key },
+    });
+
+    if (byRut > 0) {
+      await prisma.booking.updateMany({
+        where: { clinicId: payload.clinicId, patientRut: key },
+        data: updateData,
+      });
+    } else {
+      const all = await prisma.booking.findMany({
+        where: { clinicId: payload.clinicId },
+        select: { id: true, patientName: true, patientRut: true },
+      });
+      const ids = all
+        .filter((b) => !b.patientRut && (b.patientName ?? "").toLowerCase().trim() === key)
+        .map((b) => b.id);
+      if (ids.length > 0)
+        await prisma.booking.updateMany({ where: { id: { in: ids } }, data: updateData });
+    }
+
+    return reply.send({ ok: true });
+  });
+
   // POST /api/patients/import — importa pacientes desde CSV
   app.post<{ Body: ImportBody }>("/patients/import", async (req, reply) => {
     let payload;

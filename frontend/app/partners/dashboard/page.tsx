@@ -11,6 +11,7 @@ import { BookingsTab } from "@/components/BookingsTab";
 import { SetupChecklist } from "@/components/SetupChecklist";
 import { AgendaTab } from "@/components/AgendaTab";
 import { PatientsTab } from "@/components/PatientsTab";
+import { DashboardTab } from "@/components/DashboardTab";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -139,7 +140,7 @@ function InfoField({ label, value, editable, onChange, placeholder }: {
   );
 }
 
-type Tab = "agenda" | "analytics" | "patients" | "bookings" | "config";
+type Tab = "inicio" | "agenda" | "analytics" | "patients" | "bookings" | "config";
 
 /* ─── Analytics Panel ──────────────────────────────────────────────────────── */
 const MONTH_LABELS: Record<string, string> = {
@@ -815,7 +816,7 @@ export default function PartnersDashboard() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [clinic, setClinic] = useState<ClinicData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<Tab>("agenda");
+  const [activeTab, setActiveTab] = useState<Tab>("inicio");
 
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
@@ -1079,7 +1080,7 @@ export default function PartnersDashboard() {
             {/* Tabs */}
             <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
               <div className="flex border-b border-gray-200 gap-1 min-w-max sm:min-w-0">
-                {([["agenda", "Agenda"], ["analytics", "Analítica"], ["patients", "Pacientes"], ["bookings", "Citas"], ["config", "Configuración"]] as [Tab, string][]).map(([tab, label]) => (
+                {([["inicio", "Inicio"], ["agenda", "Agenda"], ["analytics", "Analítica"], ["patients", "Pacientes"], ["bookings", "Citas"], ["config", "Configuración"]] as [Tab, string][]).map(([tab, label]) => (
                   <button key={tab} onClick={() => setActiveTab(tab)}
                     className={`px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
                       activeTab === tab
@@ -1091,6 +1092,11 @@ export default function PartnersDashboard() {
                 ))}
               </div>
             </div>
+
+            {/* ══ TAB INICIO ═════════════════════════════════════════════════ */}
+            {activeTab === "inicio" && clinic && (
+              <DashboardTab clinicId={clinic.id} />
+            )}
 
             {/* ══ TAB ANALÍTICA ══════════════════════════════════════════════ */}
             {activeTab === "analytics" && (
