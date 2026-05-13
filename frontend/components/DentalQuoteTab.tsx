@@ -203,53 +203,70 @@ const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
 };
 
 /* ─── Tooth images — static SVG assets (pre-generated with Gemini) ────────── */
-type AiImages = Partial<Record<ToothType, string>>;
+type JawKey = `${"upper" | "lower"}_${ToothType}`;
+type AiImages = Partial<Record<JawKey, string>>;
 
-// Kept for future AI upgrade — currently returns empty so ToothCrown handles rendering
 function useToothImages(): { images: AiImages; loading: boolean } {
-  return { images: {}, loading: false };
+  return {
+    images: {
+      upper_incisor:  "/teeth/upper_incisor.png",
+      upper_canine:   "/teeth/upper_canine.png",
+      upper_premolar: "/teeth/upper_premolar.png",
+      upper_molar:    "/teeth/upper_molar.png",
+      lower_incisor:  "/teeth/lower_incisor.png",
+      lower_canine:   "/teeth/lower_canine.png",
+      lower_premolar: "/teeth/lower_premolar.png",
+      lower_molar:    "/teeth/lower_molar.png",
+    },
+    loading: false,
+  };
 }
 
 /* ─── SVG tooth crown (AI version) ──────────────────────────────────────── */
-function ToothCrownAI({ w, h, fdi, state, src }: {
-  w: number; h: number; fdi: string; state: ToothState; src: string;
+function ToothCrownAI({ w, h, fdi, type, jaw, rot, state, src }: {
+  w: number; h: number; fdi: string; type: ToothType; jaw: JawType; rot: number; state: ToothState; src: string;
 }) {
   const hw = w / 2, hh = h / 2;
-  const clipId = `og-clip-${fdi.replace(".", "_")}`;
+  const S =
+    jaw === "upper"
+      ? type === "incisor" ? 2.4 : type === "canine" ? 2.1 : 2.2
+      : type === "incisor" ? 2.9 : type === "canine" ? 2.5 : 2.2;
+  const iw = w * S, ih = h * S;
 
-  const overlayFill =
-    state === "active"    ? "rgba(26,92,122,0.58)"
-    : state === "selected"  ? "rgba(43,135,168,0.46)"
-    : state === "treatment" ? "rgba(37,99,235,0.22)"
-    : state === "primary"   ? "rgba(196,123,58,0.22)"
-    : state === "missing"   ? "rgba(190,205,218,0.82)"
-    : null;
-
-  const strokeColor =
-    state === "active"    ? "#0d3d52"
-    : state === "selected"  ? "#1565A0"
-    : state === "treatment" ? "#2563EB"
-    : state === "primary"   ? "#C47B3A"
-    : state === "missing"   ? "#CBD5E1"
-    : "#9BAFC0";
-
-  const sw = state === "active" || state === "selected" ? 2 : 1.2;
   const filterRef = state === "active" || state === "selected" ? "url(#og-glow)" : undefined;
+
+  // Counter-rotate so the tooth image stays visually upright despite the arc rotation on the parent.
+  // Then apply per-quadrant mirror: Q4 mirror-X, Q2 mirror-Y, Q1 mirror-both, Q3 none.
+  const cr = `rotate(${-rot})`;
+  const imgTransform =
+    fdi.startsWith("1.") ? `${cr} scale(-1,-1)` :
+    fdi.startsWith("2.") ? `${cr} scale(1,-1)` :
+    fdi.startsWith("4.") ? `${cr} scale(-1,1)` :
+    cr;
+
+  // Selection ring that tightly wraps the tooth — fits just the crown area
+  const rx = hw * 0.95, ry = hh * 0.95;
+  const ring =
+    state === "active"
+      ? { stroke: "#1A5C7A", sw: 2.5, fill: "rgba(26,92,122,0.12)" }
+    : state === "selected"
+      ? { stroke: "#2B87A8", sw: 2,   fill: "rgba(43,135,168,0.10)" }
+    : state === "treatment"
+      ? { stroke: "#2563EB", sw: 1.5, fill: "rgba(37,99,235,0.08)" }
+    : state === "primary"
+      ? { stroke: "#C47B3A", sw: 1.5, fill: "rgba(196,123,58,0.08)" }
+    : state === "missing"
+      ? { stroke: "#94A3B8", sw: 1.5, fill: "rgba(190,205,218,0.75)" }
+    : null;
 
   return (
     <g filter={filterRef}>
-      <defs>
-        <clipPath id={clipId}>
-          <rect x={-hw} y={-hh} width={w} height={h} rx={3} />
-        </clipPath>
-      </defs>
-      <image href={src} x={-hw} y={-hh} width={w} height={h}
-        clipPath={`url(#${clipId})`} preserveAspectRatio="xMidYMid slice" />
-      {overlayFill && (
-        <rect x={-hw} y={-hh} width={w} height={h} rx={3} fill={overlayFill} />
+      <image href={src} x={-iw / 2} y={-ih / 2} width={iw} height={ih}
+        preserveAspectRatio="xMidYMid meet" transform={imgTransform} />
+      {ring && (
+        <ellipse cx={0} cy={0} rx={rx} ry={ry}
+          fill={ring.fill} stroke={ring.stroke} strokeWidth={ring.sw} />
       )}
-      <rect x={-hw} y={-hh} width={w} height={h} rx={3}
-        fill="none" stroke={strokeColor} strokeWidth={sw} />
     </g>
   );
 }
@@ -513,7 +530,7 @@ function ToothShape({ tooth, selected, active, hasItems, missing, aiImg }: {
     <g transform={`rotate(${tooth.rot}, ${tooth.cx}, ${tooth.cy})`}>
       <g transform={`translate(${tooth.cx}, ${tooth.cy})`}>
         {aiImg
-          ? <ToothCrownAI w={tooth.w} h={tooth.h} fdi={tooth.fdi} state={state} src={aiImg} />
+          ? <ToothCrownAI w={tooth.w} h={tooth.h} fdi={tooth.fdi} type={tooth.type} jaw={tooth.jaw} rot={tooth.rot} state={state} src={aiImg} />
           : <ToothCrown w={tooth.w} h={tooth.h} type={tooth.type} jaw={tooth.jaw} state={state} />
         }
         {missing && (
@@ -728,12 +745,37 @@ function OdontogramPicker({
             <feDropShadow dx="0" dy="2" stdDeviation="3.2" floodColor="#1A5C7A" floodOpacity="0.5" />
           </filter>
         </defs>
-        {(view === "all" || view === "upper") && (
-          <path d="M18,105 Q60,50 201,30 Q342,50 384,105" fill="none" stroke="#FDA4AF" strokeWidth="6" strokeLinecap="round" opacity="0.35" />
-        )}
-        {(view === "all" || view === "lower") && (
-          <path d="M18,153 Q60,208 201,228 Q342,208 384,153" fill="none" stroke="#FDA4AF" strokeWidth="6" strokeLinecap="round" opacity="0.35" />
-        )}
+        {/* ── Maxilar superior ── */}
+        {(view === "all" || view === "upper") && <>
+          {/* Hueso alveolar — crema cálido */}
+          <path d="M-6,122 Q52,36 201,10 Q350,36 408,122 L402,116 Q344,42 201,18 Q58,42 0,116 Z"
+            fill="#EDE0CC" opacity="0.55" />
+          {/* Tejido gingival externo — coral profundo */}
+          <path d="M0,116 Q58,42 201,18 Q344,42 402,116 L392,108 Q338,50 201,26 Q64,50 10,108 Z"
+            fill="#C0566A" opacity="0.28" />
+          {/* Encía adherida — rosa vivo, banda más estrecha */}
+          <path d="M10,108 Q64,50 201,26 Q338,50 392,108 L382,100 Q332,58 201,34 Q70,58 20,100 Z"
+            fill="#E8738A" opacity="0.45" />
+          {/* Margen gingival libre — línea brillante */}
+          <path d="M20,100 Q70,58 201,34 Q332,58 382,100"
+            fill="none" stroke="#F4A0B0" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+        </>}
+
+        {/* ── Mandíbula inferior ── */}
+        {(view === "all" || view === "lower") && <>
+          {/* Hueso alveolar */}
+          <path d="M-6,136 Q52,222 201,248 Q350,222 408,136 L402,142 Q344,216 201,240 Q58,216 0,142 Z"
+            fill="#EDE0CC" opacity="0.55" />
+          {/* Tejido gingival externo */}
+          <path d="M0,142 Q58,216 201,240 Q344,216 402,142 L392,150 Q338,208 201,232 Q64,208 10,150 Z"
+            fill="#C0566A" opacity="0.28" />
+          {/* Encía adherida */}
+          <path d="M10,150 Q64,208 201,232 Q338,208 392,150 L382,158 Q332,200 201,224 Q70,200 20,158 Z"
+            fill="#E8738A" opacity="0.45" />
+          {/* Margen gingival libre */}
+          <path d="M20,158 Q70,200 201,224 Q332,200 382,158"
+            fill="none" stroke="#F4A0B0" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+        </>}
         {(view === "all" || view === "upper") && (
           <line x1="201" y1="15" x2="201" y2="118" stroke="#E2E8F0" strokeDasharray="3,3" strokeWidth="1" />
         )}
@@ -755,16 +797,21 @@ function OdontogramPicker({
           const isActive   = activeToothFdi === tooth.fdi;
           const isMissing  = missingTeeth.has(tooth.fdi);
           const hasItems   = (itemsByTooth[tooth.fdi] ?? 0) > 0;
-          const labelOffset = tooth.jaw === "upper" ? -tooth.h / 2 - 5 : tooth.h / 2 + 9;
+          const sApprox = tooth.jaw === "upper"
+            ? (tooth.type === "incisor" ? 2.4 : tooth.type === "canine" ? 2.1 : 2.2)
+            : (tooth.type === "incisor" ? 2.9 : tooth.type === "canine" ? 2.5 : 2.2);
+          const labelOffset = tooth.jaw === "upper"
+            ? -(tooth.h * sApprox / 2 + 5)
+            : (tooth.h * sApprox / 2 + 5);
           const cursor = mode === "missing" ? "crosshair" : isMissing ? "not-allowed" : "pointer";
 
           return (
-            <g key={tooth.fdi} onClick={() => handleToothClick(tooth)} style={{ cursor }}
+            <g key={tooth.fdi} onClick={() => handleToothClick(tooth)} style={{ cursor, outline: "none" }}
               role="button" aria-label={`Pieza ${tooth.fdi}${isMissing ? " (ausente)" : ""}`}
               tabIndex={0} onKeyDown={(e) => e.key === "Enter" && handleToothClick(tooth)}>
               <circle cx={tooth.cx} cy={tooth.cy} r={Math.max(tooth.w, tooth.h) / 2 + 4} fill="transparent" />
               <ToothShape tooth={tooth} selected={isSelected} active={isActive} hasItems={hasItems} missing={isMissing}
-                aiImg={aiImages[tooth.type]} />
+                aiImg={aiImages[`${tooth.jaw}_${tooth.type}` as JawKey]} />
               <text x={tooth.cx} y={tooth.cy + labelOffset} textAnchor="middle" fontSize="7"
                 fill={isMissing ? "#CBD5E1" : isActive ? "#1A5C7A" : isSelected ? "#2B87A8" : "#94a3b8"}
                 fontWeight={(isActive || isSelected) ? "700" : "400"} style={{ userSelect: "none" }}>
@@ -1328,6 +1375,56 @@ function QuoteBuilderModal({
   );
 }
 
+/* ─── Print helper ───────────────────────────────────────────────────────── */
+function printQuote(quote: DentalQuote) {
+  const MONTHS = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  const d = new Date(quote.createdAt);
+  const dateStr = `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  const fmt = (n: number) => n >= 1_000_000 ? `$${(n/1_000_000).toFixed(2)}M` : `$${Math.round(n/1_000)}k`;
+  const rows = quote.items.map((item) => `
+    <tr>
+      <td>${item.toothFDI ?? "General"}${item.surfaces ? ` (${item.surfaces})` : ""}</td>
+      <td>${item.prestacion}</td>
+      <td class="r">${fmt(item.unitPrice)}${item.quantity > 1 ? ` × ${item.quantity}` : ""}</td>
+      <td class="r">${item.discount > 0 ? `${item.discount}%` : "—"}</td>
+      <td class="r">${fmt(item.total)}</td>
+    </tr>`).join("");
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+  <title>Presupuesto — ${quote.patientName}</title>
+  <style>
+    body{font-family:system-ui,sans-serif;padding:36px;max-width:680px;margin:0 auto;color:#111;font-size:13px}
+    h1{font-size:20px;margin:0 0 4px}
+    .sub{color:#666;font-size:12px;margin-bottom:24px}
+    table{width:100%;border-collapse:collapse}
+    th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#888;border-bottom:2px solid #e5e7eb;padding:6px 4px;text-align:left}
+    td{padding:8px 4px;border-bottom:1px solid #f3f4f6}
+    .r{text-align:right}
+    .total td{font-weight:700;font-size:15px;border-top:2px solid #111;border-bottom:none}
+    .note{margin-top:24px;font-size:11px;color:#888}
+    @media print{body{padding:16px}}
+  </style></head><body>
+  <h1>Presupuesto Dental</h1>
+  <p class="sub">
+    Paciente: <strong>${quote.patientName}</strong>${quote.patientRut ? ` &nbsp;·&nbsp; RUT: ${quote.patientRut}` : ""}${quote.doctor ? ` &nbsp;·&nbsp; Dr/a: ${quote.doctor}` : ""}<br>
+    Fecha: ${dateStr}
+  </p>
+  <table>
+    <thead><tr><th>Pieza</th><th>Prestación</th><th class="r">Precio unit.</th><th class="r">Dto.</th><th class="r">Total</th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr class="total"><td colspan="4" class="r">Total${quote.discount > 0 ? ` (${quote.discount}% dto. general)` : ""}</td><td class="r">${fmt(quote.totalAmount)}</td></tr></tfoot>
+  </table>
+  ${quote.notes ? `<p class="note">Notas: ${quote.notes}</p>` : ""}
+  ${quote.paymentInfo ? `<p class="note">Forma de pago: ${quote.paymentInfo}</p>` : ""}
+  <p class="note">Generado con molari.ai</p>
+  </body></html>`;
+  const win = window.open("", "_blank", "width=800,height=600");
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => { win.print(); }, 300);
+}
+
 /* ─── Quote card ─────────────────────────────────────────────────────────── */
 function QuoteCard({ quote, onStatusChange }: {
   quote: DentalQuote;
@@ -1437,6 +1534,10 @@ function QuoteCard({ quote, onStatusChange }: {
               </>
             )}
             <div className="ml-auto flex items-center gap-2">
+              <button onClick={() => printQuote(quote)}
+                className="text-xs font-semibold text-gray-500 hover:text-gray-700">
+                🖨 Imprimir
+              </button>
               {emailMsg && emailMsg !== "Enviado" && <span className="text-[10px] text-red-500">{emailMsg}</span>}
               {showEmail ? (
                 <>
