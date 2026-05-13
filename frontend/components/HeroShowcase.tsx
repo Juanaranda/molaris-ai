@@ -29,7 +29,7 @@ function ActivityMockup() {
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {[
             { canal: "WhatsApp",  msg: "Nueva cita — Dra. Aranda · 10:30",    dot: "#25D366", time: "2 min" },
-            { canal: "Instagram", msg: "Lead calificado — ortodoncia",          dot: "#E1306C", time: "5 min" },
+            { canal: "WhatsApp",  msg: "Lead calificado — ortodoncia",           dot: "#25D366", time: "5 min" },
             { canal: "Agenda",    msg: "Recordatorio enviado — Pedro R.",       dot: "#8B5CF6", time: "8 min" },
             { canal: "Web",       msg: "Consulta — precio implante dental",     dot: "#1A5C7A", time: "14 min" },
             { canal: "WhatsApp",  msg: "Cita confirmada — Dra. Pérez · 11:00", dot: "#25D366", time: "22 min" },

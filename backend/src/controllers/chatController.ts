@@ -123,6 +123,9 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
       ? await prisma.session.findUnique({ where: { id: sessionId } })
       : null;
 
+    // Reject sessions belonging to a different clinic
+    if (session && session.clinicId !== clinic.id) session = null;
+
     if (!session) {
       session = await prisma.session.create({
         data: {

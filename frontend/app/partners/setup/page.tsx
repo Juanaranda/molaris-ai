@@ -540,27 +540,6 @@ export default function SetupPage() {
                 />
               </div>
 
-              {/* Instagram */}
-              <div className="bg-white rounded-2xl border p-5 flex flex-col gap-3" style={{ borderColor: "#E5E0D9" }}>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                    style={{ backgroundColor: "#FDF0F5" }}>
-                    📸
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold" style={{ color: "#0C1B26" }}>Instagram</p>
-                    <p className="text-xs" style={{ color: "#607281" }}>Responde DMs automáticamente</p>
-                  </div>
-                </div>
-                <input
-                  value={instagram}
-                  onChange={(e) => setInstagram(e.target.value)}
-                  placeholder="@tuclinica"
-                  className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                  style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
-                />
-              </div>
-
               {/* Widget embed */}
               <div className="bg-white rounded-2xl border p-5 flex flex-col gap-3" style={{ borderColor: "#E5E0D9" }}>
                 <div className="flex items-center gap-3">

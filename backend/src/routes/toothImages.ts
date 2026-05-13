@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { GoogleGenAI } from "@google/genai";
+import { config } from "../config/env";
 
 type ToothType = "incisor" | "canine" | "premolar" | "molar";
 
@@ -89,9 +90,9 @@ export async function toothImagesRoutes(app: FastifyInstance) {
       return reply.send(cached);
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = config.geminiApiKey;
     if (!apiKey) {
-      return reply.code(503).send({ error: "GEMINI_API_KEY no configurada en .env" });
+      return reply.code(503).send({ error: "Servicio de imágenes no disponible temporalmente" });
     }
 
     const ai = new GoogleGenAI({ apiKey });

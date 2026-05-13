@@ -236,6 +236,47 @@ export async function patientsRoutes(app: FastifyInstance) {
     return reply.send({ ok: true });
   });
 
+  // POST /api/patients — registra un nuevo paciente (crea booking placeholder cancelado)
+  app.post<{
+    Body: { name: string; rut?: string; phone?: string; email?: string };
+  }>("/patients", async (req, reply) => {
+    let payload;
+    try { payload = verifyToken(req.headers.authorization); }
+    catch { return reply.status(401).send({ error: "No autorizado" }); }
+    if (!payload.clinicId) return reply.status(403).send({ error: "Sin clínica asignada" });
+
+    const { name, rut, phone, email } = req.body ?? {};
+    if (!name || typeof name !== "string" || !name.trim())
+      return reply.status(400).send({ error: "El nombre es obligatorio" });
+
+    if (rut) {
+      const existing = await prisma.booking.findFirst({
+        where: { clinicId: payload.clinicId, patientRut: rut.trim() },
+        select: { id: true },
+      });
+      if (existing) return reply.status(409).send({ error: "Ya existe un paciente con ese RUT" });
+    }
+
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+
+    const booking = await prisma.booking.create({
+      data: {
+        clinicId:    payload.clinicId,
+        patientName: name.trim(),
+        patientRut:  rut?.trim()   || null,
+        patientPhone: phone?.trim() || null,
+        patientEmail: email?.trim() || null,
+        date:   today,
+        time:   "00:00",
+        doctor: "Registro manual",
+        status: "registered",
+      },
+    });
+
+    return reply.status(201).send({ ok: true, id: booking.id });
+  });
+
   // POST /api/patients/import — importa pacientes desde CSV
   app.post<{ Body: ImportBody }>("/patients/import", async (req, reply) => {
     let payload;

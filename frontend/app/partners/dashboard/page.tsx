@@ -168,7 +168,24 @@ function AnalyticsPanel({ clinic, analytics, loading, onGoToConfig, onRetry }: {
   onGoToConfig: () => void;
   onRetry: () => void;
 }) {
-  const [sub, setSub] = useState<AnalyticsSub>("resumen");
+  const [sub, setSub]                 = useState<AnalyticsSub>("resumen");
+  const [urgencyFilter, setUrgencyFilter] = useState<string | null>(null);
+  const [recallDays, setRecallDays]   = useState(90);
+  const [recallSending, setRecallSending] = useState(false);
+  const [recallResult, setRecallResult]   = useState<{ sent: number; total: number } | null>(null);
+
+  async function sendRecall() {
+    setRecallSending(true);
+    setRecallResult(null);
+    const token = getToken();
+    const res = await fetch(`${API}/api/clinics/${clinic.id}/recall/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ daysInactive: recallDays }),
+    });
+    if (res.ok) setRecallResult(await res.json());
+    setRecallSending(false);
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -309,16 +326,25 @@ function AnalyticsPanel({ clinic, analytics, loading, onGoToConfig, onRetry }: {
 
               {/* Urgencia + leads recientes */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                   <h2 className="font-semibold text-gray-900 text-sm">Leads recientes</h2>
-                  <div className="flex items-center gap-4">
-                    {[["high","Alta","#EF4444"],["medium","Media","#FBBF24"],["low","Baja","#9CA3AF"]].map(([key, label, color]) => {
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button onClick={() => setUrgencyFilter(null)}
+                      className={`text-[11px] px-2.5 py-1 rounded-full transition font-semibold ${!urgencyFilter ? "bg-gray-900 text-white" : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"}`}>
+                      Todos
+                    </button>
+                    {([["high","Alta","#EF4444"],["medium","Media","#F59E0B"],["low","Baja","#9CA3AF"]] as const).map(([key, label, color]) => {
                       const count = analytics.urgencyBreakdown.find((u) => u.urgency === key)?.count ?? 0;
+                      const active = urgencyFilter === key;
                       return (
-                        <span key={key} className="flex items-center gap-1 text-xs text-gray-500">
-                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-                          {label} <span className="font-bold text-gray-700">{count}</span>
-                        </span>
+                        <button key={key} onClick={() => setUrgencyFilter(active ? null : key)}
+                          className={`flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full transition font-semibold border ${
+                            active ? "text-white border-transparent" : "text-gray-500 border-gray-200 hover:border-gray-300 bg-white"
+                          }`}
+                          style={active ? { background: color, borderColor: color } : {}}>
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: active ? "rgba(255,255,255,0.8)" : color }} />
+                          {label} · {count}
+                        </button>
                       );
                     })}
                   </div>
@@ -329,33 +355,40 @@ function AnalyticsPanel({ clinic, analytics, loading, onGoToConfig, onRetry }: {
                     <Link href="/partners/preview" className="text-sm text-blue-600 mt-2 inline-block hover:underline">Probar asistente</Link>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto -mx-2">
-                    <table className="w-full text-sm min-w-[540px]">
-                      <thead><tr className="border-b border-gray-100">
-                        {["Paciente","Servicio","Score","Intención","Urg.","Canal","Fecha"].map((h) => (
-                          <th key={h} className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider pb-3 px-2">{h}</th>
-                        ))}
-                      </tr></thead>
-                      <tbody className="divide-y divide-gray-50">
-                        {analytics.recentLeads.map((lead) => (
-                          <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
-                            <td className="py-2.5 px-2 font-medium text-gray-800">
-                              {lead.patientName ?? <span className="text-gray-300 font-normal">Anónimo</span>}
-                              {lead.slotBooked && <span className="ml-1.5 text-[10px] bg-green-50 text-green-700 border border-green-100 px-1.5 py-0.5 rounded-full">agendado</span>}
-                            </td>
-                            <td className="py-2.5 px-2 text-gray-600 max-w-[140px] truncate">{lead.serviceInterest ?? "—"}</td>
-                            <td className="py-2.5 px-2"><ScoreBadge score={lead.score} /></td>
-                            <td className="py-2.5 px-2"><IntentBadge intent={lead.intent} /></td>
-                            <td className="py-2.5 px-2"><UrgencyDot urgency={lead.urgency} /></td>
-                            <td className="py-2.5 px-2 text-gray-400 capitalize text-xs">{lead.channel}</td>
-                            <td className="py-2.5 px-2 text-gray-400 text-xs whitespace-nowrap">
-                              {new Date(lead.createdAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" })}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <>
+                    <div className="overflow-x-auto -mx-2">
+                      <table className="w-full text-sm min-w-[540px]">
+                        <thead><tr className="border-b border-gray-100">
+                          {["Paciente","Servicio","Score","Intención","Urg.","Canal","Fecha"].map((h) => (
+                            <th key={h} className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider pb-3 px-2">{h}</th>
+                          ))}
+                        </tr></thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {(urgencyFilter ? analytics.recentLeads.filter((l) => l.urgency === urgencyFilter) : analytics.recentLeads).map((lead) => (
+                            <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="py-2.5 px-2 font-medium text-gray-800">
+                                {lead.patientName ?? <span className="text-gray-300 font-normal">Anónimo</span>}
+                                {lead.slotBooked && <span className="ml-1.5 text-[10px] bg-green-50 text-green-700 border border-green-100 px-1.5 py-0.5 rounded-full">agendado</span>}
+                              </td>
+                              <td className="py-2.5 px-2 text-gray-600 max-w-[140px] truncate">{lead.serviceInterest ?? "—"}</td>
+                              <td className="py-2.5 px-2"><ScoreBadge score={lead.score} /></td>
+                              <td className="py-2.5 px-2"><IntentBadge intent={lead.intent} /></td>
+                              <td className="py-2.5 px-2"><UrgencyDot urgency={lead.urgency} /></td>
+                              <td className="py-2.5 px-2 text-gray-400 capitalize text-xs">{lead.channel}</td>
+                              <td className="py-2.5 px-2 text-gray-400 text-xs whitespace-nowrap">
+                                {new Date(lead.createdAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {urgencyFilter && (
+                      <p className="text-[11px] text-gray-400 text-center pt-3">
+                        {analytics.recentLeads.filter((l) => l.urgency === urgencyFilter).length} de {analytics.recentLeads.length} leads · <button onClick={() => setUrgencyFilter(null)} className="text-blue-500 hover:underline">Ver todos</button>
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -482,6 +515,37 @@ function AnalyticsPanel({ clinic, analytics, loading, onGoToConfig, onRetry }: {
                       <p className="text-xs text-purple-600 mt-1">Han vuelto</p>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Recall campaign */}
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-5">
+                <div className="flex items-start justify-between mb-3 gap-3">
+                  <div>
+                    <h3 className="font-semibold text-gray-900 text-sm">Reactivar pacientes inactivos</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">Envía un WhatsApp personalizado a pacientes que no han venido en:</p>
+                  </div>
+                  {recallResult && (
+                    <div className="shrink-0 text-xs text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl whitespace-nowrap">
+                      ✓ {recallResult.sent} / {recallResult.total} enviados
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <select value={recallDays} onChange={(e) => { setRecallDays(Number(e.target.value)); setRecallResult(null); }}
+                    className="text-sm px-3 py-2 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    <option value={30}>30 días sin visitar</option>
+                    <option value={60}>60 días sin visitar</option>
+                    <option value={90}>90 días sin visitar</option>
+                    <option value={180}>6 meses sin visitar</option>
+                  </select>
+                  <button onClick={sendRecall} disabled={recallSending || !clinic.whatsapp}
+                    className="text-sm font-bold px-4 py-2 rounded-xl bg-[#1A5C7A] text-white hover:bg-[#0e4560] transition disabled:opacity-50">
+                    {recallSending ? "Enviando…" : "Enviar campaña"}
+                  </button>
+                  {!clinic.whatsapp && (
+                    <p className="text-xs text-amber-600">⚠ Requiere WhatsApp configurado</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -817,6 +881,7 @@ export default function PartnersDashboard() {
   const [clinic, setClinic] = useState<ClinicData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("inicio");
+  const [agendaAutoOpen, setAgendaAutoOpen] = useState(false);
 
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
@@ -1095,7 +1160,11 @@ export default function PartnersDashboard() {
 
             {/* ══ TAB INICIO ═════════════════════════════════════════════════ */}
             {activeTab === "inicio" && clinic && (
-              <DashboardTab clinicId={clinic.id} />
+              <DashboardTab
+                clinicId={clinic.id}
+                onNewBooking={() => { setAgendaAutoOpen(true); setActiveTab("agenda"); }}
+                onNewPatient={() => setActiveTab("patients")}
+              />
             )}
 
             {/* ══ TAB ANALÍTICA ══════════════════════════════════════════════ */}
@@ -1139,28 +1208,6 @@ export default function PartnersDashboard() {
                     )}
                   </a>
 
-                  {/* Instagram */}
-                  <div
-                    className="flex items-center gap-3 px-4 py-3 rounded-2xl border"
-                    style={{ backgroundColor: "#FDF4FF", borderColor: "#E9D5FF" }}
-                  >
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                      style={{ background: "linear-gradient(135deg, #7C3AED, #EC4899)" }}>
-                      <svg viewBox="0 0 24 24" className="w-4.5 h-4.5 fill-white w-5 h-5">
-                        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-                      </svg>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-gray-800">Instagram</p>
-                      <p className="text-[10px] font-semibold" style={{ color: clinic.instagram ? "#7c3aed" : "#9ca3af" }}>
-                        {clinic.instagram ? `@${clinic.instagram.replace("@","")}` : "Sin configurar"}
-                      </p>
-                    </div>
-                    {clinic.instagram && (
-                      <span className="ml-auto w-2 h-2 rounded-full bg-purple-400 animate-pulse shrink-0" />
-                    )}
-                  </div>
-
                   {/* Web Widget */}
                   <a
                     href="/partners/preview"
@@ -1187,6 +1234,7 @@ export default function PartnersDashboard() {
                   boxes={(clinic.config as ClinicConfig).boxes ?? 2}
                   doctors={(clinic.config as ClinicConfig).doctors?.map((d) => d.name) ?? []}
                   scheduleConfig={(clinic.config as ClinicConfig).schedule as Record<string, string> | undefined}
+                  openNewBookingOnMount={agendaAutoOpen}
                 />
               </div>
             )}
@@ -1240,7 +1288,7 @@ export default function PartnersDashboard() {
                     </div>
                     <InfoField label="Teléfono" value={form.phone} editable={editing} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} />
                     <InfoField label="WhatsApp" value={form.whatsapp} editable={editing} onChange={(v) => setForm((f) => ({ ...f, whatsapp: v }))} />
-                    <InfoField label="Instagram" value={form.instagram} editable={editing} onChange={(v) => setForm((f) => ({ ...f, instagram: v }))} />
+
                     <InfoField label="Ubicación" value={form.location} editable={editing} onChange={(v) => setForm((f) => ({ ...f, location: v }))} />
                     <div>
                       <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Plan</p>

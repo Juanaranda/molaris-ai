@@ -216,6 +216,124 @@ function NewPlanModal({
   );
 }
 
+const TIME_OPTIONS = Array.from({ length: 20 }, (_, i) => {
+  const h = Math.floor(i / 2) + 9;
+  const m = i % 2 === 0 ? "00" : "30";
+  return `${String(h).padStart(2, "0")}:${m}`;
+});
+
+function NewBookingFromPatientModal({
+  patient, onClose, onCreated,
+}: {
+  patient: Patient;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [form, setForm] = useState({
+    date: today, time: "10:00", doctor: "", service: "",
+  });
+  const [doctors, setDoctors] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    import("@/lib/auth").then(({ getMe }) =>
+      getMe().then((data) => {
+        const cfg = data?.clinic?.config as { doctors?: { name: string }[] } | undefined;
+        const list = cfg?.doctors?.map((d) => d.name) ?? [];
+        setDoctors(list);
+        if (list.length > 0) setForm((f) => ({ ...f, doctor: list[0] }));
+      })
+    );
+  }, []);
+
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  async function handleSubmit(e: React.SyntheticEvent) {
+    e.preventDefault();
+    if (!form.date || !form.time || !form.doctor) { setError("Fecha, hora y profesional son obligatorios"); return; }
+    setSaving(true); setError("");
+    try {
+      const token = getToken();
+      const res = await fetch(`${API}/api/agenda/bookings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          patientName:  patient.name,
+          patientRut:   patient.rut   ?? undefined,
+          patientPhone: patient.phone ?? undefined,
+          patientEmail: patient.email ?? undefined,
+          date:    form.date,
+          time:    form.time,
+          doctor:  form.doctor,
+          service: form.service || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Error al agendar"); return; }
+      onCreated();
+    } catch { setError("Error de conexión"); }
+    finally { setSaving(false); }
+  }
+
+  const inp = "w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white";
+  const lbl = "block text-xs font-bold text-gray-600 mb-1";
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-2xl w-full max-w-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-black text-gray-900">Nueva cita</h3>
+            <p className="text-xs text-gray-400 mt-0.5">{patient.name}</p>
+          </div>
+          <button onClick={onClose}
+            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500">✕</button>
+        </div>
+        <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-4">
+          <div>
+            <label className={lbl}>Profesional *</label>
+            <select value={form.doctor} onChange={set("doctor")} className={inp}>
+              {doctors.length === 0 && <option value="">Cargando...</option>}
+              {doctors.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={lbl}>Fecha *</label>
+            <input type="date" value={form.date} onChange={set("date")} required className={inp} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={lbl}>Hora *</label>
+              <select value={form.time} onChange={set("time")} className={inp}>
+                {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={lbl}>Servicio</label>
+              <input value={form.service} onChange={set("service")} placeholder="Consulta, limpieza…" className={inp} />
+            </div>
+          </div>
+          {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 transition">
+              Cancelar
+            </button>
+            <button type="submit" disabled={saving || doctors.length === 0}
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50">
+              {saving ? "Agendando…" : "Agendar"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient; onClose: () => void }) {
   const [patient, setPatient] = useState(initialPatient);
   const [tab, setTab] = useState<"history" | "plans" | "quotes">("history");
@@ -224,6 +342,7 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
   const [plans, setPlans] = useState<TreatmentPlan[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [showNewPlan, setShowNewPlan] = useState(false);
+  const [showNewBooking, setShowNewBooking] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
@@ -405,13 +524,21 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
         {/* Tab: History */}
         {tab === "history" && (
           <div className="flex flex-col overflow-hidden" style={{ maxHeight: 440 }}>
-            {patient.pendingCount > 0 && (
-              <div className="px-5 py-2 border-b border-gray-50 flex justify-end">
+            <div className="px-5 py-2 border-b border-gray-50 flex items-center justify-between gap-3">
+              <button
+                onClick={() => setShowNewBooking(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                Nueva cita
+              </button>
+              {patient.pendingCount > 0 && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                   {patient.pendingCount} sin registrar pago
                 </span>
-              </div>
-            )}
+              )}
+            </div>
             <div className="overflow-y-auto">
               {loadingHistory ? (
                 <div className="p-5 space-y-3">
@@ -599,6 +726,21 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
       {showNewPlan && (
         <NewPlanModal patient={patient} onClose={() => setShowNewPlan(false)}
           onCreated={(plan) => { setPlans((ps) => [plan, ...ps]); setShowNewPlan(false); }} />
+      )}
+      {showNewBooking && (
+        <NewBookingFromPatientModal
+          patient={patient}
+          onClose={() => setShowNewBooking(false)}
+          onCreated={() => {
+            setShowNewBooking(false);
+            // Reload history to show the new booking
+            const token = getToken();
+            if (!token || !patient.rut) return;
+            fetch(`${API}/api/patients/${encodeURIComponent(patient.rut)}/history`, {
+              headers: { Authorization: `Bearer ${token}` },
+            }).then((r) => r.json()).then(setHistory).catch(() => {});
+          }}
+        />
       )}
     </div>
   );
@@ -808,12 +950,93 @@ function ImportCSVModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
   );
 }
 
+/* ── NewPatientModal ──────────────────────────────────────────────────── */
+function NewPatientModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [form, setForm] = useState({ name: "", rut: "", phone: "", email: "" });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  async function handleSubmit(e: React.SyntheticEvent) {
+    e.preventDefault();
+    if (!form.name.trim()) { setError("El nombre es obligatorio"); return; }
+    setSaving(true); setError("");
+    try {
+      const token = getToken();
+      const res = await fetch(`${API}/api/patients`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name:  form.name.trim()  || undefined,
+          rut:   form.rut.trim()   || undefined,
+          phone: form.phone.trim() || undefined,
+          email: form.email.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Error al registrar"); return; }
+      onCreated();
+    } catch { setError("Error de conexión"); }
+    finally { setSaving(false); }
+  }
+
+  const inp = "w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500";
+  const lbl = "block text-xs font-bold text-gray-600 mb-1";
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-2xl w-full max-w-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
+          <h3 className="text-base font-black text-gray-900">Nuevo paciente</h3>
+          <button onClick={onClose}
+            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500">✕</button>
+        </div>
+        <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-4">
+          <div>
+            <label className={lbl}>Nombre completo *</label>
+            <input value={form.name} onChange={set("name")} placeholder="Juan Pérez" autoFocus className={inp} />
+          </div>
+          <div>
+            <label className={lbl}>RUT</label>
+            <input value={form.rut} onChange={set("rut")} placeholder="12.345.678-9" className={inp} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={lbl}>Teléfono</label>
+              <input value={form.phone} onChange={set("phone")} placeholder="+56 9 1234 5678" className={inp} />
+            </div>
+            <div>
+              <label className={lbl}>Email</label>
+              <input type="email" value={form.email} onChange={set("email")} placeholder="correo@gmail.com" className={inp} />
+            </div>
+          </div>
+          {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 transition">
+              Cancelar
+            </button>
+            <button type="submit" disabled={saving}
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50">
+              {saving ? "Guardando…" : "Registrar"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 /* ── Main PatientsTab ─────────────────────────────────────────────────── */
 export function PatientsTab() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading]   = useState(true);
   const [search, setSearch]     = useState("");
   const [showImport, setShowImport] = useState(false);
+  const [showNewPatient, setShowNewPatient] = useState(false);
   const [selected, setSelected] = useState<Patient | null>(null);
 
   function loadPatients() {
@@ -851,6 +1074,13 @@ export function PatientsTab() {
         <span className="text-xs font-semibold text-gray-400 shrink-0 hidden sm:block">
           {filtered.length} paciente{filtered.length !== 1 ? "s" : ""}
         </span>
+        <button onClick={() => setShowNewPatient(true)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700 transition shrink-0">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          Nuevo paciente
+        </button>
         <button onClick={() => setShowImport(true)}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-600 hover:border-blue-300 hover:text-blue-600 transition shrink-0">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -935,6 +1165,13 @@ export function PatientsTab() {
       </div>
 
       {selected && <PatientDetail patient={selected} onClose={() => setSelected(null)} />}
+
+      {showNewPatient && (
+        <NewPatientModal
+          onClose={() => setShowNewPatient(false)}
+          onCreated={() => { setShowNewPatient(false); loadPatients(); }}
+        />
+      )}
 
       {showImport && (
         <ImportCSVModal

@@ -10,7 +10,7 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 type Step = 1 | 2;
 
 const BENEFITS = [
-  "Asistente IA que responde 24/7 en WhatsApp, Instagram y tu web",
+  "Asistente IA que responde 24/7 en WhatsApp y tu web",
   "Agendamiento directo sin llamadas ni intermediarios",
   "Lead scoring automático con cada conversación",
   "Panel de control para ver leads y configurar tu clínica",

@@ -5,21 +5,22 @@ import { runReminderCheck } from "../services/notifications/reminderService";
 
 export async function adminRoutes(app: FastifyInstance) {
 
-  // Middleware: solo SUPERADMIN
-  function requireSuperAdmin(req: any, reply: any) {
+  function assertSuperAdmin(req: any, reply: any): { userId: string; role: string; clinicId: string | null } | null {
     let payload;
     try { payload = verifyToken(req.headers.authorization); } catch {
-      return reply.status(401).send({ error: "No autorizado" });
+      reply.status(401).send({ error: "No autorizado" });
+      return null;
     }
     if (payload.role !== "SUPERADMIN") {
-      return reply.status(403).send({ error: "Solo SUPERADMIN" });
+      reply.status(403).send({ error: "Solo SUPERADMIN" });
+      return null;
     }
     return payload;
   }
 
   // GET /api/admin/overview — resumen de todas las clínicas
   app.get("/admin/overview", async (req, reply) => {
-    if (!requireSuperAdmin(req, reply)) return;
+    if (!assertSuperAdmin(req, reply)) return;
 
     const [clinics, totalSessions, totalLeads, totalBookings, usageTotals, usageByClinic, usageByModel, dailyCost] =
       await Promise.all([
@@ -117,7 +118,7 @@ export async function adminRoutes(app: FastifyInstance) {
 
   // GET /api/admin/errors — log de fallos de AI (todas las clínicas)
   app.get<{ Querystring: { days?: string; limit?: string } }>("/admin/errors", async (req, reply) => {
-    if (!requireSuperAdmin(req, reply)) return;
+    if (!assertSuperAdmin(req, reply)) return;
     const days  = Number(req.query.days  ?? 7);
     const limit = Math.min(Number(req.query.limit ?? 100), 500);
     const since = new Date(Date.now() - days * 86400000);
@@ -179,7 +180,7 @@ export async function adminRoutes(app: FastifyInstance) {
 
   // GET /api/admin/models — analytics de modelos (latencia, costo, éxito por modelo)
   app.get<{ Querystring: { days?: string } }>("/admin/models", async (req, reply) => {
-    if (!requireSuperAdmin(req, reply)) return;
+    if (!assertSuperAdmin(req, reply)) return;
     const days  = Number(req.query.days ?? 30);
     const since = new Date(Date.now() - days * 86400000);
 
@@ -251,7 +252,7 @@ export async function adminRoutes(app: FastifyInstance) {
   app.get<{ Params: { id: string }; Querystring: { days?: string } }>(
     "/admin/clinics/:id/usage",
     async (req, reply) => {
-      if (!requireSuperAdmin(req, reply)) return;
+      if (!assertSuperAdmin(req, reply)) return;
 
       const { id } = req.params;
       const days = Number(req.query.days ?? 30);
@@ -301,7 +302,7 @@ export async function adminRoutes(app: FastifyInstance) {
 
   // POST /api/admin/reminders/run — trigger manual para pruebas
   app.post("/admin/reminders/run", async (req, reply) => {
-    if (!requireSuperAdmin(req, reply)) return;
+    if (!assertSuperAdmin(req, reply)) return;
     try {
       await runReminderCheck();
       return reply.send({ ok: true, message: "Reminder check ejecutado" });

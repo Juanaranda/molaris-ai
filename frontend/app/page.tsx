@@ -211,7 +211,7 @@ function ChatMockup({ header, headerBg, messages, inputBg, sendBg, label, sublab
 /* ─── Page ─────────────────────────────────────────────────────────── */
 export default function Home() {
   const problems = [
-    { num: "01", title: "Mensajes sin respuesta", desc: "Pacientes que escriben por WhatsApp o Instagram y esperan horas — y se van a la clínica de al lado." },
+    { num: "01", title: "Mensajes sin respuesta", desc: "Pacientes que escriben por WhatsApp esperan horas sin respuesta — y se van a la clínica de al lado." },
     { num: "02", title: "Agenda gestionada a mano", desc: "Papeles, llamadas y grupos de WhatsApp para coordinar citas le consumen horas valiosas a tu equipo." },
     { num: "03", title: "Sin historial, sin control", desc: "Fichas dispersas, pagos sin registro y planes de tratamiento que no tienen seguimiento real." },
   ];
@@ -223,9 +223,9 @@ export default function Home() {
       bg: "#E8F3F7",
       accent: "#1A5C7A",
       title: "IA que atiende sola",
-      desc: "El asistente responde, califica y agenda en WhatsApp, Instagram y tu sitio web — las 24 horas, sin que nadie de tu equipo intervenga.",
+      desc: "El asistente responde, califica y agenda en WhatsApp y tu sitio web — las 24 horas, sin que nadie de tu equipo intervenga.",
       bullets: [
-        { icon: <IconBot />, text: "Chatbot con IA en 3 canales simultáneos" },
+        { icon: <IconBot />, text: "Chatbot con IA en WhatsApp y web" },
         { icon: <IconTarget />, text: "Lead scoring automático por urgencia e intención" },
         { icon: <IconBell />, text: "Recordatorios de citas el día anterior y 2h antes" },
         { icon: <IconUsers />, text: "Cada conversación queda registrada y calificada" },
@@ -303,7 +303,7 @@ export default function Home() {
               </h1>
 
               <p className="text-base sm:text-lg max-w-md mb-10 animate-fade-up animate-fade-up-delay-2" style={{ color: "#607281" }}>
-                molari.ai atiende pacientes en WhatsApp, Instagram y tu web, gestiona tu agenda, lleva la ficha clínica y te muestra cada métrica en tiempo real.
+                molari.ai atiende pacientes en WhatsApp y tu web, gestiona tu agenda, lleva la ficha clínica y te muestra cada métrica en tiempo real.
               </p>
 
               <div className="flex flex-col gap-3 animate-fade-up animate-fade-up-delay-3">
@@ -347,7 +347,7 @@ export default function Home() {
         <div className="max-w-5xl mx-auto px-6 sm:px-10 py-12 sm:py-14">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8">
             {[
-              { icon: "🤖", value: "IA en 3 canales", label: "WhatsApp, Instagram y tu web — atiende sola las 24 horas" },
+              { icon: "🤖", value: "IA 24/7", label: "WhatsApp y tu web — atiende sola sin que nadie intervenga" },
               { icon: "📅", value: "Agenda incluida", label: "Calendario por profesional, sin pagar otra herramienta" },
               { icon: "🦷", value: "Historial clínico", label: "Notas, planes de tratamiento, odontograma y pagos" },
               { icon: "📊", value: "Analytics en vivo", label: "Ingresos, leads, conversión y rendimiento por doctor" },
@@ -458,18 +458,18 @@ export default function Home() {
               sublabel="El canal favorito de tus pacientes"
             />
             <ChatMockup
-              header={{ name: "galana.dental", sub: "DM · En línea", initial: "G" }}
-              headerBg="linear-gradient(135deg, #7C3AED, #EC4899)"
+              header={{ name: "galana.dental", sub: "Widget web · En línea", initial: "G" }}
+              headerBg="linear-gradient(135deg, #1A5C7A, #0e4560)"
               messages={[
                 { from: "user", text: "Me interesa una consulta de ortodoncia" },
                 { from: "bot",  text: "La Dra. Pérez atiende lun, mié y vie 😊 ¿Qué día?" },
                 { from: "user", text: "El viernes" },
                 { from: "bot",  text: "¡Perfecto! ¿Me das tu nombre? ✨" },
               ]}
-              inputBg="#ffffff"
-              sendBg="#E1306C"
-              label="Instagram DM"
-              sublabel="Captura leads desde tu perfil"
+              inputBg="#f8fafc"
+              sendBg="#1A5C7A"
+              label="Widget web"
+              sublabel="Captura leads desde tu sitio"
             />
             <ChatMockup
               header={{ name: "Galana Clínica Dental", sub: "Asistente virtual", initial: "G" }}
@@ -569,7 +569,7 @@ export default function Home() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-0">
             {[
-              { step: "01", title: "Conectamos tus canales", desc: "WhatsApp Business, Instagram y widget web en una configuración inicial guiada." },
+              { step: "01", title: "Conectamos tus canales", desc: "WhatsApp Business y widget web en una configuración inicial guiada." },
               { step: "02", title: "El asistente atiende 24/7", desc: "Responde, califica y agenda directamente desde la conversación." },
               { step: "03", title: "La agenda se actualiza sola", desc: "Cada cita agendada por IA aparece en tu agenda en tiempo real." },
               { step: "04", title: "Tú ves los resultados", desc: "Dashboard con leads, citas y conversión por canal. Todo en un solo lugar." },

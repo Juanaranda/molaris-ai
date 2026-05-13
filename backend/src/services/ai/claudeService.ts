@@ -415,21 +415,27 @@ export async function getAIResponse({
     replyText = `¡Perfecto ${mergedContext.patientName?.split(" ")[0]}! Tu cita está confirmada. Te contactaremos para recordarte. ¡Hasta pronto! 🦷`;
   }
 
-  // Si el modelo retornó sin texto (solo tool_call o respuesta vacía), pedir respuesta conversacional
+  // Si el modelo retornó sin texto (solo tool_call o respuesta vacía), generar confirmación
   if (!replyText) {
-    console.warn("[AI] Respuesta vacía del modelo — pidiendo follow-up conversacional");
-    try {
-      const followUp = await callOpenRouter(config.openRouter.models.smart, [
-        ...messages,
-        { role: "system", content: "Responde con UN mensaje conversacional corto (máximo 2 oraciones). NO uses markdown. NO uses tools." },
-      ]);
-      replyText = ((followUp.choices?.[0]?.message?.content as string) ?? "").trim();
-    } catch {
-      replyText = "Entendido. ¿En qué más te puedo ayudar?";
+    // Si había una acción de booking, el caller (webhook/chat) construye la confirmación
+    // Para el widget (que no usa bookingAction), generar mensaje apropiado según contexto
+    if (bookingAction) {
+      replyText = ""; // el caller construye la confirmación con los datos reales
+    } else {
+      console.warn("[AI] Respuesta vacía del modelo — pidiendo follow-up conversacional");
+      try {
+        const followUp = await callOpenRouter(config.openRouter.models.smart, [
+          ...messages,
+          { role: "system", content: "Responde con UN mensaje conversacional corto (máximo 2 oraciones). NO uses markdown. NO uses tools. NO llames ninguna función." },
+        ]);
+        replyText = ((followUp.choices?.[0]?.message?.content as string) ?? "").trim();
+      } catch {
+        replyText = "Entendido, ya tengo tus datos. ¿Hay algo más en que te pueda ayudar?";
+      }
     }
   }
 
-  if (!replyText) replyText = "Entendido. ¿En qué más te puedo ayudar?";
+  if (!replyText && !bookingAction) replyText = "Entendido, ya tengo tus datos. ¿Hay algo más en que te pueda ayudar?";
 
   // Capa post-LLM: si la respuesta se salió del dominio, reemplazar (Juan lo salta — habla de molari.ai)
   if (!overrideSystemPrompt && isOutOfDomain(replyText)) {

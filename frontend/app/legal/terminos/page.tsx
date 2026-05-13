@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export const metadata = { title: "Términos y Condiciones — molari.ai" };
 
-const LAST_UPDATED = "23 de abril de 2026";
+const LAST_UPDATED = "11 de mayo de 2026";
 
 export default function TerminosPage() {
   return (
@@ -51,7 +51,7 @@ function LegalContent() {
     <div>
       <Section title="1. Descripción del servicio">
         <p>
-          molari.ai es una plataforma de asistente virtual con inteligencia artificial diseñada para clínicas dentales. Permite automatizar la atención inicial de pacientes a través de canales digitales (web, WhatsApp, Instagram), facilitar el agendamiento de citas y gestionar leads de manera eficiente.
+          molari.ai es una plataforma de asistente virtual con inteligencia artificial diseñada para clínicas dentales. Permite automatizar la atención inicial de pacientes a través de canales digitales (web y WhatsApp), facilitar el agendamiento de citas y gestionar leads de manera eficiente.
         </p>
         <p>
           El servicio es provisto por molari.ai, con domicilio en Santiago, Chile, a clínicas dentales que se registran como clientes ("la Clínica").
@@ -96,16 +96,35 @@ function LegalContent() {
 
       <Section title="5. Propiedad de los datos">
         <p>
-          Los datos de pacientes que se generen a través de la plataforma (nombre, RUT, correo, conversaciones) pertenecen a la Clínica. molari.ai actúa como encargado del tratamiento de datos en los términos definidos en la Política de Privacidad y en el Acuerdo de Procesamiento de Datos (DPA) aplicable.
+          Los datos de pacientes que se generen a través de la plataforma (nombre, RUT, correo, teléfono, historial de citas, conversaciones, odontogramas, cotizaciones y planes de tratamiento) pertenecen a la Clínica. molari.ai actúa como encargado del tratamiento de datos en los términos definidos en la Política de Privacidad y en el Acuerdo de Procesamiento de Datos (DPA) aplicable.
         </p>
         <p>
           molari.ai no utilizará los datos de los pacientes de la Clínica para entrenar modelos de inteligencia artificial propios ni para fines comerciales distintos a la prestación del servicio contratado.
         </p>
       </Section>
 
+      <Section title="5a. Herramientas clínicas — odontograma, cotizaciones y planes de tratamiento">
+        <p>
+          La plataforma incluye herramientas de apoyo a la gestión clínica: odontograma digital, generador de cotizaciones y módulo de planes de tratamiento. Estas herramientas son de uso exclusivamente administrativo y de referencia interna de la Clínica.
+        </p>
+        <ul className="list-disc pl-5 flex flex-col gap-1.5">
+          <li>El odontograma y las cotizaciones generadas en la plataforma no constituyen diagnóstico clínico ni prescripción médica. Son registros de referencia que deben ser validados por el profesional de salud a cargo.</li>
+          <li>Los planes de tratamiento creados en la plataforma son documentos internos de la Clínica. La Clínica es responsable de obtener el consentimiento informado del paciente según la normativa sanitaria vigente.</li>
+          <li>La Clínica es responsable de la exactitud de la información ingresada en estas herramientas y de su uso conforme a la ética profesional y la ley.</li>
+        </ul>
+      </Section>
+
       <Section title="6. Proveedores tecnológicos terceros">
         <p>
-          molari.ai utiliza servicios de terceros para la prestación del servicio, entre ellos proveedores de modelos de inteligencia artificial (OpenRouter, Anthropic) y servicios de infraestructura. Estos terceros tienen sus propias políticas de privacidad y términos de uso. La Clínica reconoce y acepta que el procesamiento de conversaciones puede involucrar a estos proveedores.
+          molari.ai utiliza servicios de terceros para la prestación del servicio, entre ellos:
+        </p>
+        <ul className="list-disc pl-5 flex flex-col gap-1.5">
+          <li><strong>Modelos de inteligencia artificial:</strong> OpenRouter, Anthropic (Claude), Google (Gemini). Las conversaciones del chatbot pueden ser procesadas por estos proveedores según sus propios términos de uso.</li>
+          <li><strong>Mensajería WhatsApp:</strong> Twilio y la API de WhatsApp Business de Meta. El uso de este canal está sujeto a las políticas de uso aceptable de Meta y Twilio. molari.ai no garantiza la disponibilidad continua del canal WhatsApp, ya que depende de la aprobación y continuidad de Meta.</li>
+          <li><strong>Infraestructura en la nube:</strong> Railway y proveedores de base de datos. Los datos se almacenan en servidores ubicados en Estados Unidos con cifrado en tránsito y en reposo.</li>
+        </ul>
+        <p>
+          La Clínica reconoce y acepta que el procesamiento de conversaciones puede involucrar a estos proveedores y sus respectivas jurisdicciones.
         </p>
       </Section>
 

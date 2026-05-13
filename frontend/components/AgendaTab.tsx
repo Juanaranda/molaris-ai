@@ -402,11 +402,11 @@ function NewBookingModal({ doctors, initialDate, boxes, onClose, onCreate }: {
             </select>
           </div>
           {/* Date + Time + Box */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className={lbl}>Fecha *</label>
-              <input type="date" value={form.date} onChange={set("date")} required className={inp} />
-            </div>
+          <div>
+            <label className={lbl}>Fecha *</label>
+            <input type="date" value={form.date} onChange={set("date")} required className={inp} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={lbl}>Hora *</label>
               <select value={form.time} onChange={set("time")} className={inp}>
@@ -464,10 +464,12 @@ function AdminAgenda({
   boxes,
   doctors: doctorNames = [],
   scheduleConfig,
+  openNewBookingOnMount = false,
 }: {
   boxes: number;
   doctors?: string[];
   scheduleConfig?: Record<string, string>;
+  openNewBookingOnMount?: boolean;
 }) {
   const palMap    = buildPalMap(doctorNames);
   const workHours = parseWorkHours(scheduleConfig);
@@ -477,7 +479,7 @@ function AdminAgenda({
   const [selectedDate, setSelectedDate] = useState(toDateStr(new Date()));
   const [doctorFilter, setDoctorFilter] = useState<string | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [showNew, setShowNew]         = useState(false);
+  const [showNew, setShowNew]         = useState(openNewBookingOnMount);
   const [quotePatient, setQuotePatient] = useState<{ name: string; rut: string | null } | null>(null);
 
   const fetchWeek = useCallback(async (start: Date) => {
@@ -996,14 +998,16 @@ export function AgendaTab({
   boxes = 2,
   doctors,
   scheduleConfig,
+  openNewBookingOnMount = false,
 }: {
   user: AuthUser;
   boxes?: number;
   doctors?: string[];
   scheduleConfig?: Record<string, string>;
+  openNewBookingOnMount?: boolean;
 }) {
   const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
   return isAdmin
-    ? <AdminAgenda boxes={boxes} doctors={doctors} scheduleConfig={scheduleConfig} />
+    ? <AdminAgenda boxes={boxes} doctors={doctors} scheduleConfig={scheduleConfig} openNewBookingOnMount={openNewBookingOnMount} />
     : <DoctorAgenda user={user} />;
 }

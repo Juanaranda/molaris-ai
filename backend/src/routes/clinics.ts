@@ -451,8 +451,13 @@ export async function clinicRoutes(app: FastifyInstance) {
         return reply.status(400).send({ error: "Estado inválido" });
       }
 
+      const booking = await prisma.booking.findFirst({
+        where: { id: req.params.bookingId, clinicId: req.params.id },
+      });
+      if (!booking) return reply.status(404).send({ error: "Cita no encontrada" });
+
       const updated = await prisma.booking.update({
-        where: { id: req.params.bookingId },
+        where: { id: booking.id },
         data: { status },
       });
 
