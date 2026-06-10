@@ -233,10 +233,7 @@ function ToothCrownAI({ w, h, fdi, type, jaw, rot, state, src }: {
       : type === "incisor" ? 2.9 : type === "canine" ? 2.5 : 2.2;
   const iw = w * S, ih = h * S;
 
-  const filterRef =
-    state === "active" || state === "selected" ? "url(#og-glow)"
-    : state === "missing" ? undefined
-    : "url(#og-soft)";
+  const filterRef = state === "active" || state === "selected" ? "url(#og-glow)" : undefined;
 
   // Counter-rotate so the tooth image stays visually upright despite the arc rotation on the parent.
   // Then apply per-quadrant mirror: Q4 mirror-X, Q2 mirror-Y, Q1 mirror-both, Q3 none.
@@ -311,10 +308,7 @@ function ToothCrown({ w, h, type, jaw, state }: {
     : state === "primary"   ? "#D4A060"
     : "#9FBCCC";
 
-  const filterRef =
-    state === "active" || state === "selected" ? "url(#og-glow)"
-    : state === "missing" ? undefined
-    : "url(#og-soft)";
+  const filterRef = state === "active" || state === "selected" ? "url(#og-glow)" : undefined;
   const hiOpacity = state === "missing" ? 0 : state === "active" || state === "selected" ? 0.15 : 0.44;
   const isNatural = state === "normal" || state === "primary";
 
@@ -749,10 +743,6 @@ function OdontogramPicker({
           {/* Glow para seleccionado/activo */}
           <filter id="og-glow" x="-32%" y="-32%" width="164%" height="164%">
             <feDropShadow dx="0" dy="2" stdDeviation="3.2" floodColor="#1A5C7A" floodOpacity="0.5" />
-          </filter>
-          {/* Sombra ambiental sutil — despega la pieza del tejido gingival */}
-          <filter id="og-soft" x="-30%" y="-30%" width="160%" height="160%">
-            <feDropShadow dx="0" dy="1.1" stdDeviation="1.4" floodColor="#5A4632" floodOpacity="0.3" />
           </filter>
         </defs>
         {/* ── Maxilar superior ── */}
