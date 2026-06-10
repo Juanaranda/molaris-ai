@@ -63,27 +63,34 @@ type ToothState = "normal" | "primary" | "selected" | "active" | "treatment" | "
 
 const TOOTH_PATHS: Record<ToothType, { crown: string; roots: string[]; detail?: string }> = {
   incisor: {
-    crown: "M10,26 L10,9 Q10,4 15,4 L25,4 Q30,4 30,9 L30,26 Z",
-    roots: ["M13,26 Q14,44 17,52 Q20,58 23,52 Q26,44 27,26 Z"],
-    detail: "M14,9 L14,20",
+    // Trapezoidal crown, wider at cervical, subtle mamelons at incisal edge
+    crown: "M12,26 C11,24 11,18 13,12 C14,8 15,5 17,4 Q19,6 20,5 Q21,6 23,4 C25,5 26,8 27,12 C29,18 29,24 28,26 Z",
+    roots: ["M13,26 C12,35 12,45 14,53 Q17,60 20,60 Q23,60 26,53 C28,45 28,35 27,26 Z"],
+    detail: "M16,12 L16,23",
   },
   canine: {
-    crown: "M9,26 Q8,13 20,4 Q32,13 31,26 Z",
-    roots: ["M13,26 Q15,46 18,55 Q20,60 22,55 Q25,46 27,26 Z"],
-    detail: "M20,7 L20,20",
+    // Pentagonal crown with pronounced cusp tip
+    crown: "M11,26 C10,22 10,15 13,9 C15,5 17,4 20,4 C23,4 25,5 27,9 C30,15 30,22 29,26 Z",
+    roots: ["M13,26 C12,37 11,49 13,57 Q15,62 20,62 Q25,62 27,57 C29,49 28,37 27,26 Z"],
+    detail: "M20,6 L20,22",
   },
   premolar: {
-    crown: "M8,26 Q7,9 13,5 Q16,9 20,6 Q24,9 27,5 Q33,9 32,26 Z",
-    roots: ["M12,26 Q14,44 17,53 Q20,59 23,53 Q26,44 28,26 Z"],
-    detail: "M20,8 L20,22",
+    // Bicuspid crown — two cusps with valley between them
+    crown: "M10,26 C9,22 9,15 11,10 Q13,5 16,5 C17,9 18,12 20,10 C22,12 23,9 24,5 Q27,5 29,10 C31,15 31,22 30,26 Z",
+    roots: [
+      "M12,26 C11,34 10,44 12,52 Q14,58 17,57 Q19,53 18,44 C17,35 15,30 14,26 Z",
+      "M23,26 C25,30 27,35 28,44 Q29,53 31,57 Q34,58 35,52 C36,44 35,34 34,26 Z",
+    ],
+    detail: "M20,7 L20,23 M14,13 Q20,17 26,13",
   },
   molar: {
-    crown: "M6,26 Q5,9 10,5 Q13,8 16,5 Q18,8 20,6 Q22,8 24,5 Q27,8 30,5 Q35,9 34,26 Z",
+    // Wide crown with 4 cusps and cross-shaped central fissure
+    crown: "M7,26 C6,21 6,14 8,10 Q10,5 13,5 C14,9 15,12 17,9 Q19,7 20,8 Q21,7 23,9 C25,12 26,9 27,5 Q30,5 32,10 C34,14 34,21 33,26 Z",
     roots: [
-      "M8,26 Q9,42 11,50 Q13,56 15,50 Q16,42 16,26 Z",
-      "M24,26 Q24,42 25,50 Q27,56 29,50 Q31,42 32,26 Z",
+      "M10,26 C9,34 8,44 10,52 Q12,58 15,57 Q17,53 16,44 C15,35 13,30 12,26 Z",
+      "M26,26 C26,30 28,35 30,44 Q31,53 33,57 Q36,58 37,52 C38,44 37,34 36,26 Z",
     ],
-    detail: "M11,13 Q20,17 29,13",
+    detail: "M20,8 L20,24 M11,17 Q20,21 29,17",
   },
 };
 
@@ -106,16 +113,25 @@ function ToothGlyph({ type, jaw, state, scale = 1 }: {
     <svg viewBox="0 0 40 64" width={w} height={h} aria-hidden style={{ display: "block" }}>
       <g transform={jaw === "upper" ? "translate(0,64) scale(1,-1)" : undefined}>
         {p.roots.map((d, i) => (
-          <path key={i} d={d} fill={s.root} stroke={s.stroke} strokeWidth={s.sw * 0.85} strokeLinejoin="round" />
+          <path key={i} d={d} fill={s.root} stroke={s.stroke} strokeWidth={s.sw * 0.85}
+            strokeLinejoin="round" strokeLinecap="round" />
         ))}
-        <path d={p.crown} fill={s.crown} stroke={s.stroke} strokeWidth={s.sw} strokeLinejoin="round" />
-        {state !== "missing" && p.detail && (
-          <path d={p.detail} fill="none" stroke={s.stroke} strokeWidth={0.8} strokeLinecap="round" opacity={0.45} />
+        <path d={p.crown} fill={s.crown} stroke={s.stroke} strokeWidth={s.sw}
+          strokeLinejoin="round" strokeLinecap="round" />
+        {/* reflejo especular sobre el esmalte */}
+        {state !== "missing" && (
+          <path d={p.crown} fill="url(#od-hl)" />
         )}
-        {/* línea cervical */}
-        <path d="M8,26 L32,26" stroke={s.stroke} strokeWidth={0.7} opacity={0.5} />
+        {/* surcos / detalle anatómico */}
+        {state !== "missing" && p.detail && (
+          <path d={p.detail} fill="none" stroke={s.stroke} strokeWidth={0.85}
+            strokeLinecap="round" strokeLinejoin="round" opacity={0.38} />
+        )}
+        {/* línea cervical curva */}
+        <path d="M9,26 Q20,28 31,26" fill="none" stroke={s.stroke} strokeWidth={0.65} opacity={0.4} />
         {state === "missing" && (
-          <g stroke="#EF4444" strokeWidth={2.4} strokeLinecap="round" transform={jaw === "upper" ? "translate(0,64) scale(1,-1)" : undefined}>
+          <g stroke="#EF4444" strokeWidth={2.4} strokeLinecap="round"
+            transform={jaw === "upper" ? "translate(0,64) scale(1,-1)" : undefined}>
             <line x1={11} y1={20} x2={29} y2={44} />
             <line x1={29} y1={20} x2={11} y2={44} />
           </g>
@@ -130,9 +146,17 @@ function SharedDefs() {
   return (
     <svg width={0} height={0} style={{ position: "absolute" }} aria-hidden>
       <defs>
-        <linearGradient id="od-crown" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#FAF6EC" /><stop offset="100%" stopColor="#E3D4B8" />
-        </linearGradient>
+        {/* Corona: gradiente radial para profundidad de esmalte */}
+        <radialGradient id="od-crown" cx="38%" cy="32%" r="65%" gradientUnits="objectBoundingBox">
+          <stop offset="0%"   stopColor="#FFFDF6" />
+          <stop offset="55%"  stopColor="#EFE4CC" />
+          <stop offset="100%" stopColor="#DBC898" />
+        </radialGradient>
+        {/* Overlay especular — reflejo de luz sobre el esmalte */}
+        <radialGradient id="od-hl" cx="16" cy="12" r="14" gradientUnits="userSpaceOnUse">
+          <stop offset="0%"   stopColor="#FFFFFF" stopOpacity="0.52" />
+          <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
+        </radialGradient>
         <linearGradient id="od-root" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#EFE7D4" /><stop offset="100%" stopColor="#DCCBA6" />
         </linearGradient>
