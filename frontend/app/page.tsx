@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { SalesChat } from "@/components/SalesChat";
 
 /* ─── Icons ─────────────────────────────────────────────────────────── */
 function IconBot() {
@@ -331,11 +332,11 @@ export default function Home() {
             Acceder
           </Link>
           <Link
-            href="/demo/galana"
+            href="#juan"
             className="text-sm font-semibold px-5 py-2 rounded-full text-white transition-opacity hover:opacity-90"
             style={{ backgroundColor: "#D95F45" }}
           >
-            Ver demo
+            Hablar con Juan
           </Link>
         </div>
       </nav>
@@ -650,6 +651,44 @@ export default function Home() {
                 <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>{item.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* JUAN — SALES AGENT */}
+      <section id="juan" className="py-16 sm:py-24" style={{ backgroundColor: "#0B2F42" }}>
+        <div className="max-w-5xl mx-auto px-6 sm:px-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            {/* Copy */}
+            <div>
+              <span className="inline-flex items-center gap-2 text-xs font-bold px-4 py-1.5 rounded-full mb-6" style={{ backgroundColor: "rgba(217,95,69,0.15)", color: "#D95F45", border: "1px solid rgba(217,95,69,0.3)" }}>
+                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#D95F45" }} />
+                Habla con Juan
+              </span>
+              <h2 className="font-display text-3xl sm:text-4xl font-bold text-white mb-4">
+                ¿Tienes dudas?<br />
+                <span style={{ color: "#D95F45" }}>Pregúntale a Juan.</span>
+              </h2>
+              <p className="text-sm sm:text-base mb-6" style={{ color: "rgba(255,255,255,0.6)" }}>
+                Juan es el asistente virtual de molari.ai. Conoce todo sobre la plataforma, los planes y cómo puede ayudar a tu clínica. Hazle las preguntas que quieras — sin compromiso.
+              </p>
+              <ul className="flex flex-col gap-2.5 text-sm mb-8">
+                {[
+                  "¿Cuánto cuesta y qué incluye cada plan?",
+                  "¿En qué se diferencia de Vambe o Clienreach?",
+                  "¿Cómo funciona el agendamiento automático?",
+                  "¿Se puede integrar con mi WhatsApp actual?",
+                ].map((q) => (
+                  <li key={q} className="flex items-center gap-2.5" style={{ color: "rgba(255,255,255,0.7)" }}>
+                    <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "rgba(217,95,69,0.2)", color: "#D95F45" }}>?</span>
+                    {q}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Powered by molari.ai · IA especializada en clínicas dentales</p>
+            </div>
+            {/* Chat */}
+            <SalesChat />
           </div>
         </div>
       </section>

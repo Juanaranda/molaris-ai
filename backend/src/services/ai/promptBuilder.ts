@@ -40,7 +40,8 @@ function formatService(s: Service): string {
 const DAY_NAMES = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 
 export function buildSystemPrompt(clinic: Clinic): string {
-  const cfg = clinic.config as unknown as ClinicConfig;
+  const cfg = clinic.config as unknown as ClinicConfig & { customSystemPrompt?: string };
+  if (cfg.customSystemPrompt) return cfg.customSystemPrompt;
   const services = cfg.services ?? [];
   const schedule = cfg.schedule ?? { weekdays: "Lunes a Viernes: 9:00 - 18:00", saturday: "Sábado: cerrado", sunday: "Domingo: cerrado" };
   const fixed    = services.filter((s) => s.pricingType === "fixed" || s.pricingType === "range");
