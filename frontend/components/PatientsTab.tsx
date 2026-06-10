@@ -428,7 +428,7 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-2xl w-full max-w-2xl overflow-hidden">
+      <div className={`bg-white rounded-2xl border border-gray-100 shadow-2xl w-full overflow-hidden transition-all ${tab === "odontogram" ? "max-w-3xl" : "max-w-2xl"}`}>
         {/* Header */}
         <div className="bg-gradient-to-br from-slate-800 to-slate-700 px-7 py-6">
           <div className="flex items-start justify-between">
@@ -669,7 +669,7 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
 
         {/* Tab: Odontograma */}
         {tab === "odontogram" && (
-          <div className="overflow-y-auto p-4" style={{ maxHeight: 440 }}>
+          <div className="overflow-y-auto p-4" style={{ maxHeight: 520 }}>
             {loadingOdonto ? (
               <div className="h-64 bg-gray-100 rounded-2xl animate-pulse" />
             ) : (
