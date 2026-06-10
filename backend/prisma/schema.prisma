@@ -29,12 +29,14 @@ model Clinic {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  patients     Patient[]
-  sessions     Session[]
-  bookings     Booking[]
-  partnerUsers PartnerUser[]
-  patientUsers PatientUser[]
-  usageEvents  UsageEvent[]
+  patients        Patient[]
+  sessions        Session[]
+  bookings        Booking[]
+  partnerUsers    PartnerUser[]
+  patientUsers    PatientUser[]
+  usageEvents     UsageEvent[]
+  treatmentPlans  TreatmentPlan[]
+  dentalQuotes    DentalQuote[]
 
   @@map("clinics")
 }
@@ -118,10 +120,12 @@ model Session {
   clinic    Clinic   @relation(fields: [clinicId], references: [id])
   patientId String?
   patient   Patient? @relation(fields: [patientId], references: [id])
-  channel   String   @default("web")
-  status    String   @default("open")  // "open" | "booked" | "closed"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  channel    String   @default("web")
+  isSandbox  Boolean  @default(false)  // true = sesión de prueba desde /partners/preview
+  status     String   @default("open")  // "open" | "booked" | "closed"
+  leadScore  Int      @default(0)       // 0-100, calculado por leadScoring.ts
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   messages  Message[]
   context   PatientContext?
@@ -162,21 +166,93 @@ model PatientContext {
 
 // ─── EVENTOS DE USO (MONITOREO INTERNO) ──────────────────────────────────────
 model UsageEvent {
-  id         String   @id @default(cuid())
-  clinicId   String
-  clinic     Clinic   @relation(fields: [clinicId], references: [id])
-  sessionId  String?
-  model      String
-  tier       String   // "fast" | "balanced" | "smart"
-  tokensIn   Int      @default(0)
-  tokensOut  Int      @default(0)
-  costUsd    Float    @default(0)
-  latencyMs  Int?
-  createdAt  DateTime @default(now())
+  id           String   @id @default(cuid())
+  clinicId     String
+  clinic       Clinic   @relation(fields: [clinicId], references: [id])
+  sessionId    String?
+  model        String
+  tier         String   // "fast" | "balanced" | "smart"
+  tokensIn     Int      @default(0)
+  tokensOut    Int      @default(0)
+  costUsd      Float    @default(0)
+  latencyMs    Int?
+  success      Boolean  @default(true)
+  errorType    String?  // "timeout" | "rate_limit" | "content_filter" | "model_error" | "parse_error" | "unknown"
+  errorMessage String?
+  isSandbox    Boolean  @default(false)
+  channel      String?  // "web" | "whatsapp" | "sandbox" | "demo"
+  createdAt    DateTime @default(now())
 
   @@index([clinicId])
   @@index([createdAt])
+  @@index([success])
   @@map("usage_events")
+}
+
+// ─── PLANES DE TRATAMIENTO ───────────────────────────────────────────────────
+model TreatmentPlan {
+  id          String    @id @default(cuid())
+  clinicId    String
+  clinic      Clinic    @relation(fields: [clinicId], references: [id])
+  patientRut  String?
+  patientName String
+  doctor      String?
+  title       String                        // "Ortodoncia completa", "Implante superior"
+  description String?
+  totalAmount Float?                        // Monto total acordado (CLP)
+  amountPaid  Float     @default(0)         // Monto pagado hasta ahora
+  sessions    Int       @default(1)         // Número de sesiones planificadas
+  sessionsCompleted Int @default(0)
+  status      String    @default("active")  // "active" | "completed" | "cancelled" | "paused"
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([clinicId])
+  @@index([patientRut])
+  @@map("treatment_plans")
+}
+
+// ─── PRESUPUESTOS DENTALES (ODONTOGRAMA) ─────────────────────────────────────
+model DentalQuote {
+  id          String           @id @default(cuid())
+  clinicId    String
+  clinic      Clinic           @relation(fields: [clinicId], references: [id])
+  patientRut  String?
+  patientName String
+  doctor      String?
+  status      String           @default("draft") // "draft" | "sent" | "accepted" | "rejected"
+  discount    Float            @default(0)        // % descuento general
+  totalAmount Float            @default(0)        // calculado
+  notes       String?
+  paymentInfo String?
+  accepted    Boolean          @default(false)
+  sentAt      DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  items       DentalQuoteItem[]
+
+  @@index([clinicId])
+  @@index([patientRut])
+  @@map("dental_quotes")
+}
+
+model DentalQuoteItem {
+  id         String      @id @default(cuid())
+  quoteId    String
+  quote      DentalQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  toothFDI   String?     // "1.1", "3.6", null = no asociada a pieza
+  surfaces   String?     // "V,D,O" — comma-separated
+  prestacion String      // "Endodoncia", "Implante", "Corona"...
+  unitPrice  Float
+  quantity   Int         @default(1)
+  discount   Float       @default(0)
+  total      Float
+
+  @@map("dental_quote_items")
 }
 
 // ─── BOOKINGS (CITAS CONFIRMADAS) ────────────────────────────────────────────

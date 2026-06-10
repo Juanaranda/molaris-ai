@@ -31,7 +31,7 @@ export function DemoSection() {
                 href="/login"
                 className="text-sm text-blue-600 hover:text-blue-700 font-medium underline underline-offset-2"
               >
-                Accede al portal para configurar tu clínica →
+                Accede al portal para configurar tu clínica
               </Link>
             </p>
           </>

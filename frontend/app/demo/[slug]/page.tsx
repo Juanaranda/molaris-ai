@@ -12,19 +12,17 @@ function DemoContent({ slug }: { slug: string }) {
 
   return (
     <div className="flex-1 max-w-xl mx-auto w-full px-4 py-10 flex flex-col gap-6">
-      {isWelcome && (
-        <div className="rounded-2xl p-5 border text-sm flex flex-col gap-1"
-          style={{ backgroundColor: "#EEF7F3", borderColor: "#A8D5C2", color: "#1B6B4A" }}>
-          <p className="font-semibold text-base">¡Bienvenido a molari.ai! 🎉</p>
-          <p style={{ color: "#2D8A62" }}>
-            Este es tu asistente virtual configurado para tu clínica. Pruébalo ahora y cuando estés listo,{" "}
-            <Link href="/partners/dashboard" className="font-semibold underline underline-offset-2 hover:opacity-80">
-              ve al panel para agregar tus doctores y servicios →
-            </Link>
-          </p>
-        </div>
-      )}
-      <ChatDemo clinicSlug={slug} />
+      <div className="rounded-2xl p-5 border text-sm flex flex-col gap-1"
+        style={{ backgroundColor: "#E8F3F7", borderColor: "#B8D9EA", color: "#0B2F42" }}>
+        <p className="font-semibold text-base">Demo en vivo de molari.ai</p>
+        <p style={{ color: "#1A5C7A" }}>
+          Estás hablando con <strong>Juan</strong>, el agente de molari.ai. Él te explicará cómo funciona el sistema y cómo sería el asistente real de tu clínica.{" "}
+          <Link href="/register" className="font-semibold underline underline-offset-2 hover:opacity-80">
+            Registra tu clínica gratis
+          </Link>
+        </p>
+      </div>
+      <ChatDemo clinicSlug={slug} isDemoMode={true} />
     </div>
   );
 }
@@ -45,7 +43,7 @@ export default function DemoPage({ params }: { params: Promise<{ slug: string }>
           <Link href="/partners/dashboard"
             className="text-xs font-semibold px-3 py-1.5 rounded-full transition-colors hover:opacity-80"
             style={{ backgroundColor: "var(--teal-dark, #0B2F42)", color: "white" }}>
-            Mi panel →
+            Mi panel
           </Link>
         </div>
       </nav>

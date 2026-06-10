@@ -52,7 +52,18 @@ export async function authRoutes(app: FastifyInstance) {
         role: user.role,
         clinicId: user.clinicId,
       },
-      clinic: user.clinic,
+      clinic: user.clinic ? {
+        id:       user.clinic.id,
+        slug:     user.clinic.slug,
+        name:     user.clinic.name,
+        plan:     user.clinic.plan,
+        active:   user.clinic.active,
+        phone:    user.clinic.phone,
+        whatsapp: user.clinic.whatsapp,
+        instagram: user.clinic.instagram,
+        location: user.clinic.location,
+        config:   user.clinic.config,
+      } : null,
     });
   });
 
@@ -82,7 +93,18 @@ export async function authRoutes(app: FastifyInstance) {
         role: user.role,
         clinicId: user.clinicId,
       },
-      clinic: user.clinic,
+      clinic: user.clinic ? {
+        id:       user.clinic.id,
+        slug:     user.clinic.slug,
+        name:     user.clinic.name,
+        plan:     user.clinic.plan,
+        active:   user.clinic.active,
+        phone:    user.clinic.phone,
+        whatsapp: user.clinic.whatsapp,
+        instagram: user.clinic.instagram,
+        location: user.clinic.location,
+        config:   user.clinic.config,
+      } : null,
     });
   });
 }

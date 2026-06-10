@@ -6,7 +6,24 @@ export interface DoctorRow {
   name: string;
   specialty: string;
   schedule: string;
+  days?: string[];
   services?: string[];
+}
+
+const DAY_LABELS: Record<string, string> = {
+  monday: "Lun", tuesday: "Mar", wednesday: "Mié",
+  thursday: "Jue", friday: "Vie", saturday: "Sáb", sunday: "Dom",
+};
+const DAY_ORDER = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+
+function formatDays(days: string[]): string {
+  return DAY_ORDER.filter((d) => days.includes(d)).map((d) => DAY_LABELS[d]).join("/");
+}
+
+function displaySchedule(doc: DoctorRow): string {
+  if (doc.schedule?.trim()) return doc.schedule;
+  if (doc.days && doc.days.length > 0) return formatDays(doc.days);
+  return "—";
 }
 
 interface Props {
@@ -150,7 +167,7 @@ export function DoctorsEditor({ doctors, boxes, canEdit, onSave }: Props) {
               <tr key={i}>
                 <td className="py-3 font-medium text-gray-800">{doc.name}</td>
                 <td className="py-3 text-gray-600">{doc.specialty}</td>
-                <td className="py-3 text-gray-600 hidden sm:table-cell">{doc.schedule}</td>
+                <td className="py-3 text-gray-600 hidden sm:table-cell">{displaySchedule(doc)}</td>
                 <td className="py-3 text-gray-500 text-xs hidden md:table-cell max-w-[200px] truncate">
                   {doc.services && doc.services.length > 0 ? doc.services.join(", ") : "—"}
                 </td>

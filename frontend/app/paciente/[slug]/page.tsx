@@ -190,7 +190,7 @@ export default function PatientPortal() {
                 type="submit" disabled={loginLoading}
                 className="w-full bg-gray-900 text-white font-semibold py-3 rounded-xl text-sm hover:bg-gray-800 disabled:opacity-50 transition-colors"
               >
-                {loginLoading ? "Ingresando..." : "Entrar →"}
+                {loginLoading ? "Ingresando..." : "Entrar"}
               </button>
             </form>
             <p className="text-xs text-gray-400 text-center mt-4">
@@ -247,7 +247,7 @@ export default function PatientPortal() {
                 </p>
                 {view === "upcoming" && (
                   <Link href={`/book/${slug}`} className="text-sm text-blue-600 mt-2 inline-block hover:underline">
-                    Agendar una cita →
+                    Agendar una cita
                   </Link>
                 )}
               </div>

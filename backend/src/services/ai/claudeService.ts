@@ -29,6 +29,7 @@ export interface AIRequestParams {
   sessionId: string;
   currentContext?: Partial<PatientContextUpdate>;
   availabilityHint?: string;
+  overrideSystemPrompt?: string;
 }
 
 export interface BookingAction {
@@ -269,6 +270,7 @@ export async function getAIResponse({
   sessionId,
   currentContext = {},
   availabilityHint,
+  overrideSystemPrompt,
 }: AIRequestParams): Promise<AIResponse> {
 
   // Capa 1: rate limit por sesión (async — puede recuperar desde DB)
@@ -280,8 +282,8 @@ export async function getAIResponse({
     };
   }
 
-  // Capa 2: pre-filtro de tópico (sin costo de LLM)
-  const guard = checkTopic(message);
+  // Capa 2: pre-filtro de tópico (sin costo de LLM) — Juan en modo demo lo salta
+  const guard = overrideSystemPrompt ? { allowed: true as const } : checkTopic(message);
   if (!guard.allowed) {
     appendToHistory(sessionId, "user", message);
     const reply =
@@ -292,8 +294,8 @@ export async function getAIResponse({
     return { reply, context: null, isFarewell: false };
   }
 
-  const systemPrompt = buildSystemPrompt(clinic);
-  const contextHint  = buildContextHint(message, clinic.config);
+  const systemPrompt = overrideSystemPrompt ?? buildSystemPrompt(clinic);
+  const contextHint  = overrideSystemPrompt ? undefined : buildContextHint(message, clinic.config);
   const stateHint    = buildStateHint(currentContext);
   appendToHistory(sessionId, "user", message);
   const history = await getHistory(sessionId);
@@ -413,24 +415,30 @@ export async function getAIResponse({
     replyText = `¡Perfecto ${mergedContext.patientName?.split(" ")[0]}! Tu cita está confirmada. Te contactaremos para recordarte. ¡Hasta pronto! 🦷`;
   }
 
-  // Si el modelo retornó sin texto (solo tool_call o respuesta vacía), pedir respuesta conversacional
+  // Si el modelo retornó sin texto (solo tool_call o respuesta vacía), generar confirmación
   if (!replyText) {
-    console.warn("[AI] Respuesta vacía del modelo — pidiendo follow-up conversacional");
-    try {
-      const followUp = await callOpenRouter(config.openRouter.models.smart, [
-        ...messages,
-        { role: "system", content: "Responde con UN mensaje conversacional corto (máximo 2 oraciones). NO uses markdown. NO uses tools." },
-      ]);
-      replyText = ((followUp.choices?.[0]?.message?.content as string) ?? "").trim();
-    } catch {
-      replyText = "Entendido. ¿En qué más te puedo ayudar?";
+    // Si había una acción de booking, el caller (webhook/chat) construye la confirmación
+    // Para el widget (que no usa bookingAction), generar mensaje apropiado según contexto
+    if (bookingAction) {
+      replyText = ""; // el caller construye la confirmación con los datos reales
+    } else {
+      console.warn("[AI] Respuesta vacía del modelo — pidiendo follow-up conversacional");
+      try {
+        const followUp = await callOpenRouter(config.openRouter.models.smart, [
+          ...messages,
+          { role: "system", content: "Responde con UN mensaje conversacional corto (máximo 2 oraciones). NO uses markdown. NO uses tools. NO llames ninguna función." },
+        ]);
+        replyText = ((followUp.choices?.[0]?.message?.content as string) ?? "").trim();
+      } catch {
+        replyText = "Entendido, ya tengo tus datos. ¿Hay algo más en que te pueda ayudar?";
+      }
     }
   }
 
-  if (!replyText) replyText = "Entendido. ¿En qué más te puedo ayudar?";
+  if (!replyText && !bookingAction) replyText = "Entendido, ya tengo tus datos. ¿Hay algo más en que te pueda ayudar?";
 
-  // Capa post-LLM: si la respuesta se salió del dominio, reemplazar
-  if (isOutOfDomain(replyText)) {
+  // Capa post-LLM: si la respuesta se salió del dominio, reemplazar (Juan lo salta — habla de molari.ai)
+  if (!overrideSystemPrompt && isOutOfDomain(replyText)) {
     console.warn("[AI] Respuesta out-of-domain detectada — aplicando fallback");
     replyText = OFF_TOPIC_REPLY;
   }

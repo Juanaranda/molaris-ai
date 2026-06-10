@@ -1,0 +1,130 @@
+<svg viewBox="0 0 100 100">
+  <defs>
+    <!-- Enamel Base Gradient -->
+    <linearGradient id="enamelGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#F5F5DC;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#FFFFF0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#F0F8FF;stop-opacity:1" />
+    </linearGradient>
+
+    <!-- Enamel Highlight Gradient (for ridges) -->
+    <linearGradient id="enamelHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#F0F8FF;stop-opacity:1" />
+    </linearGradient>
+
+    <!-- Enamel Shadow Gradient (for fossae) -->
+    <linearGradient id="enamelShadow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#E0E0D0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#F5F5DC;stop-opacity:1" />
+    </linearGradient>
+
+    <!-- Gum Gradient -->
+    <linearGradient id="gumGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFB6C1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF69B4;stop-opacity:1" />
+    </linearGradient>
+
+    <!-- Subtle Shadow Filter for depth -->
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="0.8" result="blur" />
+      <feOffset in="blur" dx="0.5" dy="0.5" result="offsetBlur" />
+      <feMerge>
+        <feMergeNode in="offsetBlur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Main Tooth Body (Upper Central Incisor - Occlusal View) -->
+  <path
+    d="M 30 20 Q 25 25 25 35 V 65 Q 28 75 35 78 H 65 Q 72 75 75 65 V 35 Q 75 25 70 20 Z"
+    fill="url(#enamelGradient)"
+    stroke="#D3D3D3"
+    stroke-width="0.5"
+    filter="url(#shadow)"
+  />
+
+  <!-- Lingual Surface Details -->
+  <!-- Cingulum (prominent bulge at cervical third) -->
+  <path
+    d="M 35 78 C 40 79 60 79 65 78 C 62 72 38 72 35 78 Z"
+    fill="url(#enamelHighlight)"
+    stroke="#D3D3D3"
+    stroke-width="0.3"
+  />
+
+  <!-- Mesial Marginal Ridge -->
+  <path
+    d="M 30 20 Q 32 25 35 30 Q 38 45 38 65 Q 38 70 35 78"
+    fill="none"
+    stroke="url(#enamelHighlight)"
+    stroke-width="1.5"
+  />
+
+  <!-- Distal Marginal Ridge -->
+  <path
+    d="M 70 20 Q 68 25 65 30 Q 62 45 62 65 Q 62 70 65 78"
+    fill="none"
+    stroke="url(#enamelHighlight)"
+    stroke-width="1.5"
+  />
+
+  <!-- Lingual Fossa (depression between ridges and cingulum) -->
+  <path
+    d="M 38 30 Q 40 40 45 50 Q 50 60 50 70 Q 45 60 42 50 Q 40 40 38 30 Z"
+    fill="url(#enamelShadow)"
+    stroke="none"
+  />
+  <path
+    d="M 62 30 Q 60 40 55 50 Q 50 60 50 70 Q 55 60 58 50 Q 60 40 62 30 Z"
+    fill="url(#enamelShadow)"
+    stroke="none"
+  />
+  <path
+    d="M 38 30 C 42 28 58 28 62 30 C 60 35 40 35 38 30 Z"
+    fill="url(#enamelShadow)"
+    stroke="none"
+  />
+  <path
+    d="M 38 70 C 42 72 58 72 62 70 C 60 65 40 65 38 70 Z"
+    fill="url(#enamelShadow)"
+    stroke="none"
+  />
+
+  <!-- Central Lingual Ridge (subtle elevation) -->
+  <path
+    d="M 50 70 Q 50 60 50 50 Q 50 40 50 30"
+    fill="none"
+    stroke="url(#enamelHighlight)"
+    stroke-width="0.8"
+  />
+
+  <!-- Incisal Edge Mamelons (subtle, rounded prominences) -->
+  <path
+    d="M 30 20 C 35 18 40 18 45 20 C 40 22 35 22 30 20 Z"
+    fill="url(#enamelHighlight)"
+    stroke="#D3D3D3"
+    stroke-width="0.3"
+  />
+  <path
+    d="M 45 20 C 50 18 55 18 60 20 C 55 22 50 22 45 20 Z"
+    fill="url(#enamelHighlight)"
+    stroke="#D3D3D3"
+    stroke-width="0.3"
+  />
+  <path
+    d="M 60 20 C 65 18 70 18 70 20 C 65 22 60 22 60 20 Z"
+    fill="url(#enamelHighlight)"
+    stroke="#D3D3D3"
+    stroke-width="0.3"
+  />
+
+  <!-- Pink Gum Collar -->
+  <path
+    d="M 35 78 C 30 82 28 85 28 88 H 72 C 72 85 70 82 65 78 Z"
+    fill="url(#gumGradient)"
+    stroke="#C71585"
+    stroke-width="0.5"
+  />
+</svg>

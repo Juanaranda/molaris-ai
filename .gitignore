@@ -9,9 +9,9 @@ out/
 
 # Environment variables (mantener .env.example trackeado)
 .env
-.env.local
+.env.*
 **/.env
-**/.env.local
+**/.env.*
 !**/.env.example
 
 # Prisma generated client

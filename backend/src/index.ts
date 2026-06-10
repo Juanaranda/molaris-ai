@@ -1,6 +1,8 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import formbody from "@fastify/formbody";
+import helmet from "@fastify/helmet";
+import rateLimit from "@fastify/rate-limit";
 import { config } from "./config/env";
 import { chatRoutes } from "./routes/chat";
 import { availabilityRoutes } from "./routes/availability";
@@ -13,11 +15,42 @@ import { adminRoutes } from "./routes/admin";
 import { webhookRoutes } from "./routes/webhooks";
 import { agendaRoutes } from "./routes/agenda";
 import { patientsRoutes } from "./routes/patients";
+import { treatmentPlansRoutes } from "./routes/treatmentPlans";
+import { dentalQuotesRoutes } from "./routes/dentalQuotes";
+import { sessionRoutes } from "./routes/sessions";
+import { toothImagesRoutes } from "./routes/toothImages";
 import { startReminderScheduler } from "./services/notifications/reminderService";
 
-const app = Fastify({ logger: true });
+const isProd = config.nodeEnv === "production";
 
-app.register(cors, { origin: true });
+const app = Fastify({
+  logger: isProd
+    ? { level: "warn", serializers: { req: (req) => ({ method: req.method, url: req.url }) } }
+    : { level: "info" },
+});
+
+app.register(helmet, {
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+});
+
+app.register(rateLimit, {
+  global: true,
+  max: 120,
+  timeWindow: "1 minute",
+  keyGenerator: (req) => (req.headers.authorization ?? req.ip) as string,
+  errorResponseBuilder: () => ({ error: "Demasiadas solicitudes. Intenta de nuevo en un minuto." }),
+});
+
+app.register(cors, {
+  origin: isProd
+    ? [config.frontendUrl, /\.molari\.ai$/]
+    : true,
+  methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: false,
+});
+
 app.register(formbody);
 app.register(chatRoutes, { prefix: "/api" });
 app.register(availabilityRoutes, { prefix: "/api" });
@@ -30,6 +63,10 @@ app.register(adminRoutes, { prefix: "/api" });
 app.register(webhookRoutes, { prefix: "/api" });
 app.register(agendaRoutes, { prefix: "/api" });
 app.register(patientsRoutes, { prefix: "/api" });
+app.register(treatmentPlansRoutes, { prefix: "/api" });
+app.register(dentalQuotesRoutes, { prefix: "/api" });
+app.register(sessionRoutes, { prefix: "/api" });
+app.register(toothImagesRoutes, { prefix: "/api" });
 
 app.get("/health", async () => ({ status: "ok", project: "molari.ai" }));
 

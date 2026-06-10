@@ -4,12 +4,16 @@ import { getAIResponse } from "../services/ai/claudeService";
 import prisma from "../config/prisma";
 import { config } from "../config/env";
 import { sendBookingNotification } from "../services/notifications/whatsappService";
+import { buildJuanPrompt } from "../services/ai/promptBuilder";
+import { calculateLeadScore } from "../lib/leadScoring";
 
 const bodySchema = z.object({
   message: z.string().min(1),
   clinicSlug: z.string().default("galana"),
   sessionId: z.string().optional(),
   slotBooked: z.boolean().optional(),
+  isDemoMode: z.boolean().optional(),
+  isSandbox: z.boolean().optional(),  // true = /partners/preview, no crea bookings reales
 });
 
 // ─── Helpers de disponibilidad ────────────────────────────────────────────────
@@ -87,6 +91,17 @@ async function buildAvailabilityHint(clinicId: string, cfg: ClinicCfg): Promise<
   return lines.join("\n");
 }
 
+// ─── Error classifier ─────────────────────────────────────────────────────────
+function classifyError(err: unknown): string {
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  if (msg.includes("timeout") || msg.includes("timed out") || msg.includes("econnreset")) return "timeout";
+  if (msg.includes("rate limit") || msg.includes("429") || msg.includes("too many")) return "rate_limit";
+  if (msg.includes("content") && msg.includes("filter")) return "content_filter";
+  if (msg.includes("404") || msg.includes("not found") || msg.includes("model")) return "model_error";
+  if (msg.includes("parse") || msg.includes("json") || msg.includes("syntax")) return "parse_error";
+  return "unknown";
+}
+
 // ─── Controller ───────────────────────────────────────────────────────────────
 
 export async function chatController(req: FastifyRequest, reply: FastifyReply) {
@@ -95,7 +110,8 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
     return reply.status(400).send({ error: parsed.error.flatten() });
   }
 
-  const { message, clinicSlug, sessionId, slotBooked } = parsed.data;
+  const { message, clinicSlug, sessionId, slotBooked, isDemoMode, isSandbox } = parsed.data;
+  const callStart = Date.now();
 
   try {
     const clinic = await prisma.clinic.findUnique({ where: { slug: clinicSlug } });
@@ -107,9 +123,16 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
       ? await prisma.session.findUnique({ where: { id: sessionId } })
       : null;
 
+    // Reject sessions belonging to a different clinic
+    if (session && session.clinicId !== clinic.id) session = null;
+
     if (!session) {
       session = await prisma.session.create({
-        data: { clinicId: clinic.id, channel: "web" },
+        data: {
+          clinicId: clinic.id,
+          channel: isDemoMode ? "demo" : isSandbox ? "sandbox" : "web",
+          isSandbox: isSandbox ?? false,
+        },
       });
     }
 
@@ -119,9 +142,9 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
 
     const existingCtx = await prisma.patientContext.findUnique({ where: { sessionId: session.id } });
 
-    // Inyectar disponibilidad cuando el paciente eligió agendar por chat
+    // En modo demo Juan no inyecta disponibilidad de citas reales
     let availabilityHint: string | undefined;
-    if (existingCtx?.intent === "booking_via_chat") {
+    if (!isDemoMode && existingCtx?.intent === "booking_via_chat") {
       availabilityHint = await buildAvailabilityHint(clinic.id, clinic.config as ClinicCfg);
     }
 
@@ -130,6 +153,7 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
       clinic,
       sessionId: session.id,
       availabilityHint,
+      overrideSystemPrompt: isDemoMode ? buildJuanPrompt() : undefined,
       currentContext: {
         patientName:     existingCtx?.patientName     ?? undefined,
         rut:             existingCtx?.rut             ?? undefined,
@@ -140,6 +164,7 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
       },
     });
 
+    const channel = isDemoMode ? "demo" : isSandbox ? "sandbox" : "web";
     if (usage) {
       prisma.usageEvent.create({
         data: {
@@ -147,15 +172,19 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
           model: usage.model, tier: usage.tier,
           tokensIn: usage.tokensIn, tokensOut: usage.tokensOut,
           costUsd: usage.costUsd, latencyMs: usage.latencyMs,
+          success: true, isSandbox: isSandbox ?? false, channel,
         },
       }).catch((e) => console.error("[usage]", e));
     }
+
+    // ── Lead scoring (fire-and-forget) ───────────────────────────────────────
+    calculateLeadScore(session.id).catch(console.error);
 
     // ── Ejecutar booking si el AI lo solicitó ────────────────────────────────
     let finalReply = aiReply;
     let chatBookingConfirmed = false;
 
-    if (bookingAction) {
+    if (bookingAction && !isSandbox) {
       try {
         const { doctor, date, time, patientName, patientRut, service } = bookingAction;
 
@@ -237,6 +266,30 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     req.log.error({ err }, `[chat] Error inesperado: ${msg}`);
+
+    // Intentar registrar el fallo en usage_events para trazabilidad
+    try {
+      const body = req.body as Record<string, unknown>;
+      const slug = typeof body?.clinicSlug === "string" ? body.clinicSlug : "galana";
+      const clinic = await prisma.clinic.findUnique({ where: { slug }, select: { id: true } });
+      if (clinic) {
+        await prisma.usageEvent.create({
+          data: {
+            clinicId: clinic.id,
+            sessionId: typeof body?.sessionId === "string" ? body.sessionId : null,
+            model: "unknown", tier: "unknown",
+            tokensIn: 0, tokensOut: 0, costUsd: 0,
+            latencyMs: Date.now() - callStart,
+            success: false,
+            errorType: classifyError(err),
+            errorMessage: msg.slice(0, 300),
+            isSandbox: body?.isSandbox === true,
+            channel: body?.isDemoMode === true ? "demo" : body?.isSandbox === true ? "sandbox" : "web",
+          },
+        });
+      }
+    } catch { /* no propagar errores del log */ }
+
     return reply.send({
       reply: "En este momento estamos con alta demanda. Por favor escríbenos directamente al WhatsApp y te atendemos de inmediato. 🦷",
       sessionId: (req.body as { sessionId?: string })?.sessionId ?? null,

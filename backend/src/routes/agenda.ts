@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
+import { sendBookingNotification } from "../services/notifications/whatsappService";
 
 interface AgendaQueryDay {
   date?: string;
@@ -192,6 +193,27 @@ export async function agendaRoutes(app: FastifyInstance) {
       select: bookingSelect(),
     });
 
+    const clinic = await prisma.clinic.findUnique({
+      where: { id: payload.clinicId },
+      select: { name: true, whatsapp: true },
+    });
+    if (clinic?.whatsapp) {
+      const DAY_NAMES_ES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+      const dayName = DAY_NAMES_ES[new Date(`${date}T12:00:00`).getDay()];
+      sendBookingNotification({
+        clinicName: clinic.name,
+        clinicWhatsapp: clinic.whatsapp,
+        patientName,
+        service: service ?? "A confirmar",
+        date,
+        dayName,
+        time,
+        doctor,
+        box: box ?? null,
+        sessionId: booking.id,
+      }).catch(() => {});
+    }
+
     return reply.status(201).send(booking);
   });
 
@@ -210,6 +232,13 @@ export async function agendaRoutes(app: FastifyInstance) {
 
     const { id } = req.params;
     const { status, notes, paymentStatus, amountTotal, amountPaid, paymentMethod } = req.body ?? {};
+
+    if (amountTotal !== undefined && (typeof amountTotal !== "number" || !isFinite(amountTotal) || amountTotal < 0)) {
+      return reply.status(400).send({ error: "amountTotal debe ser un número no negativo" });
+    }
+    if (amountPaid !== undefined && (typeof amountPaid !== "number" || !isFinite(amountPaid) || amountPaid < 0)) {
+      return reply.status(400).send({ error: "amountPaid debe ser un número no negativo" });
+    }
 
     const existing = await prisma.booking.findUnique({ where: { id } });
     if (!existing || existing.clinicId !== payload.clinicId) {

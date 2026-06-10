@@ -29,22 +29,72 @@ function parseCSV(content: string): Record<string, string>[] {
   }).filter((row) => Object.values(row).some((v) => v !== ""));
 }
 
+// Headers que jamás deben usarse como fecha de cita, sin importar el alias que coincida
+const DATE_EXCLUSIONS = [
+  "nacimiento", "nac.", "nacim", "birth", "born",
+  "ingreso", "alta", "creation", "creación",
+  "actualizacion", "actualización", "modificacion", "modificación",
+];
+
 const COL_ALIASES: Record<string, string[]> = {
-  patientName:  ["nombre", "paciente", "nombre paciente", "name", "patient"],
-  patientRut:   ["rut", "run", "dni", "id"],
-  patientPhone: ["telefono", "teléfono", "phone", "celular", "fono", "movil", "móvil"],
-  patientEmail: ["email", "correo", "mail", "e-mail"],
-  date:         ["fecha", "date", "fecha cita", "fecha consulta", "día"],
-  time:         ["hora", "time", "horario", "hora cita"],
-  doctor:       ["doctor", "profesional", "dentista", "medico", "médico", "dr", "dra"],
-  service:      ["servicio", "tratamiento", "prestacion", "prestación", "service", "procedimiento"],
-  status:       ["estado", "status"],
+  // Nombre completo (CSVs genéricos)
+  patientName:      ["nombre paciente", "paciente", "nombre completo", "name", "patient"],
+  // Columnas separadas (DentaLink / Reservo / otros)
+  firstName:        ["nombre"],
+  lastNamePaternal: ["apellido paterno", "primer apellido", "apellido1", "paterno"],
+  lastNameMaternal: ["apellido materno", "segundo apellido", "apellido2", "materno"],
+  patientRut:       ["rut", "run", "dni", "id paciente", "ficha"],
+  // Teléfono: móvil primero
+  patientPhone:     ["teléfono móvil", "telefono movil", "celular", "movil", "móvil", "telefono", "teléfono", "phone", "fono"],
+  patientEmail:     ["correo electrónico", "correo electronico", "email", "correo", "mail", "e-mail"],
+  // Fecha de cita (Reservo: "fecha de la reserva" / "inicio" / "fecha de la cita")
+  // Se detecta con h.includes(alias) para cubrir variantes con artículos ("de la", etc.)
+  // DATE_EXCLUSIONS impide que fechas de nacimiento sean capturadas
+  date: [
+    "fecha cita", "fecha de la cita", "fecha consulta", "fecha agenda",
+    "fecha atencion", "fecha atención", "fecha de atencion", "fecha de atención",
+    "fecha reserva", "fecha de la reserva", "fecha de reserva",
+    "fecha inicio", "inicio de la cita", "inicio",
+    "cita", "reserva", "date", "appointment",
+  ],
+  time:    ["hora inicio", "hora de inicio", "hora cita", "hora de la cita", "hora", "time", "horario"],
+  doctor:  ["doctor", "profesional", "dentista", "medico", "médico", "dr.", "dra."],
+  service: ["servicio", "tratamiento", "prestacion", "prestación", "service", "procedimiento"],
+  status:  ["estado", "status", "estado de la reserva", "estado de la cita"],
+  registrationDate: ["fecha registro", "fecha de registro", "fecha ingreso", "fecha alta", "registro", "ingreso"],
 };
+
+function isExcludedDateColumn(h: string): boolean {
+  return DATE_EXCLUSIONS.some((ex) => h.includes(ex));
+}
+
+// Normaliza texto para comparar sin acentos
+function normalize(s: string): string {
+  return s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+}
 
 function detectColumns(headers: string[]): Record<string, string | null> {
   const result: Record<string, string | null> = {};
   for (const [field, aliases] of Object.entries(COL_ALIASES)) {
-    result[field] = headers.find((h) => aliases.some((a) => h.includes(a))) ?? null;
+    if (field === "date") {
+      result[field] = headers.find((h) => {
+        if (isExcludedDateColumn(normalize(h))) return false;
+        const hn = normalize(h);
+        return aliases.some((a) => hn === normalize(a) || hn.includes(normalize(a)));
+      }) ?? null;
+    } else {
+      // Prioriza aliases en orden: el primer alias que matchea un header gana.
+      // Evita que columnas secundarias (ej. "Ficha") capturen un campo antes que la columna real (ej. "RUT").
+      let found: string | null = null;
+      for (const a of aliases) {
+        const match = headers.find((h) => {
+          const hn = normalize(h);
+          return hn === normalize(a) || hn.includes(normalize(a));
+        });
+        if (match) { found = match; break; }
+      }
+      result[field] = found;
+    }
   }
   return result;
 }
@@ -143,6 +193,90 @@ export async function patientsRoutes(app: FastifyInstance) {
     return reply.send(bookings);
   });
 
+  // PATCH /api/patients/:key — actualiza teléfono/email/nombre en todos los bookings del paciente
+  app.patch<{
+    Params: { key: string };
+    Body: { name?: string; phone?: string; email?: string };
+  }>("/patients/:key", async (req, reply) => {
+    let payload;
+    try { payload = verifyToken(req.headers.authorization); }
+    catch { return reply.status(401).send({ error: "No autorizado" }); }
+    if (!payload.clinicId) return reply.status(403).send({ error: "Sin clínica asignada" });
+
+    const key = decodeURIComponent(req.params.key);
+    const { name, phone, email } = req.body ?? {};
+    const updateData: Record<string, string | null> = {};
+    if (name  !== undefined) updateData.patientName  = name  || null;
+    if (phone !== undefined) updateData.patientPhone = phone || null;
+    if (email !== undefined) updateData.patientEmail = email || null;
+    if (Object.keys(updateData).length === 0)
+      return reply.status(400).send({ error: "Nada que actualizar" });
+
+    const byRut = await prisma.booking.count({
+      where: { clinicId: payload.clinicId, patientRut: key },
+    });
+
+    if (byRut > 0) {
+      await prisma.booking.updateMany({
+        where: { clinicId: payload.clinicId, patientRut: key },
+        data: updateData,
+      });
+    } else {
+      const all = await prisma.booking.findMany({
+        where: { clinicId: payload.clinicId },
+        select: { id: true, patientName: true, patientRut: true },
+      });
+      const ids = all
+        .filter((b) => !b.patientRut && (b.patientName ?? "").toLowerCase().trim() === key)
+        .map((b) => b.id);
+      if (ids.length > 0)
+        await prisma.booking.updateMany({ where: { id: { in: ids } }, data: updateData });
+    }
+
+    return reply.send({ ok: true });
+  });
+
+  // POST /api/patients — registra un nuevo paciente (crea booking placeholder cancelado)
+  app.post<{
+    Body: { name: string; rut?: string; phone?: string; email?: string };
+  }>("/patients", async (req, reply) => {
+    let payload;
+    try { payload = verifyToken(req.headers.authorization); }
+    catch { return reply.status(401).send({ error: "No autorizado" }); }
+    if (!payload.clinicId) return reply.status(403).send({ error: "Sin clínica asignada" });
+
+    const { name, rut, phone, email } = req.body ?? {};
+    if (!name || typeof name !== "string" || !name.trim())
+      return reply.status(400).send({ error: "El nombre es obligatorio" });
+
+    if (rut) {
+      const existing = await prisma.booking.findFirst({
+        where: { clinicId: payload.clinicId, patientRut: rut.trim() },
+        select: { id: true },
+      });
+      if (existing) return reply.status(409).send({ error: "Ya existe un paciente con ese RUT" });
+    }
+
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+
+    const booking = await prisma.booking.create({
+      data: {
+        clinicId:    payload.clinicId,
+        patientName: name.trim(),
+        patientRut:  rut?.trim()   || null,
+        patientPhone: phone?.trim() || null,
+        patientEmail: email?.trim() || null,
+        date:   today,
+        time:   "00:00",
+        doctor: "Registro manual",
+        status: "registered",
+      },
+    });
+
+    return reply.status(201).send({ ok: true, id: booking.id });
+  });
+
   // POST /api/patients/import — importa pacientes desde CSV
   app.post<{ Body: ImportBody }>("/patients/import", async (req, reply) => {
     let payload;
@@ -167,7 +301,16 @@ export async function patientsRoutes(app: FastifyInstance) {
       const row = rows[i];
       const lineNum = i + 2;
 
-      const patientName = cols.patientName ? row[cols.patientName] : null;
+      // Build patient name — support split columns (DentaLink) or full-name column
+      let patientName: string | null = null;
+      if (cols.firstName && (cols.lastNamePaternal || cols.lastNameMaternal)) {
+        const first = (cols.firstName ? row[cols.firstName] : "") || "";
+        const lastP = (cols.lastNamePaternal ? row[cols.lastNamePaternal] : "") || "";
+        const lastM = (cols.lastNameMaternal ? row[cols.lastNameMaternal] : "") || "";
+        patientName = `${first} ${lastP} ${lastM}`.replace(/\s+/g, " ").trim() || null;
+      } else if (cols.patientName) {
+        patientName = row[cols.patientName] || null;
+      }
       if (!patientName) { skipped++; continue; }
 
       const patientRut   = cols.patientRut   ? row[cols.patientRut]   || null : null;
@@ -181,13 +324,28 @@ export async function patientsRoutes(app: FastifyInstance) {
         ? "confirmed" : ["cancel","cancelad"].some((s) => statusRaw?.includes(s) ?? false)
         ? "cancelled" : "confirmed";
 
+      // Date: appointment date preferred; registration date as fallback for patient rosters.
+      // Never use birth dates as appointment date.
+      const currentYear = new Date().getFullYear();
       const dateStr = cols.date ? row[cols.date] : null;
-      const date = dateStr ? parseDate(dateStr) : null;
-      if (!date) { errors.push(`Fila ${lineNum}: fecha inválida "${dateStr ?? ""}"`); skipped++; continue; }
+      const regDateStr = cols.registrationDate ? row[cols.registrationDate] : null;
+      let date: Date | null = null;
+
+      for (const raw of [dateStr, regDateStr]) {
+        if (!raw || date) continue;
+        const parsed = parseDate(raw);
+        if (parsed) {
+          const year = parsed.getFullYear();
+          if (year >= 2000 && year <= currentYear + 3) { date = parsed; }
+        }
+      }
+      if (!date) {
+        // No usable date — use today as last-resort placeholder
+        date = new Date(); date.setHours(12, 0, 0, 0);
+      }
 
       const timeStr = cols.time ? row[cols.time] : null;
-      const time = timeStr ? parseTime(timeStr) : "10:00";
-      if (!time) { errors.push(`Fila ${lineNum}: hora inválida "${timeStr ?? ""}"`); skipped++; continue; }
+      const time = timeStr ? (parseTime(timeStr) ?? "10:00") : "10:00";
 
       // Skip duplicates: same clinic + rut/name + date + doctor
       const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0);

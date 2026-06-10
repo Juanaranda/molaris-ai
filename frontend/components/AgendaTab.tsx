@@ -3,33 +3,56 @@
 import { useEffect, useState, useCallback } from "react";
 import { getToken } from "@/lib/auth";
 import type { AuthUser } from "@/lib/auth";
+import { DentalQuoteTab } from "./DentalQuoteTab";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-// Doctor → color mapping (name as key)
-const DOCTOR_COLORS: Record<string, { dot: string; bg: string; text: string }> = {
-  "Dra. Ana Aranda":       { dot: "#10B981", bg: "#D1FAE5", text: "#065F46" },
-  "Dra. Ivonne Poblete":   { dot: "#3B82F6", bg: "#DBEAFE", text: "#1E40AF" },
-  "Dr. Pedro Engel":       { dot: "#8B5CF6", bg: "#EDE9FE", text: "#5B21B6" },
-  "Dr. Juan Garcés":       { dot: "#F59E0B", bg: "#FEF3C7", text: "#92400E" },
-  "Dra. Jacqueline Pérez": { dot: "#EC4899", bg: "#FCE7F3", text: "#9D174D" },
-};
-const DOCTORS = Object.keys(DOCTOR_COLORS);
+// Rotating color palette for any doctor list
+const COLOR_PALETTE: { dot: string; bg: string; text: string }[] = [
+  { dot: "#10B981", bg: "#D1FAE5", text: "#065F46" },
+  { dot: "#3B82F6", bg: "#DBEAFE", text: "#1E40AF" },
+  { dot: "#8B5CF6", bg: "#EDE9FE", text: "#5B21B6" },
+  { dot: "#F59E0B", bg: "#FEF3C7", text: "#92400E" },
+  { dot: "#EC4899", bg: "#FCE7F3", text: "#9D174D" },
+  { dot: "#EF4444", bg: "#FEE2E2", text: "#991B1B" },
+  { dot: "#14B8A6", bg: "#CCFBF1", text: "#0F766E" },
+  { dot: "#F97316", bg: "#FFEDD5", text: "#9A3412" },
+];
+
+function buildPalMap(doctors: string[]): Record<string, { dot: string; bg: string; text: string }> {
+  const map: Record<string, { dot: string; bg: string; text: string }> = {};
+  doctors.forEach((d, i) => { map[d] = COLOR_PALETTE[i % COLOR_PALETTE.length]; });
+  return map;
+}
 
 const DAY_SHORT  = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
 const DAY_FULL   = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
 const MONTHS     = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
 
-// Galana working hours: Weekdays 10:00–18:00, Saturday 10:00–14:00, Sunday closed
-const WORK_HOURS: Record<number, { start: number; end: number } | null> = {
-  0: null,                   // Sunday
-  1: { start: 10, end: 18 }, // Monday
-  2: { start: 10, end: 18 }, // Tuesday
-  3: { start: 10, end: 18 }, // Wednesday
-  4: { start: 10, end: 18 }, // Thursday
-  5: { start: 10, end: 18 }, // Friday
-  6: { start: 10, end: 14 }, // Saturday
+// Default work hours fallback (used when clinic has no schedule config)
+const DEFAULT_WORK_HOURS: Record<number, { start: number; end: number } | null> = {
+  0: null, 1: { start: 9, end: 18 }, 2: { start: 9, end: 18 },
+  3: { start: 9, end: 18 }, 4: { start: 9, end: 18 }, 5: { start: 9, end: 18 }, 6: null,
 };
+
+// Parse clinic schedule config (e.g. { monday: "Lunes: 09:00 - 18:00", saturday: "Sábado: cerrado" })
+const DAY_KEY_TO_JS: Record<string, number> = {
+  monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 0,
+};
+function parseWorkHours(cfg?: Record<string, string>): Record<number, { start: number; end: number } | null> {
+  if (!cfg || Object.keys(cfg).length === 0) return DEFAULT_WORK_HOURS;
+  const result: Record<number, { start: number; end: number } | null> = {
+    0: null, 1: null, 2: null, 3: null, 4: null, 5: null, 6: null,
+  };
+  for (const [key, val] of Object.entries(cfg)) {
+    const jsDay = DAY_KEY_TO_JS[key];
+    if (jsDay == null) continue;
+    if (!val || val.includes("cerrado")) { result[jsDay] = null; continue; }
+    const m = val.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
+    if (m) result[jsDay] = { start: parseInt(m[1]), end: parseInt(m[3]) };
+  }
+  return result;
+}
 
 // Half-hour slots from 09:00 to 18:30 (grid rows)
 const GRID_SLOTS = Array.from({ length: 21 }, (_, i) => {
@@ -37,9 +60,9 @@ const GRID_SLOTS = Array.from({ length: 21 }, (_, i) => {
   return `${String(Math.floor(totalMins / 60)).padStart(2, "0")}:${totalMins % 60 === 0 ? "00" : "30"}`;
 });
 
-function getWorkHours(dateStr: string) {
+function getWorkHours(dateStr: string, workHours: Record<number, { start: number; end: number } | null>) {
   const dow = new Date(dateStr + "T12:00:00").getDay();
-  return WORK_HOURS[dow] ?? null;
+  return workHours[dow] ?? null;
 }
 
 function isInWorkHours(slot: string, wh: { start: number; end: number } | null): boolean {
@@ -58,9 +81,17 @@ function getMondayOf(date: Date): Date {
   return d;
 }
 function toDateStr(d: Date): string { return d.toISOString().slice(0, 10); }
+// Extract YYYY-MM-DD from any ISO format (handles full timestamps from Prisma/Fastify)
+function safeDateStr(s: string | null | undefined): string { return s ? String(s).slice(0, 10) : ""; }
+function formatDate(s: string | null | undefined): string {
+  const clean = safeDateStr(s);
+  if (!clean || !/^\d{4}-\d{2}-\d{2}$/.test(clean)) return "—";
+  const [y, m, d] = clean.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
+}
 
-function palOf(doctor: string) {
-  return DOCTOR_COLORS[doctor] ?? { dot: "#6B7280", bg: "#F3F4F6", text: "#374151" };
+function palOf(doctor: string, palMap?: Record<string, { dot: string; bg: string; text: string }>) {
+  return palMap?.[doctor] ?? { dot: "#6B7280", bg: "#F3F4F6", text: "#374151" };
 }
 
 interface Booking {
@@ -103,7 +134,30 @@ function PayPill({ status }: { status: string | null }) {
   return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${s.cls}`}>{s.label}</span>;
 }
 
-function BookingModal({ booking, onClose, onSave, onCancel }: {
+/* ── Quick-quote modal ───────────────────────────────────────────────── */
+function QuickQuoteModal({ patient, onClose }: {
+  patient: { name: string; rut: string | null };
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col bg-white overflow-hidden"
+      style={{ paddingTop: "env(safe-area-inset-top)" }}>
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 bg-white shrink-0">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Presupuesto rápido</p>
+          <h2 className="text-base font-black text-gray-900 leading-tight">{patient.name}</h2>
+        </div>
+        <button onClick={onClose}
+          className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500 shrink-0">✕</button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4">
+        <DentalQuoteTab patient={patient} />
+      </div>
+    </div>
+  );
+}
+
+function BookingModal({ booking, onClose, onSave, onCancel, onNewQuote }: {
   booking: Booking;
   onClose: () => void;
   onSave: (id: string, patch: {
@@ -111,6 +165,7 @@ function BookingModal({ booking, onClose, onSave, onCancel }: {
     paymentStatus: string; amountTotal: string; amountPaid: string; paymentMethod: string;
   }) => Promise<void>;
   onCancel: (id: string) => Promise<void>;
+  onNewQuote?: (patient: { name: string; rut: string | null }) => void;
 }) {
   const [status, setStatus]             = useState(booking.status);
   const [notes, setNotes]               = useState(booking.notes ?? "");
@@ -174,7 +229,7 @@ function BookingModal({ booking, onClose, onSave, onCancel }: {
               <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                 {[
                   ["Hora",     booking.time],
-                  ["Fecha",    new Date(booking.date + (booking.date.includes("T") ? "" : "T12:00:00")).toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" })],
+                  ["Fecha",    formatDate(booking.date)],
                   ["Box",      booking.box ? `Box ${booking.box}` : "—"],
                   ["RUT",      booking.patientRut ?? "—"],
                   ["Teléfono", booking.patientPhone ?? "—"],
@@ -253,10 +308,19 @@ function BookingModal({ booking, onClose, onSave, onCancel }: {
 
               {booking.paidAt && (
                 <p className="text-xs text-gray-400">
-                  Pagado el {new Date(booking.paidAt).toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" })}
+                  Pagado el {formatDate(booking.paidAt)}
                 </p>
               )}
             </>
+          )}
+
+          {/* Presupuesto rápido */}
+          {onNewQuote && booking.patientName && (
+            <button
+              onClick={() => { onClose(); onNewQuote({ name: booking.patientName!, rut: booking.patientRut }); }}
+              className="w-full py-2.5 rounded-xl text-sm font-bold text-[#1A5C7A] bg-[#E8F4F8] hover:bg-[#D0EBF4] transition border border-[#B0D8E8]">
+              + Nuevo presupuesto para {booking.patientName.split(" ")[0]}
+            </button>
           )}
 
           {/* Actions */}
@@ -338,11 +402,11 @@ function NewBookingModal({ doctors, initialDate, boxes, onClose, onCreate }: {
             </select>
           </div>
           {/* Date + Time + Box */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className={lbl}>Fecha *</label>
-              <input type="date" value={form.date} onChange={set("date")} required className={inp} />
-            </div>
+          <div>
+            <label className={lbl}>Fecha *</label>
+            <input type="date" value={form.date} onChange={set("date")} required className={inp} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={lbl}>Hora *</label>
               <select value={form.time} onChange={set("time")} className={inp}>
@@ -396,14 +460,27 @@ function NewBookingModal({ doctors, initialDate, boxes, onClose, onCreate }: {
 }
 
 /* ── Admin agenda ────────────────────────────────────────────────────── */
-function AdminAgenda({ boxes }: { boxes: number }) {
+function AdminAgenda({
+  boxes,
+  doctors: doctorNames = [],
+  scheduleConfig,
+  openNewBookingOnMount = false,
+}: {
+  boxes: number;
+  doctors?: string[];
+  scheduleConfig?: Record<string, string>;
+  openNewBookingOnMount?: boolean;
+}) {
+  const palMap    = buildPalMap(doctorNames);
+  const workHours = parseWorkHours(scheduleConfig);
   const [weekStart, setWeekStart]     = useState(() => getMondayOf(new Date()));
   const [days, setDays]               = useState<DayData[]>([]);
   const [loading, setLoading]         = useState(false);
   const [selectedDate, setSelectedDate] = useState(toDateStr(new Date()));
   const [doctorFilter, setDoctorFilter] = useState<string | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [showNew, setShowNew]         = useState(false);
+  const [showNew, setShowNew]         = useState(openNewBookingOnMount);
+  const [quotePatient, setQuotePatient] = useState<{ name: string; rut: string | null } | null>(null);
 
   const fetchWeek = useCallback(async (start: Date) => {
     const token = getToken(); if (!token) return;
@@ -429,7 +506,9 @@ function AdminAgenda({ boxes }: { boxes: number }) {
       : `${ws.getDate()} ${sm} – ${we.getDate()} ${em} ${ws.getFullYear()}`;
   })();
 
-  const selectedDay = days.find((d) => d.date === selectedDate);
+  const [viewMode, setViewMode] = useState<"week" | "day">("week");
+
+  const selectedDay = days.find((d) => safeDateStr(d.date) === selectedDate);
   let dayBookings = [...(selectedDay?.bookings ?? [])];
   if (doctorFilter) dayBookings = dayBookings.filter((b) => b.doctor === doctorFilter);
   dayBookings.sort((a, b) => a.time.localeCompare(b.time));
@@ -499,47 +578,62 @@ function AdminAgenda({ boxes }: { boxes: number }) {
   return (
     <div className="flex flex-col gap-5">
       {/* Week nav */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
           <button onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d); }}
-            className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-gray-300 transition flex items-center justify-center font-bold">‹</button>
-          <span className="text-sm font-semibold text-gray-700 min-w-[200px] text-center capitalize">{weekLabel}</span>
+            className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-gray-300 transition flex items-center justify-center font-bold shrink-0">‹</button>
+          <span className="text-xs sm:text-sm font-semibold text-gray-700 text-center capitalize truncate">
+            {weekLabel}
+          </span>
           <button onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d); }}
-            className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-gray-300 transition flex items-center justify-center font-bold">›</button>
+            className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-gray-300 transition flex items-center justify-center font-bold shrink-0">›</button>
           <button onClick={() => { setWeekStart(getMondayOf(new Date())); setSelectedDate(todayStr); }}
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition ml-1">
+            className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition shrink-0">
             Hoy
           </button>
         </div>
-        <button onClick={() => setShowNew(true)}
-          className="text-sm font-bold px-4 py-2 rounded-xl text-white hover:opacity-90 transition"
-          style={{ backgroundColor: "#D95F45", boxShadow: "0 2px 8px rgba(217,95,69,0.3)" }}>
-          + Nueva cita
-        </button>
+        <div className="flex items-center gap-2">
+          {/* View toggle */}
+          <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5">
+            {(["week", "day"] as const).map((m) => (
+              <button key={m} onClick={() => setViewMode(m)}
+                className={`text-[11px] font-bold px-2.5 py-1 rounded-md transition ${
+                  viewMode === m ? "bg-white text-gray-800 shadow-sm" : "text-gray-400 hover:text-gray-600"
+                }`}>
+                {m === "week" ? "Semana" : "Día"}
+              </button>
+            ))}
+          </div>
+          <button onClick={() => setShowNew(true)}
+            className="text-xs sm:text-sm font-bold px-3 sm:px-4 py-2 rounded-xl text-white hover:opacity-90 transition shrink-0"
+            style={{ backgroundColor: "#D95F45", boxShadow: "0 2px 8px rgba(217,95,69,0.3)" }}>
+            + Nueva cita
+          </button>
+        </div>
       </div>
 
-      {/* Day strip */}
-      <div className="grid grid-cols-6 gap-2">
+      {/* Day strip — only in day view */}
+      <div className={`grid grid-cols-6 gap-1 sm:gap-2 ${viewMode === "week" ? "hidden" : ""}`}>
         {loading ? Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="h-[76px] rounded-2xl bg-gray-100 animate-pulse" />
         )) : days.map((day) => {
-          const d = new Date(day.date + "T12:00:00");
-          const isToday    = day.date === todayStr;
-          const isSelected = day.date === selectedDate;
+          const d = new Date(safeDateStr(day.date) + "T12:00:00");
+          const isToday    = safeDateStr(day.date) === todayStr;
+          const isSelected = safeDateStr(day.date) === selectedDate;
           const cnt = activeCnt(day);
           return (
-            <button key={day.date} onClick={() => setSelectedDate(day.date)}
-              className={`flex flex-col items-center gap-1 py-3 px-1 rounded-2xl border transition cursor-pointer ${
+            <button key={day.date} onClick={() => { setSelectedDate(safeDateStr(day.date)); setViewMode("day"); }}
+              className={`flex flex-col items-center gap-1 py-2 sm:py-3 px-0.5 sm:px-1 rounded-xl sm:rounded-2xl border transition cursor-pointer ${
                 isSelected
                   ? "border-blue-600 bg-blue-600 shadow-md"
                   : isToday
                   ? "border-blue-200 bg-blue-50"
                   : "border-gray-100 bg-white hover:border-gray-200 hover:shadow-sm"
               }`}>
-              <span className={`text-[9px] font-bold uppercase tracking-wide ${isSelected ? "text-blue-200" : isToday ? "text-blue-500" : "text-gray-400"}`}>
+              <span className={`text-[8px] sm:text-[9px] font-bold uppercase tracking-wide ${isSelected ? "text-blue-200" : isToday ? "text-blue-500" : "text-gray-400"}`}>
                 {DAY_SHORT[d.getDay()]}
               </span>
-              <span className={`text-xl font-black leading-none ${isSelected ? "text-white" : isToday ? "text-blue-600" : "text-gray-800"}`}>
+              <span className={`text-base sm:text-xl font-black leading-none ${isSelected ? "text-white" : isToday ? "text-blue-600" : "text-gray-800"}`}>
                 {d.getDate()}
               </span>
               {cnt > 0 ? (
@@ -554,8 +648,9 @@ function AdminAgenda({ boxes }: { boxes: number }) {
         })}
       </div>
 
-      {/* Doctor filter pills */}
-      <div className="flex items-center gap-2 flex-wrap">
+      {/* Doctor filter pills — shown in both views */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-none"
+        style={{ scrollbarWidth: "none" }}>
         <span className="text-xs font-semibold text-gray-400">Ver:</span>
         <button onClick={() => setDoctorFilter(null)}
           className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition ${
@@ -563,8 +658,8 @@ function AdminAgenda({ boxes }: { boxes: number }) {
           }`}>
           Todos
         </button>
-        {DOCTORS.map((doc) => {
-          const pal = palOf(doc);
+        {doctorNames.map((doc) => {
+          const pal = palOf(doc, palMap);
           const short = doc.replace(/Dra?\. /, "").split(" ")[0];
           return (
             <button key={doc} onClick={() => setDoctorFilter(doctorFilter === doc ? null : doc)}
@@ -580,9 +675,90 @@ function AdminAgenda({ boxes }: { boxes: number }) {
         })}
       </div>
 
-      {/* Day timeline grid */}
-      {(() => {
-        const wh = getWorkHours(selectedDate);
+      {/* ── Week grid ─────────────────────────────────────────────────── */}
+      {viewMode === "week" && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          {loading ? (
+            <div className="h-64 flex items-center justify-center">
+              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 520 }}>
+              <div style={{ minWidth: 620 }}>
+                {/* Day headers */}
+                <div style={{ display: "grid", gridTemplateColumns: "48px repeat(6, 1fr)", position: "sticky", top: 0, background: "white", zIndex: 10, borderBottom: "2px solid #F1F5F9" }}>
+                  <div />
+                  {days.map((day) => {
+                    const d = new Date(safeDateStr(day.date) + "T12:00:00");
+                    const isToday = safeDateStr(day.date) === todayStr;
+                    const cnt = day.bookings.filter((b) => b.status !== "cancelled" && (!doctorFilter || b.doctor === doctorFilter)).length;
+                    return (
+                      <div key={day.date}
+                        style={{ padding: "8px 4px", textAlign: "center", borderLeft: "1px solid #F1F5F9", background: isToday ? "#EFF6FF" : "transparent", cursor: "pointer" }}
+                        onClick={() => { setSelectedDate(safeDateStr(day.date)); setViewMode("day"); }}>
+                        <p style={{ margin: 0, fontSize: 9, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: isToday ? "#3B82F6" : "#94A3B8" }}>
+                          {DAY_SHORT[d.getDay()]}
+                        </p>
+                        <p style={{ margin: "1px 0 3px", fontSize: 18, fontWeight: 900, lineHeight: 1, color: isToday ? "#3B82F6" : "#0C1B26" }}>
+                          {d.getDate()}
+                        </p>
+                        {cnt > 0 && (
+                          <span style={{ fontSize: 9, background: isToday ? "#3B82F6" : "#D95F45", color: "white", padding: "1px 6px", borderRadius: 20, fontWeight: 700 }}>
+                            {cnt}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Time rows */}
+                {GRID_SLOTS.map((slot) => {
+                  const isHour = slot.endsWith(":00");
+                  return (
+                    <div key={slot} style={{ display: "grid", gridTemplateColumns: "48px repeat(6, 1fr)", minHeight: 40, borderBottom: `1px solid ${isHour ? "#F1F5F9" : "#FAFAFA"}` }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "flex-end", paddingRight: 6, paddingTop: 3 }}>
+                        {isHour && <span style={{ fontSize: 9, fontWeight: 600, color: "#94A3B8" }}>{slot}</span>}
+                      </div>
+                      {days.map((day) => {
+                        const isToday = safeDateStr(day.date) === todayStr;
+                        const cell = day.bookings.filter((b) => {
+                          if (doctorFilter && b.doctor !== doctorFilter) return false;
+                          const [h, m] = b.time.split(":").map(Number);
+                          return `${String(h).padStart(2,"0")}:${m < 30 ? "00" : "30"}` === slot;
+                        });
+                        return (
+                          <div key={day.date}
+                            onClick={() => { if (!cell.length) { setSelectedDate(safeDateStr(day.date)); setShowNew(true); } }}
+                            style={{ borderLeft: "1px solid #F1F5F9", padding: "2px 2px", background: isToday ? "#F0F7FF" : "transparent", cursor: cell.length ? "default" : "pointer" }}>
+                            {cell.map((b) => {
+                              const pal = palOf(b.doctor, palMap);
+                              return (
+                                <button key={b.id} onClick={(e) => { e.stopPropagation(); setSelectedBooking(b); }}
+                                  style={{ width: "100%", display: "block", textAlign: "left", background: pal.bg, borderLeft: `2px solid ${pal.dot}`, borderRadius: 3, padding: "1px 3px", marginBottom: 1, cursor: "pointer", border: "none" }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                                    <span style={{ fontSize: 8, fontWeight: 800, color: pal.dot, whiteSpace: "nowrap" }}>{b.time}</span>
+                                    <span style={{ fontSize: 8, fontWeight: 600, color: pal.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                                      {b.patientName ?? "—"}
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Day timeline grid — only in day view ─────────────────────── */}
+      {viewMode === "day" && (() => {
+        const wh = getWorkHours(selectedDate, workHours);
         const activeCitas = dayBookings.filter((b) => b.status !== "cancelled").length;
         // Map bookings by their half-hour slot key
         const slotMap = new Map<string, Booking[]>();
@@ -651,7 +827,7 @@ function AdminAgenda({ boxes }: { boxes: number }) {
                         </button>
                       )}
                       {slotBookings.map((b) => {
-                        const pal = palOf(b.doctor);
+                        const pal = palOf(b.doctor, palMap);
                         const isCancelled = b.status === "cancelled";
                         return (
                           <button key={b.id} onClick={() => setSelectedBooking(b)}
@@ -702,11 +878,15 @@ function AdminAgenda({ boxes }: { boxes: number }) {
           onClose={() => setSelectedBooking(null)}
           onSave={async (id, patch) => { await handleSave(id, patch); setSelectedBooking(null); }}
           onCancel={async (id) => { await handleCancel(id); setSelectedBooking(null); }}
+          onNewQuote={(p) => setQuotePatient(p)}
         />
+      )}
+      {quotePatient && (
+        <QuickQuoteModal patient={quotePatient} onClose={() => setQuotePatient(null)} />
       )}
       {showNew && (
         <NewBookingModal
-          doctors={DOCTORS}
+          doctors={doctorNames}
           initialDate={selectedDate}
           boxes={boxes}
           onClose={() => setShowNew(false)}
@@ -813,7 +993,21 @@ function DoctorAgenda({ user }: { user: AuthUser }) {
 }
 
 /* ── Main export ─────────────────────────────────────────────────────── */
-export function AgendaTab({ user, boxes = 2 }: { user: AuthUser; boxes?: number }) {
+export function AgendaTab({
+  user,
+  boxes = 2,
+  doctors,
+  scheduleConfig,
+  openNewBookingOnMount = false,
+}: {
+  user: AuthUser;
+  boxes?: number;
+  doctors?: string[];
+  scheduleConfig?: Record<string, string>;
+  openNewBookingOnMount?: boolean;
+}) {
   const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
-  return isAdmin ? <AdminAgenda boxes={boxes} /> : <DoctorAgenda user={user} />;
+  return isAdmin
+    ? <AdminAgenda boxes={boxes} doctors={doctors} scheduleConfig={scheduleConfig} openNewBookingOnMount={openNewBookingOnMount} />
+    : <DoctorAgenda user={user} />;
 }

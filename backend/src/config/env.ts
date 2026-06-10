@@ -1,10 +1,26 @@
 import dotenv from "dotenv";
 dotenv.config();
 
+const DEV_JWT_FALLBACK = "molari-dev-secret-only-for-local-development-not-prod";
+const isProduction = process.env.NODE_ENV === "production";
+const jwtSecret = process.env.JWT_SECRET ?? (isProduction ? "" : DEV_JWT_FALLBACK);
+
+if (!jwtSecret || jwtSecret.length < 32) {
+  throw new Error(
+    "JWT_SECRET no configurada o demasiado corta (mínimo 32 caracteres). " +
+    "Agrega JWT_SECRET al archivo .env antes de iniciar el servidor."
+  );
+}
+
+if (isProduction && jwtSecret === DEV_JWT_FALLBACK) {
+  throw new Error("JWT_SECRET inseguro en producción. Configura un secret único.");
+}
+
 export const config = {
   port: Number(process.env.PORT) || 3001,
   nodeEnv: process.env.NODE_ENV || "development",
-  jwtSecret: process.env.JWT_SECRET ?? "molari-dev-secret-change-in-prod",
+  jwtSecret,
+  geminiApiKey: process.env.GEMINI_API_KEY ?? "",
   openRouter: {
     apiKey: process.env.OPENROUTER_API_KEY ?? "",
     models: {
