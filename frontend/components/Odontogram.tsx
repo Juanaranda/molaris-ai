@@ -210,9 +210,9 @@ function ToothCard({ t, state, count, onClick, disabled, missingMode }: {
       aria-label={`Pieza ${displayFdi}${state === "missing" ? " (ausente)" : ""}`}
       style={{
         display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-        padding: "5px 2px", borderRadius: 10, border, background: bg,
+        padding: "7px 4px", borderRadius: 10, border, background: bg,
         cursor: disabled ? "default" : missingMode ? "crosshair" : "pointer",
-        position: "relative", flex: "1 0 0", minWidth: 30, transition: "all .12s",
+        position: "relative", flex: "1 0 0", minWidth: 38, transition: "all .12s",
       }}>
       {count > 0 && state !== "missing" && (
         <span style={{
@@ -379,7 +379,7 @@ export function Odontogram({
 
       {/* ── Diagrama: cards lineales ──────────────────────────────────────── */}
       <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E8EDF2", padding: "10px 8px 6px", overflowX: "auto" }}>
-        <div style={{ minWidth: 540 }}>
+        <div style={{ minWidth: 680 }}>
           {(view === "all" || view === "upper") && (
             <>
               <div style={{ display: "flex", gap: 4 }}>
