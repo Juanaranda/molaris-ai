@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { getToken } from "@/lib/auth";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { getToken, getMe } from "@/lib/auth";
+import { ensurePatientId } from "@/lib/clinicalRecord";
+import { PatientRecordModal } from "@/components/PatientRecordModal";
 import { DentalQuoteTab } from "./DentalQuoteTab";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -337,6 +339,23 @@ function NewBookingFromPatientModal({
 function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient; onClose: () => void }) {
   const [patient, setPatient] = useState(initialPatient);
   const [tab, setTab] = useState<"history" | "plans" | "quotes">("history");
+  const [recordModalId, setRecordModalId] = useState<string | null>(null);
+  const [openingRecord, setOpeningRecord] = useState(false);
+  const [recordError, setRecordError]     = useState("");
+
+  async function openClinicalRecord() {
+    setOpeningRecord(true); setRecordError("");
+    try {
+      const me = await getMe();
+      if (!me?.clinic?.id) throw new Error("Sin clínica activa");
+      const patientId = await ensurePatientId(me.clinic.id, {
+        rut: patient.rut ?? undefined,
+        phone: patient.phone ?? undefined,
+      });
+      setRecordModalId(patientId);
+    } catch (e) { setRecordError(e instanceof Error ? e.message : "Error"); }
+    finally    { setOpeningRecord(false); }
+  }
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [plans, setPlans] = useState<TreatmentPlan[]>([]);
@@ -354,7 +373,7 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
     setSavingEdit(true);
     try {
       const token = getToken();
-      await fetch(`${API}/api/patients/${encodeURIComponent(patient.key)}`, {
+      const res = await fetch(`${API}/api/patients/${encodeURIComponent(patient.key)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -363,9 +382,11 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
           email: editForm.email || undefined,
         }),
       });
+      if (!res.ok) throw new Error("Error al guardar");
       setPatient((p) => ({ ...p, name: editForm.name || p.name, phone: editForm.phone || null, email: editForm.email || null }));
       setEditMode(false);
-    } finally { setSavingEdit(false); }
+    } catch { /* silently keep modal open */ }
+    finally { setSavingEdit(false); }
   }
 
   useEffect(() => {
@@ -375,8 +396,12 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
     fetch(`${API}/api/patients/${encodeURIComponent(patient.rut)}/history`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("non-200");
+        return r.json();
+      })
       .then(setHistory)
+      .catch(() => {})
       .finally(() => setLoadingHistory(false));
   }, [patient.rut]);
 
@@ -388,21 +413,25 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
       ? `${API}/api/treatment-plans?patientRut=${encodeURIComponent(patient.rut)}`
       : `${API}/api/treatment-plans`;
     fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("non-200");
+        return r.json();
+      })
       .then((data: TreatmentPlan[]) => {
         setPlans(patient.rut ? data : data.filter((p) => p.patientName === patient.name));
       })
+      .catch(() => {})
       .finally(() => setLoadingPlans(false));
   }, [tab, patient.rut, patient.name]);
 
   const balance = patient.totalCharged - patient.totalPaid;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+    <div className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center sm:p-2 bg-black/40 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-2xl w-full max-w-2xl overflow-hidden">
+      <div className="bg-white rounded-none sm:rounded-2xl border border-gray-100 shadow-2xl w-full sm:w-[98vw] sm:max-w-[1600px] flex flex-col h-screen sm:h-[98vh] overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-br from-slate-800 to-slate-700 px-7 py-6">
+        <div className="bg-gradient-to-br from-slate-800 to-slate-700 px-7 py-6 shrink-0">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center text-white font-black text-lg shrink-0">
@@ -435,16 +464,25 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
                   </button>
                 </>
               ) : (
-                <button onClick={() => setEditMode(true)}
-                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center text-white/70 shrink-0"
-                  title="Editar datos del paciente">
-                  ✎
-                </button>
+                <>
+                  <button onClick={openClinicalRecord} disabled={openingRecord}
+                    className="text-xs font-bold px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white transition disabled:opacity-50"
+                    title="Abrir ficha clínica completa con odontograma">
+                    🩺 {openingRecord ? "Abriendo…" : "Ficha clínica"}
+                  </button>
+                  <button onClick={() => setEditMode(true)}
+                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center text-white/70 shrink-0"
+                    title="Editar datos del paciente">
+                    ✎
+                  </button>
+                </>
               )}
               <button onClick={onClose}
                 className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center text-white/70 shrink-0">✕</button>
             </div>
           </div>
+          {recordError && <p className="mt-2 text-xs text-red-300">{recordError}</p>}
+          {recordModalId && <PatientRecordModal patientId={recordModalId} onClose={() => setRecordModalId(null)} />}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5">
             <div>
               <p className="text-[10px] text-white/40 font-bold uppercase tracking-wide">Teléfono</p>
@@ -523,7 +561,7 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
 
         {/* Tab: History */}
         {tab === "history" && (
-          <div className="flex flex-col overflow-hidden" style={{ maxHeight: 440 }}>
+          <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
             <div className="px-5 py-2 border-b border-gray-50 flex items-center justify-between gap-3">
               <button
                 onClick={() => setShowNewBooking(true)}
@@ -641,7 +679,7 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
 
         {/* Tab: Plans */}
         {tab === "plans" && (
-          <div className="flex flex-col overflow-hidden" style={{ maxHeight: 440 }}>
+          <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
             <div className="px-5 py-2.5 border-b border-gray-50 flex justify-end">
               <button onClick={() => setShowNewPlan(true)}
                 className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 transition">
@@ -718,7 +756,7 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
         )}
         {/* Tab: Quotes */}
         {tab === "quotes" && (
-          <div className="overflow-y-auto px-5 py-4" style={{ maxHeight: "70vh" }}>
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
             <DentalQuoteTab patient={{ name: patient.name, rut: patient.rut }} />
           </div>
         )}
@@ -738,7 +776,13 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
             if (!token || !patient.rut) return;
             fetch(`${API}/api/patients/${encodeURIComponent(patient.rut)}/history`, {
               headers: { Authorization: `Bearer ${token}` },
-            }).then((r) => r.json()).then(setHistory).catch(() => {});
+            })
+              .then((r) => {
+                if (!r.ok) throw new Error("non-200");
+                return r.json();
+              })
+              .then(setHistory)
+              .catch(() => {});
           }}
         />
       )}
@@ -1039,16 +1083,20 @@ export function PatientsTab() {
   const [showNewPatient, setShowNewPatient] = useState(false);
   const [selected, setSelected] = useState<Patient | null>(null);
 
-  function loadPatients() {
+  const loadPatients = useCallback(() => {
     const token = getToken(); if (!token) return;
     setLoading(true);
     fetch(`${API}/api/patients`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("non-200");
+        return r.json();
+      })
       .then(setPatients)
+      .catch(() => {})
       .finally(() => setLoading(false));
-  }
+  }, []);
 
-  useEffect(() => { loadPatients(); }, []);
+  useEffect(() => { loadPatients(); }, [loadPatients]);
 
   const filtered = patients.filter((p) => {
     const q = search.toLowerCase();

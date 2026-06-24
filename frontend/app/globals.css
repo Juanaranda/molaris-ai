@@ -49,3 +49,12 @@ body {
 .animate-fade-up-delay-1 { animation-delay: 0.1s; }
 .animate-fade-up-delay-2 { animation-delay: 0.2s; }
 .animate-fade-up-delay-3 { animation-delay: 0.32s; }
+.animate-fade-up-delay-4 { animation-delay: 0.44s; }
+.animate-fade-up-delay-5 { animation-delay: 0.56s; }
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+.animate-float      { animation: float 5s ease-in-out infinite; }
+.animate-float-slow { animation: float 7s ease-in-out infinite; }

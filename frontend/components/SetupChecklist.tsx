@@ -29,12 +29,12 @@ export function SetupChecklist({ clinic, onGoToConfig }: Props) {
   const cfg = (clinic.config as ClinicConfig) ?? {};
 
   const items: CheckItem[] = [
-    { label: "Nombre del asistente configurado",   done: !!cfg.assistantName, hint: "Pestaña Configuración → Nombre del asistente" },
-    { label: "Al menos un doctor cargado",          done: (cfg.doctors?.length ?? 0) > 0, hint: "Configuración → Doctores" },
-    { label: "Servicios definidos",                 done: (cfg.services?.length ?? 0) > 0, hint: "Configuración → Servicios" },
-    { label: "Horarios configurados",               done: !!cfg.schedule?.weekdays, hint: "Configuración → Horarios de atención" },
-    { label: "WhatsApp registrado",                 done: !!clinic.whatsapp, hint: "Configuración → WhatsApp" },
-    { label: "Webhook de WhatsApp configurado en Twilio", done: false, hint: "Copia la URL del webhook y pégala en tu consola Twilio" },
+    { label: "Nombre del asistente configurado",   done: !!cfg.assistantName,              hint: "Configuración → Asistente IA" },
+    { label: "Al menos un doctor cargado",          done: (cfg.doctors?.length ?? 0) > 0,  hint: "Mi Clínica → Equipo médico" },
+    { label: "Servicios definidos",                 done: (cfg.services?.length ?? 0) > 0, hint: "Mi Clínica → Servicios" },
+    { label: "Horarios configurados",               done: !!cfg.schedule?.weekdays,         hint: "Mi Clínica → Horarios de atención" },
+    { label: "WhatsApp registrado",                 done: !!clinic.whatsapp,                hint: "Mi Clínica → Información de contacto" },
+    { label: "Webhook de WhatsApp configurado",     done: false,                            hint: "Copia la URL del webhook en tu consola Meta" },
   ];
 
   const completed = items.filter((i) => i.done).length;

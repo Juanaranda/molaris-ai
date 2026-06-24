@@ -1,9 +1,11 @@
 import { config } from "../../config/env";
 import { buildSystemPrompt } from "./promptBuilder";
 import { buildContextHint } from "./contextInjector";
-import { getHistory, appendToHistory, getMessageCount, MAX_MESSAGES } from "./sessionStore";
+import { getHistory, appendToHistory, ensureCached, getMessageCount, MAX_MESSAGES } from "./sessionStore";
 import { checkTopic, isOutOfDomain, OFF_TOPIC_REPLY, JAILBREAK_REPLY, TOO_LONG_REPLY } from "./topicGuard";
 import { computeScore } from "./leadScoring";
+import { callGroqDirect, isGroqConfigured } from "./groqDirectService";
+import { triggerAlert } from "../alerts/alertService";
 import type { Clinic } from "@prisma/client";
 
 const OPENROUTER_BASE = "https://openrouter.ai/api/v1/chat/completions";
@@ -67,7 +69,9 @@ function classifyTier(
   // Tier 3: situaciones críticas
   const isCritical =
     /dolor|duele|sangr|fractura|urgente|urgencia|rut|confirmaci[oó]n/.test(lower) ||
-    Boolean(ctx.slotBooked); // ya agendó → confirmar datos es crítico
+    Boolean(ctx.slotBooked) ||
+    ctx.intent === "booking_via_chat" ||
+    USER_GAVE_TIME_RE.test(lower); // usuario da día/hora → recoger datos críticos
 
   if (isCritical) return "smart";
 
@@ -207,30 +211,53 @@ function extractContextHeuristic(message: string): PatientContextUpdate | null {
   };
 }
 
-function buildStateHint(ctx: Partial<PatientContextUpdate>): string {
+// Matches a concrete HH:MM time, a day-of-week name, or a scheduling-intent
+// temporal word. "mañana" and "pasado" are only matched when they are NOT
+// preceded by "de la" (which would make them mean "morning/afternoon", not
+// "tomorrow/the day after"). This prevents "9 de la mañana" from triggering
+// the chat-booking flow incorrectly.
+const USER_GAVE_TIME_RE =
+  /\b\d{1,2}:\d{2}\b|\b(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo|pr[oó]ximo)|(?<!de\s+la\s+)\b(ma[nñ]ana|pasado\s+ma[nñ]ana)/i;
+
+function buildStateHint(ctx: Partial<PatientContextUpdate>, currentMessage?: string): string {
   const lines = ["## ESTADO DE LA CONVERSACIÓN"];
 
-  if (ctx.patientName) lines.push(`- Nombre ya dado: ${ctx.patientName} (NO lo vuelvas a pedir)`);
-  if (ctx.rut)         lines.push(`- RUT ya dado: ${ctx.rut} (NO lo vuelvas a pedir)`);
-  if (ctx.email)       lines.push(`- Email ya dado: ${ctx.email} (NO lo vuelvas a pedir)`);
+  if (ctx.patientName) lines.push(`- Nombre: ${ctx.patientName} (NO volver a pedir)`);
+  if (ctx.rut)         lines.push(`- RUT: ${ctx.rut} (NO volver a pedir)`);
+  if (ctx.email)       lines.push(`- Email: ${ctx.email} (NO volver a pedir)`);
 
-  if (ctx.intent === "ready_to_book" && !ctx.slotBooked) {
-    lines.push("\nEl paciente quiere agendar. El link de reserva se adjuntará automáticamente. Di algo natural del tipo 'Aquí puedes elegir tu hora:' y NO solicites RUT ni datos por el chat.");
-    if (ctx.patientName || ctx.rut) {
-      lines.push("Menciona que sus datos ya estarán precargados en el formulario.");
+  // Flujo por chat: usuario ya indicó hora/día, o intención es booking_via_chat
+  const userGaveTimeNow = currentMessage ? USER_GAVE_TIME_RE.test(currentMessage) : false;
+  const isChatBooking   = ctx.intent === "booking_via_chat" || userGaveTimeNow;
+
+  if (isChatBooking) {
+    const missing: string[] = [];
+    if (!ctx.patientName) missing.push("nombre completo");
+    if (!ctx.rut)         missing.push("RUT (formato XX.XXX.XXX-X)");
+
+    if (missing.length > 0) {
+      lines.push(`\nFLUJO CHAT ACTIVO: El paciente está agendando por el chat. El ÚNICO dato que debes pedir AHORA es: "${missing[0]}". Pide solo ese dato. NO mandes link. NO muestres picker.`);
+    } else {
+      lines.push(`\nFLUJO CHAT ACTIVO: Tienes doctor + fecha + hora + nombre + RUT. Llama create_booking inmediatamente.`);
     }
+    return lines.join("\n");
+  }
+
+  // Flujo picker/link: usuario quiere agendar pero no ha dado fecha/hora por chat
+  if (ctx.intent === "ready_to_book" && !ctx.slotBooked) {
+    lines.push("\nEl paciente quiere agendar. El selector de horario aparecerá automáticamente. Responde con UNA frase corta y natural (ej: '¡Claro! Aquí puedes elegir el horario que mejor te quede:' o 'Perfecto, elige el día y hora que prefieras:'). NO pidas datos personales.");
   }
 
   // Flujo legacy (widget embebido): slotBooked viene del frontend
   if (ctx.slotBooked) {
-    lines.push("\n- Hora: ya seleccionada vía widget — NO preguntes fecha/hora de nuevo");
+    lines.push("\n- Slot ya seleccionado — NO preguntes fecha/hora");
     const missing: string[] = [];
     if (!ctx.patientName) missing.push("nombre completo");
     if (!ctx.rut)         missing.push("RUT (formato XX.XXX.XXX-X)");
     if (missing.length > 0) {
       lines.push(`Falta para confirmar: ${missing.join(" y ")}. Pídelo de forma natural.`);
     } else {
-      lines.push("Todos los datos están completos. Despídete con mensaje cálido.");
+      lines.push("Todos los datos completos. Despídete con calidez.");
     }
   }
 
@@ -283,6 +310,10 @@ export async function getAIResponse({
   }
 
   // Capa 2: pre-filtro de tópico (sin costo de LLM) — Juan en modo demo lo salta
+  // Ensure the session is warm in the cache BEFORE any appendToHistory call so
+  // that a synchronous write on a post-restart cold session does not create a
+  // blank entry that warmUp would later overwrite (losing the appended message).
+  await ensureCached(sessionId);
   const guard = overrideSystemPrompt ? { allowed: true as const } : checkTopic(message);
   if (!guard.allowed) {
     appendToHistory(sessionId, "user", message);
@@ -296,7 +327,7 @@ export async function getAIResponse({
 
   const systemPrompt = overrideSystemPrompt ?? buildSystemPrompt(clinic);
   const contextHint  = overrideSystemPrompt ? undefined : buildContextHint(message, clinic.config);
-  const stateHint    = buildStateHint(currentContext);
+  const stateHint    = buildStateHint(currentContext, message);
   appendToHistory(sessionId, "user", message);
   const history = await getHistory(sessionId);
 
@@ -324,6 +355,7 @@ export async function getAIResponse({
   let orMsg: any;
   let usedModel = model;
   let tokensIn = 0, tokensOut = 0, latencyMs = 0;
+  let creditExhausted = false;
 
   for (const m of fallbackChain) {
     try {
@@ -334,18 +366,70 @@ export async function getAIResponse({
       tokensIn  = data.usage?.prompt_tokens     ?? 0;
       tokensOut = data.usage?.completion_tokens ?? 0;
       usedModel = m;
-      if (m !== model) console.warn(`[AI] Usando fallback: ${m}`);
+      if (m !== model) {
+        console.warn(`[AI] Usando fallback: ${m}`);
+        triggerAlert({
+          kind: "ai_fallback_used",
+          severity: "info",
+          message: `Modelo primario (${model}) falló — usando fallback ${m}`,
+          detail: { clinic: clinic.slug, tier },
+        }).catch(() => {});
+      }
       break;
     } catch (err: any) {
-      // 400 de Gemini/OpenRouter por tools incompatibles también cae aquí — siempre continuar cadena
-      const retryable = err?.status === 429 || err?.status === 404 || (err?.status ?? 0) >= 400;
-      console.warn(`[AI] ${m} falló (${err?.status}): ${err?.body ?? err?.message} — ${retryable ? "reintentando" : "propagando"}`);
+      const status = err?.status ?? 0;
+      const bodyStr = String(err?.body ?? err?.message ?? "").toLowerCase();
+      // 401/402/403 + texto de "credit"/"insufficient" → cuenta OpenRouter sin saldo o key inválida.
+      // No tiene sentido reintentar otros modelos del MISMO proveedor — cortar y saltar a Groq.
+      const looksLikeCredits =
+        status === 402 ||
+        ((status === 401 || status === 403) && /credit|insufficient|balance|quota/.test(bodyStr));
+      if (looksLikeCredits) {
+        creditExhausted = true;
+        console.error(`[AI] OpenRouter ${status} — créditos agotados o key inválida. Abortando cadena OpenRouter.`);
+        triggerAlert({
+          kind: "ai_credits_exhausted",
+          severity: "critical",
+          message: `OpenRouter retornó ${status}. Revisa saldo/API key en openrouter.ai/account.`,
+          detail: { clinic: clinic.slug, model: m, body: bodyStr.slice(0, 200) },
+        }).catch(() => {});
+        break;
+      }
+      const retryable = status === 429 || status === 404 || status >= 400;
+      console.warn(`[AI] ${m} falló (${status}): ${err?.body ?? err?.message} — ${retryable ? "reintentando" : "propagando"}`);
       if (!retryable) throw err;
+    }
+  }
+
+  // Último recurso: Groq directo (proveedor independiente de OpenRouter)
+  if (!orMsg && isGroqConfigured()) {
+    try {
+      console.warn("[AI] Cadena OpenRouter agotada — intentando Groq directo");
+      const groqResult = await callGroqDirect(messages);
+      orMsg = { content: groqResult.content, tool_calls: [] };
+      tokensIn  = groqResult.tokensIn;
+      tokensOut = groqResult.tokensOut;
+      latencyMs = groqResult.latencyMs;
+      usedModel = `groq:${groqResult.model}`;
+      triggerAlert({
+        kind: "ai_provider_degraded",
+        severity: "warn",
+        message: "OpenRouter caído — sirviendo con Groq directo (sin function calling)",
+        detail: { clinic: clinic.slug, creditExhausted },
+      }).catch(() => {});
+    } catch (err: any) {
+      console.error("[AI] Groq directo también falló:", err?.body ?? err?.message);
     }
   }
 
   if (!orMsg) {
     console.error("[AI] Todos los modelos fallaron. Usando respuesta estática.");
+    triggerAlert({
+      kind: "ai_all_providers_down",
+      severity: "critical",
+      message: "Todos los proveedores LLM están caídos — el chat responde solo con mensaje estático.",
+      detail: { clinic: clinic.slug, creditExhausted, hasGroq: isGroqConfigured() },
+    }).catch(() => {});
     return { reply: STATIC_FALLBACK, context: null, isFarewell: false };
   }
 

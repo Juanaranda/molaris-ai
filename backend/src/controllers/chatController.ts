@@ -6,6 +6,7 @@ import { config } from "../config/env";
 import { sendBookingNotification } from "../services/notifications/whatsappService";
 import { buildJuanPrompt } from "../services/ai/promptBuilder";
 import { calculateLeadScore } from "../lib/leadScoring";
+import { triggerAlert } from "../services/alerts/alertService";
 
 const bodySchema = z.object({
   message: z.string().min(1),
@@ -53,26 +54,40 @@ async function buildAvailabilityHint(clinicId: string, cfg: ClinicCfg): Promise<
   const doctors = cfg.doctors ?? [];
   const lines: string[] = ["## DISPONIBILIDAD PRÓXIMOS 5 DÍAS (usa SOLO estos horarios)"];
 
+  // BUG FIX #8: collect candidate days first, then fetch all booked slots in
+  // parallel with Promise.all instead of N sequential awaits inside the loop.
+  type DayInfo = { d: Date; iso: string; jsDay: number; isSat: boolean; availDoctors: DoctorConfig[] };
+  const candidateDays: DayInfo[] = [];
+
   for (let i = 1; i <= 5; i++) {
     const d = new Date();
     d.setDate(d.getDate() + i);
     const jsDay = d.getDay();
     if (jsDay === 0) continue;
-
-    const iso = isoDate(d);
-    const dayLabel = DAY_NAMES_ES[jsDay];
-    const isSat = jsDay === 6;
-    const allSlots = generateSlots(isSat);
-
     const availDoctors = doctors.filter((doc) => parseDoctorDays(doc.schedule).includes(jsDay));
     if (availDoctors.length === 0) continue;
+    candidateDays.push({ d, iso: isoDate(d), jsDay, isSat: jsDay === 6, availDoctors });
+  }
 
-    const startOfDay = new Date(`${iso}T00:00:00`);
-    const endOfDay   = new Date(`${iso}T23:59:59`);
-    const booked = await prisma.booking.findMany({
-      where: { clinicId, date: { gte: startOfDay, lte: endOfDay }, status: { not: "cancelled" } },
-      select: { time: true, doctor: true },
-    });
+  const bookingResults = await Promise.all(
+    candidateDays.map(({ iso }) =>
+      prisma.booking.findMany({
+        where: {
+          clinicId,
+          date: { gte: new Date(`${iso}T00:00:00`), lte: new Date(`${iso}T23:59:59`) },
+          status: { not: "cancelled" },
+        },
+        select: { time: true, doctor: true },
+      })
+    )
+  );
+
+  for (let i = 0; i < candidateDays.length; i++) {
+    const { d, jsDay, isSat, availDoctors } = candidateDays[i];
+    const dayLabel = DAY_NAMES_ES[jsDay];
+    const allSlots = generateSlots(isSat);
+    const booked = bookingResults[i];
+
     const bookedMap: Record<string, Set<string>> = {};
     for (const b of booked) {
       bookedMap[b.doctor] ??= new Set();
@@ -188,18 +203,20 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
       try {
         const { doctor, date, time, patientName, patientRut, service } = bookingAction;
 
-        // Verificar disponibilidad del slot
+        // Slot conflict check + booking creation are wrapped in a single
+        // interactive transaction so that two concurrent requests for the same
+        // slot cannot both pass the conflict check before either write completes.
         const startOfDay = new Date(`${date}T00:00:00`);
         const endOfDay   = new Date(`${date}T23:59:59`);
-        const conflict   = await prisma.booking.findFirst({
-          where: { clinicId: clinic.id, date: { gte: startOfDay, lte: endOfDay }, doctor, time, status: { not: "cancelled" } },
-        });
+        const requestedDate = new Date(`${date}T12:00:00.000Z`);
 
-        if (conflict) {
-          finalReply = `Ese horario (${time} con ${doctor}) acaba de ser reservado por otro paciente. Elige otro horario disponible.`;
-        } else {
-          const requestedDate = new Date(`${date}T12:00:00.000Z`);
-          const booking = await prisma.booking.create({
+        const txResult = await prisma.$transaction(async (tx) => {
+          const conflict = await tx.booking.findFirst({
+            where: { clinicId: clinic.id, date: { gte: startOfDay, lte: endOfDay }, doctor, time, status: { not: "cancelled" } },
+          });
+          if (conflict) return { conflict: true, booking: null };
+
+          const booking = await tx.booking.create({
             data: {
               clinicId: clinic.id,
               patientName,
@@ -209,6 +226,13 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
               status: "confirmed",
             },
           });
+          return { conflict: false, booking };
+        });
+
+        if (txResult.conflict) {
+          finalReply = `Ese horario (${time} con ${doctor}) acaba de ser reservado por otro paciente. Elige otro horario disponible.`;
+        } else {
+          const booking = txResult.booking!;
 
           chatBookingConfirmed = true;
           const dayName = DAY_NAMES_ES[new Date(`${date}T12:00:00`).getDay()];
@@ -216,11 +240,14 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
           // Notificación WhatsApp
           const clinicFull = await prisma.clinic.findUnique({
             where: { id: clinic.id },
-            select: { whatsapp: true, name: true, phone: true },
+            select: { whatsapp: true, name: true, phone: true, waVerified: true, waPhoneId: true, waToken: true },
           });
           if (clinicFull?.whatsapp) {
+            const clinicMeta = (clinicFull.waVerified && clinicFull.waPhoneId && clinicFull.waToken)
+              ? { phoneId: clinicFull.waPhoneId, token: clinicFull.waToken }
+              : undefined;
             sendBookingNotification({
-              clinicName: clinicFull.name, clinicWhatsapp: clinicFull.whatsapp,
+              clinicName: clinicFull.name, clinicWhatsapp: clinicFull.whatsapp, clinicMeta,
               patientName, service: service ?? "A confirmar",
               date, dayName, time, doctor, box: null, sessionId: booking.id,
             }).catch(() => {});
@@ -248,12 +275,27 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
       });
     }
 
-    // Adjuntar link cuando el bot dice "aquí:" (flujo formulario)
-    if (!chatBookingConfirmed && !bookingAction) {
+    // Mostrar picker solo cuando intent=ready_to_book Y el usuario NO especificó ya una hora/fecha concreta.
+    // Si ya dijo "el martes a las 14:00", el flujo continúa por chat — el picker sería redundante.
+    const alreadyBooked = chatBookingConfirmed || slotBooked || (existingCtx?.slotBooked ?? false);
+    // Keep consistent with USER_GAVE_TIME_RE in claudeService: "mañana" is only
+    // a scheduling signal when NOT preceded by "de la" (time-of-day phrase).
+    const userGaveTime =
+      /\b\d{1,2}:\d{2}\b|\b(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo|pr[oó]ximo|esta semana|tarde)\b/i.test(message) ||
+      /(?<!de\s+la\s+)\b(ma[nñ]ana|pasado\s+ma[nñ]ana)\b/i.test(message);
+    const showScheduler =
+      !alreadyBooked &&
+      !bookingAction &&
+      !chatBookingConfirmed &&
+      !userGaveTime &&
+      context?.intent === "ready_to_book";
+
+    // Adjuntar link solo cuando NO mostramos el picker (fallback para canales sin UI)
+    if (!chatBookingConfirmed && !bookingAction && !showScheduler) {
       const hasBookingCue = /(?:aquí|link|enlace)\s*:?\s*$/i.test(aiReply.trim());
       const justReadyToBook = context?.intent === "ready_to_book" && existingCtx?.intent !== "ready_to_book";
 
-      if ((justReadyToBook || hasBookingCue) && !(existingCtx?.slotBooked ?? false)) {
+      if ((justReadyToBook || hasBookingCue) && !alreadyBooked) {
         const bookingUrl = `${config.frontendUrl}/book/${clinicSlug}?s=${session.id}`;
         finalReply = hasBookingCue
           ? aiReply.trimEnd() + `\n\n👉 ${bookingUrl}`
@@ -261,11 +303,18 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
       }
     }
 
-    return reply.send({ reply: finalReply, sessionId: session.id, context, isFarewell });
+    return reply.send({ reply: finalReply, sessionId: session.id, context, isFarewell, showScheduler });
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     req.log.error({ err }, `[chat] Error inesperado: ${msg}`);
+
+    triggerAlert({
+      kind: "ai_all_providers_down",
+      severity: "critical",
+      message: `Chat backend lanzó excepción: ${msg.slice(0, 200)}`,
+      detail: { errorType: classifyError(err) },
+    }).catch(() => {});
 
     // Intentar registrar el fallo en usage_events para trazabilidad
     try {

@@ -482,18 +482,25 @@ function AdminAgenda({
   const [showNew, setShowNew]         = useState(openNewBookingOnMount);
   const [quotePatient, setQuotePatient] = useState<{ name: string; rut: string | null } | null>(null);
 
-  const fetchWeek = useCallback(async (start: Date) => {
+  const fetchWeek = useCallback(async (start: Date, signal?: AbortSignal) => {
     const token = getToken(); if (!token) return;
     setLoading(true);
     try {
       const res = await fetch(`${API}/api/agenda/week?start=${toDateStr(start)}`, {
         headers: { Authorization: `Bearer ${token}` },
+        signal,
       });
       if (res.ok) { const d = await res.json(); setDays(d.days ?? []); }
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchWeek(weekStart); }, [weekStart, fetchWeek]);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchWeek(weekStart, controller.signal);
+    return () => controller.abort();
+  }, [weekStart, fetchWeek]);
 
   const todayStr = toDateStr(new Date());
   const weekEnd  = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 5);
@@ -904,12 +911,19 @@ function DoctorAgenda({ user }: { user: AuthUser }) {
 
   useEffect(() => {
     const token = getToken(); if (!token) return;
+    const controller = new AbortController();
     fetch(`${API}/api/agenda/week?start=${toDateStr(getMondayOf(new Date()))}`, {
       headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
     })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("non-200");
+        return r.json();
+      })
       .then((d) => setDays(d.days ?? []))
-      .finally(() => setLoading(false));
+      .catch((err) => { if (err.name !== "AbortError") setDays([]); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
   }, []);
 
   const todayStr = toDateStr(new Date());

@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { HeroShowcase } from "@/components/HeroShowcase";
+import { AnimateIn } from "@/components/AnimateIn";
+import { AnimatedCounter } from "@/components/AnimatedCounter";
 
 /* ─── Icons ─────────────────────────────────────────────────────────── */
 function IconBot() {
@@ -294,16 +296,16 @@ export default function Home() {
             <div>
               <span className="inline-flex items-center gap-2 text-xs font-bold px-4 py-1.5 rounded-full mb-8 animate-fade-up" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A", border: "1px solid rgba(26,92,122,0.2)" }}>
                 <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#D95F45" }} />
-                IA + agenda + clínica — todo en uno
+                Recepcionista IA · responde en segundos, 24/7
               </span>
 
               <h1 className="font-display text-5xl sm:text-6xl font-bold leading-[1.08] tracking-tight mb-6 animate-fade-up animate-fade-up-delay-1">
-                Tu clínica dental,<br />
-                <span style={{ color: "#D95F45" }}>automatizada<br />de verdad.</span>
+                Tu recepción dental,<br />
+                <span style={{ color: "#D95F45" }}>contestando<br />24/7.</span>
               </h1>
 
               <p className="text-base sm:text-lg max-w-md mb-10 animate-fade-up animate-fade-up-delay-2" style={{ color: "#607281" }}>
-                molari.ai atiende pacientes en WhatsApp y tu web, gestiona tu agenda, lleva la ficha clínica y te muestra cada métrica en tiempo real.
+                molari.ai responde a cada paciente en WhatsApp y tu web al instante, agenda la cita y hace el seguimiento — mientras tu equipo se concentra en atender. Ficha clínica, odontograma y pagos, incluidos.
               </p>
 
               <div className="flex flex-col gap-3 animate-fade-up animate-fade-up-delay-3">
@@ -335,7 +337,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="animate-fade-up animate-fade-up-delay-2">
+            <div className="animate-fade-up animate-fade-up-delay-2 animate-float-slow">
               <HeroShowcase />
             </div>
           </div>
@@ -351,12 +353,14 @@ export default function Home() {
               { icon: "📅", value: "Agenda incluida", label: "Calendario por profesional, sin pagar otra herramienta" },
               { icon: "🦷", value: "Historial clínico", label: "Notas, planes de tratamiento, odontograma y pagos" },
               { icon: "📊", value: "Analytics en vivo", label: "Ingresos, leads, conversión y rendimiento por doctor" },
-            ].map((s) => (
-              <div key={s.value} className="flex flex-col gap-2">
-                <span className="text-2xl">{s.icon}</span>
-                <p className="font-bold text-sm sm:text-base leading-tight" style={{ color: "rgba(255,255,255,0.95)" }}>{s.value}</p>
-                <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>{s.label}</p>
-              </div>
+            ].map((s, i) => (
+              <AnimateIn key={s.value} delay={i * 90}>
+                <div className="flex flex-col gap-2">
+                  <span className="text-2xl">{s.icon}</span>
+                  <p className="font-bold text-sm sm:text-base leading-tight" style={{ color: "rgba(255,255,255,0.95)" }}>{s.value}</p>
+                  <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>{s.label}</p>
+                </div>
+              </AnimateIn>
             ))}
           </div>
         </div>
@@ -372,13 +376,15 @@ export default function Home() {
             Los problemas que molari.ai resuelve
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            {problems.map((item) => (
-              <div key={item.num} className="rounded-2xl p-6 sm:p-7"
-                style={{ backgroundColor: "#FDFCFB", borderTop: "2.5px solid #D95F45", boxShadow: "0 1px 3px rgba(12,27,38,0.05)" }}>
-                <p className="font-display text-5xl font-bold mb-5" style={{ color: "rgba(217,95,69,0.18)" }}>{item.num}</p>
-                <h3 className="font-semibold text-base mb-2">{item.title}</h3>
-                <p className="text-sm leading-relaxed" style={{ color: "#607281" }}>{item.desc}</p>
-              </div>
+            {problems.map((item, i) => (
+              <AnimateIn key={item.num} delay={i * 110} style={{ height: '100%' }}>
+                <div className="rounded-2xl p-6 sm:p-7 h-full"
+                  style={{ backgroundColor: "#FDFCFB", borderTop: "2.5px solid #D95F45", boxShadow: "0 1px 3px rgba(12,27,38,0.05)" }}>
+                  <p className="font-display text-5xl font-bold mb-5" style={{ color: "rgba(217,95,69,0.18)" }}>{item.num}</p>
+                  <h3 className="font-semibold text-base mb-2">{item.title}</h3>
+                  <p className="text-sm leading-relaxed" style={{ color: "#607281" }}>{item.desc}</p>
+                </div>
+              </AnimateIn>
             ))}
           </div>
         </div>
@@ -398,9 +404,10 @@ export default function Home() {
           </p>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {features.map((f) => (
-              <div key={f.title}
-                className="rounded-3xl p-7 flex flex-col gap-5 transition-shadow hover:shadow-lg"
+            {features.map((f, i) => (
+              <AnimateIn key={f.title} delay={i * 120} style={{ height: '100%' }}>
+              <div
+                className="rounded-3xl p-7 flex flex-col gap-5 transition-shadow hover:shadow-lg h-full"
                 style={{ backgroundColor: "white", border: "1px solid #E5E0D9" }}>
                 {/* Icon */}
                 <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
@@ -425,6 +432,7 @@ export default function Home() {
                   ))}
                 </ul>
               </div>
+              </AnimateIn>
             ))}
           </div>
         </div>
@@ -443,48 +451,60 @@ export default function Home() {
             El mismo asistente inteligente responde en todos tus canales — cada conversación queda registrada y calificada.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 justify-items-center">
-            <ChatMockup
-              header={{ name: "Galana Clínica Dental", sub: "En línea", initial: "G" }}
-              headerBg="#128C7E"
-              messages={[
-                { from: "user", text: "Hola, quiero agendar una limpieza 🦷" },
-                { from: "bot",  text: "¡Hola! ¿Tienes preferencia de día?" },
-                { from: "user", text: "El martes si es posible" },
-                { from: "bot",  text: "Martes 10:00 con Dr. Engel ✅ ¿Confirmo?" },
-              ]}
-              inputBg="#E5DDD5"
-              sendBg="#25D366"
-              label="WhatsApp"
-              sublabel="El canal favorito de tus pacientes"
-            />
-            <ChatMockup
-              header={{ name: "galana.dental", sub: "Widget web · En línea", initial: "G" }}
-              headerBg="linear-gradient(135deg, #1A5C7A, #0e4560)"
-              messages={[
-                { from: "user", text: "Me interesa una consulta de ortodoncia" },
-                { from: "bot",  text: "La Dra. Pérez atiende lun, mié y vie 😊 ¿Qué día?" },
-                { from: "user", text: "El viernes" },
-                { from: "bot",  text: "¡Perfecto! ¿Me das tu nombre? ✨" },
-              ]}
-              inputBg="#f8fafc"
-              sendBg="#1A5C7A"
-              label="Widget web"
-              sublabel="Captura leads desde tu sitio"
-            />
-            <ChatMockup
-              header={{ name: "Galana Clínica Dental", sub: "Asistente virtual", initial: "G" }}
-              headerBg="#1A5C7A"
-              messages={[
-                { from: "user", text: "¿Cuánto vale una endodoncia?" },
-                { from: "bot",  text: "Varía según la pieza. ¿Horarios con Dr. Garcés?" },
-                { from: "user", text: "Sí, para esta semana" },
-                { from: "bot",  text: "Aquí tienes los horarios disponibles 👇" },
-              ]}
-              inputBg="#F7F5F1"
-              sendBg="#1A5C7A"
-              label="Web Widget"
-              sublabel="Integrado en tu sitio web"
-            />
+            <AnimateIn delay={0}>
+              <div className="animate-float">
+                <ChatMockup
+                  header={{ name: "Galana Clínica Dental", sub: "En línea", initial: "G" }}
+                  headerBg="#128C7E"
+                  messages={[
+                    { from: "user", text: "Hola, quiero agendar una limpieza 🦷" },
+                    { from: "bot",  text: "¡Hola! ¿Tienes preferencia de día?" },
+                    { from: "user", text: "El martes si es posible" },
+                    { from: "bot",  text: "Martes 10:00 con Dr. Engel ✅ ¿Confirmo?" },
+                  ]}
+                  inputBg="#E5DDD5"
+                  sendBg="#25D366"
+                  label="WhatsApp"
+                  sublabel="El canal favorito de tus pacientes"
+                />
+              </div>
+            </AnimateIn>
+            <AnimateIn delay={120}>
+              <div className="animate-float" style={{ animationDelay: '1.5s' }}>
+                <ChatMockup
+                  header={{ name: "galana.dental", sub: "Widget web · En línea", initial: "G" }}
+                  headerBg="linear-gradient(135deg, #1A5C7A, #0e4560)"
+                  messages={[
+                    { from: "user", text: "Me interesa una consulta de ortodoncia" },
+                    { from: "bot",  text: "La Dra. Pérez atiende lun, mié y vie 😊 ¿Qué día?" },
+                    { from: "user", text: "El viernes" },
+                    { from: "bot",  text: "¡Perfecto! ¿Me das tu nombre? ✨" },
+                  ]}
+                  inputBg="#f8fafc"
+                  sendBg="#1A5C7A"
+                  label="Widget web"
+                  sublabel="Captura leads desde tu sitio"
+                />
+              </div>
+            </AnimateIn>
+            <AnimateIn delay={240}>
+              <div className="animate-float" style={{ animationDelay: '2.8s' }}>
+                <ChatMockup
+                  header={{ name: "Galana Clínica Dental", sub: "Asistente virtual · 24/7", initial: "G" }}
+                  headerBg="#1A5C7A"
+                  messages={[
+                    { from: "user", text: "¿Cuánto vale una endodoncia?" },
+                    { from: "bot",  text: "Varía según la pieza. ¿Te agendo con Dr. Garcés?" },
+                    { from: "user", text: "Sí, esta semana si puede ser" },
+                    { from: "bot",  text: "Aquí tienes los horarios disponibles 👇" },
+                  ]}
+                  inputBg="#F7F5F1"
+                  sendBg="#1A5C7A"
+                  label="Cotizaciones y precios"
+                  sublabel="Responde dudas antes de la cita"
+                />
+              </div>
+            </AnimateIn>
           </div>
 
           {/* Métricas del asistente — integradas en contexto */}
@@ -502,7 +522,7 @@ export default function Home() {
                 { value: "< 2 s", label: "Tiempo de respuesta",    color: "#059669",  sub: "disponible 24 / 7" },
               ].map((m) => (
                 <div key={m.label} className="flex flex-col items-center justify-center gap-1 py-6 px-4 text-center">
-                  <p className="font-display text-3xl sm:text-4xl font-bold leading-none" style={{ color: m.color }}>{m.value}</p>
+                  <AnimatedCounter raw={m.value} color={m.color} />
                   <p className="text-xs font-semibold mt-1" style={{ color: "#0C1B26" }}>{m.label}</p>
                   <p className="text-[10px]" style={{ color: "#9CA8B3" }}>{m.sub}</p>
                 </div>
@@ -551,9 +571,9 @@ export default function Home() {
                 Acceder al panel
               </Link>
             </div>
-            <div className="w-full">
+            <AnimateIn direction="right" className="w-full animate-float-slow">
               <AgendaMockup />
-            </div>
+            </AnimateIn>
           </div>
         </div>
       </section>
@@ -574,12 +594,14 @@ export default function Home() {
               { step: "03", title: "La agenda se actualiza sola", desc: "Cada cita agendada por IA aparece en tu agenda en tiempo real." },
               { step: "04", title: "Tú ves los resultados", desc: "Dashboard con leads, citas y conversión por canal. Todo en un solo lugar." },
             ].map((item, i) => (
-              <div key={item.step} className="relative flex flex-col px-6 sm:px-7 py-8 sm:py-0"
-                style={i > 0 ? { borderLeft: "1px solid #E5E0D9" } : {}}>
-                <p className="font-display text-5xl font-bold mb-5" style={{ color: "#D95F45", opacity: 0.4 }}>{item.step}</p>
-                <h3 className="text-base font-bold mb-2" style={{ color: "#0C1B26" }}>{item.title}</h3>
-                <p className="text-sm leading-relaxed" style={{ color: "#607281" }}>{item.desc}</p>
-              </div>
+              <AnimateIn key={item.step} delay={i * 100}>
+                <div className="relative flex flex-col px-6 sm:px-7 py-8 sm:py-0"
+                  style={i > 0 ? { borderLeft: "1px solid #E5E0D9" } : {}}>
+                  <p className="font-display text-5xl font-bold mb-5" style={{ color: "#D95F45", opacity: 0.4 }}>{item.step}</p>
+                  <h3 className="text-base font-bold mb-2" style={{ color: "#0C1B26" }}>{item.title}</h3>
+                  <p className="text-sm leading-relaxed" style={{ color: "#607281" }}>{item.desc}</p>
+                </div>
+              </AnimateIn>
             ))}
           </div>
         </div>
@@ -592,16 +614,17 @@ export default function Home() {
           <p className="text-sm text-center mb-12" style={{ color: "#607281" }}>Sin contratos largos. Cancela cuando quieras.</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-6 items-stretch">
 
-            {/* Starter */}
-            <div className="flex flex-col rounded-2xl p-6 sm:p-7" style={{ border: "1px solid #E5E0D9", backgroundColor: "#FDFCFB" }}>
-              <p className="text-xs font-bold uppercase tracking-[0.12em] mb-5" style={{ color: "#607281" }}>Starter</p>
+            {/* Esencial */}
+            <AnimateIn delay={0} style={{ display: 'flex', flexDirection: 'column' }}>
+            <div className="flex flex-col rounded-2xl p-6 sm:p-7 flex-1" style={{ border: "1px solid #E5E0D9", backgroundColor: "#FDFCFB" }}>
+              <p className="text-xs font-bold uppercase tracking-[0.12em] mb-5" style={{ color: "#607281" }}>Esencial</p>
               <div className="mb-1">
-                <span className="font-display text-4xl font-bold">$49</span>
-                <span className="text-sm ml-1.5" style={{ color: "#607281" }}>USD / mes</span>
+                <span className="font-display text-4xl font-bold">$59.990</span>
+                <span className="text-sm ml-1.5" style={{ color: "#607281" }}>CLP / mes</span>
               </div>
-              <p className="text-sm mb-6" style={{ color: "#607281" }}>Para clínicas pequeñas (1 box)</p>
+              <p className="text-sm mb-6" style={{ color: "#607281" }}>Para la clínica que recién se digitaliza</p>
               <ul className="flex flex-col gap-2.5 text-sm mb-8 flex-1">
-                {["Chatbot con IA 24/7", "Agendamiento por chat", "Agenda con vista de calendario", "Historial clínico básico", "1 canal de atención"].map((f) => (
+                {["Recepcionista IA en tu sitio web", "Agenda por profesional", "Ficha clínica + odontograma", "Recordatorios automáticos de cita", "Hasta 2 profesionales"].map((f) => (
                   <li key={f} className="flex items-center gap-2.5">
                     <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A" }}>✓</span>
                     {f}
@@ -614,27 +637,28 @@ export default function Home() {
                 Empezar ahora
               </a>
             </div>
+            </AnimateIn>
 
             {/* Pro */}
-            <div className="flex flex-col rounded-2xl p-6 sm:p-7 relative shadow-lg" style={{ border: "2px solid #D95F45", backgroundColor: "#FDFCFB" }}>
+            <AnimateIn delay={110} style={{ display: 'flex', flexDirection: 'column' }}>
+            <div className="flex flex-col rounded-2xl p-6 sm:p-7 relative shadow-lg flex-1" style={{ border: "2px solid #D95F45", backgroundColor: "#FDFCFB" }}>
               <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 text-white text-[11px] font-bold px-4 py-1 rounded-full whitespace-nowrap" style={{ backgroundColor: "#D95F45" }}>
                 Más popular
               </span>
-              <p className="text-xs font-bold uppercase tracking-[0.12em] mb-5" style={{ color: "#D95F45" }}>Pro</p>
+              <p className="text-xs font-bold uppercase tracking-[0.12em] mb-5" style={{ color: "#D95F45" }}>Profesional</p>
               <div className="mb-1">
-                <span className="font-display text-4xl font-bold">$129</span>
-                <span className="text-sm ml-1.5" style={{ color: "#607281" }}>USD / mes</span>
+                <span className="font-display text-4xl font-bold">$99.990</span>
+                <span className="text-sm ml-1.5" style={{ color: "#607281" }}>CLP / mes</span>
               </div>
-              <p className="text-sm mb-6" style={{ color: "#607281" }}>Para clínicas medianas (2–5 boxes)</p>
+              <p className="text-sm mb-6" style={{ color: "#607281" }}>La clínica completa — hasta 5 profesionales</p>
               <ul className="flex flex-col gap-2.5 text-sm mb-8 flex-1">
                 {[
-                  "Todo lo del plan Starter",
-                  "Lead scoring de pacientes",
-                  "Recordatorios automáticos",
-                  "Planes de tratamiento y odontograma",
-                  "Registro de pagos y saldo pendiente",
-                  "Analytics de conversión en tiempo real",
-                  "Múltiples canales de atención",
+                  "Todo lo del plan Esencial",
+                  "Recepcionista IA en WhatsApp Business",
+                  "Recall automático + lista de espera",
+                  "Pagos online y boleta electrónica SII",
+                  "Dashboard de gestión + scoring de pacientes",
+                  "Soporte prioritario",
                 ].map((f) => (
                   <li key={f} className="flex items-center gap-2.5">
                     <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#FDECEA", color: "#D95F45" }}>✓</span>
@@ -648,20 +672,22 @@ export default function Home() {
                 Empezar ahora
               </a>
             </div>
+            </AnimateIn>
 
-            {/* Enterprise */}
-            <div className="flex flex-col rounded-2xl p-6 sm:p-7" style={{ border: "1px solid #E5E0D9", backgroundColor: "#FDFCFB" }}>
-              <p className="text-xs font-bold uppercase tracking-[0.12em] mb-5" style={{ color: "#607281" }}>Enterprise</p>
+            {/* Clínica+ */}
+            <AnimateIn delay={220} style={{ display: 'flex', flexDirection: 'column' }}>
+            <div className="flex flex-col rounded-2xl p-6 sm:p-7 flex-1" style={{ border: "1px solid #E5E0D9", backgroundColor: "#FDFCFB" }}>
+              <p className="text-xs font-bold uppercase tracking-[0.12em] mb-5" style={{ color: "#607281" }}>Clínica+</p>
               <div className="mb-1">
-                <span className="font-display text-4xl font-bold">Custom</span>
+                <span className="font-display text-4xl font-bold">A medida</span>
               </div>
-              <p className="text-sm mb-6" style={{ color: "#607281" }}>Para cadenas o grupos dentales</p>
+              <p className="text-sm mb-6" style={{ color: "#607281" }}>Para grupos y multi-sucursal</p>
               <ul className="flex flex-col gap-2.5 text-sm mb-8 flex-1">
                 {[
-                  "Todo lo del plan Pro",
-                  "Multi-sucursal y multi-marca",
-                  "API e integraciones a medida",
-                  "Formularios de consentimiento digital",
+                  "Todo lo del plan Profesional",
+                  "Profesionales ilimitados",
+                  "Múltiples sucursales",
+                  "Integración con tu sistema vía API",
                   "Onboarding dedicado",
                   "SLA garantizado",
                 ].map((f) => (
@@ -677,6 +703,7 @@ export default function Home() {
                 Hablar con el equipo
               </a>
             </div>
+            </AnimateIn>
           </div>
         </div>
       </section>

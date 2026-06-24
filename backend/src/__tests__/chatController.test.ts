@@ -16,14 +16,26 @@ import Fastify from "fastify";
 // con const no están inicializadas aún. vi.hoisted() resuelve esto.
 
 const { mockPrisma, mockGetAIResponse } = vi.hoisted(() => {
-  const mockPrisma = {
+  const mockPrisma: {
+    clinic:         { findUnique: ReturnType<typeof vi.fn> };
+    session:        { findUnique: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> };
+    message:        { create: ReturnType<typeof vi.fn> };
+    patientContext: { findUnique: ReturnType<typeof vi.fn>; upsert: ReturnType<typeof vi.fn> };
+    booking:        { findFirst: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> };
+    usageEvent:     { create: ReturnType<typeof vi.fn> };
+    $transaction:   ReturnType<typeof vi.fn>;
+  } = {
     clinic: { findUnique: vi.fn() },
     session: { findUnique: vi.fn(), create: vi.fn() },
     message: { create: vi.fn() },
     patientContext: { findUnique: vi.fn(), upsert: vi.fn() },
     booking: { findFirst: vi.fn(), create: vi.fn() },
     usageEvent: { create: vi.fn() },
+    // Mock interactivo: ejecuta la callback con el propio prisma (tx === prisma).
+    // Los tests configuran booking.findFirst/create vía mockPrisma directamente.
+    $transaction: vi.fn(),
   };
+  mockPrisma.$transaction.mockImplementation(async (cb: (tx: typeof mockPrisma) => Promise<unknown>) => cb(mockPrisma));
   const mockGetAIResponse = vi.fn();
   return { mockPrisma, mockGetAIResponse };
 });

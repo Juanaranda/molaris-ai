@@ -12,6 +12,12 @@ import { SetupChecklist } from "@/components/SetupChecklist";
 import { AgendaTab } from "@/components/AgendaTab";
 import { PatientsTab } from "@/components/PatientsTab";
 import { DashboardTab } from "@/components/DashboardTab";
+import { ClinicProfileTab } from "@/components/ClinicProfileTab";
+import { MyProfileTab } from "@/components/MyProfileTab";
+import { TeamTab } from "@/components/TeamTab";
+import { ChangePasswordGate } from "@/components/ChangePasswordGate";
+import { RecallSection } from "@/components/RecallSection";
+import { AuditLogSection } from "@/components/AuditLogSection";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -140,7 +146,7 @@ function InfoField({ label, value, editable, onChange, placeholder }: {
   );
 }
 
-type Tab = "inicio" | "agenda" | "analytics" | "patients" | "bookings" | "config";
+type Tab = "inicio" | "agenda" | "analytics" | "patients" | "bookings" | "perfil" | "equipo" | "clinica" | "config";
 
 /* ─── Analytics Panel ──────────────────────────────────────────────────────── */
 const MONTH_LABELS: Record<string, string> = {
@@ -752,11 +758,13 @@ function DoctorView({ user, clinic, onShowFull }: { user: AuthUser; clinic: Clin
   });
 
   useEffect(() => {
+    const controller = new AbortController();
     async function load() {
       setLoadingBookings(true);
       try {
         const res = await fetch(`${API}/api/agenda/bookings?date=${todayStr}`, {
           headers: { Authorization: `Bearer ${getToken()}` },
+          signal: controller.signal,
         });
         if (res.ok) {
           const data: DoctorBooking[] = await res.json();
@@ -765,10 +773,12 @@ function DoctorView({ user, clinic, onShowFull }: { user: AuthUser; clinic: Clin
           );
           setBookings(filtered);
         }
-      } catch {}
-      finally { setLoadingBookings(false); }
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
+      } finally { if (!controller.signal.aborted) setLoadingBookings(false); }
     }
     load();
+    return () => controller.abort();
   }, [todayStr, user.name]);
 
   const activeBookings = bookings.filter((b) => b.status !== "cancelled");
@@ -906,7 +916,7 @@ export default function PartnersDashboard() {
   const [remEditing, setRemEditing] = useState(false);
 
   // Recall campaign
-  const DEFAULT_RECALL_MSG = `Hola {nombre}, te echamos de menos en ${clinic?.name ?? "{clinica}"}. ¿Qué tal si agendamos tu próximo control?`;
+  const DEFAULT_RECALL_MSG = "Hola {nombre}, te echamos de menos en {clinica}. ¿Qué tal si agendamos tu próximo control?";
   const [recallForm, setRecallForm] = useState<RecallConfig>({ enabled: false, daysInactive: 90, message: DEFAULT_RECALL_MSG });
   const [recallSaving, setRecallSaving] = useState(false);
   const [recallMsg, setRecallMsg] = useState("");
@@ -921,7 +931,9 @@ export default function PartnersDashboard() {
   const [surveyEditing, setSurveyEditing] = useState(false);
 
   useEffect(() => {
+    let mounted = true;
     getMe().then((data) => {
+      if (!mounted) return;
       if (!data) { router.push("/login"); return; }
       setUser(data.user);
       setClinic(data.clinic);
@@ -929,7 +941,8 @@ export default function PartnersDashboard() {
       setLoading(false);
       if (data.clinic) fetchAnalytics(data.clinic.id);
     });
-  }, [router]);
+    return () => { mounted = false; };
+  }, [router]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function fetchAnalytics(clinicId: string) {
     setAnalyticsLoading(true);
@@ -1083,6 +1096,11 @@ export default function PartnersDashboard() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {/* Gate bloqueante: forzar cambio de password en primer login */}
+      {user?.mustChangePassword && (
+        <ChangePasswordGate onSuccess={() => setUser({ ...user, mustChangePassword: false })} />
+      )}
+
       {/* Nav */}
       <nav className="flex items-center justify-between px-6 sm:px-8 py-4 border-b border-gray-100 sticky top-0 z-10" style={{ backgroundColor: "#FDFCFB" }}>
         <Link href="/"><Image src="/logo.svg" alt="molari.ai" width={120} height={32} priority /></Link>
@@ -1145,7 +1163,12 @@ export default function PartnersDashboard() {
             {/* Tabs */}
             <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
               <div className="flex border-b border-gray-200 gap-1 min-w-max sm:min-w-0">
-                {([["inicio", "Inicio"], ["agenda", "Agenda"], ["analytics", "Analítica"], ["patients", "Pacientes"], ["bookings", "Citas"], ["config", "Configuración"]] as [Tab, string][]).map(([tab, label]) => (
+                {(([
+                  ["inicio", "Inicio"], ["agenda", "Agenda"], ["analytics", "Analítica"],
+                  ["patients", "Pacientes"], ["bookings", "Citas"], ["perfil", "Mi Perfil"],
+                  ...(user && user.role !== "USER" ? [["equipo", "Equipo"]] as [Tab, string][] : []),
+                  ["clinica", "Mi Clínica"], ["config", "Configuración"],
+                ] as [Tab, string][])).map(([tab, label]) => (
                   <button key={tab} onClick={() => setActiveTab(tab)}
                     className={`px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
                       activeTab === tab
@@ -1249,13 +1272,38 @@ export default function PartnersDashboard() {
               <BookingsTab clinicId={clinic.id} />
             )}
 
+            {/* ══ TAB MI PERFIL ══════════════════════════════════════════════ */}
+            {activeTab === "perfil" && user && (
+              <MyProfileTab
+                user={user}
+                onUpdate={(updated) => { setUser(updated); }}
+              />
+            )}
+
+            {/* ══ TAB EQUIPO ═════════════════════════════════════════════════ */}
+            {activeTab === "equipo" && user && clinic && user.role !== "USER" && (
+              <TeamTab clinicId={clinic.id} currentUser={user} />
+            )}
+
+            {/* ══ TAB MI CLÍNICA ═════════════════════════════════════════════ */}
+            {activeTab === "clinica" && clinic && (
+              <ClinicProfileTab
+                clinic={clinic}
+                canEdit={canEdit}
+                onUpdate={(updated) => { setClinic(updated); }}
+              />
+            )}
+
             {/* ══ TAB CONFIGURACIÓN ══════════════════════════════════════════ */}
             {activeTab === "config" && (
               <div className="flex flex-col gap-6">
-                {/* Info básica */}
+                {/* Asistente IA */}
                 <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                   <div className="flex items-center justify-between mb-5">
-                    <h2 className="font-semibold text-gray-900">Información de la clínica</h2>
+                    <div>
+                      <h2 className="font-semibold text-gray-900">Asistente IA</h2>
+                      <p className="text-xs text-gray-400 mt-0.5">Personalidad y tono del chatbot de tu clínica</p>
+                    </div>
                     {canEdit && !editing && <button onClick={() => setEditing(true)} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Editar</button>}
                     {canEdit && editing && (
                       <div className="flex gap-3">
@@ -1268,10 +1316,9 @@ export default function PartnersDashboard() {
                     )}
                   </div>
                   {saveMsg && <p className={`text-xs mb-4 ${saveMsg === "Guardado" ? "text-green-600" : "text-red-600"}`}>{saveMsg}</p>}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    <InfoField label="Nombre de la clínica" value={form.name} editable={editing} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
-                    <InfoField label="Nombre del asistente" value={form.assistantName} editable={editing} placeholder="Ej: Gala, Aria..." onChange={(v) => setForm((f) => ({ ...f, assistantName: v }))} />
-                    <div className="sm:col-span-2">
+                  <div className="flex flex-col gap-5">
+                    <InfoField label="Nombre del asistente" value={form.assistantName} editable={editing} placeholder="Ej: Gala, Aria, Luna..." onChange={(v) => setForm((f) => ({ ...f, assistantName: v }))} />
+                    <div>
                       <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Tono del asistente</label>
                       {editing ? (
                         <select value={form.tone} onChange={(e) => setForm((f) => ({ ...f, tone: e.target.value }))}
@@ -1286,62 +1333,18 @@ export default function PartnersDashboard() {
                         <p className="text-sm text-gray-800">{form.tone || "—"}</p>
                       )}
                     </div>
-                    <InfoField label="Teléfono" value={form.phone} editable={editing} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} />
-                    <InfoField label="WhatsApp" value={form.whatsapp} editable={editing} onChange={(v) => setForm((f) => ({ ...f, whatsapp: v }))} />
-
-                    <InfoField label="Ubicación" value={form.location} editable={editing} onChange={(v) => setForm((f) => ({ ...f, location: v }))} />
-                    <div>
-                      <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Plan</p>
-                      <span className="inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 capitalize">{clinic.plan}</span>
-                    </div>
-                  </div>
-                </section>
-
-                {/* Horarios */}
-                <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="font-semibold text-gray-900">Horarios de atención</h2>
-                    <div className="flex items-center gap-3">
-                      {schedMsg && <span className={`text-xs ${schedMsg === "Guardado" ? "text-green-600" : "text-red-600"}`}>{schedMsg}</span>}
-                      {canEdit && !schedEditing && <button onClick={() => setSchedEditing(true)} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Editar</button>}
-                      {canEdit && schedEditing && (
-                        <div className="flex gap-3">
-                          <button onClick={() => { setSchedEditing(false); syncSchedForm(clinic); }} className="text-sm text-gray-500">Cancelar</button>
-                          <button onClick={saveSchedule} disabled={schedSaving}
-                            className="text-sm bg-blue-600 text-white font-medium px-4 py-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">
-                            {schedSaving ? "Guardando..." : "Guardar"}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-3">
-                    {schedEditing ? (
-                      <>
-                        {[["weekdays", "Lunes a Viernes", "Lunes a Viernes: 10:00 - 18:00"],
-                          ["saturday", "Sábado", "Sábado: 10:00 - 14:00"],
-                          ["sunday", "Domingo", "Domingo: cerrado"]].map(([key, label, ph]) => (
-                          <div key={key}>
-                            <label className="block text-xs text-gray-500 mb-1">{label}</label>
-                            <input value={schedForm[key as keyof typeof schedForm]}
-                              onChange={(e) => setSchedForm((f) => ({ ...f, [key]: e.target.value }))}
-                              placeholder={ph}
-                              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                          </div>
-                        ))}
-                      </>
-                    ) : (
-                      <div className="flex flex-col gap-2 text-sm">
-                        {schedForm.weekdays && <div className="flex justify-between"><span className="text-gray-500">Semana</span><span className="text-gray-800">{schedForm.weekdays}</span></div>}
-                        {schedForm.saturday && <div className="flex justify-between"><span className="text-gray-500">Sábado</span><span className="text-gray-800">{schedForm.saturday}</span></div>}
-                        {schedForm.sunday && <div className="flex justify-between"><span className="text-gray-500">Domingo</span><span className="text-gray-800">{schedForm.sunday}</span></div>}
+                    <div className="pt-2 border-t border-gray-50 flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-medium text-gray-500">Plan actual</p>
+                        <span className="inline-block mt-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 capitalize">{clinic.plan}</span>
                       </div>
-                    )}
+                      <a href="/partners/preview" target="_blank"
+                        className="text-xs font-semibold px-4 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
+                        Probar asistente →
+                      </a>
+                    </div>
                   </div>
                 </section>
-
-                <DoctorsEditor doctors={cfg.doctors ?? []} boxes={cfg.boxes ?? 1} canEdit={canEdit} onSave={saveDoctors} />
-                <ServicesEditor services={(cfg.services as ServiceRow[]) ?? []} canEdit={canEdit} onSave={saveServices} />
 
                 {/* Recordatorios automáticos */}
                 <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
@@ -1438,37 +1441,6 @@ export default function PartnersDashboard() {
                     </div>
                   </div>
                 </section>
-
-                {/* Auto-agendamiento público */}
-                {clinic && (
-                  <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                    <h2 className="font-semibold text-gray-900 mb-1">Auto-agendamiento público</h2>
-                    <p className="text-xs text-gray-400 mb-4">
-                      Comparte este link para que tus pacientes agenden directamente — sin llamadas ni WhatsApp.
-                      Ponlo en tu bio de Instagram, tu página web o envíalo por mensaje.
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <div className="flex-1 bg-gray-50 rounded-xl border border-gray-200 px-4 py-3 text-xs text-gray-700 font-mono break-all select-all">
-                        {typeof window !== "undefined" ? window.location.origin : "https://tu-dominio.com"}/book/{clinic.slug}
-                      </div>
-                      <button
-                        onClick={() => {
-                          const url = `${window.location.origin}/book/${clinic.slug}`;
-                          navigator.clipboard.writeText(url);
-                        }}
-                        className="text-xs font-semibold px-4 py-2 rounded-xl border transition-colors hover:bg-gray-50"
-                        style={{ borderColor: "#E5E0D9", color: "#1A5C7A" }}>
-                        Copiar link
-                      </button>
-                    </div>
-                    <div className="mt-3 flex gap-2">
-                      <a href={`/book/${clinic.slug}`} target="_blank" rel="noopener noreferrer"
-                        className="text-xs font-semibold underline underline-offset-2" style={{ color: "#607281" }}>
-                        Ver página
-                      </a>
-                    </div>
-                  </section>
-                )}
 
                 {/* Encuesta post-cita */}
                 <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
@@ -1627,6 +1599,12 @@ export default function PartnersDashboard() {
                     En Twilio: <strong>Sandbox Settings → When a message comes in</strong> → pega la URL → método POST.
                   </p>
                 </section>
+
+                {/* Recall automático (Issue #27) */}
+                {canEdit && <RecallSection clinicId={clinic.id} />}
+
+                {/* Audit log médico-legal (Issue #34) */}
+                {canEdit && <AuditLogSection clinicId={clinic.id} />}
               </div>
             )}
           </>

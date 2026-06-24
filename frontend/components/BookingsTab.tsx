@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { getToken } from "@/lib/auth";
+import { createBookingPaymentLink } from "@/lib/payments";
+import { emitBoletaForBooking } from "@/lib/boletas";
+import { WaitlistManager } from "@/components/WaitlistManager";
+import { LabOrdersManager } from "@/components/LabOrdersManager";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -57,8 +61,12 @@ export function BookingsTab({ clinicId }: Props) {
   const [view, setView] = useState<"upcoming" | "past">("upcoming");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [paymentModal, setPaymentModal] = useState<{ booking: BookingRow } | null>(null);
+  const [boletaModal,  setBoletaModal]  = useState<{ booking: BookingRow } | null>(null);
+  const [showWaitlist, setShowWaitlist] = useState(false);
+  const [showLab,      setShowLab]      = useState(false);
 
-  const fetchBookings = useCallback(async () => {
+  const fetchBookings = useCallback(async (signal: AbortSignal) => {
     setLoading(true);
     setError("");
     try {
@@ -67,18 +75,24 @@ export function BookingsTab({ clinicId }: Props) {
 
       const res = await fetch(`${API}/api/clinics/${clinicId}/bookings?${params}`, {
         headers: { Authorization: `Bearer ${getToken()}` },
+        signal,
       });
       if (!res.ok) throw new Error("Error cargando citas");
       const data = await res.json();
       setBookings(data.bookings);
     } catch (e) {
+      if (e instanceof Error && e.name === "AbortError") return;
       setError(e instanceof Error ? e.message : "Error desconocido");
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   }, [clinicId, statusFilter]);
 
-  useEffect(() => { fetchBookings(); }, [fetchBookings]);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchBookings(controller.signal);
+    return () => controller.abort();
+  }, [fetchBookings]);
 
   async function updateStatus(bookingId: string, status: string) {
     setUpdatingId(bookingId);
@@ -115,6 +129,20 @@ export function BookingsTab({ clinicId }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Toolbar superior */}
+      <div className="flex items-center justify-end gap-2">
+        <button onClick={() => setShowLab(true)}
+          className="text-xs font-bold px-3 py-1.5 rounded-xl border border-violet-200 bg-violet-50 text-violet-800 hover:bg-violet-100 transition flex items-center gap-1.5"
+          title="Órdenes de laboratorio">
+          🦷 Laboratorio
+        </button>
+        <button onClick={() => setShowWaitlist(true)}
+          className="text-xs font-bold px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 transition flex items-center gap-1.5"
+          title="Pacientes esperando un cupo">
+          ⏳ Lista de espera
+        </button>
+      </div>
+
       {/* Controles */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         {/* Próximas / Pasadas */}
@@ -217,13 +245,29 @@ export function BookingsTab({ clinicId }: Props) {
                           </div>
                         )}
                         {b.status === "confirmed" && (
-                          <button
-                            onClick={() => updateStatus(b.id, "cancelled")}
-                            disabled={updatingId === b.id}
-                            className="text-xs font-semibold text-gray-500 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-full hover:bg-gray-100 disabled:opacity-40 transition-colors"
-                          >
-                            Cancelar
-                          </button>
+                          <div className="flex gap-2 flex-wrap">
+                            <button
+                              onClick={() => setPaymentModal({ booking: b })}
+                              className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-full hover:bg-blue-100 transition-colors"
+                              title="Generar link de pago Mercado Pago"
+                            >
+                              💳 Cobrar
+                            </button>
+                            <button
+                              onClick={() => setBoletaModal({ booking: b })}
+                              className="text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-100 px-2.5 py-1 rounded-full hover:bg-violet-100 transition-colors"
+                              title="Emitir boleta electrónica SII"
+                            >
+                              🧾 Boleta
+                            </button>
+                            <button
+                              onClick={() => updateStatus(b.id, "cancelled")}
+                              disabled={updatingId === b.id}
+                              className="text-xs font-semibold text-gray-500 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-full hover:bg-gray-100 disabled:opacity-40 transition-colors"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
                         )}
                         {b.status === "cancelled" && (
                           <button
@@ -250,6 +294,254 @@ export function BookingsTab({ clinicId }: Props) {
           {filtered.length} cita{filtered.length !== 1 ? "s" : ""}
         </p>
       )}
+
+      {paymentModal && (
+        <PaymentLinkModal
+          booking={paymentModal.booking}
+          onClose={() => setPaymentModal(null)}
+        />
+      )}
+
+      {boletaModal && (
+        <BoletaModal
+          booking={boletaModal.booking}
+          onClose={() => setBoletaModal(null)}
+        />
+      )}
+
+      {showWaitlist && (
+        <WaitlistManager clinicId={clinicId} onClose={() => setShowWaitlist(false)} />
+      )}
+
+      {showLab && (
+        <LabOrdersManager clinicId={clinicId} onClose={() => setShowLab(false)} />
+      )}
+    </div>
+  );
+}
+
+/* ─── Modal: generar link de pago Mercado Pago ─────────────────────────────── */
+interface PaymentLinkModalProps {
+  booking: BookingRow;
+  onClose: () => void;
+}
+
+function PaymentLinkModal({ booking, onClose }: PaymentLinkModalProps) {
+  const [amount,    setAmount]    = useState<string>("");
+  const [saving,    setSaving]    = useState(false);
+  const [error,     setError]     = useState("");
+  const [link,      setLink]      = useState<string | null>(null);
+  const [copied,    setCopied]    = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const value = Math.round(Number(amount));
+    if (!Number.isFinite(value) || value <= 0) {
+      setError("Monto inválido");
+      return;
+    }
+    setSaving(true); setError("");
+    try {
+      const result = await createBookingPaymentLink(booking.id, { amount: value });
+      setLink(result.initPoint);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error generando link");
+    } finally { setSaving(false); }
+  }
+
+  async function copy() {
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  }
+
+  function whatsappLink() {
+    const phone = booking.patientUser?.identity.phone?.replace(/\D/g, "");
+    if (!phone || !link) return null;
+    const msg = `Hola${booking.patientUser ? " " + booking.patientUser.identity.firstName : ""}, este es tu link de pago: ${link}`;
+    return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+  }
+
+  const wa = whatsappLink();
+  const name = patientDisplayName(booking);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+          <h3 className="text-sm font-bold text-gray-800">Generar link de pago</h3>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg leading-none">✕</button>
+        </div>
+
+        {!link ? (
+          <form onSubmit={submit} className="p-5 flex flex-col gap-4">
+            <div className="bg-gray-50 rounded-xl p-3">
+              <p className="text-xs text-gray-500">Paciente</p>
+              <p className="text-sm font-bold text-gray-800">{name}</p>
+              <p className="text-[11px] text-gray-400 mt-1">{booking.service ?? "—"} · {booking.doctor}</p>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Monto (CLP)</label>
+              <input autoFocus type="number" min="1" value={amount} onChange={(e) => setAmount(e.target.value)}
+                placeholder="Ej: 35000"
+                className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5C7A]/30 focus:border-[#1A5C7A]" />
+              <p className="text-[10px] text-gray-400 mt-1">Mercado Pago aceptará tarjetas, transferencia y otros métodos disponibles.</p>
+            </div>
+            {error && <p className="text-xs text-red-500">{error}</p>}
+            <div className="flex gap-2">
+              <button type="button" onClick={onClose}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-500 text-sm font-bold hover:border-gray-300 transition">
+                Cancelar
+              </button>
+              <button type="submit" disabled={saving || !amount}
+                className="flex-1 py-2.5 rounded-xl bg-[#1A5C7A] text-white text-sm font-bold hover:bg-[#0e4560] transition disabled:opacity-50">
+                {saving ? "Generando…" : "Generar link"}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="p-5 flex flex-col gap-4">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-sm text-emerald-800">
+              ✅ Link generado. Compártelo con el paciente.
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-col gap-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Link de pago</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-[11px] font-mono bg-white px-3 py-2 rounded-lg border border-amber-200 break-all">{link}</code>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={copy}
+                  className="flex-1 text-xs font-bold px-3 py-2 rounded-lg bg-amber-700 text-white hover:bg-amber-800 transition">
+                  {copied ? "✓ Copiado" : "Copiar"}
+                </button>
+                {wa && (
+                  <a href={wa} target="_blank" rel="noopener noreferrer"
+                    className="flex-1 text-center text-xs font-bold px-3 py-2 rounded-lg bg-[#25D366] text-white hover:opacity-90 transition">
+                    Enviar por WhatsApp
+                  </a>
+                )}
+              </div>
+            </div>
+            <button onClick={onClose}
+              className="w-full py-2.5 rounded-xl bg-[#1A5C7A] text-white text-sm font-bold hover:bg-[#0e4560] transition">
+              Cerrar
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Modal: emitir boleta electrónica SII ─────────────────────────────────── */
+interface BoletaModalProps {
+  booking: BookingRow;
+  onClose: () => void;
+}
+
+function BoletaModal({ booking, onClose }: BoletaModalProps) {
+  const [amount, setAmount]       = useState<string>("");
+  const [rut,    setRut]          = useState<string>("");
+  const [desc,   setDesc]         = useState<string>(booking.service ?? "Atención dental");
+  const [saving, setSaving]       = useState(false);
+  const [error,  setError]        = useState("");
+  const [result, setResult]       = useState<{ folio: number | null; pdfUrl: string | null; totalAmount: number } | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const value = Math.round(Number(amount));
+    if (!Number.isFinite(value) || value <= 0) {
+      setError("Monto inválido");
+      return;
+    }
+    setSaving(true); setError("");
+    try {
+      const boleta = await emitBoletaForBooking(booking.id, {
+        amount:      value,
+        rutReceptor: rut.trim() || undefined,
+        description: desc.trim() || undefined,
+      });
+      setResult({
+        folio:       boleta.folio,
+        pdfUrl:      boleta.pdfUrl,
+        totalAmount: boleta.totalAmount,
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error emitiendo boleta");
+    } finally { setSaving(false); }
+  }
+
+  const name = patientDisplayName(booking);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+          <h3 className="text-sm font-bold text-gray-800">Emitir boleta electrónica</h3>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg leading-none">✕</button>
+        </div>
+
+        {!result ? (
+          <form onSubmit={submit} className="p-5 flex flex-col gap-4">
+            <div className="bg-gray-50 rounded-xl p-3">
+              <p className="text-xs text-gray-500">Paciente</p>
+              <p className="text-sm font-bold text-gray-800">{name}</p>
+              <p className="text-[11px] text-gray-400 mt-1">{booking.service ?? "—"} · {booking.doctor}</p>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Descripción del servicio</label>
+              <input value={desc} onChange={(e) => setDesc(e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5C7A]/30 focus:border-[#1A5C7A]" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Monto total (CLP)</label>
+              <input autoFocus type="number" min="1" value={amount} onChange={(e) => setAmount(e.target.value)}
+                placeholder="Ej: 35000"
+                className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5C7A]/30 focus:border-[#1A5C7A]" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">RUT receptor (opcional)</label>
+              <input value={rut} onChange={(e) => setRut(e.target.value)}
+                placeholder="11.111.111-1 — vacío = boleta consumidor final"
+                className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5C7A]/30 focus:border-[#1A5C7A]" />
+            </div>
+            {error && <p className="text-xs text-red-500 whitespace-pre-wrap">{error}</p>}
+            <div className="flex gap-2">
+              <button type="button" onClick={onClose}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-500 text-sm font-bold hover:border-gray-300 transition">
+                Cancelar
+              </button>
+              <button type="submit" disabled={saving || !amount}
+                className="flex-1 py-2.5 rounded-xl bg-violet-700 text-white text-sm font-bold hover:bg-violet-800 transition disabled:opacity-50">
+                {saving ? "Emitiendo…" : "Emitir boleta"}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="p-5 flex flex-col gap-4">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-sm text-emerald-800">
+              ✅ Boleta emitida correctamente {result.folio ? `(folio #${result.folio})` : ""}
+            </div>
+            <div className="bg-gray-50 rounded-xl p-3 grid grid-cols-2 gap-3 text-sm">
+              <div><p className="text-[10px] text-gray-400">Folio</p><p className="font-bold text-gray-800">{result.folio ?? "—"}</p></div>
+              <div><p className="text-[10px] text-gray-400">Total</p><p className="font-bold text-gray-800">${result.totalAmount.toLocaleString("es-CL")}</p></div>
+            </div>
+            {result.pdfUrl && (
+              <a href={result.pdfUrl} target="_blank" rel="noopener noreferrer"
+                className="w-full text-center py-2.5 rounded-xl bg-violet-700 text-white text-sm font-bold hover:bg-violet-800 transition">
+                Descargar PDF
+              </a>
+            )}
+            <button onClick={onClose}
+              className="w-full py-2.5 rounded-xl border border-gray-200 text-gray-500 text-sm font-bold hover:border-gray-300 transition">
+              Cerrar
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

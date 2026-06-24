@@ -16,6 +16,14 @@ if (isProduction && jwtSecret === DEV_JWT_FALLBACK) {
   throw new Error("JWT_SECRET inseguro en producción. Configura un secret único.");
 }
 
+const metaVerifyToken = process.env.META_VERIFY_TOKEN ?? (isProduction ? "" : "molari_verify_token_dev");
+if (isProduction && !metaVerifyToken) {
+  throw new Error(
+    "META_VERIFY_TOKEN no configurada en producción. " +
+    "Agrega META_VERIFY_TOKEN al archivo .env antes de iniciar el servidor."
+  );
+}
+
 export const config = {
   port: Number(process.env.PORT) || 3001,
   nodeEnv: process.env.NODE_ENV || "development",
@@ -35,5 +43,20 @@ export const config = {
     accountSid: process.env.TWILIO_ACCOUNT_SID ?? "",
     authToken:  process.env.TWILIO_AUTH_TOKEN  ?? "",
     from:       process.env.TWILIO_WHATSAPP_FROM ?? "",
+  },
+  meta: {
+    verifyToken: metaVerifyToken,
+    appSecret:   process.env.META_APP_SECRET ?? "",
+  },
+  groq: {
+    apiKey: process.env.GROQ_API_KEY ?? "",
+    model:  process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
+  },
+  alerts: {
+    // WhatsApp del admin (Juan) para alertas operacionales.
+    // Reusa la cuenta Meta de la clínica principal o una dedicada.
+    adminPhoneId: process.env.ALERT_WA_PHONE_ID ?? "",
+    adminToken:   process.env.ALERT_WA_TOKEN   ?? "",
+    adminPhone:   process.env.ALERT_WA_TO      ?? "",
   },
 };

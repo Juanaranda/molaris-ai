@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { AvailabilityPicker } from "@/components/AvailabilityPicker";
 
 interface Message {
   role: "user" | "assistant";
   text: string;
+  showPicker?: boolean;
 }
 
 interface LeadContext {
@@ -48,6 +50,19 @@ const SCORE_COLOR = (score: number) => {
 export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica Dental", isDemoMode = false, isSandbox = false }: Props = {}) {
   const [assistantName, setAssistantName] = useState<string | null>(isDemoMode ? "Juan" : null);
   const [displayClinicName, setDisplayClinicName] = useState(isDemoMode ? "molari.ai" : clinicName);
+  const [slotBooked, setSlotBooked] = useState(false);
+
+  function handleDismissPicker() {
+    setMessages((prev) => prev.map((m) => ({ ...m, showPicker: false })));
+  }
+
+  function handleSlotSelected(slot: { date: string; dayName: string; time: string; doctor: string; box: string | null }) {
+    setSlotBooked(true);
+    setMessages((prev) => prev.map((m) => ({ ...m, showPicker: false })));
+    const text = `Seleccioné el ${slot.dayName} ${slot.date.slice(8)} a las ${slot.time} con ${slot.doctor}`;
+    setMessages((prev) => [...prev, { role: "user", text }]);
+    sendMessage(text, true);
+  }
 
   function buildGreeting(aName: string | null, cName: string) {
     if (isDemoMode) {
@@ -95,23 +110,33 @@ export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica 
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  async function sendMessage() {
-    const text = input.trim();
+  async function sendMessage(overrideText?: string, slotJustBooked = false) {
+    const text = overrideText ?? input.trim();
     if (!text || loading) return;
-    setMessages((prev) => [...prev, { role: "user", text }]);
-    setInput("");
+    if (!overrideText) {
+      setMessages((prev) => [...prev, { role: "user", text }]);
+      setInput("");
+    }
     setLoading(true);
+    const bookedNow = slotBooked || slotJustBooked;
 
     try {
       const res = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, clinicSlug, sessionId: sessionId ?? undefined, isDemoMode: isDemoMode || undefined, isSandbox: isSandbox || undefined }),
+        body: JSON.stringify({
+          message: text, clinicSlug,
+          sessionId: sessionId ?? undefined,
+          slotBooked: bookedNow,
+          isDemoMode: isDemoMode || undefined,
+          isSandbox: isSandbox || undefined,
+        }),
       });
       const data = await res.json();
       if (!sessionId && data.sessionId) setSessionId(data.sessionId);
       if (data.context) setContext((prev) => ({ ...prev, ...data.context }));
-      setMessages((prev) => [...prev, { role: "assistant", text: data.reply ?? "Sin respuesta. Intenta de nuevo." }]);
+      const showPicker = !bookedNow && !!data.showScheduler && !isDemoMode;
+      setMessages((prev) => [...prev, { role: "assistant", text: data.reply ?? "Sin respuesta. Intenta de nuevo.", showPicker }]);
     } catch {
       setMessages((prev) => [...prev, { role: "assistant", text: "Hubo un problema al conectar. Intenta de nuevo." }]);
     } finally {
@@ -160,16 +185,28 @@ export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
           {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div
-                className={`max-w-[82%] px-4 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
-                  msg.role === "user"
-                    ? "bg-sky-600 text-white rounded-br-sm"
-                    : "bg-gray-100 text-gray-800 rounded-bl-sm"
-                }`}
-              >
-                {msg.role === "assistant" ? renderText(msg.text) : msg.text}
+            <div key={i}>
+              <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div
+                  className={`max-w-[82%] px-4 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+                    msg.role === "user"
+                      ? "bg-sky-600 text-white rounded-br-sm"
+                      : "bg-gray-100 text-gray-800 rounded-bl-sm"
+                  }`}
+                >
+                  {msg.role === "assistant" ? renderText(msg.text) : msg.text}
+                </div>
               </div>
+              {msg.showPicker && msg.role === "assistant" && (
+                <div className="mt-2">
+                  <AvailabilityPicker
+                    service={context?.serviceInterest}
+                    color="#0284C7"
+                    onSelect={handleSlotSelected}
+                    onDismiss={handleDismissPicker}
+                  />
+                </div>
+              )}
             </div>
           ))}
           {loading && (
@@ -193,7 +230,7 @@ export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica 
             className="flex-1 text-sm border border-gray-200 rounded-full px-4 py-2 focus:outline-none focus:border-sky-400"
           />
           <button
-            onClick={sendMessage}
+            onClick={() => sendMessage()}
             disabled={loading || !input.trim()}
             className="bg-sky-600 text-white text-sm font-medium px-4 py-2 rounded-full hover:bg-sky-700 disabled:opacity-40 transition-colors"
           >

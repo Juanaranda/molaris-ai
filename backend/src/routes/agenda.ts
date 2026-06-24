@@ -195,14 +195,18 @@ export async function agendaRoutes(app: FastifyInstance) {
 
     const clinic = await prisma.clinic.findUnique({
       where: { id: payload.clinicId },
-      select: { name: true, whatsapp: true },
+      select: { name: true, whatsapp: true, waVerified: true, waPhoneId: true, waToken: true },
     });
     if (clinic?.whatsapp) {
       const DAY_NAMES_ES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
       const dayName = DAY_NAMES_ES[new Date(`${date}T12:00:00`).getDay()];
+      const clinicMeta = (clinic.waVerified && clinic.waPhoneId && clinic.waToken)
+        ? { phoneId: clinic.waPhoneId, token: clinic.waToken }
+        : undefined;
       sendBookingNotification({
         clinicName: clinic.name,
         clinicWhatsapp: clinic.whatsapp,
+        clinicMeta,
         patientName,
         service: service ?? "A confirmar",
         date,

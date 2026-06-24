@@ -22,12 +22,13 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 export function WidgetChat() {
   const params = useSearchParams();
-  const clinicSlug = params.get("clinic") ?? "galana";
+  const clinicSlug = params.get("clinic") ?? "";
+  const clinicName = params.get("name") ?? clinicSlug;
   const color = params.get("color") ?? "#0891B2";
   const agentPhone = params.get("agentPhone") ?? null;
 
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", text: "Hola 👋 Soy el asistente de Galana Clínica Dental. ¿En qué te puedo ayudar?" },
+    { role: "assistant", text: "Hola 👋 ¿En qué te puedo ayudar?" },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -39,6 +40,10 @@ export function WidgetChat() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  function handleDismissPicker() {
+    setMessages((prev) => prev.map((m) => ({ ...m, showPicker: false })));
+  }
 
   function handleSlotSelected(slot: { date: string; dayName: string; time: string; doctor: string; box: string | null }) {
     setSlotBooked(true);
@@ -70,17 +75,15 @@ export function WidgetChat() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text, clinicSlug, sessionId: sessionId ?? undefined, slotBooked: bookedNow }),
       });
+      if (!res.ok) throw new Error("non-200");
       const data = await res.json();
       if (!sessionId && data.sessionId) setSessionId(data.sessionId);
-      const newCtx: LeadContext = { ...context, ...data.context };
-      if (data.context) setContext(newCtx);
-      const wantsBooking =
-        !bookedNow &&
-        (newCtx.intent === "ready_to_book" ||
-          /agend|reserv|hora|cita|disponible|horario/i.test(text));
+      if (data.context) setContext((prev) => ({ ...prev, ...data.context }));
+      // Picker solo cuando el backend lo indica explícitamente — evita falsos positivos
+      const showPicker = !bookedNow && !!data.showScheduler;
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", text: data.reply, showPicker: wantsBooking },
+        { role: "assistant", text: data.reply, showPicker },
       ]);
     } catch {
       setMessages((prev) => [
@@ -90,7 +93,7 @@ export function WidgetChat() {
     } finally {
       setLoading(false);
     }
-  }, [clinicSlug, sessionId, context, slotBooked]);
+  }, [clinicSlug, sessionId, slotBooked]);
 
   async function sendMessage() {
     const text = input.trim();
@@ -108,16 +111,24 @@ export function WidgetChat() {
           width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.25)",
           display: "flex", alignItems: "center", justifyContent: "center",
           fontSize: 16, fontWeight: 700, color: "#fff"
-        }}>G</div>
+        }}>{clinicName ? clinicName[0].toUpperCase() : "?"}</div>
         <div>
-          <div style={{ color: "#fff", fontWeight: 600, fontSize: 14 }}>Galana Clínica Dental</div>
+          <div style={{ color: "#fff", fontWeight: 600, fontSize: 14 }}>{clinicName || "Asistente"}</div>
           <div style={{ color: "rgba(255,255,255,0.75)", fontSize: 11 }}>Asistente virtual · En línea</div>
         </div>
       </div>
 
       {/* Messages */}
       <div style={{ flex: 1, overflowY: "auto", padding: "12px 12px 0", display: "flex", flexDirection: "column", gap: 8 }}>
-        {messages.map((msg, i) => (
+        {messages.map((msg, i) => {
+          // Separar texto del link de agendamiento si viene en el mensaje
+          const bookingMatch = msg.role === "assistant"
+            ? msg.text.match(/^([\s\S]*?)\s*\n\n👉\s*(https?:\/\/\S+)$/)
+            : null;
+          const mainText  = bookingMatch ? bookingMatch[1].trim() : msg.text;
+          const bookingUrl = bookingMatch ? bookingMatch[2] : null;
+
+          return (
           <div key={i}>
             <div style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}>
               <div style={{
@@ -127,16 +138,38 @@ export function WidgetChat() {
                 borderBottomRightRadius: msg.role === "user" ? 4 : 16,
                 borderBottomLeftRadius: msg.role === "user" ? 16 : 4,
               }}>
-                {msg.text}
+                {mainText}
+                {bookingUrl && (
+                  <a
+                    href={bookingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "block", marginTop: 10,
+                      background: color, color: "#fff",
+                      borderRadius: 20, padding: "7px 14px",
+                      fontSize: 12, fontWeight: 700, textDecoration: "none",
+                      textAlign: "center",
+                    }}
+                  >
+                    📅 Elegir hora en línea
+                  </a>
+                )}
               </div>
             </div>
             {msg.showPicker && msg.role === "assistant" && (
               <div style={{ marginTop: 6 }}>
-                <AvailabilityPicker service={context?.serviceInterest} onSelect={handleSlotSelected} />
+                <AvailabilityPicker
+                  service={context?.serviceInterest}
+                  color={color}
+                  onSelect={handleSlotSelected}
+                  onDismiss={handleDismissPicker}
+                />
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
         {loading && (
           <div style={{ display: "flex" }}>
             <div style={{ background: "#f1f5f9", padding: "8px 12px", borderRadius: 16, fontSize: 13, color: "#94a3b8" }}>
