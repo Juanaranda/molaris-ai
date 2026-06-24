@@ -5,6 +5,7 @@ import { getToken, getMe } from "@/lib/auth";
 import { ensurePatientId } from "@/lib/clinicalRecord";
 import { PatientRecordModal } from "@/components/PatientRecordModal";
 import { DentalQuoteTab } from "./DentalQuoteTab";
+import { Odontogram, type DentitionType } from "./Odontogram";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -338,7 +339,7 @@ function NewBookingFromPatientModal({
 
 function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient; onClose: () => void }) {
   const [patient, setPatient] = useState(initialPatient);
-  const [tab, setTab] = useState<"history" | "plans" | "quotes">("history");
+  const [tab, setTab] = useState<"history" | "odontogram" | "plans" | "quotes">("history");
   const [recordModalId, setRecordModalId] = useState<string | null>(null);
   const [openingRecord, setOpeningRecord] = useState(false);
   const [recordError, setRecordError]     = useState("");
@@ -368,6 +369,9 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({ name: patient.name, phone: patient.phone ?? "", email: patient.email ?? "" });
   const [savingEdit, setSavingEdit] = useState(false);
+  const [dentitionType, setDentitionType] = useState<DentitionType>("definitiva");
+  const [odontoItems, setOdontoItems] = useState<Record<string, number>>({});
+  const [loadingOdonto, setLoadingOdonto] = useState(false);
 
   async function savePatientEdit() {
     setSavingEdit(true);
@@ -424,12 +428,37 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
       .finally(() => setLoadingPlans(false));
   }, [tab, patient.rut, patient.name]);
 
+  // Odontograma de la ficha: piezas con prestaciones según presupuestos del paciente
+  useEffect(() => {
+    if (tab !== "odontogram") return;
+    const token = getToken(); if (!token) return;
+    setLoadingOdonto(true);
+    const url = patient.rut
+      ? `${API}/api/dental-quotes?patientRut=${encodeURIComponent(patient.rut)}`
+      : `${API}/api/dental-quotes`;
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((data: { patientName: string; status: string; items: { toothFDI: string | null }[] }[]) => {
+        const quotes = patient.rut ? data : data.filter((q) => q.patientName === patient.name);
+        const counts: Record<string, number> = {};
+        for (const q of quotes) {
+          if (q.status === "rejected") continue;
+          for (const item of q.items) {
+            if (item.toothFDI) counts[item.toothFDI] = (counts[item.toothFDI] ?? 0) + 1;
+          }
+        }
+        setOdontoItems(counts);
+      })
+      .finally(() => setLoadingOdonto(false));
+  }, [tab, patient.rut, patient.name]);
+
   const balance = patient.totalCharged - patient.totalPaid;
 
   return (
     <div className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center sm:p-2 bg-black/40 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-none sm:rounded-2xl border border-gray-100 shadow-2xl w-full sm:w-[98vw] sm:max-w-[1600px] flex flex-col h-screen sm:h-[98vh] overflow-hidden">
+
         {/* Header */}
         <div className="bg-gradient-to-br from-slate-800 to-slate-700 px-7 py-6 shrink-0">
           <div className="flex items-start justify-between">
@@ -551,10 +580,10 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
 
         {/* Tab bar */}
         <div className="flex border-b border-gray-100 overflow-x-auto">
-          {(["history", "plans", "quotes"] as const).map((t) => (
+          {(["history", "odontogram", "plans", "quotes"] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className={`flex-1 py-3 text-xs font-bold transition whitespace-nowrap px-2 ${tab === t ? "text-blue-600 border-b-2 border-blue-500" : "text-gray-400 hover:text-gray-600"}`}>
-              {t === "history" ? "Historial" : t === "plans" ? `Planes${plans.length > 0 ? ` (${plans.length})` : ""}` : "Presupuesto"}
+              {t === "history" ? "Historial" : t === "odontogram" ? "Odontograma" : t === "plans" ? `Planes${plans.length > 0 ? ` (${plans.length})` : ""}` : "Presupuesto"}
             </button>
           ))}
         </div>
@@ -674,6 +703,26 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Tab: Odontograma */}
+        {tab === "odontogram" && (
+          <div className="overflow-y-auto p-4" style={{ maxHeight: 520 }}>
+            {loadingOdonto ? (
+              <div className="h-64 bg-gray-100 rounded-2xl animate-pulse" />
+            ) : (
+              <div className="flex flex-col gap-2">
+                <Odontogram
+                  dentitionType={dentitionType} setDentitionType={setDentitionType}
+                  itemsByTooth={odontoItems} readOnly
+                />
+                <p className="text-[10px] text-gray-400 text-center">
+                  Las piezas destacadas en azul tienen prestaciones en presupuestos del paciente.
+                  Para registrar nuevas, usa la pestaña Presupuesto.
+                </p>
+              </div>
+            )}
           </div>
         )}
 

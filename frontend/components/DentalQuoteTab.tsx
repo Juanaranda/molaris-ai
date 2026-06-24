@@ -2,103 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { getToken } from "@/lib/auth";
-import { StandardOdontogram } from "@/components/StandardOdontogram";
-import { ToothSurfaceWheel } from "@/components/ToothSurfaceWheel";
-import type { DentalSurface } from "@/lib/odontogram";
+import { Odontogram, type DentitionType } from "./Odontogram";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-/* ─── Types ──────────────────────────────────────────────────────────────── */
-type JawType = "upper" | "lower";
-type ToothType = "incisor" | "canine" | "premolar" | "molar";
-type DentitionType = "definitiva" | "temporal" | "mixta";
 
-interface ToothDef {
-  fdi: string; cx: number; cy: number; w: number; h: number;
-  type: ToothType; jaw: JawType; rot: number; primary?: boolean;
-}
-
-/* ─── Permanent teeth ─────────────────────────────────────────────────────── */
-const TOOTH_DATA: ToothDef[] = [
-  { fdi: "1.8", cx: 28,  cy: 90,  w: 22, h: 15, type: "molar",    jaw: "upper", rot: -58 },
-  { fdi: "1.7", cx: 56,  cy: 76,  w: 24, h: 17, type: "molar",    jaw: "upper", rot: -46 },
-  { fdi: "1.6", cx: 85,  cy: 64,  w: 27, h: 17, type: "molar",    jaw: "upper", rot: -36 },
-  { fdi: "1.5", cx: 111, cy: 54,  w: 18, h: 21, type: "premolar", jaw: "upper", rot: -24 },
-  { fdi: "1.4", cx: 133, cy: 47,  w: 18, h: 21, type: "premolar", jaw: "upper", rot: -14 },
-  { fdi: "1.3", cx: 153, cy: 42,  w: 15, h: 24, type: "canine",   jaw: "upper", rot: -7  },
-  { fdi: "1.2", cx: 172, cy: 39,  w: 13, h: 19, type: "incisor",  jaw: "upper", rot: -3  },
-  { fdi: "1.1", cx: 191, cy: 38,  w: 16, h: 19, type: "incisor",  jaw: "upper", rot:  0  },
-  { fdi: "2.1", cx: 211, cy: 38,  w: 16, h: 19, type: "incisor",  jaw: "upper", rot:  0  },
-  { fdi: "2.2", cx: 230, cy: 39,  w: 13, h: 19, type: "incisor",  jaw: "upper", rot:  3  },
-  { fdi: "2.3", cx: 249, cy: 42,  w: 15, h: 24, type: "canine",   jaw: "upper", rot:  7  },
-  { fdi: "2.4", cx: 269, cy: 47,  w: 18, h: 21, type: "premolar", jaw: "upper", rot:  14 },
-  { fdi: "2.5", cx: 291, cy: 54,  w: 18, h: 21, type: "premolar", jaw: "upper", rot:  24 },
-  { fdi: "2.6", cx: 317, cy: 64,  w: 27, h: 17, type: "molar",    jaw: "upper", rot:  36 },
-  { fdi: "2.7", cx: 346, cy: 76,  w: 24, h: 17, type: "molar",    jaw: "upper", rot:  46 },
-  { fdi: "2.8", cx: 374, cy: 90,  w: 22, h: 15, type: "molar",    jaw: "upper", rot:  58 },
-  { fdi: "3.1", cx: 211, cy: 218, w: 13, h: 19, type: "incisor",  jaw: "lower", rot:  0  },
-  { fdi: "3.2", cx: 230, cy: 217, w: 12, h: 19, type: "incisor",  jaw: "lower", rot:  3  },
-  { fdi: "3.3", cx: 249, cy: 213, w: 13, h: 24, type: "canine",   jaw: "lower", rot:  7  },
-  { fdi: "3.4", cx: 269, cy: 208, w: 16, h: 21, type: "premolar", jaw: "lower", rot:  14 },
-  { fdi: "3.5", cx: 291, cy: 202, w: 16, h: 21, type: "premolar", jaw: "lower", rot:  24 },
-  { fdi: "3.6", cx: 317, cy: 193, w: 25, h: 17, type: "molar",    jaw: "lower", rot:  36 },
-  { fdi: "3.7", cx: 346, cy: 181, w: 23, h: 17, type: "molar",    jaw: "lower", rot:  46 },
-  { fdi: "3.8", cx: 374, cy: 168, w: 20, h: 15, type: "molar",    jaw: "lower", rot:  58 },
-  { fdi: "4.1", cx: 191, cy: 218, w: 13, h: 19, type: "incisor",  jaw: "lower", rot:  0  },
-  { fdi: "4.2", cx: 172, cy: 217, w: 12, h: 19, type: "incisor",  jaw: "lower", rot: -3  },
-  { fdi: "4.3", cx: 153, cy: 213, w: 13, h: 24, type: "canine",   jaw: "lower", rot: -7  },
-  { fdi: "4.4", cx: 133, cy: 208, w: 16, h: 21, type: "premolar", jaw: "lower", rot: -14 },
-  { fdi: "4.5", cx: 111, cy: 202, w: 16, h: 21, type: "premolar", jaw: "lower", rot: -24 },
-  { fdi: "4.6", cx: 85,  cy: 193, w: 25, h: 17, type: "molar",    jaw: "lower", rot: -36 },
-  { fdi: "4.7", cx: 56,  cy: 181, w: 23, h: 17, type: "molar",    jaw: "lower", rot: -46 },
-  { fdi: "4.8", cx: 28,  cy: 168, w: 20, h: 15, type: "molar",    jaw: "lower", rot: -58 },
-];
-
-/* ─── Deciduous teeth (FDI 5.x–8.x) ─────────────────────────────────────── */
-const TOOTH_DATA_PRIMARY: ToothDef[] = [
-  { fdi: "5.1", cx: 191, cy: 41,  w: 14, h: 17, type: "incisor", jaw: "upper", rot:  0,  primary: true },
-  { fdi: "5.2", cx: 174, cy: 43,  w: 12, h: 16, type: "incisor", jaw: "upper", rot: -5,  primary: true },
-  { fdi: "5.3", cx: 156, cy: 48,  w: 13, h: 20, type: "canine",  jaw: "upper", rot: -11, primary: true },
-  { fdi: "5.4", cx: 129, cy: 60,  w: 20, h: 16, type: "molar",   jaw: "upper", rot: -25, primary: true },
-  { fdi: "5.5", cx: 99,  cy: 76,  w: 22, h: 16, type: "molar",   jaw: "upper", rot: -41, primary: true },
-  { fdi: "6.1", cx: 211, cy: 41,  w: 14, h: 17, type: "incisor", jaw: "upper", rot:  0,  primary: true },
-  { fdi: "6.2", cx: 228, cy: 43,  w: 12, h: 16, type: "incisor", jaw: "upper", rot:  5,  primary: true },
-  { fdi: "6.3", cx: 246, cy: 48,  w: 13, h: 20, type: "canine",  jaw: "upper", rot:  11, primary: true },
-  { fdi: "6.4", cx: 273, cy: 60,  w: 20, h: 16, type: "molar",   jaw: "upper", rot:  25, primary: true },
-  { fdi: "6.5", cx: 303, cy: 76,  w: 22, h: 16, type: "molar",   jaw: "upper", rot:  41, primary: true },
-  { fdi: "7.1", cx: 211, cy: 215, w: 12, h: 17, type: "incisor", jaw: "lower", rot:  0,  primary: true },
-  { fdi: "7.2", cx: 228, cy: 213, w: 11, h: 16, type: "incisor", jaw: "lower", rot:  5,  primary: true },
-  { fdi: "7.3", cx: 246, cy: 209, w: 12, h: 20, type: "canine",  jaw: "lower", rot:  11, primary: true },
-  { fdi: "7.4", cx: 273, cy: 197, w: 19, h: 16, type: "molar",   jaw: "lower", rot:  25, primary: true },
-  { fdi: "7.5", cx: 303, cy: 182, w: 21, h: 16, type: "molar",   jaw: "lower", rot:  41, primary: true },
-  { fdi: "8.1", cx: 191, cy: 215, w: 12, h: 17, type: "incisor", jaw: "lower", rot:  0,  primary: true },
-  { fdi: "8.2", cx: 174, cy: 213, w: 11, h: 16, type: "incisor", jaw: "lower", rot: -5,  primary: true },
-  { fdi: "8.3", cx: 156, cy: 209, w: 12, h: 20, type: "canine",  jaw: "lower", rot: -11, primary: true },
-  { fdi: "8.4", cx: 129, cy: 197, w: 19, h: 16, type: "molar",   jaw: "lower", rot: -25, primary: true },
-  { fdi: "8.5", cx: 99,  cy: 182, w: 21, h: 16, type: "molar",   jaw: "lower", rot: -41, primary: true },
-];
-
-const MIXTA_MOLARS = ["1.6","1.7","1.8","2.6","2.7","2.8","3.6","3.7","3.8","4.6","4.7","4.8"];
-
-function getToothData(dentition: DentitionType): ToothDef[] {
-  if (dentition === "temporal") return TOOTH_DATA_PRIMARY;
-  if (dentition === "mixta") return [
-    ...TOOTH_DATA.filter((t) => MIXTA_MOLARS.includes(t.fdi)),
-    ...TOOTH_DATA_PRIMARY,
-  ];
-  return TOOTH_DATA;
-}
-
-/* ─── Quick-select groups ────────────────────────────────────────────────── */
-const QUICK_GROUPS: { key: string; label: string; filter: (t: ToothDef) => boolean }[] = [
-  { key: "todos",       label: "Boca completa", filter: () => true },
-  { key: "maxilar",     label: "Maxilar",       filter: (t) => t.jaw === "upper" },
-  { key: "mandibula",   label: "Mandíbula",     filter: (t) => t.jaw === "lower" },
-  { key: "anteriores",  label: "Anteriores",    filter: (t) => t.type === "incisor" || t.type === "canine" },
-  { key: "posteriores", label: "Posteriores",   filter: (t) => t.type === "premolar" || t.type === "molar" },
-  { key: "derecha",     label: "Derecha",       filter: (t) => ["1","4","5","8"].some((q) => t.fdi.startsWith(`${q}.`)) },
-  { key: "izquierda",   label: "Izquierda",     filter: (t) => ["2","3","6","7"].some((q) => t.fdi.startsWith(`${q}.`)) },
-];
+const SURFACES = ["V", "D", "O", "M", "P"] as const;
+const SURF_LABEL: Record<string, string> = {
+  V: "Vestibular", D: "Distal", O: "Oclusal", M: "Mesial", P: "Palatino/Lingual",
+};
 
 /* ─── Prestaciones ───────────────────────────────────────────────────────── */
 const PRESTACION_CATEGORIES = [
@@ -157,6 +69,9 @@ function buildPrestaciones(clinicServices?: ClinicService[]): Prestacion[] {
 const fmtCLP = (n: number) =>
   n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(2)}M` : `$${Math.round(n / 1_000)}k`;
 
+// FDI se guarda como "1.8" pero se muestra sin punto: "18"
+const fdiLabel = (s: string) => s.replace(".", "");
+
 /* ─── Quote types ────────────────────────────────────────────────────────── */
 interface QuoteItem {
   id?: string;
@@ -200,179 +115,6 @@ const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
   rejected: { label: "Rechazado", cls: "bg-red-50 text-red-600"         },
 };
 
-/* ─── Odontogram picker ──────────────────────────────────────────────────── */
-type ArchView = "all" | "upper" | "lower";
-type OdontMode = "select" | "missing";
-
-function OdontogramPicker({
-  selectedTeeth, activeToothFdi,
-  onToggleTooth, onSetTeeth,
-  missingTeeth, setMissingTeeth,
-  dentitionType, setDentitionType,
-  itemsByTooth,
-}: {
-  selectedTeeth: Set<string>;
-  activeToothFdi: string | null;
-  onToggleTooth: (fdi: string) => void;
-  onSetTeeth: (teeth: Set<string>) => void;
-  missingTeeth: Set<string>;
-  setMissingTeeth: (t: Set<string>) => void;
-  dentitionType: DentitionType;
-  setDentitionType: (t: DentitionType) => void;
-  itemsByTooth: Record<string, number>;
-}) {
-  const [view, setView] = useState<ArchView>("all");
-  const [mode, setMode] = useState<OdontMode>("select");
-
-  const allTeeth = getToothData(dentitionType);
-
-  function handleToothClick(tooth: ToothDef) {
-    if (mode === "missing") {
-      const next = new Set(missingTeeth);
-      if (next.has(tooth.fdi)) {
-        next.delete(tooth.fdi);
-      } else {
-        next.add(tooth.fdi);
-        // deselect if it was selected
-        if (selectedTeeth.has(tooth.fdi)) onToggleTooth(tooth.fdi);
-      }
-      setMissingTeeth(next);
-    } else {
-      if (missingTeeth.has(tooth.fdi)) return;
-      onToggleTooth(tooth.fdi);
-    }
-  }
-
-  function selectGroup(filter: (t: ToothDef) => boolean) {
-    const fdis = allTeeth.filter((t) => filter(t) && !missingTeeth.has(t.fdi)).map((t) => t.fdi);
-    onSetTeeth(new Set(fdis));
-  }
-
-  const tabCls = (v: ArchView) =>
-    `px-2.5 py-1 rounded-lg text-[10px] font-bold transition border ${
-      view === v ? "bg-[#1A5C7A] text-white border-[#1A5C7A]" : "bg-white text-gray-400 border-gray-200 hover:border-gray-300"
-    }`;
-  const dentCls = (d: DentitionType) =>
-    `px-2 py-0.5 rounded text-[10px] font-semibold transition border ${
-      dentitionType === d ? "bg-[#1A5C7A] text-white border-[#1A5C7A]" : "bg-white text-gray-400 border-gray-200 hover:border-gray-300"
-    }`;
-
-  const selectedCount = selectedTeeth.size;
-
-  return (
-    <div style={{ background: "#F8FAFC", borderRadius: 14, padding: "10px 10px 8px", border: "1px solid #E2E8F0" }}>
-
-      {/* ── Row 1: Dentición + Vista ───────────────────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
-        <div>
-          <p style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#94a3b8", marginBottom: 4 }}>
-            Tipo de dentición
-          </p>
-          <div style={{ display: "flex", gap: 4 }}>
-            {(["definitiva", "temporal", "mixta"] as DentitionType[]).map((d) => (
-              <button key={d} onClick={() => setDentitionType(d)} className={dentCls(d)}>
-                {d === "definitiva" ? "Definitiva (adulto)" : d === "temporal" ? "Temporal (niño)" : "Mixta"}
-              </button>
-            ))}
-          </div>
-          <p style={{ fontSize: 9, color: "#b0bec5", marginTop: 3 }}>
-            {dentitionType === "definitiva" && "Dentición permanente — 32 piezas FDI 1–4"}
-            {dentitionType === "temporal" && "Dentición de leche — 20 piezas FDI 5–8"}
-            {dentitionType === "mixta" && "Molares definitivos + piezas temporales anteriores"}
-          </p>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <p style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#94a3b8", marginBottom: 4 }}>
-            Vista del odontograma
-          </p>
-          <div style={{ display: "flex", gap: 4 }}>
-            {(["all", "upper", "lower"] as ArchView[]).map((v) => (
-              <button key={v} onClick={() => setView(v)} className={tabCls(v)}>
-                {v === "all" ? "Boca completa" : v === "upper" ? "Maxilar sup." : "Mandíbula inf."}
-              </button>
-            ))}
-          </div>
-          <p style={{ fontSize: 9, color: "#b0bec5", marginTop: 3 }}>
-            Filtra el diagrama para ver solo el arco que necesitas
-          </p>
-        </div>
-      </div>
-
-      {/* ── Row 2: Selección rápida + Marcar ausente (ARRIBA del SVG) ─────── */}
-      <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #E8EDF2", padding: "7px 10px", marginBottom: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#94a3b8", whiteSpace: "nowrap" }}>
-              Selección rápida
-            </span>
-            {selectedCount > 0 && (
-              <button onClick={() => onSetTeeth(new Set())}
-                className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#1A5C7A]/10 text-[#1A5C7A] hover:bg-[#1A5C7A]/20 transition">
-                ✕ Limpiar ({selectedCount})
-              </button>
-            )}
-            {QUICK_GROUPS.map((g) => (
-              <button key={g.key} onClick={() => selectGroup(g.filter)}
-                className="px-2 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-500 hover:bg-gray-200 transition">
-                {g.label}
-              </button>
-            ))}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 9, color: "#b0bec5" }}>|</span>
-            <button
-              onClick={() => setMode((m) => m === "select" ? "missing" : "select")}
-              className={`px-2.5 py-0.5 rounded text-[10px] font-semibold transition border ${
-                mode === "missing"
-                  ? "bg-red-50 text-red-600 border-red-200"
-                  : "bg-white text-gray-400 border-gray-200 hover:text-red-500 hover:border-red-200"
-              }`}>
-              {mode === "missing" ? "✕ Cancelar ausentes" : "Marcar pieza ausente"}
-            </button>
-          </div>
-        </div>
-        {mode === "missing" && (
-          <p style={{ fontSize: 9, fontWeight: 700, color: "#EF4444", marginTop: 5 }}>
-            Modo ausente activo — toca la pieza en el diagrama para marcarla. Tócala de nuevo para reactivarla.
-          </p>
-        )}
-      </div>
-
-      {/* ── Odontograma estándar (visión simple, profesional) ───────────── */}
-      {/* FIX BUG: presupuesto usa "1.1" formato; StandardOdontogram usa "11" sin punto */}
-      <StandardOdontogram
-        teeth={{}}
-        selectedFdis={new Set(Array.from(selectedTeeth).map((f) => f.replace(".", "")))}
-        mode="multi"
-        missingFdis={new Set(Array.from(missingTeeth).map((f) => f.replace(".", "")))}
-        highlightFdis={new Set(Object.keys(itemsByTooth).map((f) => f.replace(".", "")))}
-        view={view}
-        showLegend={false}
-        cellSize={42}
-        onSelectTooth={(fdi) => {
-          const fdiWithDot = fdi.length === 2 ? `${fdi[0]}.${fdi[1]}` : fdi;
-          const tooth = allTeeth.find((t) => t.fdi === fdiWithDot);
-          if (tooth) handleToothClick(tooth);
-        }}
-      />
-
-      {/* ── Estado de selección (debajo del SVG) ─────────────────────────── */}
-      <div style={{ textAlign: "center", marginTop: 4 }}>
-        {selectedCount > 0 ? (
-          <p style={{ fontSize: 10, fontWeight: 700, color: "#1A5C7A", margin: 0 }}>
-            {selectedCount === 1
-              ? `Pieza ${activeToothFdi} seleccionada — elige la prestación y agrega`
-              : `${selectedCount} piezas seleccionadas · activa: ${activeToothFdi}`}
-          </p>
-        ) : (
-          <p style={{ fontSize: 10, color: "#94a3b8", margin: 0 }}>
-            Toca una pieza en el diagrama · usa los grupos rápidos · o agrega prestaciones sin pieza específica
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
 
 /* ─── Add item form ──────────────────────────────────────────────────────── */
 function AddItemForm({
@@ -472,7 +214,7 @@ function AddItemForm({
                   style={isActive
                     ? { background: "#1A5C7A", color: "#fff", borderColor: "#1A5C7A" }
                     : { background: "#EFF6FF", color: "#1d4ed8", borderColor: "#BFDBFE" }}>
-                  {fdi}
+                  {fdiLabel(fdi)}
                   {surfs.length > 0 && (
                     <span style={{ fontSize: 8, opacity: 0.8 }}>· {surfs.join(",")}</span>
                   )}
@@ -488,24 +230,28 @@ function AddItemForm({
         </div>
       )}
 
-      {/* Surface picker — rueda anatómica (misma de la ficha clínica) */}
+      {/* Surface picker — for the active tooth */}
       {activeToothFdi && (
         <div>
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">
-            Superficies · pieza <span style={{ color: "#1A5C7A" }}>{activeToothFdi}</span>
+            Superficies · pieza <span style={{ color: "#1A5C7A" }}>{fdiLabel(activeToothFdi)}</span>
           </p>
-          <div className="flex justify-center bg-gray-50 rounded-xl py-3">
-            <ToothSurfaceWheel
-              toothFDI={activeToothFdi}
-              selected={activeSurfaces as DentalSurface[]}
-              onToggle={(s) => onToggleSurface(activeToothFdi, s)}
-              size={150}
-            />
+          <div className="flex gap-1.5 flex-wrap">
+            {SURFACES.map((s) => (
+              <button key={s} onClick={() => onToggleSurface(activeToothFdi, s)} title={SURF_LABEL[s]}
+                className="px-2 py-1 rounded-lg text-[10px] font-bold border transition"
+                style={activeSurfaces.includes(s)
+                  ? { background: "#1A5C7A", color: "#fff", borderColor: "#1A5C7A" }
+                  : { background: "#F7F5F1", color: "#607281", borderColor: "#E5E0D9" }}>
+                {s}
+              </button>
+            ))}
           </div>
-          <p className="text-[9px] text-gray-400 mt-1 text-center">
-            Click en cada cara para seleccionar (multi).
-            {teethCount > 1 && " Selecciona otra pieza arriba para configurar sus superficies por separado."}
-          </p>
+          {teethCount > 1 && (
+            <p className="text-[9px] text-gray-400 mt-1">
+              Selecciona otra pieza arriba para configurar sus superficies individualmente
+            </p>
+          )}
         </div>
       )}
 
@@ -576,7 +322,7 @@ function AddItemForm({
           <div>
             <p className="text-[11px] font-bold text-amber-700">Prestación por boca completa</p>
             <p className="text-[10px] text-amber-600 mt-0.5">
-              &ldquo;{selectedPreset?.name}&rdquo; se realiza una sola vez, no por pieza.
+              "{selectedPreset?.name}" se realiza una sola vez, no por pieza.
               Usa el botón de abajo para agregarla correctamente.
             </p>
           </div>
@@ -599,7 +345,7 @@ function AddItemForm({
               className="w-full py-2 rounded-xl text-xs font-bold text-white transition disabled:opacity-40"
               style={{ background: "#1A5C7A" }}>
               {activeToothFdi
-                ? `+ Agregar a pieza ${activeToothFdi}`
+                ? `+ Agregar a pieza ${fdiLabel(activeToothFdi)}`
                 : "+ Agregar al presupuesto (sin pieza)"}
             </button>
             {teethCount > 1 && !isPerArch && (
@@ -784,7 +530,7 @@ function QuoteBuilderModal({
         </div>
 
         <div className="p-4 flex flex-col gap-4">
-          <OdontogramPicker
+          <Odontogram
             selectedTeeth={selectedTeeth} activeToothFdi={activeToothFdi}
             onToggleTooth={handleToggleTooth} onSetTeeth={handleSetTeeth}
             missingTeeth={missingTeeth}       setMissingTeeth={setMissingTeeth}
@@ -831,7 +577,7 @@ function QuoteBuilderModal({
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {item.toothFDI && (
                               <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">
-                                {item.toothFDI}
+                                {fdiLabel(item.toothFDI)}
                               </span>
                             )}
                             {item.surfaces && item.surfaces.split(",").map((s) => (
@@ -913,7 +659,7 @@ function printQuote(quote: DentalQuote) {
   const fmt = (n: number) => n >= 1_000_000 ? `$${(n/1_000_000).toFixed(2)}M` : `$${Math.round(n/1_000)}k`;
   const rows = quote.items.map((item) => `
     <tr>
-      <td>${item.toothFDI ?? "General"}${item.surfaces ? ` (${item.surfaces})` : ""}</td>
+      <td>${item.toothFDI ? item.toothFDI.replace(".", "") : "General"}${item.surfaces ? ` (${item.surfaces})` : ""}</td>
       <td>${item.prestacion}</td>
       <td class="r">${fmt(item.unitPrice)}${item.quantity > 1 ? ` × ${item.quantity}` : ""}</td>
       <td class="r">${item.discount > 0 ? `${item.discount}%` : "—"}</td>
@@ -1019,7 +765,7 @@ function QuoteCard({ quote, onStatusChange }: {
               <div key={item.id ?? idx} className="flex items-center gap-3">
                 <div className="flex gap-1 flex-wrap w-20 shrink-0">
                   {item.toothFDI && (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">{item.toothFDI}</span>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">{fdiLabel(item.toothFDI)}</span>
                   )}
                   {item.surfaces && item.surfaces.split(",").map((s) => (
                     <span key={s} className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{s}</span>
@@ -1109,26 +855,16 @@ export function DentalQuoteTab({
   useEffect(() => {
     const token = getToken();
     if (!token) return;
-    let cancelled = false;
-
-    async function load() {
-      setLoading(true);
-      const url = patient.rut
-        ? `${API}/api/dental-quotes?patientRut=${encodeURIComponent(patient.rut)}`
-        : `${API}/api/dental-quotes`;
-      try {
-        const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-        const data: DentalQuote[] = await r.json();
-        if (!cancelled) {
-          setQuotes(patient.rut ? data : data.filter((q) => q.patientName === patient.name));
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    load();
-
-    return () => { cancelled = true; };
+    setLoading(true);
+    const url = patient.rut
+      ? `${API}/api/dental-quotes?patientRut=${encodeURIComponent(patient.rut)}`
+      : `${API}/api/dental-quotes`;
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((data: DentalQuote[]) => {
+        setQuotes(patient.rut ? data : data.filter((q) => q.patientName === patient.name));
+      })
+      .finally(() => setLoading(false));
   }, [patient.rut, patient.name]);
 
   async function handleStatusChange(id: string, status: string) {
