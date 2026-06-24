@@ -1,28 +1,12 @@
-<svg width="240" height="60" viewBox="0 0 240 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="iconGrad" x1="4" y1="4" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#38BDF8"/>
-      <stop offset="100%" stop-color="#0891B2"/>
-    </linearGradient>
-  </defs>
-
-  <!-- Icon: rounded square background -->
-  <rect x="4" y="4" width="52" height="52" rx="16" fill="url(#iconGrad)"/>
-
-  <!-- Tooth crown -->
-  <path d="M 16 38 L 16 26 C 16 20 18 16 22 16 C 24 16 25 18 26 20 C 27 17 29 15 30 15 C 31 15 33 17 34 20 C 35 18 36 16 38 16 C 42 16 44 20 44 26 L 44 38 Z" fill="white" opacity="0.96"/>
-
-  <!-- Left root -->
-  <path d="M 17 37 L 17 46 C 17 49 19 50 22 50 C 25 50 27 49 27 46 L 27 37 Z" fill="white" opacity="0.96"/>
-
-  <!-- Right root -->
-  <path d="M 33 37 L 33 46 C 33 49 35 50 38 50 C 41 50 43 49 43 46 L 43 37 Z" fill="white" opacity="0.96"/>
-
-  <!-- AI sparkle — top right corner of icon -->
-  <circle cx="51" cy="13" r="7" fill="#7C3AED"/>
-  <path d="M51 9 L51.8 12.2 L55 13 L51.8 13.8 L51 17 L50.2 13.8 L47 13 L50.2 12.2 Z" fill="white"/>
-
+<svg width="240" height="60" viewBox="0 0 240 60" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="molari.ai">
+  <title>molari.ai</title>
+  <!-- Globo de chat (recepcionista IA) -->
+  <path d="M14 6 H46 C50 6 54 10 54 14 V40 C54 44 50 48 46 48 H30 L20 56 L21 48 H14 C10 48 6 44 6 40 V14 C6 10 10 6 14 6 Z" fill="#1A5C7A"/>
+  <!-- Muela: corona + dos raíces -->
+  <path d="M 18 36 L 18 25 C 18 20 20 16 24 16 C 26 16 27 18 28 20 C 29 17 30.5 15.5 31.5 15.5 C 32.5 15.5 34 17 35 20 C 36 18 37 16 39 16 C 43 16 45 20 45 25 L 45 36 Z" fill="#fff"/>
+  <path d="M 21 35 L 21 41 C 21 43.5 22.5 44.5 25 44.5 C 27.5 44.5 29 43.5 29 41 L 29 35 Z" fill="#fff"/>
+  <path d="M 34 35 L 34 41 C 34 43.5 35.5 44.5 38 44.5 C 40.5 44.5 42 43.5 42 41 L 42 35 Z" fill="#fff"/>
   <!-- Wordmark -->
-  <text x="68" y="40" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif" font-size="27" font-weight="700" fill="#0F172A" letter-spacing="-0.5">molaris</text>
-  <text x="187" y="40" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif" font-size="27" font-weight="700" fill="#0891B2">.ai</text>
+  <text x="68" y="40" font-family="'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="27" font-weight="800" fill="#0C1B26" letter-spacing="-1">molari</text>
+  <text x="170" y="40" font-family="'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="27" font-weight="800" fill="#D95F45" letter-spacing="-1">.ai</text>
 </svg>
