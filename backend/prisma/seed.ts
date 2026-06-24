@@ -115,6 +115,43 @@ async function main() {
     },
   });
   console.log(`✅ Usuario: ${recepcion.email} (${recepcion.role})`);
+
+  // ─── Base legal de tratamiento de datos (Issue #38, Ley 21.719) ───────────────
+  const PURPOSES = [
+    {
+      key: "appointments", legalBasis: "contrato", required: true, displayOrder: 1,
+      label: "Gestión de citas y atención",
+      description: "Usamos tu nombre, RUT y contacto para agendar, confirmar y atender tus citas. Es necesario para prestarte el servicio.",
+    },
+    {
+      key: "clinical_record", legalBasis: "obligacion_legal", required: true, displayOrder: 2,
+      label: "Ficha clínica",
+      description: "Mantenemos tu historial clínico, odontograma y tratamientos. La ley nos obliga a conservarlo (Ley 20.584).",
+    },
+    {
+      key: "reminders", legalBasis: "consentimiento", required: false, displayOrder: 3,
+      label: "Recordatorios por WhatsApp / email",
+      description: "Te enviamos recordatorios de tus citas y avisos de controles periódicos por WhatsApp o email.",
+    },
+    {
+      key: "ai_chat", legalBasis: "consentimiento", required: false, displayOrder: 4,
+      label: "Asistente con IA",
+      description: "Procesamos tus mensajes con un asistente de IA para responder consultas y ayudarte a agendar.",
+    },
+    {
+      key: "marketing", legalBasis: "consentimiento", required: false, displayOrder: 5,
+      label: "Comunicaciones de marketing",
+      description: "Te enviamos promociones y novedades de la clínica. Puedes revocarlo cuando quieras.",
+    },
+  ];
+  for (const p of PURPOSES) {
+    await prisma.dataProcessingPurpose.upsert({
+      where: { key: p.key },
+      update: { label: p.label, description: p.description, legalBasis: p.legalBasis, required: p.required, displayOrder: p.displayOrder, active: true },
+      create: p,
+    });
+  }
+  console.log(`✅ Propósitos de tratamiento de datos: ${PURPOSES.length} seedeados`);
 }
 
 main()

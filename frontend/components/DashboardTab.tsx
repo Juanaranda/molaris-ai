@@ -8,6 +8,9 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 interface Analytics {
+  totals?: { sessions: number; leads: number; readyToBook: number; slotBooked: number; bookings: number; avgScore: number };
+  conversionRate?: number;
+  bookingRate?: number;
   payments?: {
     thisMonth: { income: number; count: number };
     lastMonth: { income: number; count: number };
@@ -15,8 +18,10 @@ interface Analytics {
     incomeByMonth?: { month: string; income: number; count: number }[];
   };
   doctors?: { doctor: string; bookings: number; cancelled: number; income: number }[];
+  operations?: { cancellationRate: number; avgTicket: number; paidBookings: number };
   patients?: { total: number; newThisMonth: number; retentionRate: number };
   services?: { service: string; count: number; income: number }[];
+  channels?: { channel: string; sessions: number; leads: number; booked: number; conversionRate: number }[];
 }
 
 interface TodayBooking {
@@ -24,7 +29,7 @@ interface TodayBooking {
   doctor: string; service: string | null; status: string;
 }
 
-type WidgetId = "today" | "revenue" | "patients" | "pending" | "doctors" | "services" | "income-chart";
+type WidgetId = "today" | "revenue" | "patients" | "pending" | "doctors" | "services" | "income-chart" | "leads";
 type WidgetSize = "half" | "full";
 
 interface WidgetCfg { id: WidgetId; size: WidgetSize; order: number; hidden: boolean; }
@@ -32,21 +37,30 @@ interface WidgetCfg { id: WidgetId; size: WidgetSize; order: number; hidden: boo
 const DEFAULT_WIDGETS: WidgetCfg[] = [
   { id: "today",        size: "half", order: 0, hidden: false },
   { id: "revenue",      size: "half", order: 1, hidden: false },
-  { id: "income-chart", size: "full", order: 2, hidden: false },
-  { id: "patients",     size: "half", order: 3, hidden: false },
-  { id: "pending",      size: "half", order: 4, hidden: false },
-  { id: "doctors",      size: "full", order: 5, hidden: false },
-  { id: "services",     size: "half", order: 6, hidden: false },
+  { id: "leads",        size: "full", order: 2, hidden: false },
+  { id: "income-chart", size: "full", order: 3, hidden: false },
+  { id: "patients",     size: "half", order: 4, hidden: false },
+  { id: "pending",      size: "half", order: 5, hidden: false },
+  { id: "doctors",      size: "full", order: 6, hidden: false },
+  { id: "services",     size: "half", order: 7, hidden: false },
 ];
 
 const WIDGET_META: Record<WidgetId, { title: string; icon: string }> = {
   today:          { title: "Citas de hoy",          icon: "📅" },
   revenue:        { title: "Ingresos del mes",       icon: "💰" },
+  leads:          { title: "Leads del agente IA",    icon: "🤖" },
   "income-chart": { title: "Ingresos últimos 6 meses", icon: "📈" },
   patients:       { title: "Pacientes",              icon: "👥" },
   pending:        { title: "Cobros pendientes",      icon: "⏳" },
   doctors:        { title: "Actividad por doctor",   icon: "🩺" },
   services:       { title: "Servicios más pedidos",  icon: "📋" },
+};
+
+const CHANNEL_LABELS: Record<string, { name: string; icon: string; color: string }> = {
+  web:       { name: "Web",       icon: "🌐", color: "#3B82F6" },
+  whatsapp:  { name: "WhatsApp",  icon: "💬", color: "#10B981" },
+  instagram: { name: "Instagram", icon: "📷", color: "#EC4899" },
+  sandbox:   { name: "Pruebas",   icon: "🧪", color: "#94A3B8" },
 };
 
 const fmtCLP = (n: number) =>
@@ -129,7 +143,10 @@ function RevenueWidget({ analytics }: { analytics: Analytics | null }) {
       <Kpi label="Ingresos este mes" value={thisMonth ? fmtCLP(thisMonth.income) : "—"}
         sub={trendPct != null ? `${trendPct > 0 ? "+" : ""}${trendPct}% vs mes anterior` : undefined}
         trend={trend} />
-      <Kpi label="Citas cobradas" value={String(thisMonth?.count ?? "—")} />
+      <div className="grid grid-cols-2 gap-3">
+        <Kpi label="Citas cobradas" value={String(thisMonth?.count ?? "—")} />
+        <Kpi label="Ticket promedio" value={analytics?.operations?.avgTicket ? fmtCLP(analytics.operations.avgTicket) : "—"} />
+      </div>
       {lastMonth && (
         <div className="flex items-center gap-2 text-[10px] text-gray-400 border-t border-gray-50 pt-3">
           <span>Mes anterior:</span>
@@ -194,9 +211,19 @@ function PendingWidget({ analytics }: { analytics: Analytics | null }) {
 function DoctorsWidget({ analytics }: { analytics: Analytics | null }) {
   const docs = analytics?.doctors ?? [];
   const maxBookings = Math.max(...docs.map((d) => d.bookings), 1);
+  const noShowRate = analytics?.operations?.cancellationRate;
   if (docs.length === 0) return <p className="text-sm text-gray-400 text-center py-4">Sin datos</p>;
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div className="flex flex-col gap-4">
+      {noShowRate != null && (
+        <div className="flex items-center justify-between text-xs bg-gray-50 rounded-xl px-3 py-2">
+          <span className="text-gray-500">Tasa de cancelación / no-show</span>
+          <span className={`font-bold ${noShowRate > 20 ? "text-red-600" : noShowRate > 10 ? "text-amber-600" : "text-emerald-600"}`}>
+            {noShowRate}%
+          </span>
+        </div>
+      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {docs.map((d, i) => (
         <div key={d.doctor} className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
@@ -212,6 +239,7 @@ function DoctorsWidget({ analytics }: { analytics: Analytics | null }) {
           )}
         </div>
       ))}
+      </div>
     </div>
   );
 }
@@ -251,6 +279,67 @@ function IncomeChartWidget({ analytics }: { analytics: Analytics | null }) {
       <div className="flex justify-between text-[10px] text-gray-400 border-t border-gray-50 pt-2">
         <span>Total 6 meses: <span className="font-bold text-gray-700">{fmtCLP(data.reduce((s, d) => s + d.income, 0))}</span></span>
         <span>{data.reduce((s, d) => s + d.count, 0)} citas cobradas</span>
+      </div>
+    </div>
+  );
+}
+
+function LeadsWidget({ analytics }: { analytics: Analytics | null }) {
+  const totals    = analytics?.totals;
+  const channels  = (analytics?.channels ?? []).filter((c) => c.sessions > 0);
+  const sessions  = totals?.sessions ?? 0;
+  const leads     = totals?.leads ?? 0;
+  const booked    = totals?.slotBooked ?? 0;
+  const convRate  = sessions > 0 ? Math.round((leads / sessions) * 100) : 0;
+  const bookRate  = leads    > 0 ? Math.round((booked / leads) * 100) : 0;
+  const maxCh     = Math.max(...channels.map((c) => c.sessions), 1);
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-6">
+      {/* KPIs */}
+      <div className="flex flex-col gap-3">
+        <Kpi label="Conversaciones" value={sessions.toLocaleString("es-CL")} />
+        <Kpi label="Leads capturados" value={leads.toLocaleString("es-CL")}
+          sub={sessions > 0 ? `${convRate}% de las conversaciones` : undefined}
+          trend={convRate >= 40 ? "up" : convRate >= 20 ? "flat" : "down"} />
+        <Kpi label="Reservaron desde el chat" value={booked.toLocaleString("es-CL")}
+          sub={leads > 0 ? `${bookRate}% de los leads` : undefined}
+          trend={bookRate >= 30 ? "up" : bookRate >= 15 ? "flat" : "down"} />
+      </div>
+
+      {/* Channel breakdown */}
+      <div className="flex flex-col gap-3">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Por canal</p>
+        {channels.length === 0 ? (
+          <p className="text-xs text-gray-400 text-center py-4">Sin conversaciones aún</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {channels.map((c) => {
+              const meta = CHANNEL_LABELS[c.channel] ?? { name: c.channel, icon: "•", color: "#64748B" };
+              return (
+                <div key={c.channel} className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">{meta.icon}</span>
+                      <span className="text-xs font-semibold text-gray-700">{meta.name}</span>
+                      <span className="text-[10px] text-gray-400">· {c.sessions} conv.</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] text-gray-400">{c.leads} leads</span>
+                      {c.booked > 0 && (
+                        <span className="text-[10px] font-bold text-emerald-600">{c.booked} reservas</span>
+                      )}
+                    </div>
+                  </div>
+                  <Bar value={c.sessions} max={maxCh} color={meta.color} />
+                  {c.conversionRate > 0 && (
+                    <p className="text-[10px] text-gray-400">Conversión a reserva: <span className="font-bold text-gray-600">{c.conversionRate}%</span></p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -446,7 +535,7 @@ export function DashboardTab({
         ));
       }
     } finally { setLoading(false); }
-  }, []);
+  }, [clinicId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -534,6 +623,7 @@ export function DashboardTab({
             onToggleSize={() => toggleSize(idx)} onToggleHidden={() => toggleHidden(idx)}>
             {cfg.id === "today"    && <TodayWidget bookings={todayBookings} />}
             {cfg.id === "revenue"  && <RevenueWidget analytics={analytics} />}
+            {cfg.id === "leads"    && <LeadsWidget analytics={analytics} />}
             {cfg.id === "patients" && <PatientsWidget analytics={analytics} />}
             {cfg.id === "pending"  && <PendingWidget analytics={analytics} />}
             {cfg.id === "doctors"       && <DoctorsWidget analytics={analytics} />}

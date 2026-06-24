@@ -1,32 +1,26 @@
 import type { FastifyInstance } from "fastify";
+import Papa from "papaparse";
 import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
 
-/* ── CSV helpers ─────────────────────────────────────────────────────── */
-function parseCSVLine(line: string, delimiter: string): string[] {
-  const result: string[] = [];
-  let current = "";
-  let inQuotes = false;
-  for (const char of line) {
-    if (char === '"') { inQuotes = !inQuotes; }
-    else if (char === delimiter && !inQuotes) { result.push(current); current = ""; }
-    else { current += char; }
-  }
-  result.push(current);
-  return result.map((v) => v.trim().replace(/^["']|["']$/g, ""));
-}
-
+/* ── CSV parser (papaparse) ──────────────────────────────────────────── */
+// Devuelve filas como Record<headerLowercased, valor>, descartando filas vacías.
+// Detección automática del delimitador (",", ";", "\t") gracias a Papa.
 function parseCSV(content: string): Record<string, string>[] {
-  const lines = content.trim().split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) return [];
-  const delimiter = (lines[0].split(";").length > lines[0].split(",").length) ? ";" : ",";
-  const headers = parseCSVLine(lines[0], delimiter).map((h) => h.toLowerCase().trim());
-  return lines.slice(1).map((line) => {
-    const values = parseCSVLine(line, delimiter);
-    const row: Record<string, string> = {};
-    headers.forEach((h, i) => { row[h] = values[i] ?? ""; });
-    return row;
-  }).filter((row) => Object.values(row).some((v) => v !== ""));
+  const trimmed = content.trim();
+  if (!trimmed) return [];
+
+  const result = Papa.parse<Record<string, string>>(trimmed, {
+    header:           true,
+    skipEmptyLines:   "greedy",
+    delimitersToGuess: [",", ";", "\t", "|"],
+    transformHeader:  (h) => h.trim().toLowerCase().replace(/^["']|["']$/g, ""),
+    transform:        (v) => (typeof v === "string" ? v.trim().replace(/^["']|["']$/g, "") : v),
+  });
+
+  return result.data.filter((row) =>
+    row && Object.values(row).some((v) => v !== "" && v != null)
+  );
 }
 
 // Headers que jamás deben usarse como fecha de cita, sin importar el alias que coincida
@@ -164,6 +158,17 @@ export async function patientsRoutes(app: FastifyInstance) {
       if (!b.paymentStatus || b.paymentStatus === "pending") p.pendingCount++;
     }
 
+    // Sumar abonos manuales (cuenta corriente, #43) al total pagado por paciente
+    const manualPayments = await prisma.accountEntry.groupBy({
+      by: ["patientRut"],
+      where: { clinicId: payload.clinicId, kind: "payment" },
+      _sum: { amount: true },
+    });
+    for (const mp of manualPayments) {
+      const p = map.get(mp.patientRut);
+      if (p) p.totalPaid += mp._sum.amount ?? 0;
+    }
+
     const patients = Array.from(map.values()).sort((a, b) =>
       new Date(b.lastVisit).getTime() - new Date(a.lastVisit).getTime()
     );
@@ -236,6 +241,96 @@ export async function patientsRoutes(app: FastifyInstance) {
     return reply.send({ ok: true });
   });
 
+  // ════════════════════════════════════════════════════════════════════════════
+  // CUENTA CORRIENTE DEL PACIENTE (Issue #43)
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // GET /api/patients/:rut/account — estado de cuenta consolidado
+  app.get<{ Params: { rut: string } }>("/patients/:rut/account", async (req, reply) => {
+    let payload;
+    try { payload = verifyToken(req.headers.authorization); }
+    catch { return reply.status(401).send({ error: "No autorizado" }); }
+    if (!payload.clinicId) return reply.status(403).send({ error: "Sin clínica asignada" });
+
+    const rut = decodeURIComponent(req.params.rut);
+
+    const [bookings, manual] = await Promise.all([
+      prisma.booking.findMany({
+        where: { clinicId: payload.clinicId, patientRut: rut, status: { not: "cancelled" } },
+        select: { id: true, date: true, service: true, amountTotal: true, amountPaid: true, paidAt: true },
+        orderBy: { date: "asc" },
+      }),
+      prisma.accountEntry.findMany({
+        where: { clinicId: payload.clinicId, patientRut: rut },
+        orderBy: { createdAt: "asc" },
+      }),
+    ]);
+
+    type Entry = {
+      id: string; date: string; kind: "charge" | "payment" | "adjustment";
+      amount: number; description: string; source: "booking" | "manual"; method?: string | null;
+    };
+    const entries: Entry[] = [];
+
+    for (const b of bookings) {
+      if (b.amountTotal && b.amountTotal > 0) {
+        entries.push({
+          id: `b-c-${b.id}`, date: b.date.toISOString(), kind: "charge", amount: b.amountTotal,
+          description: b.service ? `Cargo · ${b.service}` : "Cargo por atención", source: "booking",
+        });
+      }
+      if (b.amountPaid && b.amountPaid > 0) {
+        entries.push({
+          id: `b-p-${b.id}`, date: (b.paidAt ?? b.date).toISOString(), kind: "payment", amount: b.amountPaid,
+          description: "Pago en cita", source: "booking",
+        });
+      }
+    }
+    for (const m of manual) {
+      entries.push({
+        id: m.id, date: m.createdAt.toISOString(), kind: m.kind as Entry["kind"], amount: m.amount,
+        description: m.description ?? (m.kind === "payment" ? "Abono" : "Movimiento"),
+        source: "manual", method: m.method,
+      });
+    }
+
+    entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    let totalCharged = 0, totalPaid = 0;
+    for (const e of entries) {
+      if (e.kind === "charge" || e.kind === "adjustment") totalCharged += e.amount;
+      else if (e.kind === "payment") totalPaid += e.amount;
+    }
+
+    return reply.send({ rut, saldo: totalCharged - totalPaid, totalCharged, totalPaid, entries });
+  });
+
+  // POST /api/patients/:rut/account/payment — registra un abono manual
+  app.post<{
+    Params: { rut: string };
+    Body: { amount: number; method?: string; description?: string; bookingId?: string };
+  }>("/patients/:rut/account/payment", async (req, reply) => {
+    let payload;
+    try { payload = verifyToken(req.headers.authorization); }
+    catch { return reply.status(401).send({ error: "No autorizado" }); }
+    if (!payload.clinicId) return reply.status(403).send({ error: "Sin clínica asignada" });
+
+    const rut = decodeURIComponent(req.params.rut);
+    const { amount, method, description, bookingId } = req.body ?? {};
+    if (typeof amount !== "number" || !(amount > 0)) {
+      return reply.status(400).send({ error: "El monto debe ser mayor a 0" });
+    }
+
+    const entry = await prisma.accountEntry.create({
+      data: {
+        clinicId: payload.clinicId, patientRut: rut, kind: "payment",
+        amount, method: method ?? null, description: description ?? null,
+        bookingId: bookingId ?? null, createdBy: payload.userId,
+      },
+    });
+    return reply.status(201).send({ ok: true, entry });
+  });
+
   // POST /api/patients — registra un nuevo paciente (crea booking placeholder cancelado)
   app.post<{
     Body: { name: string; rut?: string; phone?: string; email?: string };
@@ -293,9 +388,29 @@ export async function patientsRoutes(app: FastifyInstance) {
     const headers = Object.keys(rows[0]);
     const cols = detectColumns(headers);
 
-    let created = 0;
     let skipped = 0;
     const errors: string[] = [];
+
+    // BUG FIX #6: pre-build a dedup key set from the clinic's existing bookings
+    // in a single query instead of N sequential findFirst calls inside the loop.
+    const existingBookings = await prisma.booking.findMany({
+      where: { clinicId: payload.clinicId },
+      select: { patientRut: true, patientName: true, doctor: true, time: true, date: true },
+    });
+    const existingKeys = new Set<string>(
+      existingBookings.map((b) => {
+        const dateKey = b.date.toISOString().slice(0, 10);
+        const identity = b.patientRut ?? (b.patientName ?? "").toLowerCase().trim();
+        return `${identity}|${b.doctor}|${dateKey}|${b.time}`;
+      })
+    );
+
+    type BookingInsert = {
+      clinicId: string; patientName: string; patientRut: string | null;
+      patientPhone: string | null; patientEmail: string | null;
+      service: string | null; doctor: string; date: Date; time: string; status: string;
+    };
+    const toInsert: BookingInsert[] = [];
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -347,30 +462,24 @@ export async function patientsRoutes(app: FastifyInstance) {
       const timeStr = cols.time ? row[cols.time] : null;
       const time = timeStr ? (parseTime(timeStr) ?? "10:00") : "10:00";
 
-      // Skip duplicates: same clinic + rut/name + date + doctor
-      const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0);
-      const dayEnd   = new Date(date); dayEnd.setHours(23, 59, 59, 999);
-      const existing = await prisma.booking.findFirst({
-        where: {
-          clinicId: payload.clinicId, doctor, time,
-          date: { gte: dayStart, lte: dayEnd },
-          ...(patientRut ? { patientRut } : { patientName }),
-        },
-      });
-      if (existing) { skipped++; continue; }
+      // Skip duplicates using the pre-built in-memory set
+      const dateKey = date.toISOString().slice(0, 10);
+      const identity = patientRut ?? patientName.toLowerCase().trim();
+      const dedupKey = `${identity}|${doctor}|${dateKey}|${time}`;
+      if (existingKeys.has(dedupKey)) { skipped++; continue; }
 
-      try {
-        await prisma.booking.create({
-          data: {
-            clinicId: payload.clinicId, patientName, patientRut, patientPhone, patientEmail,
-            service, doctor, date, time, status,
-          },
-        });
-        created++;
-      } catch (e) {
-        errors.push(`Fila ${lineNum}: error al insertar`);
-        skipped++;
-      }
+      // Also deduplicate within this import batch
+      existingKeys.add(dedupKey);
+      toInsert.push({ clinicId: payload.clinicId, patientName, patientRut, patientPhone, patientEmail, service, doctor, date, time, status });
+      void lineNum; // lineNum reserved for error reporting below
+    }
+
+    let created = 0;
+    try {
+      const result = await prisma.booking.createMany({ data: toInsert, skipDuplicates: true });
+      created = result.count;
+    } catch (e) {
+      errors.push("Error al insertar registros en lote");
     }
 
     return reply.send({ created, skipped, total: rows.length, errors: errors.slice(0, 20) });

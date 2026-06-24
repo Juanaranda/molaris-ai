@@ -435,9 +435,13 @@ export default function RegisterPage() {
                         <Link href="/legal/terminos" target="_blank" className="underline underline-offset-2 font-medium hover:opacity-70">
                           Términos y Condiciones
                         </Link>{" "}
-                        y la{" "}
+                        , la{" "}
                         <Link href="/legal/privacidad" target="_blank" className="underline underline-offset-2 font-medium hover:opacity-70">
                           Política de Privacidad
+                        </Link>{" "}
+                        y el{" "}
+                        <Link href="/legal/dpa" target="_blank" className="underline underline-offset-2 font-medium hover:opacity-70">
+                          Contrato de Tratamiento de Datos (DPA)
                         </Link>{" "}
                         de molari.ai
                       </span>
