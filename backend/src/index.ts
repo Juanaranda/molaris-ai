@@ -31,6 +31,7 @@ import { auditLogRoutes } from "./routes/auditLog";
 import { anamnesisRoutes } from "./routes/anamnesis";
 import { consentRoutes } from "./routes/consents";
 import { labOrderRoutes } from "./routes/labOrders";
+import { inventoryRoutes } from "./routes/inventory";
 import { startReminderScheduler } from "./services/notifications/reminderService";
 import { startRecallScheduler } from "./services/notifications/recallService";
 
@@ -92,6 +93,7 @@ app.register(auditLogRoutes, { prefix: "/api" });
 app.register(anamnesisRoutes, { prefix: "/api" });
 app.register(consentRoutes, { prefix: "/api" });
 app.register(labOrderRoutes, { prefix: "/api" });
+app.register(inventoryRoutes, { prefix: "/api" });
 
 app.get("/health", async () => ({ status: "ok", project: "molari.ai" }));
 

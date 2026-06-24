@@ -81,6 +81,8 @@ model Clinic {
   consentSignatures ConsentSignature[]
   labOrders         LabOrder[]
   accountEntries    AccountEntry[]
+  inventoryItems    InventoryItem[]
+  inventoryMovements InventoryMovement[]
 
   @@map("clinics")
 }
@@ -810,4 +812,42 @@ model AccountEntry {
 
   @@index([clinicId, patientRut])
   @@map("account_entries")
+}
+
+// ─── INVENTARIO / STOCK DE INSUMOS (Issue #45) ───────────────────────────────
+model InventoryItem {
+  id           String   @id @default(cuid())
+  clinicId     String
+  clinic       Clinic   @relation(fields: [clinicId], references: [id])
+  name         String
+  category     String?                       // "Anestesia" | "Restauración" | "Descartables" ...
+  unit         String   @default("unidad")   // unidad | caja | ml | g ...
+  currentStock Float    @default(0)
+  minStock     Float    @default(0)          // umbral de alerta
+  cost         Float?                         // costo unitario referencial (CLP)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  movements    InventoryMovement[]
+
+  @@index([clinicId, active])
+  @@map("inventory_items")
+}
+
+// Movimientos de stock: entrada (compra) / salida (consumo) / ajuste.
+model InventoryMovement {
+  id        String   @id @default(cuid())
+  clinicId  String
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+  itemId    String
+  item      InventoryItem @relation(fields: [itemId], references: [id])
+  kind      String                           // "in" | "out" | "adjustment"
+  quantity  Float                            // positivo
+  reason    String?
+  createdBy String?                          // PartnerUser.id
+  createdAt DateTime @default(now())
+
+  @@index([clinicId, itemId])
+  @@map("inventory_movements")
 }

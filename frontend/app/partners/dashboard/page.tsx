@@ -18,6 +18,7 @@ import { TeamTab } from "@/components/TeamTab";
 import { ChangePasswordGate } from "@/components/ChangePasswordGate";
 import { RecallSection } from "@/components/RecallSection";
 import { AuditLogSection } from "@/components/AuditLogSection";
+import { InventoryManager } from "@/components/InventoryManager";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -146,7 +147,7 @@ function InfoField({ label, value, editable, onChange, placeholder }: {
   );
 }
 
-type Tab = "inicio" | "agenda" | "analytics" | "patients" | "bookings" | "perfil" | "equipo" | "clinica" | "config";
+type Tab = "inicio" | "agenda" | "analytics" | "patients" | "bookings" | "perfil" | "equipo" | "inventario" | "clinica" | "config";
 
 /* ─── Analytics Panel ──────────────────────────────────────────────────────── */
 const MONTH_LABELS: Record<string, string> = {
@@ -1167,6 +1168,7 @@ export default function PartnersDashboard() {
                   ["inicio", "Inicio"], ["agenda", "Agenda"], ["analytics", "Analítica"],
                   ["patients", "Pacientes"], ["bookings", "Citas"], ["perfil", "Mi Perfil"],
                   ...(user && user.role !== "USER" ? [["equipo", "Equipo"]] as [Tab, string][] : []),
+                  ["inventario", "Inventario"],
                   ["clinica", "Mi Clínica"], ["config", "Configuración"],
                 ] as [Tab, string][])).map(([tab, label]) => (
                   <button key={tab} onClick={() => setActiveTab(tab)}
@@ -1283,6 +1285,11 @@ export default function PartnersDashboard() {
             {/* ══ TAB EQUIPO ═════════════════════════════════════════════════ */}
             {activeTab === "equipo" && user && clinic && user.role !== "USER" && (
               <TeamTab clinicId={clinic.id} currentUser={user} />
+            )}
+
+            {/* ══ TAB INVENTARIO ═════════════════════════════════════════════ */}
+            {activeTab === "inventario" && clinic && (
+              <InventoryManager clinicId={clinic.id} />
             )}
 
             {/* ══ TAB MI CLÍNICA ═════════════════════════════════════════════ */}
