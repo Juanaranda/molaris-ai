@@ -301,12 +301,12 @@ export default function Home() {
               </span>
 
               <h1 className="font-display text-5xl sm:text-6xl font-bold leading-[1.08] tracking-tight mb-6 animate-fade-up animate-fade-up-delay-1">
-                Tu recepción dental,<br />
-                <span style={{ color: "#D95F45" }}>contestando<br />24/7.</span>
+                No pierdas pacientes<br />
+                <span style={{ color: "#D95F45" }}>por no contestar<br />a tiempo.</span>
               </h1>
 
               <p className="text-base sm:text-lg max-w-md mb-10 animate-fade-up animate-fade-up-delay-2" style={{ color: "#607281" }}>
-                molari.ai responde a cada paciente en WhatsApp y tu web al instante, agenda la cita y hace el seguimiento — mientras tu equipo se concentra en atender. Ficha clínica, odontograma y pagos, incluidos.
+                molari.ai es tu recepcionista con IA: responde a cada paciente en WhatsApp y tu web al instante, agenda la cita sola y hace el seguimiento — 24/7. Y por dentro, tu clínica completa: ficha, odontograma y pagos.
               </p>
 
               <div className="flex flex-col gap-3 animate-fade-up animate-fade-up-delay-3">
