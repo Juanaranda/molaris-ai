@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Arquitectura molari.ai</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #F0EDE8; color: #0C1B26; padding: 32px; }
+
+  h1 { font-size: 22px; font-weight: 800; color: #1A5C7A; }
+  .subtitle { font-size: 12px; color: #607281; margin-top: 2px; margin-bottom: 36px; }
+
+  /* ── Layout principal ── */
+  .arch { display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 20px; align-items: start; }
+
+  /* ── Swimlane / Pool ── */
+  .pool { border-radius: 14px; overflow: hidden; border: 2px solid; }
+  .pool-header { padding: 10px 16px; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+  .pool-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+
+  /* Colores por actor */
+  .pool.patient  { border-color: #86EFAC; }
+  .pool.patient .pool-header  { background: #86EFAC; color: #14532D; }
+  .pool.patient .pool-body    { background: #F0FDF4; }
+
+  .pool.molari   { border-color: #1A5C7A; }
+  .pool.molari .pool-header   { background: #1A5C7A; color: #fff; }
+  .pool.molari .pool-body     { background: #F7FBFE; }
+
+  .pool.third    { border-color: #FCA5A5; }
+  .pool.third .pool-header    { background: #FCA5A5; color: #7F1D1D; }
+  .pool.third .pool-body      { background: #FFF5F5; }
+
+  /* ── Elementos BPMN ── */
+  .task { border-radius: 10px; padding: 10px 14px; font-size: 12px; font-weight: 600; border: 2px solid; display: flex; flex-direction: column; gap: 3px; }
+  .task .tool { font-size: 10px; font-weight: 400; opacity: 0.75; }
+
+  .task.blue   { background: #EFF6FF; border-color: #93C5FD; color: #1D4ED8; }
+  .task.teal   { background: #F0FDFA; border-color: #5EEAD4; color: #0F766E; }
+  .task.coral  { background: #FFF7ED; border-color: #FDB97D; color: #C2410C; }
+  .task.violet { background: #FAF5FF; border-color: #C4B5FD; color: #6D28D9; }
+  .task.gray   { background: #F8FAFC; border-color: #CBD5E1; color: #475569; }
+  .task.green  { background: #F0FDF4; border-color: #86EFAC; color: #15803D; }
+  .task.amber  { background: #FFFBEB; border-color: #FCD34D; color: #92400E; }
+
+  .event { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 600; }
+  .event-circle { width: 28px; height: 28px; border-radius: 50%; border: 2px solid; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+  .event.start .event-circle  { background: #D1FAE5; border-color: #059669; }
+  .event.end   .event-circle  { background: #FEE2E2; border-color: #EF4444; border-width: 4px; }
+
+  .gateway { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+  .diamond { width: 28px; height: 28px; background: #FFFBEB; border: 2px solid #F59E0B; transform: rotate(45deg); flex-shrink: 0; }
+  .gateway span { font-weight: 600; color: #92400E; }
+
+  .arrow-down { display: flex; justify-content: center; align-items: center; height: 18px; color: #94A3B8; font-size: 18px; }
+
+  /* ── Centro: columna molari ── */
+  .center-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .layer { border-radius: 10px; padding: 14px; border: 1.5px dashed; }
+  .layer.hosting { border-color: #1A5C7A44; background: #EFF8FF; }
+  .layer.ai      { border-color: #7C3AED44; background: #FAF5FF; }
+  .layer.db      { border-color: #059669aa; background: #F0FDF4; }
+  .layer-title   { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; }
+  .layer.hosting .layer-title { color: #1A5C7A; }
+  .layer.ai .layer-title      { color: #6D28D9; }
+  .layer.db .layer-title      { color: #059669; }
+
+  .badge { display: inline-flex; align-items: center; gap: 5px; background: white; border: 1.5px solid; border-radius: 20px; padding: 4px 10px; font-size: 11px; font-weight: 600; margin: 3px; }
+  .badge.blue   { border-color: #93C5FD; color: #1D4ED8; }
+  .badge.violet { border-color: #C4B5FD; color: #6D28D9; }
+  .badge.green  { border-color: #86EFAC; color: #15803D; }
+  .badge.orange { border-color: #FDB97D; color: #C2410C; }
+  .badge.gray   { border-color: #CBD5E1; color: #475569; }
+  .badge.teal   { border-color: #5EEAD4; color: #0F766E; }
+
+  /* ── Conectores horizontales ── */
+  .connectors { display: flex; flex-direction: column; justify-content: center; gap: 24px; padding: 80px 0; }
+  .conn { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 600; white-space: nowrap; }
+  .conn-line { flex: 1; height: 2px; background: #94A3B8; }
+  .conn-arrow { color: #94A3B8; font-size: 16px; }
+  .conn.right .conn-arrow { order: 2; }
+  .conn.left  .conn-arrow { order: 0; transform: scaleX(-1); }
+
+  /* ── Tabla de herramientas ── */
+  .tools-table { margin-top: 36px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: #1A5C7A; color: white; padding: 9px 14px; text-align: left; }
+  td { padding: 8px 14px; border-bottom: 1px solid #E2E8F0; vertical-align: top; }
+  tr:nth-child(even) td { background: #F8FAFC; }
+  .cost { font-weight: 700; color: #059669; }
+  .cost.paid { color: #D97706; }
+
+  /* ── Flujos laterales ── */
+  .side-flow { display: flex; flex-direction: column; gap: 10px; }
+  .flow-title { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #607281; margin-bottom: 4px; border-bottom: 1.5px solid #E2E8F0; padding-bottom: 6px; }
+</style>
+</head>
+<body>
+
+<h1>molari.ai — Arquitectura de Producción</h1>
+<p class="subtitle">Diagrama BPMN · Todos los actores, herramientas y flujos de datos</p>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!--  DIAGRAMA PRINCIPAL                                      -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="arch">
+
+  <!-- ─── COLUMNA IZQUIERDA: Canales de entrada ─── -->
+  <div style="display:flex;flex-direction:column;gap:20px;">
+
+    <div class="pool patient">
+      <div class="pool-header">📱 Paciente — WhatsApp</div>
+      <div class="pool-body side-flow">
+        <div class="flow-title">Flujo</div>
+        <div class="event start"><div class="event-circle">💬</div> Escribe en WhatsApp</div>
+        <div class="arrow-down">↓</div>
+        <div class="task green">Mensaje llega a Twilio<div class="tool">Twilio WhatsApp API</div></div>
+        <div class="arrow-down">↓</div>
+        <div class="task blue">POST /webhooks/twilio<div class="tool">HTTPS público (Railway)</div></div>
+        <div class="arrow-down">↓</div>
+        <div class="task violet">IA procesa y responde<div class="tool">Groq · Claude · Gemini</div></div>
+        <div class="arrow-down">↓</div>
+        <div class="task green">Twilio envía respuesta<div class="tool">Twilio outbound message</div></div>
+        <div class="arrow-down">↓</div>
+        <div class="event end"><div class="event-circle">✅</div> Paciente recibe respuesta</div>
+      </div>
+    </div>
+
+    <div class="pool patient">
+      <div class="pool-header">🌐 Paciente — Widget Web</div>
+      <div class="pool-body side-flow">
+        <div class="flow-title">Flujo</div>
+        <div class="event start"><div class="event-circle">💬</div> Escribe en galana.cl</div>
+        <div class="arrow-down">↓</div>
+        <div class="task amber">Script embebido carga widget<div class="tool">&lt;script src="cdn.molari.ai/widget.js"&gt;</div></div>
+        <div class="arrow-down">↓</div>
+        <div class="task blue">POST /api/chat<div class="tool">fetch() directo al backend</div></div>
+        <div class="arrow-down">↓</div>
+        <div class="task violet">IA procesa y responde<div class="tool">Groq · Claude · Gemini</div></div>
+        <div class="arrow-down">↓</div>
+        <div class="gateway"><div class="diamond"></div><span>¿ready_to_book?</span></div>
+        <div class="arrow-down">↓</div>
+        <div class="task teal">Picker inline en el chat<div class="tool">AvailabilityPicker (React)</div></div>
+        <div class="arrow-down">↓</div>
+        <div class="task blue">POST /api/bookings<div class="tool">Cita guardada en DB</div></div>
+        <div class="arrow-down">↓</div>
+        <div class="event end"><div class="event-circle">✅</div> Cita confirmada</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ─── COLUMNA CENTRO: Infraestructura molari.ai ─── -->
+  <div>
+    <div class="pool molari">
+      <div class="pool-header">⚙️ molari.ai — Infraestructura</div>
+      <div class="pool-body">
+
+        <div class="center-grid">
+
+          <!-- Frontend / Widget -->
+          <div class="layer hosting">
+            <div class="layer-title">🌐 Frontend + Widget</div>
+            <div><span class="badge blue">Next.js 15</span></div>
+            <div><span class="badge blue">React</span></div>
+            <div><span class="badge blue">Tailwind CSS</span></div>
+            <div><span class="badge gray">Vercel</span></div>
+            <div style="margin-top:8px;font-size:10px;color:#607281;">app.molari.ai<br/>cdn.molari.ai/widget.js</div>
+          </div>
+
+          <!-- Backend API -->
+          <div class="layer hosting">
+            <div class="layer-title">🔧 Backend API</div>
+            <div><span class="badge teal">Fastify</span></div>
+            <div><span class="badge teal">Node.js</span></div>
+            <div><span class="badge teal">Prisma ORM</span></div>
+            <div><span class="badge gray">Railway</span></div>
+            <div style="margin-top:8px;font-size:10px;color:#607281;">backend.molari.ai<br/>Puerto 3001</div>
+          </div>
+
+          <!-- IA -->
+          <div class="layer ai">
+            <div class="layer-title">🤖 Capa de IA</div>
+            <div><span class="badge violet">Groq (Llama 3)</span></div>
+            <div><span class="badge violet">Anthropic Claude</span></div>
+            <div><span class="badge violet">Google Gemini</span></div>
+            <div><span class="badge violet">OpenRouter</span></div>
+            <div style="margin-top:8px;font-size:10px;color:#607281;">Routing por costo/latencia<br/>via promptBuilder.ts</div>
+          </div>
+
+          <!-- Base de datos -->
+          <div class="layer db">
+            <div class="layer-title">🗄️ Base de Datos</div>
+            <div><span class="badge green">PostgreSQL</span></div>
+            <div><span class="badge green">Prisma Migrations</span></div>
+            <div><span class="badge gray">Railway / Supabase</span></div>
+            <div style="margin-top:8px;font-size:10px;color:#607281;">Sessions · Bookings<br/>Patients · Usage Events</div>
+          </div>
+
+        </div>
+
+        <!-- Notificaciones -->
+        <div class="layer hosting" style="margin-top:4px;">
+          <div class="layer-title">🔔 Notificaciones</div>
+          <div style="display:flex;flex-wrap:wrap;">
+            <span class="badge green">WhatsApp (Twilio)</span>
+            <span class="badge orange">Email (SendGrid / Resend)</span>
+            <span class="badge gray">whatsappService.ts</span>
+          </div>
+          <div style="margin-top:6px;font-size:10px;color:#607281;">Notifica a la clínica cuando se agenda una cita · Confirmación al paciente</div>
+        </div>
+
+        <!-- Dashboard clínica -->
+        <div class="layer hosting" style="margin-top:4px;">
+          <div class="layer-title">📊 Dashboard Clínica (Partners)</div>
+          <div style="display:flex;flex-wrap:wrap;">
+            <span class="badge blue">app.molari.ai/partners</span>
+            <span class="badge teal">JWT Auth</span>
+            <span class="badge gray">GET /api/agenda</span>
+            <span class="badge gray">GET /api/patients</span>
+          </div>
+          <div style="margin-top:6px;font-size:10px;color:#607281;">Agenda · Odontograma · Pacientes · Leads · Cotizaciones</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── COLUMNA DERECHA: Terceros ─── -->
+  <div style="display:flex;flex-direction:column;gap:20px;">
+
+    <div class="pool third">
+      <div class="pool-header">🔗 Servicios de terceros</div>
+      <div class="pool-body side-flow">
+
+        <div class="flow-title">Mensajería</div>
+        <div class="task green">Twilio<div class="tool">WhatsApp Business API · SMS</div></div>
+        <div class="task green">Meta (WhatsApp)<div class="tool">Aprobación de número y plantillas</div></div>
+
+        <div class="flow-title" style="margin-top:8px;">Inteligencia Artificial</div>
+        <div class="task violet">Groq<div class="tool">Llama 3.3 70B — respuestas rápidas</div></div>
+        <div class="task violet">Anthropic<div class="tool">Claude 3.5 — casos complejos</div></div>
+        <div class="task violet">Google<div class="tool">Gemini 2.0 — fallback</div></div>
+
+        <div class="flow-title" style="margin-top:8px;">Hosting & Deploy</div>
+        <div class="task blue">Vercel<div class="tool">Frontend + Edge Network</div></div>
+        <div class="task blue">Railway<div class="tool">Backend + PostgreSQL</div></div>
+
+        <div class="flow-title" style="margin-top:8px;">Agenda propia</div>
+        <div class="task teal">molari.ai Agenda<div class="tool">Bookings en DB propia · sin dependencias externas</div></div>
+
+      </div>
+    </div>
+
+    <!-- Dominio clínica -->
+    <div class="pool patient">
+      <div class="pool-header">🏥 Galana Clínica Dental</div>
+      <div class="pool-body side-flow">
+        <div class="flow-title">Integración</div>
+        <div class="task amber">Sitio web galana.cl<div class="tool">Cualquier CMS / HTML</div></div>
+        <div class="arrow-down">↓</div>
+        <div class="task gray">&lt;script&gt; de 3 líneas<div class="tool">Pegar en &lt;body&gt; del sitio</div></div>
+        <div class="arrow-down">↓</div>
+        <div class="task teal">Widget flotante aparece<div class="tool">iframe molari.ai/widget</div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!--  TABLA DE HERRAMIENTAS                                   -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="tools-table">
+  <h2 style="font-size:15px;font-weight:700;color:#1A5C7A;margin-bottom:12px;border-left:4px solid #D95F45;padding-left:10px;">Stack completo y costos estimados</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Capa</th>
+        <th>Herramienta</th>
+        <th>Rol</th>
+        <th>Costo mensual</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Frontend</td><td>Next.js 15 + Vercel</td><td>UI del dashboard y widget embebible</td><td class="cost">Gratis (hobby) / $20 pro</td></tr>
+      <tr><td>Backend</td><td>Fastify + Node.js + Railway</td><td>API REST, lógica de negocio, webhooks</td><td class="cost paid">~$5–10</td></tr>
+      <tr><td>Base de datos</td><td>PostgreSQL + Prisma (Railway)</td><td>Pacientes, citas, sesiones, leads</td><td class="cost paid">~$5</td></tr>
+      <tr><td>IA principal</td><td>Groq (Llama 3.3 70B)</td><td>Respuestas del asistente — rápido y barato</td><td class="cost">~$1–5 por clínica</td></tr>
+      <tr><td>IA fallback</td><td>Anthropic Claude / Gemini</td><td>Casos complejos o cuando Groq falla</td><td class="cost paid">Variable</td></tr>
+      <tr><td>WhatsApp</td><td>Twilio WhatsApp Business</td><td>Recibir y enviar mensajes WhatsApp</td><td class="cost paid">~$0.005/mensaje + $6 número</td></tr>
+      <tr><td>Notificaciones</td><td>Twilio / Resend</td><td>Avisos a la clínica cuando se agenda</td><td class="cost">Incluido o ~$1</td></tr>
+      <tr><td>Agenda</td><td>DB propia (PostgreSQL)</td><td>Disponibilidad y bookings gestionados en molari.ai</td><td class="cost">Incluido en Railway</td></tr>
+      <tr><td>Dominio</td><td>molari.ai</td><td>DNS + SSL</td><td class="cost paid">~$15/año</td></tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top:20px;padding:14px 18px;background:#EFF8FF;border-radius:10px;border:1.5px solid #93C5FD;font-size:12px;color:#1D4ED8;">
+    <strong>💡 Costo total estimado para la primera clínica:</strong> ~$25–40 USD/mes de infraestructura.
+    Escala casi sin costo adicional hasta ~10 clínicas en el mismo Railway + Vercel.
+    El costo marginal por clínica adicional es básicamente solo el uso de la IA (~$1–5/mes).
+  </div>
+</div>
+
+<p style="margin-top:24px;font-size:10px;color:#94A3B8;">molari.ai · Arquitectura v1.0 · Mayo 2026</p>
+
+</body>
+</html>
