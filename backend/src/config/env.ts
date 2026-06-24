@@ -39,6 +39,13 @@ export const config = {
     },
   },
   frontendUrl: process.env.FRONTEND_URL ?? "http://localhost:3000",
+  // Base pública del backend para los redirect_uri de OAuth (Issue #48).
+  oauthRedirectBase: process.env.OAUTH_REDIRECT_BASE ?? "http://localhost:3001",
+  // Mercado Pago OAuth — "conectar con un click" (Issue #48)
+  mercadoPago: {
+    clientId:     process.env.MP_CLIENT_ID ?? "",
+    clientSecret: process.env.MP_CLIENT_SECRET ?? "",
+  },
   twilio: {
     accountSid: process.env.TWILIO_ACCOUNT_SID ?? "",
     authToken:  process.env.TWILIO_AUTH_TOKEN  ?? "",

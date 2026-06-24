@@ -1,6 +1,8 @@
 import type { FastifyInstance } from "fastify";
+import jwt from "jsonwebtoken";
 import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
+import { config } from "../config/env";
 
 /**
  * Endpoints de configuración de integraciones externas por clínica.
@@ -47,6 +49,7 @@ export async function integrationRoutes(app: FastifyInstance) {
       },
       mercadopago: {
         verified: c.mpVerified,
+        oauthAvailable: Boolean(config.mercadoPago.clientId),
       },
       sii: {
         verified:     c.siiVerified,
@@ -126,6 +129,82 @@ export async function integrationRoutes(app: FastifyInstance) {
           error: "No se pudo contactar a Mercado Pago",
           detail: err instanceof Error ? err.message : String(err),
         });
+      }
+    }
+  );
+
+  // ── OAuth: "conectar con 1 click" (Issue #48) ─────────────────────────────
+  // GET /clinics/:id/integrations/mercadopago/oauth/start
+  // Devuelve la URL de autorización de MP con un state firmado que lleva el clinicId.
+  app.get<{ Params: { id: string } }>(
+    "/clinics/:id/integrations/mercadopago/oauth/start",
+    async (req, reply) => {
+      const g = guard(req);
+      if (!g.ok) return reply.status(g.status).send({ error: g.error });
+
+      if (!config.mercadoPago.clientId) {
+        return reply.status(503).send({ error: "OAuth de Mercado Pago no está configurado en el servidor" });
+      }
+
+      const state = jwt.sign(
+        { clinicId: req.params.id, kind: "mp_oauth" },
+        config.jwtSecret,
+        { expiresIn: "10m" }
+      );
+      const redirectUri = `${config.oauthRedirectBase}/api/integrations/mercadopago/oauth/callback`;
+      const authUrl =
+        `https://auth.mercadopago.cl/authorization?client_id=${encodeURIComponent(config.mercadoPago.clientId)}` +
+        `&response_type=code&platform_id=mp` +
+        `&state=${encodeURIComponent(state)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}`;
+
+      return reply.send({ authUrl });
+    }
+  );
+
+  // GET /integrations/mercadopago/oauth/callback — lo llama Mercado Pago (público).
+  // Intercambia el code por el access_token y lo guarda en la clínica.
+  app.get<{ Querystring: { code?: string; state?: string; error?: string } }>(
+    "/integrations/mercadopago/oauth/callback",
+    async (req, reply) => {
+      const { code, state, error } = req.query;
+      const back = (status: string) => reply.redirect(`${config.frontendUrl}/partners/dashboard?mp=${status}`);
+
+      if (error || !code || !state) return back("error");
+
+      let clinicId: string;
+      try {
+        const payload = jwt.verify(state, config.jwtSecret) as { clinicId: string; kind: string };
+        if (payload.kind !== "mp_oauth") throw new Error("bad kind");
+        clinicId = payload.clinicId;
+      } catch {
+        return back("error");
+      }
+
+      try {
+        const redirectUri = `${config.oauthRedirectBase}/api/integrations/mercadopago/oauth/callback`;
+        const res = await fetch("https://api.mercadopago.com/oauth/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            client_id:     config.mercadoPago.clientId,
+            client_secret: config.mercadoPago.clientSecret,
+            code,
+            grant_type:    "authorization_code",
+            redirect_uri:  redirectUri,
+          }),
+        });
+        if (!res.ok) return back("error");
+        const data = await res.json() as { access_token?: string };
+        if (!data.access_token) return back("error");
+
+        await prisma.clinic.update({
+          where: { id: clinicId },
+          data:  { mpAccessToken: data.access_token, mpVerified: true },
+        });
+        return back("connected");
+      } catch {
+        return back("error");
       }
     }
   );

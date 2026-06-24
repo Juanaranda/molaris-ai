@@ -4,7 +4,7 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 export interface IntegrationsStatus {
   whatsapp:    { configured: boolean; verified: boolean };
-  mercadopago: { verified: boolean };
+  mercadopago: { verified: boolean; oauthAvailable?: boolean };
   sii: {
     verified:     boolean;
     rutEmisor:    string | null;
@@ -41,6 +41,16 @@ export async function updateMercadoPagoConfig(
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error ?? "Error guardando configuración MP");
   }
+}
+
+/** Inicia el flujo OAuth "conectar con 1 click" — devuelve la URL de autorización de MP. */
+export async function startMercadoPagoOAuth(clinicId: string): Promise<string> {
+  const res = await fetch(`${API}/api/clinics/${clinicId}/integrations/mercadopago/oauth/start`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const json = await res.json().catch(() => ({})) as { authUrl?: string; error?: string };
+  if (!res.ok || !json.authUrl) throw new Error(json.error ?? "No se pudo iniciar la conexión con Mercado Pago");
+  return json.authUrl;
 }
 
 export async function verifyMercadoPago(clinicId: string): Promise<{ id?: number; email?: string; nickname?: string }> {

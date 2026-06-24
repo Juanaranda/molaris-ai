@@ -893,6 +893,20 @@ export default function PartnersDashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("inicio");
   const [agendaAutoOpen, setAgendaAutoOpen] = useState(false);
+  const [mpNotice, setMpNotice] = useState<"connected" | "error" | null>(null);
+
+  // Retorno del OAuth de Mercado Pago (Issue #48): ?mp=connected|error
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const mp = params.get("mp");
+    if (mp === "connected" || mp === "error") {
+      setMpNotice(mp);
+      setActiveTab("clinica");
+      params.delete("mp");
+      const qs = params.toString();
+      window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
+    }
+  }, []);
 
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
@@ -1161,6 +1175,16 @@ export default function PartnersDashboard() {
 
         {clinic && (
           <>
+            {/* Aviso de retorno del OAuth de Mercado Pago */}
+            {mpNotice && (
+              <div className={`mb-4 rounded-xl px-4 py-2.5 text-sm font-medium flex items-center justify-between ${
+                mpNotice === "connected" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-600 border border-red-200"
+              }`}>
+                <span>{mpNotice === "connected" ? "✓ Mercado Pago conectado correctamente." : "No se pudo conectar Mercado Pago. Intentá de nuevo."}</span>
+                <button onClick={() => setMpNotice(null)} className="text-current opacity-60 hover:opacity-100">✕</button>
+              </div>
+            )}
+
             {/* Tabs */}
             <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
               <div className="flex border-b border-gray-200 gap-1 min-w-max sm:min-w-0">

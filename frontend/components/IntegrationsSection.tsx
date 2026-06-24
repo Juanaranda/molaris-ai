@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   IntegrationsStatus,
   getIntegrationsStatus,
-  updateMercadoPagoConfig, verifyMercadoPago,
+  updateMercadoPagoConfig, verifyMercadoPago, startMercadoPagoOAuth,
   updateSiiConfig, verifySii, SiiConfigUpdate,
   updateWhatsappConfig, verifyWhatsapp,
 } from "@/lib/integrations";
@@ -43,7 +43,7 @@ export function IntegrationsSection({ clinicId }: Props) {
       </div>
 
       <WhatsappCard clinicId={clinicId} configured={status.whatsapp.configured} verified={status.whatsapp.verified} onChange={fetchStatus} />
-      <MercadoPagoCard clinicId={clinicId} verified={status.mercadopago.verified} onChange={fetchStatus} />
+      <MercadoPagoCard clinicId={clinicId} verified={status.mercadopago.verified} oauthAvailable={status.mercadopago.oauthAvailable ?? false} onChange={fetchStatus} />
       <SiiCard clinicId={clinicId} sii={status.sii} onChange={fetchStatus} />
     </div>
   );
@@ -59,12 +59,22 @@ function StatusPill({ verified }: { verified: boolean }) {
 }
 
 /* ─── Mercado Pago ─────────────────────────────────────────────────────── */
-function MercadoPagoCard({ clinicId, verified, onChange }: { clinicId: string; verified: boolean; onChange: () => void }) {
+function MercadoPagoCard({ clinicId, verified, oauthAvailable, onChange }: { clinicId: string; verified: boolean; oauthAvailable: boolean; onChange: () => void }) {
   const [accessToken, setAccessToken] = useState("");
   const [saving, setSaving]   = useState(false);
   const [verifying, setVerify] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [showManual, setShowManual] = useState(false);
   const [msg, setMsg]         = useState("");
   const [error, setError]     = useState("");
+
+  async function connect() {
+    setConnecting(true); setError("");
+    try {
+      const url = await startMercadoPagoOAuth(clinicId);
+      window.location.href = url; // redirige a Mercado Pago
+    } catch (e) { setError(e instanceof Error ? e.message : "Error"); setConnecting(false); }
+  }
 
   async function save() {
     if (accessToken.trim().length < 10) { setError("Access token muy corto"); return; }
@@ -99,26 +109,49 @@ function MercadoPagoCard({ clinicId, verified, onChange }: { clinicId: string; v
       </div>
       <div className="p-5 flex flex-col gap-3">
         <p className="text-[11px] text-gray-500">
-          Permite a los pacientes pagar por web. Obtené el Access Token en{" "}
-          <a href="https://www.mercadopago.cl/developers/panel/credentials" target="_blank" rel="noopener noreferrer"
-             className="text-[#1A5C7A] underline hover:text-[#0e4560]">developers.mercadopago.cl</a>.
+          Permite a tus pacientes pagar por web. Conectá tu cuenta en un paso, sin copiar nada.
         </p>
-        <div>
-          <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Access Token</label>
-          <input type="password" value={accessToken} onChange={(e) => setAccessToken(e.target.value)}
-            placeholder={verified ? "Ya configurado — ingresá uno nuevo para reemplazar" : "APP_USR-... o TEST-..."}
-            className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5C7A]/30 focus:border-[#1A5C7A]" />
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          <button onClick={save} disabled={saving || !accessToken.trim()}
-            className="text-xs font-bold px-3 py-1.5 rounded-xl bg-[#1A5C7A] text-white hover:bg-[#0e4560] transition disabled:opacity-50">
-            {saving ? "Guardando…" : "Guardar token"}
-          </button>
-          <button onClick={verify} disabled={verifying}
-            className="text-xs font-bold px-3 py-1.5 rounded-xl border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition disabled:opacity-50">
-            {verifying ? "Verificando…" : "Verificar conexión"}
-          </button>
-        </div>
+
+        {oauthAvailable ? (
+          <>
+            <button onClick={connect} disabled={connecting}
+              className="inline-flex items-center justify-center gap-2 text-sm font-bold px-4 py-2.5 rounded-xl bg-[#009EE3] text-white hover:bg-[#008fd0] transition disabled:opacity-50">
+              {connecting ? "Redirigiendo…" : (verified ? "Reconectar Mercado Pago" : "Conectar con Mercado Pago")}
+            </button>
+            <button onClick={() => setShowManual((v) => !v)}
+              className="text-[11px] text-gray-400 underline self-start hover:text-gray-600">
+              {showManual ? "Ocultar opción manual" : "o conectar manualmente con un token"}
+            </button>
+          </>
+        ) : null}
+
+        {(!oauthAvailable || showManual) && (
+          <div className="flex flex-col gap-3 border-t border-gray-50 pt-3">
+            {!oauthAvailable && (
+              <p className="text-[11px] text-gray-500">
+                Pegá el Access Token de{" "}
+                <a href="https://www.mercadopago.cl/developers/panel/credentials" target="_blank" rel="noopener noreferrer"
+                   className="text-[#1A5C7A] underline hover:text-[#0e4560]">developers.mercadopago.cl</a>.
+              </p>
+            )}
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Access Token</label>
+              <input type="password" value={accessToken} onChange={(e) => setAccessToken(e.target.value)}
+                placeholder={verified ? "Ya configurado — ingresá uno nuevo para reemplazar" : "APP_USR-... o TEST-..."}
+                className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5C7A]/30 focus:border-[#1A5C7A]" />
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <button onClick={save} disabled={saving || !accessToken.trim()}
+                className="text-xs font-bold px-3 py-1.5 rounded-xl bg-[#1A5C7A] text-white hover:bg-[#0e4560] transition disabled:opacity-50">
+                {saving ? "Guardando…" : "Guardar token"}
+              </button>
+              <button onClick={verify} disabled={verifying}
+                className="text-xs font-bold px-3 py-1.5 rounded-xl border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition disabled:opacity-50">
+                {verifying ? "Verificando…" : "Verificar conexión"}
+              </button>
+            </div>
+          </div>
+        )}
         {msg   && <p className="text-xs text-emerald-600">{msg}</p>}
         {error && <p className="text-xs text-red-500">{error}</p>}
       </div>
