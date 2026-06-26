@@ -1,7 +1,5 @@
-<svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="molari.ai">
+<svg width="68" height="72" viewBox="0 0 68 72" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="molari.ai">
   <title>molari.ai</title>
-  <path d="M12 5 H48 C51.5 5 55 8.5 55 12 V40 C55 43.5 51.5 47 48 47 H30 L18 56 L19.5 47 H12 C8.5 47 5 43.5 5 40 V12 C5 8.5 8.5 5 12 5 Z" fill="#1A5C7A"/>
-  <path d="M 19 37 L 19 25 C 19 20 21 16 25 16 C 27 16 28 18 29 20 C 30 17 31.5 15.5 32.5 15.5 C 33.5 15.5 35 17 36 20 C 37 18 38 16 40 16 C 44 16 46 20 46 25 L 46 37 Z" fill="#fff"/>
-  <path d="M 22 36 L 22 42 C 22 44.5 23.5 45.5 26 45.5 C 28.5 45.5 30 44.5 30 42 L 30 36 Z" fill="#fff"/>
-  <path d="M 35 36 L 35 42 C 35 44.5 36.5 45.5 39 45.5 C 41.5 45.5 43 44.5 43 42 L 43 36 Z" fill="#fff"/>
+  <path d="M14 8 H54 Q62 8 62 16 V48 Q62 56 54 56 H32 L22 64 L24 56 H14 Q6 56 6 48 V16 Q6 8 14 8 Z" fill="#1A5C7A"/>
+  <path d="M16,22 Q16,16 22,16 L26,16 L34,39 L42,16 L46,16 Q52,16 52,22 L52,48 Q52,52 48,52 Q44,52 44,48 L44,31 L37,46 L31,46 L24,31 L24,48 Q24,52 20,52 Q16,52 16,48 Z" fill="#fff"/>
 </svg>
