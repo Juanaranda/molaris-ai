@@ -93,17 +93,9 @@ Cada clínica deja casi todo lo que paga como margen — típico de SaaS bien he
 
 ---
 
-## 6. A futuro: bajar el costo de contador (agente contable)
-
-El **contador es el ítem fijo más pesado** (CLP $50–150k/mes). Está en evaluación un **copiloto contable / agente SII** (discovery #51) que ordenaría la contabilidad sobre la data que molari.ai ya tiene (boletas SII, pagos, cuenta corriente):
-
-- Resumen de IVA, **borrador de F29**, alertas de vencimientos y conciliación — calculado de datos reales.
-- No reemplaza al contador (no da fe pública ni asesoría tributaria), pero **reduce sus horas** → podría bajar este costo fijo, o convertirse en un **upsell** ("molari.ai te ordena la contabilidad").
-- Requiere discovery con un contador real antes de construir. Ver issue #51.
-
-> Impacto potencial: si baja el costo de contador de ~CLP $100k a ~$40k/mes, el costo fijo total cae ~30–40%.
-
-## 7. Notas
+## 6. Notas
+- La **contabilidad de cada clínica la maneja la propia clínica** (su contador). molari no se mete en eso — mantiene el foco en la recepcionista IA y evita responsabilidad tributaria.
+- La contabilidad de molari (tu empresa) la lleva un contador contratado por ti.
 - Estos números **excluyen tu sueldo/tiempo** y marketing (publicidad, si la haces).
 - El punto de equilibrio se alcanza muy temprano: **~2–3 clínicas pagando** cubren todo lo fijo + el setup amortizado del primer año.
 - Revisar precios reales al contratar: Vercel, Railway, OpenFactura, y aranceles INAPI/UTM cambian.
