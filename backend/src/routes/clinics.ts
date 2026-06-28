@@ -6,6 +6,8 @@ import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
 import { sendWhatsAppMessage } from "../services/notifications/whatsappService";
 import { notifyWaitlistForCanceledBooking } from "../services/waitlist/waitlistService";
+import { triggerAlert } from "../services/alerts/alertService";
+import { audit } from "../services/audit/auditService";
 
 // Versión vigente del DPA Molaris ↔ Clínica (Issue #38, Ley 21.719).
 // BORRADOR — pendiente validación legal. Subir la versión cuando cambie el texto.
@@ -515,6 +517,74 @@ export async function clinicRoutes(app: FastifyInstance) {
       return reply.send(updated);
     }
   );
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // KILL SWITCH DEL AGENTE IA (Issue #49)
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // GET /api/clinics/:id/agent — estado del agente
+  app.get<{ Params: { id: string } }>("/clinics/:id/agent", async (req, reply) => {
+    let payload;
+    try { payload = verifyToken(req.headers.authorization); }
+    catch { return reply.status(401).send({ error: "No autorizado" }); }
+    if (payload.role !== "SUPERADMIN" && payload.clinicId !== req.params.id) {
+      return reply.status(403).send({ error: "Acceso denegado" });
+    }
+    const c = await prisma.clinic.findUnique({
+      where: { id: req.params.id },
+      select: { agentEnabled: true, agentDisabledAt: true, agentDisabledReason: true },
+    });
+    if (!c) return reply.status(404).send({ error: "Clínica no encontrada" });
+    return reply.send(c);
+  });
+
+  // PATCH /api/clinics/:id/agent — encender/apagar el agente IA
+  app.patch<{
+    Params: { id: string };
+    Body: { enabled: boolean; reason?: string };
+  }>("/clinics/:id/agent", async (req, reply) => {
+    let payload;
+    try { payload = verifyToken(req.headers.authorization); }
+    catch { return reply.status(401).send({ error: "No autorizado" }); }
+    if (payload.role === "USER") return reply.status(403).send({ error: "Sin permisos" });
+    if (payload.role !== "SUPERADMIN" && payload.clinicId !== req.params.id) {
+      return reply.status(403).send({ error: "Acceso denegado" });
+    }
+
+    const { enabled, reason } = req.body ?? {};
+    if (typeof enabled !== "boolean") {
+      return reply.status(400).send({ error: "El campo 'enabled' es obligatorio (true/false)" });
+    }
+
+    const clinic = await prisma.clinic.findUnique({ where: { id: req.params.id }, select: { name: true } });
+    if (!clinic) return reply.status(404).send({ error: "Clínica no encontrada" });
+
+    const updated = await prisma.clinic.update({
+      where: { id: req.params.id },
+      data: enabled
+        ? { agentEnabled: true, agentDisabledAt: null, agentDisabledReason: null }
+        : { agentEnabled: false, agentDisabledAt: new Date(), agentDisabledReason: reason?.trim() || null },
+      select: { agentEnabled: true, agentDisabledAt: true, agentDisabledReason: true },
+    });
+
+    // Auditoría
+    audit({
+      req, actorId: payload.userId, clinicId: req.params.id,
+      action: "update", resourceType: "ClinicalRecord", resourceId: req.params.id,
+      snapshotAfter: { agentEnabled: enabled, reason: reason ?? null },
+    });
+
+    // Alerta al proveedor (panel de monitoreo + WhatsApp)
+    triggerAlert({
+      kind: enabled ? "agent_enabled" : "agent_disabled",
+      severity: enabled ? "info" : "warn",
+      message: `Agente ${enabled ? "ENCENDIDO" : "APAGADO"} en ${clinic.name}`,
+      detail: { clinicId: req.params.id, reason: reason ?? null },
+      cooldownMs: 0,
+    }).catch(() => {});
+
+    return reply.send(updated);
+  });
 
   // POST /api/clinics — registro público de nueva clínica + admin
   app.post<{

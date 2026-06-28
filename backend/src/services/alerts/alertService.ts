@@ -5,7 +5,9 @@ export type AlertKind =
   | "ai_credits_exhausted"
   | "ai_all_providers_down"
   | "ai_provider_degraded"
-  | "ai_fallback_used";
+  | "ai_fallback_used"
+  | "agent_disabled"
+  | "agent_enabled";
 
 export type AlertSeverity = "info" | "warn" | "critical";
 

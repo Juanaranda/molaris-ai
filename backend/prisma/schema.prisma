@@ -58,6 +58,10 @@ model Clinic {
   // DPA — Data Processing Agreement Molaris ↔ Clínica (Issue #38, Ley 21.719)
   dpaAcceptedVersion String?   // versión del DPA que la clínica aceptó (null = no aceptado)
   dpaAcceptedAt      DateTime?
+  // Kill switch del agente IA (Issue #49) — apagar/encender la IA al instante
+  agentEnabled        Boolean   @default(true)
+  agentDisabledAt     DateTime?
+  agentDisabledReason String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

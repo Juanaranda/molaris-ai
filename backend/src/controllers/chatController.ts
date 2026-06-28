@@ -157,6 +157,14 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
 
     const existingCtx = await prisma.patientContext.findUnique({ where: { sessionId: session.id } });
 
+    // Kill switch del agente (#49): si está apagado, no llamamos a la IA.
+    // Guardamos el mensaje (ya hecho arriba) y respondemos con fallback humano.
+    if (clinic.agentEnabled === false) {
+      const fallback = "¡Gracias por tu mensaje! 🙏 En este momento te atiende una persona del equipo; te respondemos a la brevedad.";
+      await prisma.message.create({ data: { sessionId: session.id, role: "assistant", content: fallback } });
+      return reply.send({ reply: fallback, sessionId: session.id, context: existingCtx, isFarewell: false, showScheduler: false });
+    }
+
     // En modo demo Juan no inyecta disponibilidad de citas reales
     let availabilityHint: string | undefined;
     if (!isDemoMode && existingCtx?.intent === "booking_via_chat") {

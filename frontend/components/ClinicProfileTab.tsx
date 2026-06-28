@@ -5,6 +5,7 @@ import { updateClinic, ClinicData } from "@/lib/auth";
 import { DoctorsEditor, DoctorRow } from "@/components/DoctorsEditor";
 import { ServicesEditor, ServiceRow } from "@/components/ServicesEditor";
 import { IntegrationsSection } from "@/components/IntegrationsSection";
+import { AgentControl } from "@/components/AgentControl";
 
 interface ClinicConfig {
   assistantName?: string;
@@ -186,6 +187,7 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
+      {canEdit && <AgentControl clinicId={clinic.id} />}
 
       {/* ── Header card ── */}
       <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">

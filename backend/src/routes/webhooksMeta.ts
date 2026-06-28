@@ -139,6 +139,14 @@ export async function webhookMetaRoutes(app: FastifyInstance) {
             data: { sessionId: session.id, role: "user", content: messageText },
           });
 
+          // Kill switch del agente (#49): si está apagado, fallback humano sin IA
+          if (clinic.agentEnabled === false) {
+            const fb = "¡Gracias por tu mensaje! 🙏 En un momento te atiende una persona del equipo.";
+            await sendMetaMessage(phoneId, clinic.waToken, fromPhone, fb);
+            await prisma.message.create({ data: { sessionId: session.id, role: "assistant", content: fb } });
+            continue;
+          }
+
           // IA
           let aiReply = "Lo siento, tuve un problema. Por favor intenta de nuevo.";
           try {

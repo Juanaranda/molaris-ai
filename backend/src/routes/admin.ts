@@ -27,6 +27,7 @@ export async function adminRoutes(app: FastifyInstance) {
         prisma.clinic.findMany({
           select: {
             id: true, slug: true, name: true, plan: true, active: true, createdAt: true,
+            agentEnabled: true, agentDisabledAt: true, agentDisabledReason: true,
             _count: { select: { sessions: true, bookings: true, partnerUsers: true } },
           },
           orderBy: { createdAt: "desc" },
