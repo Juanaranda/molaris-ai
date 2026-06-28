@@ -14,6 +14,7 @@ import prisma from "../config/prisma";
 import { config } from "../config/env";
 import { getAIResponse } from "../services/ai/claudeService";
 import { sendMetaMessage, markMetaMessageRead } from "../services/whatsapp/metaService";
+import { recordAgentSuccess, recordAgentFailure } from "../services/agent/agentHealth";
 
 interface MetaWebhookBody {
   object: string;
@@ -162,6 +163,10 @@ export async function webhookMetaRoutes(app: FastifyInstance) {
             } : {};
 
             const result = await getAIResponse({ message: messageText, clinic, sessionId: session.id, currentContext: ctx });
+
+            // Salud del agente / circuit breaker (#50)
+            if (result.failed) recordAgentFailure(clinic.id, { source: "whatsapp" });
+            else recordAgentSuccess(clinic.id);
 
             if (result.bookingAction) {
               const { doctor, date, time, patientName, patientRut, service } = result.bookingAction;

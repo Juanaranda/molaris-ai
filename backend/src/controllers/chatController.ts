@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { getAIResponse } from "../services/ai/claudeService";
+import { recordAgentSuccess, recordAgentFailure } from "../services/agent/agentHealth";
 import prisma from "../config/prisma";
 import { config } from "../config/env";
 import { sendBookingNotification } from "../services/notifications/whatsappService";
@@ -171,7 +172,7 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
       availabilityHint = await buildAvailabilityHint(clinic.id, clinic.config as ClinicCfg);
     }
 
-    const { reply: aiReply, context, isFarewell, bookingAction, usage } = await getAIResponse({
+    const { reply: aiReply, context, isFarewell, bookingAction, usage, failed } = await getAIResponse({
       message,
       clinic,
       sessionId: session.id,
@@ -186,6 +187,12 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
         intent:          existingCtx?.intent          ?? undefined,
       },
     });
+
+    // Salud del agente / circuit breaker (#50) — solo clínicas reales, no demo
+    if (!isDemoMode) {
+      if (failed) recordAgentFailure(clinic.id, { source: "web" });
+      else recordAgentSuccess(clinic.id);
+    }
 
     const channel = isDemoMode ? "demo" : isSandbox ? "sandbox" : "web";
     if (usage) {

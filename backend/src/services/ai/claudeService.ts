@@ -49,6 +49,8 @@ export interface AIResponse {
   isFarewell: boolean;
   bookingAction?: BookingAction;
   usage?: { model: string; tier: string; tokensIn: number; tokensOut: number; costUsd: number; latencyMs: number };
+  /** true = todos los proveedores LLM fallaron y se devolvió respuesta estática (#50) */
+  failed?: boolean;
 }
 
 // ── Clasificador de complejidad (sin costo de LLM) ─────────────────────────
@@ -430,7 +432,7 @@ export async function getAIResponse({
       message: "Todos los proveedores LLM están caídos — el chat responde solo con mensaje estático.",
       detail: { clinic: clinic.slug, creditExhausted, hasGroq: isGroqConfigured() },
     }).catch(() => {});
-    return { reply: STATIC_FALLBACK, context: null, isFarewell: false };
+    return { reply: STATIC_FALLBACK, context: null, isFarewell: false, failed: true };
   }
 
   const rawContent = orMsg.content ?? "";
