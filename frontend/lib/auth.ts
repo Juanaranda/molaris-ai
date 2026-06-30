@@ -53,6 +53,27 @@ export async function login(email: string, password: string) {
   return data as { token: string; user: AuthUser; clinic: ClinicData | null };
 }
 
+export async function forgotPassword(email: string): Promise<void> {
+  const res = await fetch(`${API}/api/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw new Error("Error enviando el correo");
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  const res = await fetch(`${API}/api/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, newPassword }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error ?? "Error al cambiar la contraseña");
+  }
+}
+
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("molari_token");

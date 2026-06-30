@@ -46,6 +46,11 @@ export const config = {
     clientId:     process.env.MP_CLIENT_ID ?? "",
     clientSecret: process.env.MP_CLIENT_SECRET ?? "",
   },
+  // Email (Issue #55) — Resend. Sin key → modo dev (log en consola).
+  email: {
+    resendApiKey: process.env.RESEND_API_KEY ?? "",
+    from:         process.env.EMAIL_FROM ?? "molari.ai <onboarding@resend.dev>",
+  },
   twilio: {
     accountSid: process.env.TWILIO_ACCOUNT_SID ?? "",
     authToken:  process.env.TWILIO_AUTH_TOKEN  ?? "",

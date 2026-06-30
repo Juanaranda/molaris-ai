@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../config/prisma";
 import { config } from "../config/env";
+import { sendEmail } from "../services/email/emailService";
 
 interface JwtPayload {
   userId: string;
@@ -66,6 +67,55 @@ export async function authRoutes(app: FastifyInstance) {
         config:   user.clinic.config,
       } : null,
     });
+  });
+
+  // POST /api/auth/forgot-password — manda link de recuperación (Issue #55)
+  app.post<{ Body: { email: string } }>("/auth/forgot-password", async (req, reply) => {
+    const email = req.body?.email?.toLowerCase().trim();
+    // Responder 200 SIEMPRE (no filtrar si el email existe o no)
+    if (email) {
+      const user = await prisma.partnerUser.findUnique({ where: { email } });
+      if (user && user.active) {
+        const token = jwt.sign({ userId: user.id, type: "reset" }, config.jwtSecret, { expiresIn: "1h" });
+        const link = `${config.frontendUrl}/reset-password?token=${encodeURIComponent(token)}`;
+        await sendEmail({
+          to: user.email,
+          subject: "Recupera tu contraseña — molari.ai",
+          html: `<p>Hola ${user.name},</p>
+<p>Recibimos una solicitud para restablecer tu contraseña. Hacé click en el botón (el enlace expira en 1 hora):</p>
+<p><a href="${link}" style="background:#1A5C7A;color:#fff;padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:bold">Crear nueva contraseña</a></p>
+<p>O copiá este enlace: <br>${link}</p>
+<p style="color:#888">Si no pediste esto, ignorá este correo — tu contraseña no cambió.</p>`,
+          text: `Hola ${user.name}, restablecé tu contraseña acá (expira en 1h): ${link}`,
+        });
+      }
+    }
+    return reply.send({ ok: true });
+  });
+
+  // POST /api/auth/reset-password — fija nueva contraseña con el token del email
+  app.post<{ Body: { token: string; newPassword: string } }>("/auth/reset-password", async (req, reply) => {
+    const { token, newPassword } = req.body ?? {};
+    if (!token || !newPassword) return reply.status(400).send({ error: "Token y nueva contraseña requeridos" });
+    if (newPassword.length < 8) return reply.status(400).send({ error: "La contraseña debe tener al menos 8 caracteres" });
+
+    let payload: { userId: string; type: string };
+    try {
+      payload = jwt.verify(token, config.jwtSecret) as { userId: string; type: string };
+      if (payload.type !== "reset") throw new Error("tipo inválido");
+    } catch {
+      return reply.status(400).send({ error: "El enlace es inválido o expiró. Pedí uno nuevo." });
+    }
+
+    const user = await prisma.partnerUser.findUnique({ where: { id: payload.userId } });
+    if (!user || !user.active) return reply.status(400).send({ error: "Usuario no encontrado" });
+
+    const hash = await bcrypt.hash(newPassword, 12);
+    await prisma.partnerUser.update({
+      where: { id: user.id },
+      data:  { passwordHash: hash, mustChangePassword: false },
+    });
+    return reply.send({ ok: true });
   });
 
   // POST /api/auth/change-password
