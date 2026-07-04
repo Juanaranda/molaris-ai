@@ -11,6 +11,14 @@ import { BookingsTab } from "@/components/BookingsTab";
 import { SetupChecklist } from "@/components/SetupChecklist";
 import { AgendaTab } from "@/components/AgendaTab";
 import { PatientsTab } from "@/components/PatientsTab";
+import { DashboardTab } from "@/components/DashboardTab";
+import { ClinicProfileTab } from "@/components/ClinicProfileTab";
+import { MyProfileTab } from "@/components/MyProfileTab";
+import { TeamTab } from "@/components/TeamTab";
+import { ChangePasswordGate } from "@/components/ChangePasswordGate";
+import { RecallSection } from "@/components/RecallSection";
+import { AuditLogSection } from "@/components/AuditLogSection";
+import { InventoryManager } from "@/components/InventoryManager";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -19,6 +27,20 @@ interface ReminderConfig {
   enabled: boolean;
   dayBefore: boolean;
   twoHours: boolean;
+  customEnabled: boolean;
+  customHours: number;
+}
+
+interface SurveyConfig {
+  enabled: boolean;
+  hoursAfter: number;
+  message: string;
+}
+
+interface RecallConfig {
+  enabled: boolean;
+  daysInactive: number;
+  message: string;
 }
 
 interface ClinicConfig {
@@ -29,6 +51,8 @@ interface ClinicConfig {
   boxes?: number;
   schedule?: { weekdays?: string; saturday?: string; sunday?: string };
   reminders?: ReminderConfig;
+  recallCampaign?: RecallConfig;
+  postApptSurvey?: boolean | SurveyConfig;
 }
 
 interface Analytics {
@@ -123,7 +147,7 @@ function InfoField({ label, value, editable, onChange, placeholder }: {
   );
 }
 
-type Tab = "agenda" | "analytics" | "patients" | "bookings" | "config";
+type Tab = "inicio" | "agenda" | "analytics" | "patients" | "bookings" | "perfil" | "equipo" | "inventario" | "clinica" | "config";
 
 /* ─── Analytics Panel ──────────────────────────────────────────────────────── */
 const MONTH_LABELS: Record<string, string> = {
@@ -151,7 +175,24 @@ function AnalyticsPanel({ clinic, analytics, loading, onGoToConfig, onRetry }: {
   onGoToConfig: () => void;
   onRetry: () => void;
 }) {
-  const [sub, setSub] = useState<AnalyticsSub>("resumen");
+  const [sub, setSub]                 = useState<AnalyticsSub>("resumen");
+  const [urgencyFilter, setUrgencyFilter] = useState<string | null>(null);
+  const [recallDays, setRecallDays]   = useState(90);
+  const [recallSending, setRecallSending] = useState(false);
+  const [recallResult, setRecallResult]   = useState<{ sent: number; total: number } | null>(null);
+
+  async function sendRecall() {
+    setRecallSending(true);
+    setRecallResult(null);
+    const token = getToken();
+    const res = await fetch(`${API}/api/clinics/${clinic.id}/recall/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ daysInactive: recallDays }),
+    });
+    if (res.ok) setRecallResult(await res.json());
+    setRecallSending(false);
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -193,81 +234,80 @@ function AnalyticsPanel({ clinic, analytics, loading, onGoToConfig, onRetry }: {
           {/* ── RESUMEN ──────────────────────────────────── */}
           {sub === "resumen" && (
             <div className="flex flex-col gap-4">
-              {/* KPIs */}
+
+              {/* ── 1. KPIs clínica ── */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <StatCard label="Conversaciones" value={analytics.totals.sessions} />
-                <StatCard label="Leads captados" value={analytics.totals.leads}
-                  sub={analytics.totals.sessions > 0 ? `${Math.round(analytics.totals.leads / analytics.totals.sessions * 100)}% del total` : undefined} />
-                <StatCard label="Quieren agendar" value={`${analytics.conversionRate}%`}
-                  sub={`${analytics.totals.readyToBook} leads`} accent />
-                <StatCard label="Citas agendadas" value={analytics.totals.bookings}
-                  sub={analytics.totals.leads > 0 ? `${analytics.bookingRate}% conversión` : undefined} />
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-1">
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Citas este mes</p>
+                  <p className="text-3xl font-black leading-none text-gray-900">
+                    {analytics.payments?.thisMonth.count ?? analytics.totals.bookings}
+                  </p>
+                  {analytics.payments && analytics.payments.lastMonth.count > 0 && (() => {
+                    const diff = analytics.payments.thisMonth.count - analytics.payments.lastMonth.count;
+                    return <p className={`text-xs mt-1 ${diff >= 0 ? "text-emerald-600" : "text-red-500"}`}>{diff >= 0 ? "+" : ""}{diff} vs mes anterior</p>;
+                  })()}
+                </div>
+                <div className="bg-emerald-50 rounded-2xl border border-emerald-100 shadow-sm p-5 flex flex-col gap-1">
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Ingresos este mes</p>
+                  <p className="text-3xl font-black leading-none text-emerald-700">
+                    {analytics.payments ? fmtCLP(analytics.payments.thisMonth.income) : "—"}
+                  </p>
+                  {analytics.payments && analytics.payments.lastMonth.income > 0 && (() => {
+                    const diff = analytics.payments.thisMonth.income - analytics.payments.lastMonth.income;
+                    return <p className={`text-xs mt-1 ${diff >= 0 ? "text-emerald-600" : "text-red-500"}`}>{diff >= 0 ? "+" : ""}{fmtCLP(Math.abs(diff))} vs mes anterior</p>;
+                  })()}
+                </div>
+                <div className="bg-blue-50 rounded-2xl border border-blue-100 shadow-sm p-5 flex flex-col gap-1">
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Ticket promedio</p>
+                  <p className="text-3xl font-black leading-none text-blue-700">
+                    {analytics.operations?.avgTicket ? fmtCLP(analytics.operations.avgTicket) : "—"}
+                  </p>
+                </div>
+                <div className="bg-purple-50 rounded-2xl border border-purple-100 shadow-sm p-5 flex flex-col gap-1">
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Pacientes únicos</p>
+                  <p className="text-3xl font-black leading-none text-purple-700">
+                    {analytics.patients?.total ?? "—"}
+                  </p>
+                  {analytics.patients?.newThisMonth != null && (
+                    <p className="text-xs text-purple-500 mt-1">+{analytics.patients.newThisMonth} nuevos este mes</p>
+                  )}
+                </div>
               </div>
 
-              {/* Ingresos resumen */}
-              {analytics.payments && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {[
-                    { label: "Ingresos este mes", val: fmtCLP(analytics.payments.thisMonth.income), color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-100" },
-                    { label: "Mes anterior",       val: fmtCLP(analytics.payments.lastMonth.income), color: "text-gray-700",    bg: "bg-gray-50 border-gray-100" },
-                    { label: "Ticket promedio",    val: analytics.operations?.avgTicket ? fmtCLP(analytics.operations.avgTicket) : "—", color: "text-blue-700", bg: "bg-blue-50 border-blue-100" },
-                    { label: "Pacientes únicos",   val: analytics.patients?.total ?? "—", color: "text-purple-700", bg: "bg-purple-50 border-purple-100" },
-                  ].map(({ label, val, color, bg }) => (
-                    <div key={label} className={`rounded-2xl p-4 border ${bg}`}>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">{label}</p>
-                      <p className={`text-2xl font-black leading-none ${color}`}>{val}</p>
+              {/* ── 2. Ingresos + servicios ── */}
+              <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                {analytics.payments && analytics.payments.incomeByMonth.length > 0 && (
+                  <div className="sm:col-span-3 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-4">Ingresos últimos 6 meses</p>
+                    <div className="flex items-end gap-2 h-24">
+                      {analytics.payments.incomeByMonth.map((r) => {
+                        const max = Math.max(...analytics.payments!.incomeByMonth.map((x) => x.income), 1);
+                        const pct = Math.round((r.income / max) * 100);
+                        const [, mm] = r.month.split("-");
+                        return (
+                          <div key={r.month} className="flex-1 flex flex-col items-center gap-1 group">
+                            <span className="text-[9px] text-gray-400 opacity-0 group-hover:opacity-100 transition whitespace-nowrap">{fmtCLP(r.income)}</span>
+                            <div className="w-full rounded-t-lg bg-emerald-500 hover:bg-emerald-400 transition-all" style={{ height: `${Math.max(pct, 4)}%`, minHeight: 4 }} />
+                            <span className="text-[10px] text-gray-400">{MONTH_LABELS[mm] ?? mm}</span>
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Score + urgencia + top servicios */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Score IA promedio</p>
-                  <div className="flex items-end gap-2">
-                    <span className={`text-5xl font-black leading-none ${
-                      analytics.totals.avgScore >= 70 ? "text-green-600" : analytics.totals.avgScore >= 40 ? "text-yellow-500" : "text-gray-400"
-                    }`}>{analytics.totals.avgScore}</span>
-                    <span className="text-gray-400 text-sm mb-1">/100</span>
                   </div>
-                  <div className="mt-3 h-2 rounded-full bg-gray-100 overflow-hidden">
-                    <div className={`h-full rounded-full ${analytics.totals.avgScore >= 70 ? "bg-green-500" : analytics.totals.avgScore >= 40 ? "bg-yellow-400" : "bg-gray-300"}`}
-                      style={{ width: `${analytics.totals.avgScore}%` }} />
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Urgencia de leads</p>
-                  <div className="flex flex-col gap-2">
-                    {[["high","Alta","#EF4444"],["medium","Media","#FBBF24"],["low","Baja","#9CA3AF"]].map(([key, label, color]) => {
-                      const count = analytics.urgencyBreakdown.find((u) => u.urgency === key)?.count ?? 0;
-                      const total = analytics.urgencyBreakdown.reduce((a, b) => a + b.count, 0) || 1;
-                      return (
-                        <div key={key} className="flex items-center gap-2 text-sm">
-                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-                          <span className="text-gray-500 flex-1">{label}</span>
-                          <span className="font-semibold text-gray-800">{count}</span>
-                          <MiniBar value={count} max={total} color={color} />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Servicios de interés</p>
+                )}
+                <div className={`${analytics.payments?.incomeByMonth.length ? "sm:col-span-2" : "sm:col-span-5"} bg-white rounded-2xl border border-gray-100 shadow-sm p-5`}>
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Servicios más demandados</p>
                   {analytics.topServices.length === 0 ? (
-                    <p className="text-sm text-gray-400">Sin datos</p>
+                    <p className="text-sm text-gray-400">Sin datos aún</p>
                   ) : (
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2.5">
                       {analytics.topServices.slice(0, 5).map((s) => (
                         <div key={s.name} className="flex flex-col gap-0.5">
                           <div className="flex justify-between text-xs">
-                            <span className="text-gray-700 truncate max-w-[140px]">{s.name}</span>
+                            <span className="text-gray-700 truncate max-w-[160px]">{s.name}</span>
                             <span className="text-gray-400 shrink-0 ml-1">{s.count}</span>
                           </div>
-                          <MiniBar value={s.count} max={analytics.topServices[0]?.count ?? 1} color="#60A5FA" />
+                          <MiniBar value={s.count} max={analytics.topServices[0]?.count ?? 1} color="#818CF8" />
                         </div>
                       ))}
                     </div>
@@ -275,66 +315,87 @@ function AnalyticsPanel({ clinic, analytics, loading, onGoToConfig, onRetry }: {
                 </div>
               </div>
 
-              {/* Ingresos por mes */}
-              {analytics.payments && analytics.payments.incomeByMonth.length > 0 && (
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-4">Ingresos últimos 6 meses</p>
-                  <div className="flex items-end gap-2 h-24">
-                    {analytics.payments.incomeByMonth.map((r) => {
-                      const max = Math.max(...analytics.payments!.incomeByMonth.map((x) => x.income), 1);
-                      const pct = Math.round((r.income / max) * 100);
-                      const [, mm] = r.month.split("-");
+              {/* ── 3. Asistente IA ── */}
+              <div className="flex items-center gap-3 pt-1">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-300">Asistente IA · captación</span>
+                <div className="flex-1 h-px bg-gray-100" />
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <StatCard label="Conversaciones" value={analytics.totals.sessions} />
+                <StatCard label="Leads captados" value={analytics.totals.leads}
+                  sub={analytics.totals.sessions > 0 ? `${Math.round(analytics.totals.leads / analytics.totals.sessions * 100)}% del total` : undefined} />
+                <StatCard label="Score IA promedio" value={`${analytics.totals.avgScore}/100`}
+                  sub={analytics.totals.avgScore >= 70 ? "Rendimiento alto" : analytics.totals.avgScore >= 40 ? "Rendimiento medio" : "Bajo"} />
+                <StatCard label="Conversión a cita" value={`${analytics.bookingRate}%`}
+                  sub={`${analytics.totals.bookings} citas generadas`} accent />
+              </div>
+
+              {/* Urgencia + leads recientes */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                  <h2 className="font-semibold text-gray-900 text-sm">Leads recientes</h2>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button onClick={() => setUrgencyFilter(null)}
+                      className={`text-[11px] px-2.5 py-1 rounded-full transition font-semibold ${!urgencyFilter ? "bg-gray-900 text-white" : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"}`}>
+                      Todos
+                    </button>
+                    {([["high","Alta","#EF4444"],["medium","Media","#F59E0B"],["low","Baja","#9CA3AF"]] as const).map(([key, label, color]) => {
+                      const count = analytics.urgencyBreakdown.find((u) => u.urgency === key)?.count ?? 0;
+                      const active = urgencyFilter === key;
                       return (
-                        <div key={r.month} className="flex-1 flex flex-col items-center gap-1 group">
-                          <span className="text-[9px] text-gray-400 opacity-0 group-hover:opacity-100 transition whitespace-nowrap">{fmtCLP(r.income)}</span>
-                          <div className="w-full rounded-t-lg bg-emerald-500 hover:bg-emerald-400 transition-all" style={{ height: `${Math.max(pct, 4)}%`, minHeight: 4 }} />
-                          <span className="text-[10px] text-gray-400">{MONTH_LABELS[mm] ?? mm}</span>
-                        </div>
+                        <button key={key} onClick={() => setUrgencyFilter(active ? null : key)}
+                          className={`flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full transition font-semibold border ${
+                            active ? "text-white border-transparent" : "text-gray-500 border-gray-200 hover:border-gray-300 bg-white"
+                          }`}
+                          style={active ? { background: color, borderColor: color } : {}}>
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: active ? "rgba(255,255,255,0.8)" : color }} />
+                          {label} · {count}
+                        </button>
                       );
                     })}
                   </div>
                 </div>
-              )}
-
-              {/* Leads recientes */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-semibold text-gray-900">Leads recientes</h2>
-                  <span className="text-xs text-gray-400">{analytics.recentLeads.length} conversaciones</span>
-                </div>
                 {analytics.recentLeads.length === 0 ? (
                   <div className="py-8 text-center">
                     <p className="text-sm text-gray-400">Sin conversaciones aún.</p>
-                    <Link href={`/demo/${clinic.slug}`} className="text-sm text-blue-600 mt-2 inline-block hover:underline">Probar asistente →</Link>
+                    <Link href="/partners/preview" className="text-sm text-blue-600 mt-2 inline-block hover:underline">Probar asistente</Link>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto -mx-2">
-                    <table className="w-full text-sm min-w-[540px]">
-                      <thead><tr className="border-b border-gray-100">
-                        {["Paciente","Servicio","Score","Intención","Urg.","Canal","Fecha"].map((h) => (
-                          <th key={h} className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider pb-3 px-2">{h}</th>
-                        ))}
-                      </tr></thead>
-                      <tbody className="divide-y divide-gray-50">
-                        {analytics.recentLeads.map((lead) => (
-                          <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
-                            <td className="py-2.5 px-2 font-medium text-gray-800">
-                              {lead.patientName ?? <span className="text-gray-300 font-normal">Anónimo</span>}
-                              {lead.slotBooked && <span className="ml-1.5 text-[10px] bg-green-50 text-green-700 border border-green-100 px-1.5 py-0.5 rounded-full">agendado</span>}
-                            </td>
-                            <td className="py-2.5 px-2 text-gray-600 max-w-[140px] truncate">{lead.serviceInterest ?? "—"}</td>
-                            <td className="py-2.5 px-2"><ScoreBadge score={lead.score} /></td>
-                            <td className="py-2.5 px-2"><IntentBadge intent={lead.intent} /></td>
-                            <td className="py-2.5 px-2"><UrgencyDot urgency={lead.urgency} /></td>
-                            <td className="py-2.5 px-2 text-gray-400 capitalize text-xs">{lead.channel}</td>
-                            <td className="py-2.5 px-2 text-gray-400 text-xs whitespace-nowrap">
-                              {new Date(lead.createdAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" })}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <>
+                    <div className="overflow-x-auto -mx-2">
+                      <table className="w-full text-sm min-w-[540px]">
+                        <thead><tr className="border-b border-gray-100">
+                          {["Paciente","Servicio","Score","Intención","Urg.","Canal","Fecha"].map((h) => (
+                            <th key={h} className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider pb-3 px-2">{h}</th>
+                          ))}
+                        </tr></thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {(urgencyFilter ? analytics.recentLeads.filter((l) => l.urgency === urgencyFilter) : analytics.recentLeads).map((lead) => (
+                            <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="py-2.5 px-2 font-medium text-gray-800">
+                                {lead.patientName ?? <span className="text-gray-300 font-normal">Anónimo</span>}
+                                {lead.slotBooked && <span className="ml-1.5 text-[10px] bg-green-50 text-green-700 border border-green-100 px-1.5 py-0.5 rounded-full">agendado</span>}
+                              </td>
+                              <td className="py-2.5 px-2 text-gray-600 max-w-[140px] truncate">{lead.serviceInterest ?? "—"}</td>
+                              <td className="py-2.5 px-2"><ScoreBadge score={lead.score} /></td>
+                              <td className="py-2.5 px-2"><IntentBadge intent={lead.intent} /></td>
+                              <td className="py-2.5 px-2"><UrgencyDot urgency={lead.urgency} /></td>
+                              <td className="py-2.5 px-2 text-gray-400 capitalize text-xs">{lead.channel}</td>
+                              <td className="py-2.5 px-2 text-gray-400 text-xs whitespace-nowrap">
+                                {new Date(lead.createdAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {urgencyFilter && (
+                      <p className="text-[11px] text-gray-400 text-center pt-3">
+                        {analytics.recentLeads.filter((l) => l.urgency === urgencyFilter).length} de {analytics.recentLeads.length} leads · <button onClick={() => setUrgencyFilter(null)} className="text-blue-500 hover:underline">Ver todos</button>
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -461,6 +522,37 @@ function AnalyticsPanel({ clinic, analytics, loading, onGoToConfig, onRetry }: {
                       <p className="text-xs text-purple-600 mt-1">Han vuelto</p>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Recall campaign */}
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-5">
+                <div className="flex items-start justify-between mb-3 gap-3">
+                  <div>
+                    <h3 className="font-semibold text-gray-900 text-sm">Reactivar pacientes inactivos</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">Envía un WhatsApp personalizado a pacientes que no han venido en:</p>
+                  </div>
+                  {recallResult && (
+                    <div className="shrink-0 text-xs text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl whitespace-nowrap">
+                      ✓ {recallResult.sent} / {recallResult.total} enviados
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <select value={recallDays} onChange={(e) => { setRecallDays(Number(e.target.value)); setRecallResult(null); }}
+                    className="text-sm px-3 py-2 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    <option value={30}>30 días sin visitar</option>
+                    <option value={60}>60 días sin visitar</option>
+                    <option value={90}>90 días sin visitar</option>
+                    <option value={180}>6 meses sin visitar</option>
+                  </select>
+                  <button onClick={sendRecall} disabled={recallSending || !clinic.whatsapp}
+                    className="text-sm font-bold px-4 py-2 rounded-xl bg-[#1A5C7A] text-white hover:bg-[#0e4560] transition disabled:opacity-50">
+                    {recallSending ? "Enviando…" : "Enviar campaña"}
+                  </button>
+                  {!clinic.whatsapp && (
+                    <p className="text-xs text-amber-600">⚠ Requiere WhatsApp configurado</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -630,16 +722,195 @@ function AnalyticsPanel({ clinic, analytics, loading, onGoToConfig, onRetry }: {
   );
 }
 
+/* ─── Status Pill ──────────────────────────────────────────────────────────── */
+function StatusPill({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    confirmed: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    pending:   "bg-amber-50 text-amber-700 border-amber-100",
+    cancelled: "bg-gray-50 text-gray-400 border-gray-100",
+  };
+  const labels: Record<string, string> = { confirmed: "Confirmada", pending: "Pendiente", cancelled: "Cancelada" };
+  return (
+    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${map[status] ?? map.pending}`}>
+      {labels[status] ?? status}
+    </span>
+  );
+}
+
+/* ─── Doctor View (role === "USER") ────────────────────────────────────────── */
+interface DoctorBooking {
+  id: string;
+  startTime: string;
+  patientName: string | null;
+  service: string | null;
+  status: string;
+  doctor: string | null;
+}
+
+function DoctorView({ user, clinic, onShowFull }: { user: AuthUser; clinic: ClinicData; onShowFull: () => void }) {
+  const [bookings, setBookings] = useState<DoctorBooking[]>([]);
+  const [loadingBookings, setLoadingBookings] = useState(true);
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const firstName = user.name?.split(" ")[0] ?? user.name ?? "Doctor/a";
+
+  const todayLabel = new Date().toLocaleDateString("es-CL", {
+    weekday: "long", day: "numeric", month: "long",
+  });
+
+  useEffect(() => {
+    const controller = new AbortController();
+    async function load() {
+      setLoadingBookings(true);
+      try {
+        const res = await fetch(`${API}/api/agenda/bookings?date=${todayStr}`, {
+          headers: { Authorization: `Bearer ${getToken()}` },
+          signal: controller.signal,
+        });
+        if (res.ok) {
+          const data: DoctorBooking[] = await res.json();
+          const filtered = data.filter((b) =>
+            b.doctor && b.doctor.toLowerCase().includes(user.name?.split(" ").pop()?.toLowerCase() ?? "")
+          );
+          setBookings(filtered);
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
+      } finally { if (!controller.signal.aborted) setLoadingBookings(false); }
+    }
+    load();
+    return () => controller.abort();
+  }, [todayStr, user.name]);
+
+  const activeBookings = bookings.filter((b) => b.status !== "cancelled");
+  const nextBooking = activeBookings.find((b) => new Date(b.startTime) > new Date());
+
+  function fmtTime(iso: string) {
+    return new Date(iso).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F8FAFC" }}>
+      {/* Nav */}
+      <nav className="flex items-center justify-between px-6 sm:px-8 py-4 bg-white border-b border-gray-100 sticky top-0 z-10">
+        <Link href="/"><Image src="/logo.svg" alt="molari.ai" width={120} height={32} priority /></Link>
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-gray-600 hidden sm:block">{user.name}</span>
+          <RoleBadge role={user.role} />
+          <button
+            onClick={onShowFull}
+            className="text-xs font-medium text-gray-500 hover:text-gray-800 border border-gray-200 px-3 py-1.5 rounded-lg transition-colors">
+            Ver panel completo
+          </button>
+        </div>
+      </nav>
+
+      <div className="flex-1 max-w-2xl mx-auto w-full px-4 sm:px-6 py-8 flex flex-col gap-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl font-black" style={{ color: "#0B2F42" }}>
+            Buenos dias, {firstName}
+          </h1>
+          <p className="text-sm text-gray-500 mt-0.5 capitalize">{todayLabel}</p>
+          <p className="text-xs text-gray-400 mt-0.5">{clinic.name}</p>
+        </div>
+
+        {/* KPI strip */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-1">
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Citas hoy</p>
+            <p className="text-3xl font-black leading-none" style={{ color: "#0B2F42" }}>
+              {loadingBookings ? "—" : activeBookings.length}
+            </p>
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-1">
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Proxima cita</p>
+            <p className="text-3xl font-black leading-none" style={{ color: "#D95F45" }}>
+              {loadingBookings ? "—" : nextBooking ? fmtTime(nextBooking.startTime) : "—"}
+            </p>
+            {nextBooking && (
+              <p className="text-xs text-gray-400 mt-0.5 truncate">{nextBooking.patientName ?? "Paciente"}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Appointments list */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
+            <h2 className="font-semibold text-gray-900 text-sm">Agenda de hoy</h2>
+            {!loadingBookings && (
+              <span className="text-xs text-gray-400">{activeBookings.length} cita{activeBookings.length !== 1 ? "s" : ""}</span>
+            )}
+          </div>
+
+          {loadingBookings && (
+            <div className="flex items-center justify-center py-12">
+              <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "#0B2F42", borderTopColor: "transparent" }} />
+            </div>
+          )}
+
+          {!loadingBookings && activeBookings.length === 0 && (
+            <div className="py-12 text-center">
+              <p className="text-sm text-gray-400">Sin citas programadas para hoy.</p>
+            </div>
+          )}
+
+          {!loadingBookings && activeBookings.length > 0 && (
+            <div className="divide-y divide-gray-50">
+              {activeBookings.map((b) => (
+                <div key={b.id} className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors">
+                  <div className="shrink-0 w-14 text-center">
+                    <span className="text-sm font-black" style={{ color: "#0B2F42" }}>{fmtTime(b.startTime)}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{b.patientName ?? "Paciente"}</p>
+                    {b.service && <p className="text-xs text-gray-400 truncate mt-0.5">{b.service}</p>}
+                  </div>
+                  <StatusPill status={b.status} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Link to full agenda */}
+        <button
+          onClick={onShowFull}
+          className="text-sm font-semibold text-center py-3 rounded-2xl border-2 transition-colors hover:bg-gray-50"
+          style={{ borderColor: "#0B2F42", color: "#0B2F42" }}>
+          Ver agenda completa
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Dashboard principal ──────────────────────────────────────────────────── */
 export default function PartnersDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [clinic, setClinic] = useState<ClinicData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<Tab>("agenda");
+  const [activeTab, setActiveTab] = useState<Tab>("inicio");
+  const [agendaAutoOpen, setAgendaAutoOpen] = useState(false);
+  const [mpNotice, setMpNotice] = useState<"connected" | "error" | null>(null);
+
+  // Retorno del OAuth de Mercado Pago (Issue #48): ?mp=connected|error
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const mp = params.get("mp");
+    if (mp === "connected" || mp === "error") {
+      setMpNotice(mp);
+      setActiveTab("clinica");
+      params.delete("mp");
+      const qs = params.toString();
+      window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
+    }
+  }, []);
 
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [forceFull, setForceFull] = useState(false);
 
   // Basic info
   const [editing, setEditing] = useState(false);
@@ -654,20 +925,39 @@ export default function PartnersDashboard() {
   const [schedMsg, setSchedMsg] = useState("");
 
   // Reminders
-  const [remForm, setRemForm] = useState<ReminderConfig>({ enabled: true, dayBefore: true, twoHours: true });
+  const [remForm, setRemForm] = useState<ReminderConfig>({ enabled: true, dayBefore: true, twoHours: true, customEnabled: false, customHours: 24 });
   const [remSaving, setRemSaving] = useState(false);
   const [remMsg, setRemMsg] = useState("");
+  const [remEditing, setRemEditing] = useState(false);
+
+  // Recall campaign
+  const DEFAULT_RECALL_MSG = "Hola {nombre}, te echamos de menos en {clinica}. ¿Qué tal si agendamos tu próximo control?";
+  const [recallForm, setRecallForm] = useState<RecallConfig>({ enabled: false, daysInactive: 90, message: DEFAULT_RECALL_MSG });
+  const [recallSaving, setRecallSaving] = useState(false);
+  const [recallMsg, setRecallMsg] = useState("");
+  const [recallTriggering, setRecallTriggering] = useState(false);
+  const [recallEditing, setRecallEditing] = useState(false);
+
+  // Post-appt survey
+  const DEFAULT_SURVEY_MSG = "Hola {nombre}, ¿cómo fue tu visita a {clinica}? Tu opinión nos ayuda a mejorar. ¿Nos dejarías una reseña? ⭐";
+  const [surveyForm, setSurveyForm] = useState<SurveyConfig>({ enabled: false, hoursAfter: 2, message: DEFAULT_SURVEY_MSG });
+  const [surveySaving, setSurveySaving] = useState(false);
+  const [surveyMsg, setSurveyMsg] = useState("");
+  const [surveyEditing, setSurveyEditing] = useState(false);
 
   useEffect(() => {
+    let mounted = true;
     getMe().then((data) => {
+      if (!mounted) return;
       if (!data) { router.push("/login"); return; }
       setUser(data.user);
       setClinic(data.clinic);
-      if (data.clinic) { syncForm(data.clinic); syncSchedForm(data.clinic); syncRemForm(data.clinic); }
+      if (data.clinic) { syncForm(data.clinic); syncSchedForm(data.clinic); syncRemForm(data.clinic); syncRecallForm(data.clinic); syncSurveyForm(data.clinic); }
       setLoading(false);
       if (data.clinic) fetchAnalytics(data.clinic.id);
     });
-  }, [router]);
+    return () => { mounted = false; };
+  }, [router]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function fetchAnalytics(clinicId: string) {
     setAnalyticsLoading(true);
@@ -692,7 +982,24 @@ export default function PartnersDashboard() {
   }
   function syncRemForm(c: ClinicData) {
     const cfg = c.config as ClinicConfig;
-    setRemForm({ enabled: cfg.reminders?.enabled !== false, dayBefore: cfg.reminders?.dayBefore !== false, twoHours: cfg.reminders?.twoHours !== false });
+    setRemForm({ enabled: cfg.reminders?.enabled !== false, dayBefore: cfg.reminders?.dayBefore !== false, twoHours: cfg.reminders?.twoHours !== false, customEnabled: cfg.reminders?.customEnabled ?? false, customHours: cfg.reminders?.customHours ?? 24 });
+  }
+  function syncRecallForm(c: ClinicData) {
+    const cfg = c.config as ClinicConfig;
+    setRecallForm({
+      enabled: cfg.recallCampaign?.enabled ?? false,
+      daysInactive: cfg.recallCampaign?.daysInactive ?? 90,
+      message: cfg.recallCampaign?.message ?? DEFAULT_RECALL_MSG,
+    });
+  }
+  function syncSurveyForm(c: ClinicData) {
+    const cfg = c.config as ClinicConfig;
+    const raw = cfg.postApptSurvey;
+    if (raw && typeof raw === "object") {
+      setSurveyForm({ enabled: raw.enabled ?? false, hoursAfter: raw.hoursAfter ?? 2, message: raw.message ?? DEFAULT_SURVEY_MSG });
+    } else {
+      setSurveyForm((f) => ({ ...f, enabled: raw === true }));
+    }
   }
 
   function handleLogout() { logout(); router.push("/"); }
@@ -728,10 +1035,51 @@ export default function PartnersDashboard() {
     try {
       const cfg = { ...(clinic.config as ClinicConfig), reminders: remForm };
       const updated = await updateClinic(clinic.id, { config: cfg as Record<string, unknown> });
-      setClinic(updated); syncRemForm(updated);
+      setClinic(updated); syncRemForm(updated); setRemEditing(false);
       setRemMsg("Guardado"); setTimeout(() => setRemMsg(""), 3000);
     } catch (e) { setRemMsg(e instanceof Error ? e.message : "Error"); }
     finally { setRemSaving(false); }
+  }
+
+  async function saveRecall() {
+    if (!clinic) return;
+    setRecallSaving(true); setRecallMsg("");
+    try {
+      const cfg = { ...(clinic.config as ClinicConfig), recallCampaign: recallForm };
+      const updated = await updateClinic(clinic.id, { config: cfg as Record<string, unknown> });
+      setClinic(updated); syncRecallForm(updated); setRecallEditing(false);
+      setRecallMsg("Guardado"); setTimeout(() => setRecallMsg(""), 3000);
+    } catch (e) { setRecallMsg(e instanceof Error ? e.message : "Error"); }
+    finally { setRecallSaving(false); }
+  }
+
+  async function triggerRecall() {
+    if (!clinic) return;
+    setRecallTriggering(true);
+    try {
+      const token = getToken();
+      const r = await fetch(`${API}/api/clinics/${clinic.id}/recall/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ daysInactive: recallForm.daysInactive, message: recallForm.message }),
+      });
+      const data = await r.json();
+      setRecallMsg(`Enviado a ${data.sent} de ${data.total} pacientes inactivos.`);
+      setTimeout(() => setRecallMsg(""), 6000);
+    } catch { setRecallMsg("Error al ejecutar campaña"); }
+    finally { setRecallTriggering(false); }
+  }
+
+  async function saveSurvey() {
+    if (!clinic) return;
+    setSurveySaving(true); setSurveyMsg("");
+    try {
+      const cfg = { ...(clinic.config as ClinicConfig), postApptSurvey: surveyForm };
+      const updated = await updateClinic(clinic.id, { config: cfg as Record<string, unknown> });
+      setClinic(updated); syncSurveyForm(updated); setSurveyEditing(false);
+      setSurveyMsg("Guardado"); setTimeout(() => setSurveyMsg(""), 3000);
+    } catch (e) { setSurveyMsg(e instanceof Error ? e.message : "Error"); }
+    finally { setSurveySaving(false); }
   }
 
   async function saveDoctors(doctors: DoctorRow[], boxes: number) {
@@ -751,16 +1099,25 @@ export default function PartnersDashboard() {
   const canEdit = user?.role === "ADMIN" || user?.role === "SUPERADMIN";
   const cfg = (clinic?.config as ClinicConfig) ?? {};
 
+  if (!loading && user?.role === "USER" && clinic && !forceFull) {
+    return <DoctorView user={user} clinic={clinic} onShowFull={() => setForceFull(true)} />;
+  }
+
   if (loading) {
-    return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    return <div className="min-h-screen flex items-center justify-center">
       <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
     </div>;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen flex flex-col">
+      {/* Gate bloqueante: forzar cambio de password en primer login */}
+      {user?.mustChangePassword && (
+        <ChangePasswordGate onSuccess={() => setUser({ ...user, mustChangePassword: false })} />
+      )}
+
       {/* Nav */}
-      <nav className="flex items-center justify-between px-6 sm:px-8 py-4 bg-white border-b border-gray-100 sticky top-0 z-10">
+      <nav className="flex items-center justify-between px-6 sm:px-8 py-4 border-b border-gray-100 sticky top-0 z-10" style={{ backgroundColor: "#FDFCFB" }}>
         <Link href="/"><Image src="/logo.svg" alt="molari.ai" width={120} height={32} priority /></Link>
         <div className="flex items-center gap-4">
 {user && <div className="flex items-center gap-2">
@@ -779,9 +1136,10 @@ export default function PartnersDashboard() {
             <p className="text-sm text-gray-500 mt-0.5">Panel de administración · molari.ai</p>
           </div>
           {clinic && (
-            <Link href={`/demo/${clinic.slug}`}
-              className="text-sm bg-blue-600 text-white font-semibold px-4 py-2 rounded-full hover:bg-blue-700 transition-colors">
-              Ver demo →
+            <Link href="/partners/preview"
+              className="text-sm text-white font-bold px-5 py-2.5 rounded-full shadow-md hover:shadow-lg hover:scale-105 transition-all duration-150 active:scale-95"
+              style={{ backgroundColor: "#D95F45" }}>
+              Probar asistente
             </Link>
           )}
         </div>
@@ -792,21 +1150,71 @@ export default function PartnersDashboard() {
           </div>
         )}
 
+        {clinic && (() => {
+          const cfg = clinic.config as Record<string, unknown>;
+          const doctorsArr = Array.isArray(cfg.doctors) ? cfg.doctors : [];
+          const onboardingDone = cfg.onboardingDone === true || doctorsArr.length > 0;
+          return !onboardingDone ? (
+            <div className="flex items-center gap-4 px-5 py-4 rounded-2xl border"
+              style={{ backgroundColor: "#FFF8F1", borderColor: "#FDD9A0" }}>
+              <span className="text-2xl shrink-0">⚡</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold" style={{ color: "#92400E" }}>Completa la configuración inicial</p>
+                <p className="text-xs mt-0.5" style={{ color: "#B45309" }}>
+                  Agrega tus doctores, horario y canales para que el asistente funcione correctamente.
+                </p>
+              </div>
+              <Link href="/partners/setup"
+                className="shrink-0 px-4 py-2 rounded-xl text-xs font-bold text-white transition hover:opacity-90"
+                style={{ backgroundColor: "#D95F45" }}>
+                Configurar
+              </Link>
+            </div>
+          ) : null;
+        })()}
+
         {clinic && (
           <>
+            {/* Aviso de retorno del OAuth de Mercado Pago */}
+            {mpNotice && (
+              <div className={`mb-4 rounded-xl px-4 py-2.5 text-sm font-medium flex items-center justify-between ${
+                mpNotice === "connected" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-600 border border-red-200"
+              }`}>
+                <span>{mpNotice === "connected" ? "✓ Mercado Pago conectado correctamente." : "No se pudo conectar Mercado Pago. Intentá de nuevo."}</span>
+                <button onClick={() => setMpNotice(null)} className="text-current opacity-60 hover:opacity-100">✕</button>
+              </div>
+            )}
+
             {/* Tabs */}
-            <div className="flex border-b border-gray-200 gap-1">
-              {([["agenda", "Agenda"], ["analytics", "Analítica"], ["patients", "Pacientes"], ["bookings", "Citas"], ["config", "Configuración"]] as [Tab, string][]).map(([tab, label]) => (
-                <button key={tab} onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
-                    activeTab === tab
-                      ? "border-blue-600 text-blue-600"
-                      : "border-transparent text-gray-500 hover:text-gray-700"
-                  }`}>
-                  {label}
-                </button>
-              ))}
+            <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+              <div className="flex border-b border-gray-200 gap-1 min-w-max sm:min-w-0">
+                {(([
+                  ["inicio", "Inicio"], ["agenda", "Agenda"], ["analytics", "Analítica"],
+                  ["patients", "Pacientes"], ["bookings", "Citas"], ["perfil", "Mi Perfil"],
+                  ...(user && user.role !== "USER" ? [["equipo", "Equipo"]] as [Tab, string][] : []),
+                  ["inventario", "Inventario"],
+                  ["clinica", "Mi Clínica"], ["config", "Configuración"],
+                ] as [Tab, string][])).map(([tab, label]) => (
+                  <button key={tab} onClick={() => setActiveTab(tab)}
+                    className={`px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
+                      activeTab === tab
+                        ? "border-blue-600 text-blue-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* ══ TAB INICIO ═════════════════════════════════════════════════ */}
+            {activeTab === "inicio" && clinic && (
+              <DashboardTab
+                clinicId={clinic.id}
+                onNewBooking={() => { setAgendaAutoOpen(true); setActiveTab("agenda"); }}
+                onNewPatient={() => setActiveTab("patients")}
+              />
+            )}
 
             {/* ══ TAB ANALÍTICA ══════════════════════════════════════════════ */}
             {activeTab === "analytics" && (
@@ -821,7 +1229,63 @@ export default function PartnersDashboard() {
 
             {/* ══ TAB AGENDA ═════════════════════════════════════════════════ */}
             {activeTab === "agenda" && user && (
-              <AgendaTab user={user} boxes={(clinic.config as ClinicConfig).boxes ?? 2} />
+              <div className="flex flex-col gap-4">
+                {/* Canales activos */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+                  {/* WhatsApp */}
+                  <a
+                    href={clinic.whatsapp ? `https://wa.me/${clinic.whatsapp.replace(/\D/g, "")}` : undefined}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 px-4 py-3 rounded-2xl border transition-shadow hover:shadow-md"
+                    style={{ backgroundColor: "#F0FDF4", borderColor: "#BBF7D0" }}
+                  >
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "#25D366" }}>
+                      <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                        <path d="M12 0C5.373 0 0 5.373 0 12c0 2.099.546 4.07 1.5 5.786L0 24l6.389-1.674A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.885 0-3.65-.51-5.17-1.4L2.5 21.5l.93-4.194A9.944 9.944 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
+                      </svg>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-gray-800">WhatsApp</p>
+                      <p className="text-[10px] font-semibold" style={{ color: clinic.whatsapp ? "#16a34a" : "#9ca3af" }}>
+                        {clinic.whatsapp ? "Activo" : "Sin configurar"}
+                      </p>
+                    </div>
+                    {clinic.whatsapp && (
+                      <span className="ml-auto w-2 h-2 rounded-full bg-green-400 animate-pulse shrink-0" />
+                    )}
+                  </a>
+
+                  {/* Web Widget */}
+                  <a
+                    href="/partners/preview"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 px-4 py-3 rounded-2xl border transition-shadow hover:shadow-md"
+                    style={{ backgroundColor: "#EFF6FF", borderColor: "#BFDBFE" }}
+                  >
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "#1A5C7A" }}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={1.8} className="w-5 h-5">
+                        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-gray-800">Web Widget</p>
+                      <p className="text-[10px] font-semibold text-blue-600">Probar asistente</p>
+                    </div>
+                    <span className="ml-auto w-2 h-2 rounded-full bg-blue-400 animate-pulse shrink-0" />
+                  </a>
+                </div>
+
+                <AgendaTab
+                  user={user}
+                  boxes={(clinic.config as ClinicConfig).boxes ?? 2}
+                  doctors={(clinic.config as ClinicConfig).doctors?.map((d) => d.name) ?? []}
+                  scheduleConfig={(clinic.config as ClinicConfig).schedule as Record<string, string> | undefined}
+                  openNewBookingOnMount={agendaAutoOpen}
+                />
+              </div>
             )}
 
             {/* ══ TAB PACIENTES ══════════════════════════════════════════════ */}
@@ -834,13 +1298,43 @@ export default function PartnersDashboard() {
               <BookingsTab clinicId={clinic.id} />
             )}
 
+            {/* ══ TAB MI PERFIL ══════════════════════════════════════════════ */}
+            {activeTab === "perfil" && user && (
+              <MyProfileTab
+                user={user}
+                onUpdate={(updated) => { setUser(updated); }}
+              />
+            )}
+
+            {/* ══ TAB EQUIPO ═════════════════════════════════════════════════ */}
+            {activeTab === "equipo" && user && clinic && user.role !== "USER" && (
+              <TeamTab clinicId={clinic.id} currentUser={user} />
+            )}
+
+            {/* ══ TAB INVENTARIO ═════════════════════════════════════════════ */}
+            {activeTab === "inventario" && clinic && (
+              <InventoryManager clinicId={clinic.id} />
+            )}
+
+            {/* ══ TAB MI CLÍNICA ═════════════════════════════════════════════ */}
+            {activeTab === "clinica" && clinic && (
+              <ClinicProfileTab
+                clinic={clinic}
+                canEdit={canEdit}
+                onUpdate={(updated) => { setClinic(updated); }}
+              />
+            )}
+
             {/* ══ TAB CONFIGURACIÓN ══════════════════════════════════════════ */}
             {activeTab === "config" && (
               <div className="flex flex-col gap-6">
-                {/* Info básica */}
+                {/* Asistente IA */}
                 <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                   <div className="flex items-center justify-between mb-5">
-                    <h2 className="font-semibold text-gray-900">Información de la clínica</h2>
+                    <div>
+                      <h2 className="font-semibold text-gray-900">Asistente IA</h2>
+                      <p className="text-xs text-gray-400 mt-0.5">Personalidad y tono del chatbot de tu clínica</p>
+                    </div>
                     {canEdit && !editing && <button onClick={() => setEditing(true)} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Editar</button>}
                     {canEdit && editing && (
                       <div className="flex gap-3">
@@ -853,10 +1347,9 @@ export default function PartnersDashboard() {
                     )}
                   </div>
                   {saveMsg && <p className={`text-xs mb-4 ${saveMsg === "Guardado" ? "text-green-600" : "text-red-600"}`}>{saveMsg}</p>}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    <InfoField label="Nombre de la clínica" value={form.name} editable={editing} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
-                    <InfoField label="Nombre del asistente" value={form.assistantName} editable={editing} placeholder="Ej: Gala, Aria..." onChange={(v) => setForm((f) => ({ ...f, assistantName: v }))} />
-                    <div className="sm:col-span-2">
+                  <div className="flex flex-col gap-5">
+                    <InfoField label="Nombre del asistente" value={form.assistantName} editable={editing} placeholder="Ej: Gala, Aria, Luna..." onChange={(v) => setForm((f) => ({ ...f, assistantName: v }))} />
+                    <div>
                       <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Tono del asistente</label>
                       {editing ? (
                         <select value={form.tone} onChange={(e) => setForm((f) => ({ ...f, tone: e.target.value }))}
@@ -871,62 +1364,18 @@ export default function PartnersDashboard() {
                         <p className="text-sm text-gray-800">{form.tone || "—"}</p>
                       )}
                     </div>
-                    <InfoField label="Teléfono" value={form.phone} editable={editing} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} />
-                    <InfoField label="WhatsApp" value={form.whatsapp} editable={editing} onChange={(v) => setForm((f) => ({ ...f, whatsapp: v }))} />
-                    <InfoField label="Instagram" value={form.instagram} editable={editing} onChange={(v) => setForm((f) => ({ ...f, instagram: v }))} />
-                    <InfoField label="Ubicación" value={form.location} editable={editing} onChange={(v) => setForm((f) => ({ ...f, location: v }))} />
-                    <div>
-                      <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Plan</p>
-                      <span className="inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 capitalize">{clinic.plan}</span>
-                    </div>
-                  </div>
-                </section>
-
-                {/* Horarios */}
-                <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="font-semibold text-gray-900">Horarios de atención</h2>
-                    <div className="flex items-center gap-3">
-                      {schedMsg && <span className={`text-xs ${schedMsg === "Guardado" ? "text-green-600" : "text-red-600"}`}>{schedMsg}</span>}
-                      {canEdit && !schedEditing && <button onClick={() => setSchedEditing(true)} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Editar</button>}
-                      {canEdit && schedEditing && (
-                        <div className="flex gap-3">
-                          <button onClick={() => { setSchedEditing(false); syncSchedForm(clinic); }} className="text-sm text-gray-500">Cancelar</button>
-                          <button onClick={saveSchedule} disabled={schedSaving}
-                            className="text-sm bg-blue-600 text-white font-medium px-4 py-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">
-                            {schedSaving ? "Guardando..." : "Guardar"}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-3">
-                    {schedEditing ? (
-                      <>
-                        {[["weekdays", "Lunes a Viernes", "Lunes a Viernes: 10:00 - 18:00"],
-                          ["saturday", "Sábado", "Sábado: 10:00 - 14:00"],
-                          ["sunday", "Domingo", "Domingo: cerrado"]].map(([key, label, ph]) => (
-                          <div key={key}>
-                            <label className="block text-xs text-gray-500 mb-1">{label}</label>
-                            <input value={schedForm[key as keyof typeof schedForm]}
-                              onChange={(e) => setSchedForm((f) => ({ ...f, [key]: e.target.value }))}
-                              placeholder={ph}
-                              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                          </div>
-                        ))}
-                      </>
-                    ) : (
-                      <div className="flex flex-col gap-2 text-sm">
-                        {schedForm.weekdays && <div className="flex justify-between"><span className="text-gray-500">Semana</span><span className="text-gray-800">{schedForm.weekdays}</span></div>}
-                        {schedForm.saturday && <div className="flex justify-between"><span className="text-gray-500">Sábado</span><span className="text-gray-800">{schedForm.saturday}</span></div>}
-                        {schedForm.sunday && <div className="flex justify-between"><span className="text-gray-500">Domingo</span><span className="text-gray-800">{schedForm.sunday}</span></div>}
+                    <div className="pt-2 border-t border-gray-50 flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-medium text-gray-500">Plan actual</p>
+                        <span className="inline-block mt-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 capitalize">{clinic.plan}</span>
                       </div>
-                    )}
+                      <a href="/partners/preview" target="_blank"
+                        className="text-xs font-semibold px-4 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
+                        Probar asistente →
+                      </a>
+                    </div>
                   </div>
                 </section>
-
-                <DoctorsEditor doctors={cfg.doctors ?? []} boxes={cfg.boxes ?? 1} canEdit={canEdit} onSave={saveDoctors} />
-                <ServicesEditor services={(cfg.services as ServiceRow[]) ?? []} canEdit={canEdit} onSave={saveServices} />
 
                 {/* Recordatorios automáticos */}
                 <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
@@ -934,35 +1383,237 @@ export default function PartnersDashboard() {
                     <h2 className="font-semibold text-gray-900">Recordatorios automáticos</h2>
                     <div className="flex items-center gap-3">
                       {remMsg && <span className={`text-xs ${remMsg === "Guardado" ? "text-green-600" : "text-red-600"}`}>{remMsg}</span>}
-                      {canEdit && (
-                        <button onClick={saveReminders} disabled={remSaving}
-                          className="text-sm bg-blue-600 text-white font-medium px-4 py-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">
-                          {remSaving ? "Guardando..." : "Guardar"}
-                        </button>
+                      {canEdit && !remEditing && <button onClick={() => setRemEditing(true)} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Editar</button>}
+                      {canEdit && remEditing && (
+                        <div className="flex gap-3">
+                          <button onClick={() => { setRemEditing(false); if (clinic) syncRemForm(clinic); }} className="text-sm text-gray-500">Cancelar</button>
+                          <button onClick={saveReminders} disabled={remSaving}
+                            className="text-sm bg-blue-600 text-white font-medium px-4 py-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                            {remSaving ? "Guardando..." : "Guardar"}
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
                   <p className="text-xs text-gray-400 mb-4">Se envían por WhatsApp al paciente si tiene número registrado.</p>
                   <div className="flex flex-col gap-3">
-                    {[
-                      { key: "enabled",   label: "Recordatorios activos",           desc: "Habilita o deshabilita todos los recordatorios" },
-                      { key: "dayBefore", label: "Recordatorio día anterior",       desc: "Avisa al paciente la noche antes de su cita" },
-                      { key: "twoHours",  label: "Recordatorio 2 horas antes",     desc: "Avisa al paciente 2 horas antes de su cita" },
-                    ].map(({ key, label, desc }) => (
-                      <label key={key} className={`flex items-center justify-between gap-4 p-3 rounded-xl border transition-colors cursor-pointer ${canEdit ? "hover:bg-gray-50" : "opacity-70 cursor-default"}`}
-                        style={{ borderColor: "#f1f5f9" }}>
-                        <div>
-                          <p className="text-sm font-medium text-gray-800">{label}</p>
-                          <p className="text-xs text-gray-400">{desc}</p>
+                    {/* Parent toggle */}
+                    {(() => {
+                      const canToggle = remEditing && canEdit;
+                      return (
+                        <label className={`flex items-center justify-between gap-4 p-3 rounded-xl border transition-colors ${canToggle ? "cursor-pointer hover:bg-gray-50" : "opacity-70 cursor-default"}`}
+                          style={{ borderColor: "#f1f5f9" }}>
+                          <div>
+                            <p className="text-sm font-medium text-gray-800">Recordatorios activos</p>
+                            <p className="text-xs text-gray-400">Habilita o deshabilita todos los recordatorios</p>
+                          </div>
+                          <div onClick={() => canToggle && setRemForm((f) => ({ ...f, enabled: !f.enabled }))}
+                            className={`w-10 h-6 rounded-full relative transition-colors ${remForm.enabled ? "bg-blue-600" : "bg-gray-200"}`}>
+                            <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${remForm.enabled ? "translate-x-5" : "translate-x-1"}`} />
+                          </div>
+                        </label>
+                      );
+                    })()}
+                    {/* Child toggles — indented and disabled when parent is off */}
+                    <div className={`flex flex-col gap-2 pl-4 border-l-2 transition-opacity ${remForm.enabled ? "opacity-100" : "opacity-40 pointer-events-none"}`}
+                      style={{ borderColor: "#e2e8f0" }}>
+                      {[
+                        { key: "dayBefore", label: "Recordatorio día anterior",   desc: "Avisa al paciente la noche antes de su cita" },
+                        { key: "twoHours",  label: "Recordatorio 2 horas antes",  desc: "Avisa al paciente 2 horas antes de su cita" },
+                      ].map(({ key, label, desc }) => {
+                        const canToggle = remEditing && canEdit && remForm.enabled;
+                        return (
+                          <label key={key} className={`flex items-center justify-between gap-4 p-3 rounded-xl border transition-colors ${canToggle ? "cursor-pointer hover:bg-gray-50" : "cursor-default"}`}
+                            style={{ borderColor: "#f1f5f9" }}>
+                            <div>
+                              <p className="text-sm font-medium text-gray-800">{label}</p>
+                              <p className="text-xs text-gray-400">{desc}</p>
+                            </div>
+                            <div onClick={() => canToggle && setRemForm((f) => ({ ...f, [key]: !f[key as keyof ReminderConfig] }))}
+                              className={`w-10 h-6 rounded-full relative transition-colors ${remForm[key as keyof ReminderConfig] ? "bg-blue-600" : "bg-gray-200"}`}>
+                              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${remForm[key as keyof ReminderConfig] ? "translate-x-5" : "translate-x-1"}`} />
+                            </div>
+                          </label>
+                        );
+                      })}
+                      {/* Configurable reminder */}
+                      {(() => {
+                        const canToggle = remEditing && canEdit && remForm.enabled;
+                        return (
+                          <div className={`p-3 rounded-xl border transition-colors ${canToggle ? "hover:bg-gray-50" : "cursor-default"}`}
+                            style={{ borderColor: "#f1f5f9" }}>
+                            <div className="flex items-center justify-between gap-4">
+                              <div>
+                                <p className="text-sm font-medium text-gray-800">Recordatorio configurable</p>
+                                <p className="text-xs text-gray-400">Envía un aviso un número específico de horas antes</p>
+                              </div>
+                              <div onClick={() => canToggle && setRemForm((f) => ({ ...f, customEnabled: !f.customEnabled }))}
+                                className={`w-10 h-6 rounded-full relative transition-colors shrink-0 ${remForm.customEnabled ? "bg-blue-600" : "bg-gray-200"} ${canToggle ? "cursor-pointer" : ""}`}>
+                                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${remForm.customEnabled ? "translate-x-5" : "translate-x-1"}`} />
+                              </div>
+                            </div>
+                            {remForm.customEnabled && (
+                              <div className="mt-3 flex items-center gap-3">
+                                <label className="text-xs text-gray-500 shrink-0">Horas antes de la cita</label>
+                                <input
+                                  type="number" min={1} max={168} value={remForm.customHours}
+                                  disabled={!canToggle}
+                                  onChange={(e) => setRemForm((f) => ({ ...f, customHours: Math.max(1, Number(e.target.value)) }))}
+                                  className="w-24 px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+                                />
+                                <span className="text-xs text-gray-400">
+                                  {remForm.customHours === 1 ? "1 hora" : remForm.customHours < 24 ? `${remForm.customHours} horas` : remForm.customHours === 24 ? "1 día" : `${Math.round(remForm.customHours / 24 * 10) / 10} días`}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </section>
+
+                {/* Encuesta post-cita */}
+                <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <div className="flex items-center justify-between mb-5">
+                    <div>
+                      <h2 className="font-semibold text-gray-900">Encuesta post-cita</h2>
+                      <p className="text-xs text-gray-400 mt-0.5">Mensaje automático por WhatsApp tras cada cita completada.</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {surveyMsg && <span className={`text-xs ${surveyMsg === "Guardado" ? "text-green-600" : "text-red-600"}`}>{surveyMsg}</span>}
+                      {canEdit && !surveyEditing && <button onClick={() => setSurveyEditing(true)} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Editar</button>}
+                      {canEdit && surveyEditing && (
+                        <div className="flex gap-3">
+                          <button onClick={() => { setSurveyEditing(false); if (clinic) syncSurveyForm(clinic); }} className="text-sm text-gray-500">Cancelar</button>
+                          <button onClick={saveSurvey} disabled={surveySaving}
+                            className="text-sm bg-blue-600 text-white font-medium px-4 py-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                            {surveySaving ? "Guardando..." : "Guardar"}
+                          </button>
                         </div>
-                        <div
-                          onClick={() => canEdit && setRemForm((f) => ({ ...f, [key]: !f[key as keyof ReminderConfig] }))}
-                          className={`w-10 h-6 rounded-full relative transition-colors ${remForm[key as keyof ReminderConfig] ? "bg-blue-600" : "bg-gray-200"}`}
-                        >
-                          <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${remForm[key as keyof ReminderConfig] ? "translate-x-5" : "translate-x-1"}`} />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Widget */}
+                  <div className={`flex flex-col gap-4 transition-opacity ${!surveyEditing ? "opacity-70 pointer-events-none" : ""}`}>
+                    {/* Activar / desactivar */}
+                    <div className="flex items-center justify-between p-3 rounded-xl border" style={{ borderColor: "#f1f5f9" }}>
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">Encuesta activa</p>
+                        <p className="text-xs text-gray-400">Ideal para conseguir reseñas en Google.</p>
+                      </div>
+                      <div onClick={() => setSurveyForm((f) => ({ ...f, enabled: !f.enabled }))}
+                        className={`w-10 h-6 rounded-full relative transition-colors shrink-0 cursor-pointer ${surveyForm.enabled ? "bg-blue-600" : "bg-gray-200"}`}>
+                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${surveyForm.enabled ? "translate-x-5" : "translate-x-1"}`} />
+                      </div>
+                    </div>
+
+                    <div className={`flex flex-col gap-4 transition-opacity ${surveyForm.enabled ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
+                      {/* Horas después */}
+                      <div className="flex items-center gap-4 p-3 rounded-xl border" style={{ borderColor: "#f1f5f9" }}>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-800">Enviar</p>
+                          <p className="text-xs text-gray-400">Horas después de terminada la cita</p>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <input type="number" min={1} max={72} value={surveyForm.hoursAfter}
+                            onChange={(e) => setSurveyForm((f) => ({ ...f, hoursAfter: Math.max(1, Number(e.target.value)) }))}
+                            className="w-16 px-2 py-1.5 rounded-lg border border-gray-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          <span className="text-xs text-gray-500">hrs</span>
+                        </div>
+                      </div>
+
+                      {/* Mensaje */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
+                          Mensaje — usa {"{nombre}"} y {"{clinica}"}
+                        </label>
+                        <textarea rows={3} value={surveyForm.message}
+                          onChange={(e) => setSurveyForm((f) => ({ ...f, message: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                      </div>
+
+                      {/* Preview burbuja WhatsApp */}
+                      <div>
+                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Vista previa</p>
+                        <div className="bg-[#ECE5DD] rounded-2xl p-4">
+                          <div className="flex justify-end">
+                            <div className="bg-[#DCF8C6] rounded-2xl rounded-tr-sm px-4 py-2.5 max-w-[85%] shadow-sm">
+                              <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">
+                                {surveyForm.message
+                                  .replace("{nombre}", "María")
+                                  .replace("{clinica}", clinic?.name ?? "Clínica")}
+                              </p>
+                              <p className="text-[10px] text-gray-400 text-right mt-1">
+                                {surveyForm.hoursAfter === 1 ? "1 hr después" : `${surveyForm.hoursAfter} hrs después`}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Campañas de recall */}
+                <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="font-semibold text-gray-900">Campañas de recall</h2>
+                      <p className="text-xs text-gray-400 mt-0.5">Mensajes automáticos para pacientes que no han vuelto en X días.</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {recallMsg && <span className={`text-xs ${recallMsg.startsWith("Enviado") || recallMsg === "Guardado" ? "text-green-600" : "text-red-600"}`}>{recallMsg}</span>}
+                      {canEdit && !recallEditing && <button onClick={() => setRecallEditing(true)} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Editar</button>}
+                      {canEdit && recallEditing && (
+                        <div className="flex gap-3">
+                          <button onClick={() => { setRecallEditing(false); if (clinic) syncRecallForm(clinic); }} className="text-sm text-gray-500">Cancelar</button>
+                          <button onClick={saveRecall} disabled={recallSaving}
+                            className="text-sm bg-blue-600 text-white font-medium px-4 py-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                            {recallSaving ? "Guardando..." : "Guardar"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-4">
+                    <label className={`flex items-center justify-between gap-4 p-3 rounded-xl border transition-colors ${recallEditing && canEdit ? "cursor-pointer hover:bg-gray-50" : "opacity-70 cursor-default"}`}
+                      style={{ borderColor: "#f1f5f9" }}>
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">Recall activado</p>
+                        <p className="text-xs text-gray-400">Habilita las campañas de re-contacto por WhatsApp.</p>
+                      </div>
+                      <div onClick={() => recallEditing && canEdit && setRecallForm((f) => ({ ...f, enabled: !f.enabled }))}
+                        className={`w-10 h-6 rounded-full relative transition-colors shrink-0 ${recallForm.enabled ? "bg-blue-600" : "bg-gray-200"}`}>
+                        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${recallForm.enabled ? "translate-x-5" : "translate-x-1"}`} />
+                      </div>
+                    </label>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
+                        Días de inactividad para enviar
                       </label>
-                    ))}
+                      <input type="number" min={30} max={365} value={recallForm.daysInactive}
+                        disabled={!recallEditing || !canEdit}
+                        onChange={(e) => setRecallForm((f) => ({ ...f, daysInactive: Number(e.target.value) }))}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-70" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
+                        Mensaje — usa {"{nombre}"} y {"{clinica}"}
+                      </label>
+                      <textarea rows={3} value={recallForm.message}
+                        disabled={!recallEditing || !canEdit}
+                        onChange={(e) => setRecallForm((f) => ({ ...f, message: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:opacity-70" />
+                    </div>
+                    {canEdit && !recallEditing && (
+                      <button onClick={triggerRecall} disabled={recallTriggering}
+                        className="flex items-center gap-2 self-start text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors disabled:opacity-50"
+                        style={{ backgroundColor: "#F7F5F1", border: "1.5px solid #E5E0D9", color: "#0C1B26" }}>
+                        {recallTriggering ? "Enviando..." : "▶ Ejecutar campaña ahora"}
+                      </button>
+                    )}
                   </div>
                 </section>
 
@@ -979,6 +1630,12 @@ export default function PartnersDashboard() {
                     En Twilio: <strong>Sandbox Settings → When a message comes in</strong> → pega la URL → método POST.
                   </p>
                 </section>
+
+                {/* Recall automático (Issue #27) */}
+                {canEdit && <RecallSection clinicId={clinic.id} />}
+
+                {/* Audit log médico-legal (Issue #34) */}
+                {canEdit && <AuditLogSection clinicId={clinic.id} />}
               </div>
             )}
           </>

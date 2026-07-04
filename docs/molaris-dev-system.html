@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Molaris Dev System — Documentación</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F0EDE8;
+    --card: #FFFFFF;
+    --primary: #1A5C7A;
+    --primary-light: #EFF8FF;
+    --text: #0C1B26;
+    --muted: #607281;
+    --border: #D1E0E8;
+
+    --discovery: #8B5CF6;
+    --discovery-bg: #FAF5FF;
+    --discovery-border: #C4B5FD;
+
+    --auditor: #F59E0B;
+    --auditor-bg: #FFFBEB;
+    --auditor-border: #FCD34D;
+
+    --planner: #3B82F6;
+    --planner-bg: #EFF6FF;
+    --planner-border: #93C5FD;
+
+    --dev: #10B981;
+    --dev-bg: #F0FDF4;
+    --dev-border: #6EE7B7;
+
+    --qa: #EF4444;
+    --qa-bg: #FFF5F5;
+    --qa-border: #FCA5A5;
+  }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 40px 32px;
+    max-width: 1100px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* ── Tipografía ── */
+  h1 { font-size: 26px; font-weight: 800; color: var(--primary); }
+  h2 { font-size: 18px; font-weight: 700; color: var(--primary); margin-top: 48px; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid var(--border); }
+  h3 { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  p  { font-size: 14px; color: var(--muted); margin-bottom: 12px; }
+  strong { color: var(--text); }
+
+  .subtitle { font-size: 13px; color: var(--muted); margin-top: 4px; margin-bottom: 40px; }
+  .version  { display: inline-block; background: var(--primary); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; letter-spacing: 0.05em; vertical-align: middle; margin-left: 8px; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 20px 24px;
+    border: 1.5px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .card.highlight { border-color: var(--primary); background: var(--primary-light); }
+
+  /* ── Grid ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+
+  /* ── Agente Card ── */
+  .agent-card {
+    border-radius: 14px;
+    padding: 18px;
+    border: 2px solid;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .agent-card .agent-header { display: flex; align-items: center; gap: 10px; }
+  .agent-icon { font-size: 26px; }
+  .agent-name { font-size: 15px; font-weight: 800; }
+  .agent-role { font-size: 12px; opacity: 0.75; }
+  .agent-card .agent-body { font-size: 12px; color: var(--muted); }
+  .agent-card .agent-body strong { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 8px; margin-bottom: 3px; }
+
+  .agent-card.discovery { background: var(--discovery-bg); border-color: var(--discovery-border); }
+  .agent-card.discovery .agent-name { color: var(--discovery); }
+  .agent-card.auditor   { background: var(--auditor-bg);   border-color: var(--auditor-border); }
+  .agent-card.auditor   .agent-name { color: var(--auditor); }
+  .agent-card.planner   { background: var(--planner-bg);   border-color: var(--planner-border); }
+  .agent-card.planner   .agent-name { color: var(--planner); }
+  .agent-card.dev       { background: var(--dev-bg);       border-color: var(--dev-border); }
+  .agent-card.dev       .agent-name { color: var(--dev); }
+  .agent-card.qa        { background: var(--qa-bg);        border-color: var(--qa-border); }
+  .agent-card.qa        .agent-name { color: var(--qa); }
+
+  /* ── Prompt box ── */
+  .prompt-box {
+    background: #0C1B26;
+    color: #A5F3FC;
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    margin-top: 8px;
+  }
+  .prompt-box .comment { color: #607281; }
+  .prompt-box .keyword { color: #F9A8D4; }
+  .prompt-box .value   { color: #86EFAC; }
+
+  /* ── Labels ── */
+  .label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .label.outcome    { background: #F3E8FF; color: #6D28D9; }
+  .label.feature    { background: #EFF6FF; color: #1D4ED8; }
+  .label.bug        { background: #FEE2E2; color: #991B1B; }
+  .label.debt       { background: #FFFBEB; color: #92400E; }
+  .label.discovery  { background: #FAF5FF; color: #6D28D9; }
+  .label.clinical   { background: #FDF2F8; color: #9D174D; }
+  .label.qa         { background: #F0FDFA; color: #115E59; }
+  .label.infra      { background: #F8FAFC; color: #334155; }
+  .label.pri-high   { background: #FEF2F2; color: #991B1B; border: 1px solid #FCA5A5; }
+  .label.pri-med    { background: #FFFBEB; color: #92400E; border: 1px solid #FCD34D; }
+  .label.pri-low    { background: #F0FDF4; color: #14532D; border: 1px solid #86EFAC; }
+  .label.st-ready   { background: #DCFCE7; color: #14532D; }
+  .label.st-disc    { background: #F3E8FF; color: #4C1D95; }
+  .label.st-blocked { background: #FEE2E2; color: #7F1D1D; }
+
+  .labels-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+
+  /* ── Flujo steps ── */
+  .flow-steps { display: flex; gap: 0; align-items: stretch; margin: 20px 0; }
+  .flow-step {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    padding: 0 8px;
+  }
+  .flow-step::after {
+    content: '→';
+    position: absolute;
+    right: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 18px;
+    color: #94A3B8;
+    z-index: 1;
+  }
+  .flow-step:last-child::after { display: none; }
+  .step-bubble {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: 2px solid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    margin-bottom: 8px;
+    background: #fff;
+  }
+  .step-label { font-size: 11px; font-weight: 700; line-height: 1.3; }
+  .step-sub   { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+  .step-bubble.disc   { border-color: var(--discovery); }
+  .step-bubble.plan   { border-color: var(--planner); }
+  .step-bubble.dev-b  { border-color: var(--dev); }
+  .step-bubble.qa-b   { border-color: var(--qa); }
+  .step-bubble.done   { border-color: #1A5C7A; }
+
+  /* ── Diagrama Mermaid ── */
+  .mermaid-wrap {
+    background: #fff;
+    border-radius: 14px;
+    border: 1.5px solid var(--border);
+    padding: 24px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+
+  /* ── Issue template ── */
+  .issue-template {
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    font-size: 13px;
+    margin: 12px 0;
+  }
+  .issue-template .issue-header {
+    background: #F8FAFC;
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .issue-template .issue-body {
+    padding: 16px;
+    font-family: 'Cascadia Code', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    white-space: pre-wrap;
+    line-height: 1.7;
+  }
+
+  /* ── Timeline semana ── */
+  .week-timeline {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    margin: 16px 0;
+  }
+  .week-day { border-radius: 10px; padding: 10px 8px; text-align: center; }
+  .week-day .day-name { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  .week-day .day-task { font-size: 11px; font-weight: 600; margin-top: 6px; line-height: 1.3; }
+  .week-day .day-who  { font-size: 10px; color: var(--muted); margin-top: 4px; }
+  .week-day.monday  { background: #FAF5FF; border: 1.5px solid var(--discovery-border); }
+  .week-day.monday  .day-task { color: var(--discovery); }
+  .week-day.tuesday { background: #EFF6FF; border: 1.5px solid var(--planner-border); }
+  .week-day.tuesday .day-task { color: var(--planner); }
+  .week-day.mid     { background: #F0FDF4; border: 1.5px solid var(--dev-border); }
+  .week-day.mid     .day-task { color: var(--dev); }
+  .week-day.friday  { background: #FFFBEB; border: 1.5px solid var(--auditor-border); }
+  .week-day.friday  .day-task { color: var(--auditor); }
+  .week-day.sat     { background: #F8FAFC; border: 1.5px solid var(--border); }
+  .week-day.sat     .day-task { color: var(--muted); }
+
+  /* ── Outcome canvas ── */
+  .outcome-canvas {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 12px 0;
+  }
+  .oc-cell {
+    padding: 16px;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .oc-cell:nth-child(3n)  { border-right: none; }
+  .oc-cell:nth-child(n+7) { border-bottom: none; }
+  .oc-cell .oc-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 6px; }
+  .oc-cell .oc-value { font-size: 12px; font-weight: 600; color: var(--text); }
+  .oc-cell .oc-hint  { font-size: 11px; color: var(--muted); margin-top: 4px; font-style: italic; }
+  .oc-cell.header { background: #F8FAFC; }
+
+  /* ── Table ── */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0; }
+  th { background: var(--primary); color: #fff; padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--primary-light); }
+
+  /* ── Nota / callout ── */
+  .callout {
+    border-left: 3px solid;
+    padding: 12px 16px;
+    border-radius: 0 10px 10px 0;
+    font-size: 13px;
+    margin: 12px 0;
+  }
+  .callout.info    { border-color: var(--planner); background: var(--planner-bg); color: #1D4ED8; }
+  .callout.warning { border-color: var(--auditor); background: var(--auditor-bg); color: #92400E; }
+  .callout.tip     { border-color: var(--dev);     background: var(--dev-bg);     color: #065F46; }
+  .callout.clinical{ border-color: #EC4899;        background: #FDF2F8;           color: #9D174D; }
+
+  /* ── Footer ── */
+  .footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); text-align: center; }
+
+  @media (max-width: 800px) {
+    .grid-2, .grid-3, .grid-5 { grid-template-columns: 1fr; }
+    .flow-steps { flex-direction: column; }
+    .flow-step::after { content: '↓'; right: auto; left: 50%; top: auto; bottom: -14px; transform: none; }
+    .week-timeline { grid-template-columns: repeat(2, 1fr); }
+    .outcome-canvas { grid-template-columns: 1fr; }
+    .oc-cell { border-right: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     HEADER
+═══════════════════════════════════════════════ -->
+<h1>Molaris Dev System <span class="version">v1.0</span></h1>
+<p class="subtitle">
+  Sistema de trabajo semi-automatizado con agentes IA especializados — Juan Aranda · Galana Clínica Dental · Mayo 2026
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     SECCIÓN 0: QUÉ ES ESTO
+═══════════════════════════════════════════════ -->
+<h2>¿Qué es el Molaris Dev System?</h2>
+
+<div class="card highlight">
+  <h3>El problema que resuelve</h3>
+  <p>Eres un dev solo con trabajo de día, construyendo un producto dental sin ser dentista. Hasta ahora has avanzado por intuición — sin saber bien qué tiene más valor para Galana, qué está roto, o qué hacer primero. El resultado: features a medias, sin backlog claro, y sensación de estancamiento.</p>
+  <p style="margin-bottom:0"><strong>Este sistema te da estructura sin burocracia.</strong> Un equipo virtual de agentes IA con roles claros que generan trabajo, lo trackean en GitHub, y lo ejecutan — mientras tú aprobás el rumbo y hablás con tu hermana cuando hay que decidir algo clínico.</p>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h3>Principios del sistema</h3>
+    <ul style="font-size:13px; color:var(--muted); padding-left:16px; margin-top:8px; line-height:1.8">
+      <li><strong>Outcome-first:</strong> primero definir qué debe lograr el dentista, después codear</li>
+      <li><strong>Discovery antes de dev:</strong> si hay dudas clínicas, consultar al dentista antes</li>
+      <li><strong>GitHub Issues como backbone:</strong> un issue = una unidad de trabajo</li>
+      <li><strong>Tú aprobás, los agentes ejecutan:</strong> nunca se implementa sin tu OK</li>
+      <li><strong>Sprints cortos:</strong> 1 semana, 2-3 issues máximo dada tu disponibilidad</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Los actores</h3>
+    <ul style="font-size:13px; color:var(--muted); padding-left:16px; margin-top:8px; line-height:1.8">
+      <li><strong>Juan</strong> — Dev, Product Owner, aprueba todo el backlog</li>
+      <li><strong>dentistas (stakeholders clínicos)</strong> — Stakeholder clínica, valida lógica dental</li>
+      <li><strong>Discovery Agent</strong> — Genera preguntas y mapea outcomes</li>
+      <li><strong>Auditor Agent</strong> — Revisa el código y detecta deuda técnica</li>
+      <li><strong>Planner Agent</strong> — Crea issues estructurados en GitHub</li>
+      <li><strong>Dev Agent</strong> — Implementa features y fixes</li>
+      <li><strong>QA Agent</strong> — Valida que todo funcione antes del merge</li>
+    </ul>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECCIÓN 1: EL EQUIPO VIRTUAL
+═══════════════════════════════════════════════ -->
+<h2>El Equipo Virtual — 5 Agentes Especializados</h2>
+
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="agent-card discovery">
+    <div class="agent-header">
+      <span class="agent-icon">🔭</span>
+      <div>
+        <div class="agent-name">Discovery Agent</div>
+        <div class="agent-role">Mapea outcomes · Genera preguntas para los dentistas · Identifica lo que no sabés</div>
+      </div>
+    </div>
+    <div class="agent-body">
+      <strong>Cuándo invocar</strong>
+      Antes de empezar cualquier área nueva, o cuando no sabés qué priorizar. También cuando tenés que hablar con tu hermana y no sabés qué preguntarle.
+      <strong>Qué produce</strong>
+      — Outcome Canvas (qué logra el dentista, cómo medirlo)<br>
+      — Lista de preguntas para los dentistas ordenadas por importancia<br>
+      — Issues con label <span class="label discovery">discovery</span> <span class="label clinical">clinical</span>
+      <strong>Cómo invocar</strong>
+    </div>
+    <div class="prompt-box"><span class="comment"># En Claude Code, decile:</span>
+<span class="keyword">Actúa como Discovery Agent.</span>
+<span class="value">Quiero mejorar [área: odontograma / fichas clínicas / agente IA].</span>
+Genera el Outcome Canvas y la lista de preguntas
+para validar con la dentista antes de implementar.
+Formato: outcomes → preguntas → riesgos.</div>
+  </div>
+
+  <div class="agent-card auditor">
+    <div class="agent-header">
+      <span class="agent-icon">🔍</span>
+      <div>
+        <div class="agent-name">Auditor Agent</div>
+        <div class="agent-role">Revisa codebase · Lista deuda técnica · Detecta bugs silenciosos</div>
+      </div>
+    </div>
+    <div class="agent-body">
+      <strong>Cuándo invocar</strong>
+      Una vez por semana (viernes) para hacer un health-check del codebase. También después de una sesión de dev intensiva.
+      <strong>Qué produce</strong>
+      — Lista de lo que está completo / a medias / roto<br>
+      — Issues de deuda técnica con label <span class="label debt">debt</span><br>
+      — Issues de bugs con label <span class="label bug">bug</span>
+      <strong>Cómo invocar</strong>
+    </div>
+    <div class="prompt-box"><span class="comment"># En Claude Code, decile:</span>
+<span class="keyword">Actúa como Auditor Agent.</span>
+<span class="value">Revisa el codebase completo de Molaris.</span>
+Genera un reporte de: qué está completo, qué está
+a medias, bugs detectados, y deuda técnica.
+Crea issues en GitHub con los labels correspondientes.</div>
+  </div>
+</div>
+
+<div class="grid-3">
+  <div class="agent-card planner">
+    <div class="agent-header">
+      <span class="agent-icon">📋</span>
+      <div>
+        <div class="agent-name">Planner Agent</div>
+        <div class="agent-role">Convierte outcomes en issues · Prioriza el backlog</div>
+      </div>
+    </div>
+    <div class="agent-body">
+      <strong>Cuándo invocar</strong>
+      Al inicio de cada semana, después de Discovery o de hablar con el dentista.
+      <strong>Qué produce</strong>
+      — Issues en GitHub con título, descripción y criterios de aceptación<br>
+      — Backlog priorizado para la semana
+      <strong>Cómo invocar</strong>
+    </div>
+    <div class="prompt-box" style="font-size:11px"><span class="keyword">Actúa como Planner Agent.</span>
+Con base en [outcome o respuesta del dentista],
+crea 3-5 issues en GitHub ordenados por
+impacto. Incluye criterios de aceptación
+claros en cada uno.</div>
+  </div>
+
+  <div class="agent-card dev">
+    <div class="agent-header">
+      <span class="agent-icon">⚙️</span>
+      <div>
+        <div class="agent-name">Dev Agent</div>
+        <div class="agent-role">Implementa features · Corrige bugs · Escribe código limpio</div>
+      </div>
+    </div>
+    <div class="agent-body">
+      <strong>Cuándo invocar</strong>
+      Cuando tomás un issue del backlog (status:ready) para implementarlo.
+      <strong>Qué produce</strong>
+      — Código en rama feature/issue-XXX<br>
+      — PR a dev con descripción clara
+      <strong>Cómo invocar</strong>
+    </div>
+    <div class="prompt-box" style="font-size:11px"><span class="keyword">Actúa como Dev Agent.</span>
+<span class="value">Implementa el issue #[N]: [título].</span>
+Sigue el stack (Fastify/Next.js/Prisma).
+Al terminar, avisa qué archivos cambiaste
+y qué habría que validar en QA.</div>
+  </div>
+
+  <div class="agent-card qa">
+    <div class="agent-header">
+      <span class="agent-icon">✅</span>
+      <div>
+        <div class="agent-name">QA Agent</div>
+        <div class="agent-role">Valida features · Detecta regresiones · Acepta o rechaza PRs</div>
+      </div>
+    </div>
+    <div class="agent-body">
+      <strong>Cuándo invocar</strong>
+      Después de cada implementación, antes de mergear a dev o beta.
+      <strong>Qué produce</strong>
+      — Reporte de validación (pasa / falla / observaciones)<br>
+      — Comentarios en el PR si hay que ajustar algo
+      <strong>Cómo invocar</strong>
+    </div>
+    <div class="prompt-box" style="font-size:11px"><span class="keyword">Actúa como QA Agent.</span>
+<span class="value">Valida el issue #[N]: [título].</span>
+Criterios de aceptación: [copiá del issue].
+Revisá que no haya regresiones en las
+áreas adyacentes. Dame: pasa / falla / obs.</div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECCIÓN 2: METODOLOGÍA OUTCOME-FIRST
+═══════════════════════════════════════════════ -->
+<h2>Metodología Outcome-First (inspirada en SPDD)</h2>
+
+<p>El error más común es empezar por "¿qué feature hago?" La pregunta correcta es <strong>"¿qué debe lograr el dentista que hoy no puede lograr bien?"</strong> Esto es lo que hace que el producto valga algo para Galana.</p>
+
+<div class="callout clinical">
+  <strong>Regla #1:</strong> Si la implementación requiere saber algo de lógica clínica (ej: cómo se registra un tratamiento, qué datos necesita una ficha, qué flujo sigue un paciente), <strong>no codies hasta validar con el dentista</strong>. Un issue de discovery vale más que código que hay que rehacer.
+</div>
+
+<h3 style="margin-top:24px; margin-bottom:12px">El Outcome Canvas — qué completar antes de crear un issue</h3>
+
+<div class="outcome-canvas">
+  <div class="oc-cell header"><div class="oc-label">Campo</div><div class="oc-value">Qué es</div></div>
+  <div class="oc-cell header"><div class="oc-label">Ejemplo malo</div><div class="oc-value">No hacer esto</div></div>
+  <div class="oc-cell header"><div class="oc-label">Ejemplo bueno</div><div class="oc-value">Así queda</div></div>
+
+  <div class="oc-cell"><div class="oc-label">Outcome</div><div class="oc-value">¿Qué logra el usuario?</div></div>
+  <div class="oc-cell"><div class="oc-value" style="color:#991B1B">"Mejorar odontograma"</div><div class="oc-hint">Feature sin propósito claro</div></div>
+  <div class="oc-cell"><div class="oc-value" style="color:#065F46">"Dra. puede ver y actualizar el estado de cada diente en &lt;30 seg"</div></div>
+
+  <div class="oc-cell"><div class="oc-label">Métrica de éxito</div><div class="oc-value">¿Cómo sabemos que funciona?</div></div>
+  <div class="oc-cell"><div class="oc-value" style="color:#991B1B">"Que se vea bien"</div></div>
+  <div class="oc-cell"><div class="oc-value" style="color:#065F46">"El dentista puede registrar un tratamiento en el odontograma sin necesitar ayuda"</div></div>
+
+  <div class="oc-cell"><div class="oc-label">Bloqueado por</div><div class="oc-value">¿Qué falta saber?</div></div>
+  <div class="oc-cell"><div class="oc-value" style="color:#991B1B">"Nada, ya sé qué hacer"</div></div>
+  <div class="oc-cell"><div class="oc-value" style="color:#065F46">"Necesito preguntarle al dentista qué estados usa para los dientes (caries, fractura, implante, etc.)"</div></div>
+
+  <div class="oc-cell"><div class="oc-label">Impacto</div><div class="oc-value">¿Qué pasa si no lo hacemos?</div></div>
+  <div class="oc-cell"><div class="oc-value" style="color:#991B1B">"No sé"</div></div>
+  <div class="oc-cell"><div class="oc-value" style="color:#065F46">"El dentista sigue usando papel para el odontograma — Galana no ve el valor de Molaris"</div></div>
+</div>
+
+<h3 style="margin-top:24px; margin-bottom:12px">Plantilla: Preguntas para el dentista (Discovery Session)</h3>
+
+<div class="issue-template">
+  <div class="issue-header">🩺 Guía: Cómo hacer una Discovery Session con el dentista</div>
+  <div class="issue-body">ANTES DE LA REUNIÓN (Discovery Agent genera esto):
+─────────────────────────────────────────────────
+Área: [ej: Odontograma]
+Duración estimada: 20-30 min
+Objetivo: entender el flujo real del dentista hoy
+
+PREGUNTAS BASE (el Discovery Agent las personaliza por área):
+1. ¿Cómo registras hoy el estado de cada diente? (papel, sistema, etc.)
+2. ¿Qué estados posibles tiene un diente en tu práctica?
+   (sano, caries, fractura, implante, corona, extracción, etc.)
+3. ¿Necesitás anotar algo más allá del estado? (urgencia, nota clínica)
+4. ¿En qué momento del flujo lo usás? ¿Antes o durante la consulta?
+5. ¿Qué información necesitás ver rápidamente de un paciente nuevo?
+
+DURANTE LA REUNIÓN:
+─────────────────────────────────────────────────
+□ Tomá notas textuales (no interpretés, anotá exacto lo que dice)
+□ Si algo no tiene sentido, pedí que te muestre cómo lo hace hoy
+□ Preguntá siempre: "¿Eso es siempre así, o hay excepciones?"
+
+DESPUÉS DE LA REUNIÓN (Planner Agent convierte en issues):
+─────────────────────────────────────────────────
+Pegá las notas → el Planner Agent crea los issues con criterios de aceptación</div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECCIÓN 3: FLUJO SEMANAL
+═══════════════════════════════════════════════ -->
+<h2>El Flujo Semanal</h2>
+
+<div class="callout info">
+  <strong>Principio:</strong> Una semana = un ciclo completo. Podés hacer varios ciclos en paralelo si tenés tiempo, pero nunca dejes un ciclo sin cerrar antes de abrir otro.
+</div>
+
+<div class="week-timeline">
+  <div class="week-day monday">
+    <div class="day-name">Lunes</div>
+    <div class="day-task">Discovery + Planning</div>
+    <div class="day-who">15 min · Juan + Discovery Agent</div>
+  </div>
+  <div class="week-day tuesday">
+    <div class="day-name">Martes</div>
+    <div class="day-task">Crear issues en GitHub</div>
+    <div class="day-who">10 min · Planner Agent + Juan aprueba</div>
+  </div>
+  <div class="week-day mid">
+    <div class="day-name">Miércoles</div>
+    <div class="day-task">Dev — implementación</div>
+    <div class="day-who">Tu tiempo disponible · Dev Agent</div>
+  </div>
+  <div class="week-day mid">
+    <div class="day-name">Jueves</div>
+    <div class="day-task">Dev — continúa / PR</div>
+    <div class="day-who">Tu tiempo disponible · Dev + QA Agent</div>
+  </div>
+  <div class="week-day friday">
+    <div class="day-name">Viernes</div>
+    <div class="day-task">Auditoría semanal</div>
+    <div class="day-who">15 min · Auditor Agent</div>
+  </div>
+  <div class="week-day sat">
+    <div class="day-name">Sábado</div>
+    <div class="day-task">Discovery con dentistas (si hay pendiente)</div>
+    <div class="day-who">20 min · Juan + dentista</div>
+  </div>
+  <div class="week-day sat">
+    <div class="day-name">Domingo</div>
+    <div class="day-task">Descanso</div>
+    <div class="day-who">✌️</div>
+  </div>
+</div>
+
+<h3 style="margin-top:24px; margin-bottom:12px">Diagrama del flujo completo</h3>
+
+<div class="mermaid-wrap">
+<div class="mermaid">
+flowchart TD
+    A([🎯 Juan define un Outcome]) --> B{¿Hay dudas clínicas?}
+    B -->|Sí| C[🔭 Discovery Agent\ngenera preguntas para los dentistas]
+    B -->|No| E[📋 Planner Agent\ncrea issues en GitHub]
+    C --> D[🩺 Juan habla con el dentista\nD Discovery Session]
+    D --> E
+    E --> F{Juan revisa\nel backlog}
+    F -->|Aprueba| G[⚙️ Dev Agent\nimplementa el issue]
+    F -->|Rechaza / ajusta| E
+    G --> H[✅ QA Agent\nvalida la implementación]
+    H --> I{¿Pasa QA?}
+    I -->|Sí| J[🔀 PR a dev/beta]
+    I -->|No| G
+    J --> K[🔍 Auditor Agent\nviernes — health check]
+    K --> A
+
+    style A fill:#1A5C7A,color:#fff,stroke:#1A5C7A
+    style B fill:#FFFBEB,stroke:#F59E0B,color:#92400E
+    style C fill:#FAF5FF,stroke:#C4B5FD,color:#6D28D9
+    style D fill:#FDF2F8,stroke:#EC4899,color:#9D174D
+    style E fill:#EFF6FF,stroke:#93C5FD,color:#1D4ED8
+    style F fill:#FFFBEB,stroke:#F59E0B,color:#92400E
+    style G fill:#F0FDF4,stroke:#6EE7B7,color:#065F46
+    style H fill:#FFF5F5,stroke:#FCA5A5,color:#991B1B
+    style I fill:#FFFBEB,stroke:#F59E0B,color:#92400E
+    style J fill:#EFF8FF,stroke:#1A5C7A,color:#1A5C7A
+    style K fill:#FFFBEB,stroke:#FCD34D,color:#92400E
+</div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECCIÓN 4: GITHUB ISSUES
+═══════════════════════════════════════════════ -->
+<h2>GitHub Issues — El Backbone</h2>
+
+<p>Cada unidad de trabajo es un issue. Nada se implementa que no tenga issue. El Planner Agent los crea, Juan los aprueba, y los Dev Agents los cierran con un PR.</p>
+
+<h3 style="margin-bottom:12px">Sistema de Labels</h3>
+
+<table>
+  <tr>
+    <th>Label</th>
+    <th>Cuándo usarlo</th>
+    <th>Quién lo crea</th>
+  </tr>
+  <tr>
+    <td><span class="label outcome">outcome</span></td>
+    <td>Issue que describe un objetivo de negocio/usuario, no una feature concreta</td>
+    <td>Discovery / Planner Agent</td>
+  </tr>
+  <tr>
+    <td><span class="label feature">feature</span></td>
+    <td>Nueva funcionalidad a implementar</td>
+    <td>Planner Agent</td>
+  </tr>
+  <tr>
+    <td><span class="label bug">bug</span></td>
+    <td>Algo que está roto o se comporta mal</td>
+    <td>Auditor / QA Agent</td>
+  </tr>
+  <tr>
+    <td><span class="label debt">debt</span></td>
+    <td>Código que funciona pero necesita mejorarse (rendimiento, arquitectura, tests)</td>
+    <td>Auditor Agent</td>
+  </tr>
+  <tr>
+    <td><span class="label discovery">discovery</span></td>
+    <td>Hay algo que investigar o decidir antes de codear</td>
+    <td>Discovery Agent</td>
+  </tr>
+  <tr>
+    <td><span class="label clinical">clinical</span></td>
+    <td>Requiere validación del dominio dental (preguntarle al dentista)</td>
+    <td>Discovery Agent</td>
+  </tr>
+  <tr>
+    <td><span class="label qa">qa</span></td>
+    <td>Issue de testing o validación</td>
+    <td>QA Agent</td>
+  </tr>
+  <tr>
+    <td><span class="label infra">infra</span></td>
+    <td>Deploy, CI/CD, infraestructura</td>
+    <td>Cualquier agente</td>
+  </tr>
+</table>
+
+<h3 style="margin-top:24px; margin-bottom:8px">Labels de Prioridad y Estado</h3>
+<div class="labels-row">
+  <span class="label pri-high">priority:high</span>
+  <span class="label pri-med">priority:medium</span>
+  <span class="label pri-low">priority:low</span>
+  <span style="margin:0 8px; color:var(--muted)">·</span>
+  <span class="label st-ready">status:ready</span>
+  <span class="label st-disc">status:needs-discovery</span>
+  <span class="label st-blocked">status:blocked</span>
+</div>
+
+<h3 style="margin-top:24px; margin-bottom:12px">Template de Issue</h3>
+
+<div class="issue-template">
+  <div class="issue-header">📝 Template: Cómo escribe un issue el Planner Agent</div>
+  <div class="issue-body">**Título:** [Verbo] + [qué] + [para quién/dónde]
+Ejemplo: "Mostrar historial de tratamientos en ficha del paciente"
+
+**Labels:** feature, priority:high, status:ready
+
+**Outcome relacionado:**
+→ La dentista puede revisar el historial completo de un paciente en &lt;1 min
+
+**Descripción:**
+[Contexto en 2-3 líneas: por qué esto importa para Galana]
+
+**Criterios de aceptación:**
+- [ ] [Qué debe poder hacer el usuario]
+- [ ] [Qué debe mostrar el sistema]
+- [ ] [Casos edge: qué pasa si no hay datos, si hay muchos, etc.]
+- [ ] [Criterio de performance si aplica]
+
+**Notas técnicas:**
+- Archivos afectados: [lista si se sabe]
+- Dependencias: [otros issues si aplica]
+- Advertencias: [algo que hay que tener cuidado]
+
+**Discovery pendiente:** [si hay label clinical, qué hay que preguntarle al dentista]</div>
+</div>
+
+<h3 style="margin-top:24px; margin-bottom:12px">Ciclo de vida de un Issue</h3>
+
+<div class="mermaid-wrap">
+<div class="mermaid">
+stateDiagram-v2
+    [*] --> Backlog: Planner Agent lo crea
+    Backlog --> NeedsDiscovery: tiene label clinical
+    NeedsDiscovery --> Backlog: el dentista respondió → Planner actualiza criterios
+    Backlog --> Ready: Juan aprueba
+    Ready --> InProgress: Dev Agent lo toma
+    InProgress --> PRCreated: Dev Agent abre PR
+    PRCreated --> QAReview: QA Agent valida
+    QAReview --> InProgress: QA falla → Dev corrige
+    QAReview --> Merged: QA pasa → merge a dev
+    Merged --> [*]: Issue cerrado
+
+    NeedsDiscovery: Needs Discovery 🩺
+    InProgress: In Progress ⚙️
+    PRCreated: PR Created 🔀
+    QAReview: QA Review ✅
+</div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECCIÓN 5: ROADMAP ACTUAL
+═══════════════════════════════════════════════ -->
+<h2>Roadmap — Estado Actual del Proyecto</h2>
+
+<p>Basado en el estado del codebase al 22 mayo 2026. El Auditor Agent completará este diagnóstico con mayor detalle.</p>
+
+<table>
+  <tr>
+    <th>Área</th>
+    <th>Estado</th>
+    <th>Próximo paso</th>
+    <th>¿Requiere discovery clínico?</th>
+  </tr>
+  <tr>
+    <td><strong>Chat IA / Widget</strong></td>
+    <td>✅ Completo (básico)</td>
+    <td>Mejorar respuestas del agente, integrar con fichas</td>
+    <td>No — técnico</td>
+  </tr>
+  <tr>
+    <td><strong>Dashboard Galana</strong></td>
+    <td>🟡 Parcial</td>
+    <td>Completar métricas relevantes para la clínica</td>
+    <td>Sí — ¿qué métricas importan?</td>
+  </tr>
+  <tr>
+    <td><strong>Odontograma</strong></td>
+    <td>🟡 Visual con bugs</td>
+    <td>Fijar rendering, definir estados de dientes</td>
+    <td>Sí — estados clínicos reales</td>
+  </tr>
+  <tr>
+    <td><strong>Fichas Clínicas</strong></td>
+    <td>🔴 Pendiente</td>
+    <td>Diseño del modelo de datos, UI</td>
+    <td>Sí — qué datos van en una ficha</td>
+  </tr>
+  <tr>
+    <td><strong>Agente IA</strong></td>
+    <td>🟡 Básico</td>
+    <td>Mejorar prompts, conectar con datos reales</td>
+    <td>Sí — qué preguntas hace la gente</td>
+  </tr>
+  <tr>
+    <td><strong>WhatsApp API</strong></td>
+    <td>🔴 En progreso (metaService)</td>
+    <td>Completar integración Meta</td>
+    <td>No — técnico</td>
+  </tr>
+  <tr>
+    <td><strong>Notificaciones</strong></td>
+    <td>🟡 reminderService existe</td>
+    <td>Conectar con bookings reales</td>
+    <td>No — técnico</td>
+  </tr>
+</table>
+
+<div class="callout warning">
+  <strong>Primera prioridad recomendada:</strong> Odontograma + Fichas Clínicas. Son el corazón clínico de Molaris — si el dentista no puede usarlos, el resto no tiene contexto real. Pero necesitás consultar con el dentista antes de codear. El Discovery Agent puede generar las preguntas en 5 minutos.
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECCIÓN 6: QUICK REFERENCE
+═══════════════════════════════════════════════ -->
+<h2>Quick Reference — Cómo empezar cada sesión de trabajo</h2>
+
+<div class="grid-2">
+  <div class="card">
+    <h3>🌅 Al empezar una sesión de trabajo</h3>
+    <ol style="font-size:13px; color:var(--muted); padding-left:16px; margin-top:8px; line-height:2">
+      <li>Mirá los issues abiertos en GitHub (<code>gh issue list</code>)</li>
+      <li>Si no hay issues <span class="label st-ready">status:ready</span> → pedile al Planner Agent que los cree</li>
+      <li>Si hay issues <span class="label st-disc">status:needs-discovery</span> → agendar una sesión de discovery con el dentista</li>
+      <li>Tomá un issue <span class="label st-ready">status:ready</span> → invocá el Dev Agent</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h3>🌆 Al terminar una sesión de trabajo</h3>
+    <ol style="font-size:13px; color:var(--muted); padding-left:16px; margin-top:8px; line-height:2">
+      <li>Si terminaste el issue → invocá el QA Agent</li>
+      <li>Si QA pasa → abre PR a <code>dev</code></li>
+      <li>Si es viernes → invocá el Auditor Agent</li>
+      <li>Actualizá el status del issue en GitHub</li>
+    </ol>
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px">
+  <h3>📟 Comandos rápidos desde terminal</h3>
+  <div class="prompt-box">
+<span class="comment"># Ver issues abiertos del backlog</span>
+gh issue list --label "status:ready"
+
+<span class="comment"># Ver qué necesita discovery con el dentista</span>
+gh issue list --label "status:needs-discovery"
+
+<span class="comment"># Crear issue rápido (el Planner Agent hace uno más completo)</span>
+gh issue create --title "[título]" --label "feature,priority:high,status:ready"
+
+<span class="comment"># Ver el estado del branch actual</span>
+git status && git log --oneline -5
+
+<span class="comment"># Push a dev (nunca directo a main)</span>
+git push origin dev
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px">
+  <h3>🚨 Reglas que nunca romper</h3>
+  <ul style="font-size:13px; color:var(--muted); padding-left:16px; margin-top:8px; line-height:2">
+    <li>🔴 <strong>Nunca codear algo clínico sin validar con el dentista primero</strong></li>
+    <li>🔴 <strong>Nunca pushear directo a <code>main</code></strong> — siempre dev → beta → main</li>
+    <li>🟡 <strong>Siempre crear el issue antes de implementar</strong> — aunque tarde 5 min</li>
+    <li>🟡 <strong>El QA Agent valida antes de todo merge</strong> — no te saltés este paso</li>
+    <li>🟢 <strong>Podés tomar cualquier issue sin importar el orden</strong> si está en <span class="label st-ready">status:ready</span></li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     FOOTER
+═══════════════════════════════════════════════ -->
+<div class="footer">
+  Molaris Dev System v1.0 · Juan Aranda · Galana Clínica Dental · Mayo 2026<br>
+  Actualizar este doc cuando cambien los procesos — el Auditor Agent puede detectar si está desactualizado.
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: {
+      primaryColor: '#EFF8FF',
+      primaryTextColor: '#0C1B26',
+      primaryBorderColor: '#1A5C7A',
+      lineColor: '#94A3B8',
+      secondaryColor: '#F0FDF4',
+      tertiaryColor: '#FAF5FF'
+    }
+  });
+</script>
+</body>
+</html>

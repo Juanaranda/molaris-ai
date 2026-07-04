@@ -1,0 +1,110 @@
+<svg viewBox="0 0 100 100">
+  <defs>
+    <!-- Enamel Gradient for main tooth body -->
+    <linearGradient id="toothGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:hsl(40, 30%, 98%);stop-opacity:1" />
+      <stop offset="50%" style="stop-color:hsl(40, 20%, 90%);stop-opacity:1" />
+      <stop offset="100%" style="stop-color:hsl(40, 15%, 70%);stop-opacity:1" />
+    </linearGradient>
+    <!-- Enamel Highlight Gradient for ridges and cusp tip -->
+    <linearGradient id="ridgeHighlight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:hsl(40, 40%, 100%);stop-opacity:1" />
+      <stop offset="50%" style="stop-color:hsl(40, 30%, 95%);stop-opacity:1" />
+      <stop offset="100%" style="stop-color:hsl(40, 20%, 85%);stop-opacity:1" />
+    </linearGradient>
+    <!-- Enamel Shadow Gradient for fossae -->
+    <linearGradient id="fossaShadow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:hsl(40, 10%, 60%);stop-opacity:1" />
+      <stop offset="50%" style="stop-color:hsl(40, 15%, 75%);stop-opacity:1" />
+      <stop offset="100%" style="stop-color:hsl(40, 20%, 85%);stop-opacity:1" />
+    </linearGradient>
+    <!-- Gum Gradient -->
+    <linearGradient id="gumGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:hsl(340, 70%, 80%);stop-opacity:1" />
+      <stop offset="50%" style="stop-color:hsl(340, 60%, 70%);stop-opacity:1" />
+      <stop offset="100%" style="stop-color:hsl(340, 50%, 60%);stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Gum Collar (thin pink band at the base of the crown) -->
+  <path d="
+    M 28 57  <!-- Outer mesial point of gum -->
+    C 23 65, 23 75, 28 80  <!-- Outer mesial curve -->
+    C 38 85, 62 85, 72 80  <!-- Outer lingual curve -->
+    C 77 75, 77 65, 72 57 Z <!-- Outer distal curve back to distal point -->
+    "
+    fill="url(#gumGradient)" opacity="0.9"/>
+
+  <!-- Main Tooth Body (Upper Canine Crown - Occlusal View) -->
+  <!-- Labial (top), Lingual (bottom), Mesial (left), Distal (right) -->
+  <!-- Cusp tip is slightly mesial to center for upper canine -->
+  <path d="
+    M 48 25  <!-- Prominent central cusp tip (slightly mesial) -->
+    C 63 20, 75 35, 70 55  <!-- Distal outline (more convex) -->
+    C 65 70, 60 75, 55 75  <!-- Disto-lingual corner -->
+    L 45 75  <!-- Lingual surface (connecting disto-lingual to mesio-lingual) -->
+    C 40 75, 35 70, 30 55  <!-- Mesio-lingual corner and mesial outline (straighter, less convex) -->
+    C 23 35, 33 20, 48 25 Z <!-- Back to Cusp Tip -->
+    "
+    fill="url(#toothGradient)" stroke="none"/>
+
+  <!-- Lingual Fossa (mesial and distal depressions) - drawn first so ridges can overlay -->
+  <!-- Mesial Lingual Fossa -->
+  <path d="
+    M 48 30  <!-- Point on lingual ridge near cusp -->
+    C 46 35, 43 40, 41 45  <!-- Curve into fossa -->
+    C 38 55, 40 60, 43 65  <!-- Curve along mesial marginal ridge -->
+    C 45 68, 47 69, 48 68  <!-- Curve back to lingual ridge -->
+    L 48 30 Z
+    "
+    fill="url(#fossaShadow)" opacity="0.7"/>
+
+  <!-- Distal Lingual Fossa -->
+  <path d="
+    M 48 30  <!-- Point on lingual ridge near cusp -->
+    C 50 35, 53 40, 55 45  <!-- Curve into fossa -->
+    C 58 55, 56 60, 53 65  <!-- Curve along distal marginal ridge -->
+    C 51 68, 49 69, 48 68  <!-- Curve back to lingual ridge -->
+    L 48 30 Z
+    "
+    fill="url(#fossaShadow)" opacity="0.7"/>
+
+  <!-- Lingual Ridge: From cusp tip to lingual surface, dividing the fossae -->
+  <path d="
+    M 48 25  <!-- Cusp tip -->
+    L 48 70  <!-- Towards lingual surface -->
+    "
+    stroke="url(#ridgeHighlight)" stroke-width="1.5" opacity="0.9"/>
+
+  <!-- Mesial Marginal Ridge -->
+  <path d="
+    M 43 35  <!-- Start near cusp tip, mesial side -->
+    C 38 45, 36 55, 38 65  <!-- Curve along mesial aspect of lingual fossa -->
+    "
+    stroke="url(#ridgeHighlight)" stroke-width="1" opacity="0.9"/>
+
+  <!-- Distal Marginal Ridge -->
+  <path d="
+    M 53 35  <!-- Start near cusp tip, distal side -->
+    C 58 45, 60 55, 58 65  <!-- Curve along distal aspect of lingual fossa -->
+    "
+    stroke="url(#ridgeHighlight)" stroke-width="1" opacity="0.9"/>
+
+  <!-- Central Ridge (Labial Cusp Ridge) - subtle line on labial surface -->
+  <path d="
+    M 48 25  <!-- Cusp tip -->
+    L 48 45  <!-- Towards labial surface -->
+    "
+    stroke="url(#ridgeHighlight)" stroke-width="0.8" opacity="0.6"/>
+
+  <!-- Cusp Tip Highlight -->
+  <circle cx="48" cy="27" r="2" fill="url(#ridgeHighlight)" opacity="0.8"/>
+
+  <!-- Subtle grooves/depressions on labial surface for realism -->
+  <path d="
+    M 43 35 Q 38 40, 43 45
+    M 53 35 Q 58 40, 53 45
+    "
+    stroke="hsl(40, 15%, 75%)" stroke-width="0.5" fill="none" opacity="0.5"/>
+
+</svg>

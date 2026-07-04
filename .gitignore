@@ -9,9 +9,9 @@ out/
 
 # Environment variables (mantener .env.example trackeado)
 .env
-.env.local
+.env.*
 **/.env
-**/.env.local
+**/.env.*
 !**/.env.example
 
 # Prisma generated client
@@ -19,6 +19,9 @@ backend/src/generated/
 
 # Claude memory (local only)
 .claude/
+
+# Claude-flow agent state (auto-generated, local only)
+.claude-flow/
 
 # Misc
 .DS_Store

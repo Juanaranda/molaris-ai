@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Molaris — Análisis Competitivo · Mayo 2026</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F0EDE8;
+    --card: #FFFFFF;
+    --primary: #1A5C7A;
+    --primary-light: #EFF8FF;
+    --text: #0C1B26;
+    --muted: #607281;
+    --border: #D1E0E8;
+    --has: #10B981;
+    --partial: #F59E0B;
+    --missing: #EF4444;
+    --critical: #DC2626;
+  }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 40px 32px;
+    max-width: 1200px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  h1 { font-size: 26px; font-weight: 800; color: var(--primary); }
+  h2 { font-size: 18px; font-weight: 700; color: var(--primary); margin-top: 48px; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid var(--border); }
+  h3 { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  h4 { font-size: 13px; font-weight: 700; color: var(--muted); margin-top: 18px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.08em; }
+  p  { font-size: 14px; color: var(--muted); margin-bottom: 12px; }
+  strong { color: var(--text); }
+
+  .subtitle { font-size: 13px; color: var(--muted); margin-top: 4px; margin-bottom: 40px; }
+  .version { display: inline-block; background: var(--primary); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; letter-spacing: 0.05em; vertical-align: middle; margin-left: 8px; }
+
+  .card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 20px 24px;
+    border: 1.5px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .card.highlight { border-color: var(--primary); background: var(--primary-light); }
+  .card.critical  { border-color: var(--critical);  background: #FEF2F2; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  /* ── Competitor card ── */
+  .competitor {
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+  }
+  .competitor .name { font-size: 15px; font-weight: 800; color: var(--primary); }
+  .competitor .country { display: inline-block; background: #F1F5F9; color: #475569; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle; letter-spacing: 0.05em; }
+  .competitor .pitch { font-size: 12px; color: var(--muted); margin: 4px 0 10px; font-style: italic; }
+  .competitor .strengths { font-size: 12px; color: var(--text); line-height: 1.7; }
+  .competitor .strengths strong { color: var(--primary); }
+
+  /* ── Feature matrix ── */
+  table.matrix { width: 100%; border-collapse: collapse; font-size: 12px; background: #fff; border-radius: 12px; overflow: hidden; border: 1.5px solid var(--border); }
+  table.matrix th { background: var(--primary); color: #fff; padding: 10px 8px; text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+  table.matrix th.col-feature { width: 30%; }
+  table.matrix td { padding: 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  table.matrix td.feat { font-weight: 600; color: var(--text); }
+  table.matrix td.center { text-align: center; }
+  table.matrix tr:last-child td { border-bottom: none; }
+  table.matrix tr:hover td { background: var(--primary-light); }
+
+  .status {
+    display: inline-block;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .status.has     { color: var(--has); }
+  .status.partial { color: var(--partial); }
+  .status.missing { color: var(--missing); }
+
+  .status-legend { display: flex; gap: 18px; justify-content: center; font-size: 11px; color: var(--muted); margin: 8px 0 16px; }
+  .status-legend span { display: inline-flex; align-items: center; gap: 4px; }
+
+  /* ── Gap card ── */
+  .gap-card {
+    background: #fff;
+    border-left: 4px solid;
+    border-radius: 0 12px 12px 0;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    border-top: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .gap-card.critical  { border-left-color: var(--critical);  background: #FEF2F2; }
+  .gap-card.high      { border-left-color: #F59E0B;          background: #FFFBEB; }
+  .gap-card.medium    { border-left-color: var(--primary);   background: var(--primary-light); }
+  .gap-card.low       { border-left-color: var(--muted);     background: #F8FAFC; }
+
+  .gap-header { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
+  .gap-title { font-size: 14px; font-weight: 800; color: var(--text); }
+  .gap-meta { display: flex; gap: 6px; }
+  .pill { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+  .pill.crit { background: #FEE2E2; color: #991B1B; }
+  .pill.high { background: #FEF3C7; color: #92400E; }
+  .pill.med  { background: #DBEAFE; color: #1E40AF; }
+  .pill.low  { background: #F1F5F9; color: #475569; }
+  .pill.nodisc { background: #DCFCE7; color: #14532D; }
+  .pill.needsdisc { background: #F3E8FF; color: #6D28D9; }
+
+  .gap-desc { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.6; }
+  .gap-comp { font-size: 11px; color: var(--text); margin-top: 6px; }
+  .gap-comp strong { color: var(--primary); }
+
+  /* ── Quote ── */
+  .quote {
+    border-left: 3px solid var(--primary);
+    padding: 12px 16px;
+    background: #fff;
+    border-radius: 0 10px 10px 0;
+    font-size: 13px;
+    font-style: italic;
+    color: var(--text);
+    margin: 14px 0;
+  }
+  .quote cite { display: block; margin-top: 6px; font-style: normal; font-size: 11px; color: var(--muted); }
+
+  .source-list { font-size: 11px; color: var(--muted); padding-left: 18px; }
+  .source-list li { margin-bottom: 4px; }
+  .source-list a { color: var(--primary); text-decoration: none; }
+  .source-list a:hover { text-decoration: underline; }
+
+  .footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); text-align: center; }
+
+  @media (max-width: 800px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Análisis Competitivo — Mercado Dental <span class="version">v1.0</span></h1>
+<p class="subtitle">Investigación de competidores y mapeo de gaps · Researcher Agent · Mayo 2026</p>
+
+<!-- ═══════════════════════════════════════════════
+     RESUMEN EJECUTIVO
+═══════════════════════════════════════════════ -->
+<h2>Resumen ejecutivo</h2>
+
+<div class="card highlight">
+  <h3>El veredicto en 3 líneas</h3>
+  <p style="margin-bottom: 6px"><strong>1. Molaris es competitivo en AI conversacional.</strong> Pocos del mercado chileno (DentaLink lanzó "AI Contact Center" en 2026) tienen un agente conversacional integrado para agendamiento. La mayoría usa formularios + reminders.</p>
+  <p style="margin-bottom: 6px"><strong>2. Molaris tiene gaps críticos en facturación e integraciones chilenas.</strong> Sin <strong>boleta electrónica SII</strong>, integración con <strong>Fonasa/Isapres</strong>, ni <strong>pagos online</strong>, no puede reemplazar a DentaLink o Reservo en una clínica establecida.</p>
+  <p style="margin-bottom: 0"><strong>3. Hay oportunidad en patient portal + recall system.</strong> Casi todos los competidores tienen patient portal con self-service (formularios, historial, próximas citas). Molaris solo tiene chat. El recall (recordatorios de chequeo periódico) es estándar y Molaris no lo tiene.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     COMPETIDORES ANALIZADOS
+═══════════════════════════════════════════════ -->
+<h2>Competidores analizados</h2>
+
+<h4>Mercado chileno / Latam</h4>
+<div class="grid-3">
+  <div class="competitor">
+    <div><span class="name">DentaLink</span><span class="country">CL/Latam</span></div>
+    <div class="pitch">Líder Latam — la opción "todo en uno" más madura</div>
+    <div class="strengths">
+      <strong>Fortalezas:</strong><br>
+      · Boleta electrónica SII<br>
+      · Integración Nubox (contabilidad)<br>
+      · 8 features con AI (lanzado 2026)<br>
+      · AI Contact Center 24/7<br>
+      · Odontograma + Periodontograma<br>
+      · Pagos online + financiamiento<br>
+      · Módulos: ortodoncia, estética
+    </div>
+  </div>
+
+  <div class="competitor">
+    <div><span class="name">Reservo</span><span class="country">CL</span></div>
+    <div class="pitch">Booking + clínica con telemedicina certificada</div>
+    <div class="strengths">
+      <strong>Fortalezas:</strong><br>
+      · Telemedicina certificada Fonasa/CENS<br>
+      · Cálculo de comisiones por doctor<br>
+      · Boleta electrónica<br>
+      · Odontograma + CRM básico<br>
+      · ~$30k CLP/mes/profesional<br>
+      · Reserva online + recordatorios
+    </div>
+  </div>
+
+  <div class="competitor">
+    <div><span class="name">DENTIDESK</span><span class="country">Latam</span></div>
+    <div class="pitch">Foco en facturación integrada SII</div>
+    <div class="strengths">
+      <strong>Fortalezas:</strong><br>
+      · Sistema de facturación propio integrado al SII<br>
+      · Ficha electrónica MINSAL-compliant<br>
+      · Odontograma + periodontograma interactivos
+    </div>
+  </div>
+</div>
+
+<h4>Mercado internacional con AI</h4>
+<div class="grid-3">
+  <div class="competitor">
+    <div><span class="name">Adit</span><span class="country">USA</span></div>
+    <div class="pitch">All-in-one AI-powered — el más cercano al posicionamiento de Molaris</div>
+    <div class="strengths">
+      <strong>Fortalezas:</strong><br>
+      · AI Front Desk Agent (after-hours)<br>
+      · AI Call Intelligence (analiza llamadas)<br>
+      · Missed call recovery automático<br>
+      · Inbox unificada (calls + SMS + email + chat)<br>
+      · Re-care + insurance verification automatizadas
+    </div>
+  </div>
+
+  <div class="competitor">
+    <div><span class="name">Curve Dental</span><span class="country">USA</span></div>
+    <div class="pitch">Cloud-first con patient portal robusto</div>
+    <div class="strengths">
+      <strong>Fortalezas:</strong><br>
+      · Smart Forms (formularios digitales custom)<br>
+      · Patient Portal completo<br>
+      · 24/7 self-scheduling<br>
+      · Two-way messaging<br>
+      · HIPAA-compliant
+    </div>
+  </div>
+
+  <div class="competitor">
+    <div><span class="name">TensorLinks / Overjet</span><span class="country">USA</span></div>
+    <div class="pitch">AI especializada — receptionist multi-canal / radiografías</div>
+    <div class="strengths">
+      <strong>Fortalezas:</strong><br>
+      · TensorLinks: receptionist en 4 canales (voz/SMS/web/email)<br>
+      · Soporte 24+ idiomas<br>
+      · Overjet: análisis automático de rayos X<br>
+      · Detección de caries y pérdida ósea con color
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     MATRIZ DE FEATURES
+═══════════════════════════════════════════════ -->
+<h2>Matriz de features — Molaris vs Competencia</h2>
+
+<div class="status-legend">
+  <span><span class="status has">●</span> Tiene</span>
+  <span><span class="status partial">●</span> Parcial</span>
+  <span><span class="status missing">●</span> No tiene</span>
+</div>
+
+<h4>Clínico</h4>
+<table class="matrix">
+  <tr>
+    <th class="col-feature">Feature</th>
+    <th class="center">Molaris</th>
+    <th class="center">DentaLink</th>
+    <th class="center">Reservo</th>
+    <th class="center">Adit</th>
+    <th class="center">Curve</th>
+  </tr>
+  <tr><td class="feat">Odontograma digital</td>      <td class="center"><span class="status partial">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td></tr>
+  <tr><td class="feat">Periodontograma</td>           <td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td></tr>
+  <tr><td class="feat">Ficha clínica completa</td>    <td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td></tr>
+  <tr><td class="feat">Anamnesis estructurada</td>    <td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td></tr>
+  <tr><td class="feat">Planes de tratamiento</td>     <td class="center"><span class="status partial">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td></tr>
+  <tr><td class="feat">Presupuestos dentales</td>     <td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td></tr>
+  <tr><td class="feat">Imágenes / radiografías</td>   <td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td></tr>
+  <tr><td class="feat">AI análisis de rayos X</td>    <td class="center"><span class="status missing">●</span></td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status partial">●</span></td><td class="center"><span class="status missing">●</span></td></tr>
+  <tr><td class="feat">Prescripciones</td>            <td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td></tr>
+</table>
+
+<h4>Financiero / Facturación (Chile)</h4>
+<table class="matrix">
+  <tr>
+    <th class="col-feature">Feature</th>
+    <th class="center">Molaris</th>
+    <th class="center">DentaLink</th>
+    <th class="center">Reservo</th>
+    <th class="center">Adit</th>
+    <th class="center">Curve</th>
+  </tr>
+  <tr><td class="feat">Boleta electrónica SII</td>           <td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status missing">●</span></td></tr>
+  <tr><td class="feat">Integración Fonasa</td>               <td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status missing">●</span></td></tr>
+  <tr><td class="feat">Integración Isapres</td>              <td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status missing">●</span></td></tr>
+  <tr><td class="feat">Pagos online (Transbank/MP)</td>     <td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status partial">●</span></td><td class="center"><span class="status partial">●</span></td></tr>
+  <tr><td class="feat">Financiamiento en cuotas</td>         <td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status partial">●</span></td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status missing">●</span></td></tr>
+  <tr><td class="feat">Cálculo de comisiones por doctor</td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status partial">●</span></td><td class="center"><span class="status partial">●</span></td></tr>
+  <tr><td class="feat">Tracking de pago por cita</td>        <td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td></tr>
+</table>
+
+<h4>Patient Experience</h4>
+<table class="matrix">
+  <tr>
+    <th class="col-feature">Feature</th>
+    <th class="center">Molaris</th>
+    <th class="center">DentaLink</th>
+    <th class="center">Reservo</th>
+    <th class="center">Adit</th>
+    <th class="center">Curve</th>
+  </tr>
+  <tr><td class="feat">Patient Portal (UI completa)</td>     <td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td></tr>
+  <tr><td class="feat">Auto-agendamiento 24/7</td>           <td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td></tr>
+  <tr><td class="feat">Formularios digitales custom</td>     <td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status partial">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td></tr>
+  <tr><td class="feat">Recordatorios WhatsApp/SMS</td>       <td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td></tr>
+  <tr><td class="feat">Chat conversacional con IA</td>       <td class="center"><span class="status has">●</span></td><td class="center"><span class="status partial">●</span></td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status missing">●</span></td></tr>
+  <tr><td class="feat">Surveys post-cita</td>                <td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td></tr>
+  <tr><td class="feat">Recall (recordatorio de chequeo)</td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td></tr>
+  <tr><td class="feat">Lista de espera con auto-aviso</td>  <td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status partial">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td></tr>
+  <tr><td class="feat">Programa de fidelización</td>         <td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status missing">●</span></td></tr>
+</table>
+
+<h4>AI / Automatización (donde Molaris puede destacar)</h4>
+<table class="matrix">
+  <tr>
+    <th class="col-feature">Feature</th>
+    <th class="center">Molaris</th>
+    <th class="center">DentaLink</th>
+    <th class="center">Reservo</th>
+    <th class="center">Adit</th>
+    <th class="center">TensorLinks</th>
+  </tr>
+  <tr><td class="feat">AI agendamiento conversacional</td>   <td class="center"><span class="status has">●</span></td><td class="center"><span class="status partial">●</span></td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td></tr>
+  <tr><td class="feat">After-hours auto-scheduling</td>      <td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td></tr>
+  <tr><td class="feat">Multi-canal (WhatsApp + web)</td>     <td class="center"><span class="status has">●</span></td><td class="center"><span class="status partial">●</span></td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td></tr>
+  <tr><td class="feat">Multi-canal (incluye voz/email)</td>  <td class="center"><span class="status missing">●</span></td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td></tr>
+  <tr><td class="feat">Missed call recovery</td>             <td class="center"><span class="status missing">●</span></td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status has">●</span></td></tr>
+  <tr><td class="feat">Lead scoring automático</td>          <td class="center"><span class="status has">●</span></td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status partial">●</span></td><td class="center"><span class="status missing">●</span></td></tr>
+  <tr><td class="feat">AI análisis sentimiento</td>          <td class="center"><span class="status missing">●</span></td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status has">●</span></td><td class="center"><span class="status partial">●</span></td></tr>
+  <tr><td class="feat">Voice-to-chart (dictado)</td>         <td class="center"><span class="status missing">●</span></td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status missing">●</span></td><td class="center"><span class="status partial">●</span></td><td class="center"><span class="status missing">●</span></td></tr>
+</table>
+
+
+<!-- ═══════════════════════════════════════════════
+     GAPS PRIORIZADAS
+═══════════════════════════════════════════════ -->
+<h2>Gaps priorizadas — qué le falta a Molaris</h2>
+
+<p>Las gaps están ordenadas por <strong>impacto en la venta a una clínica chilena establecida</strong>. Cada una indica si requiere discovery con dentistas o se puede implementar de inmediato.</p>
+
+<h4>🔴 Críticas para Chile (deal-breakers de venta)</h4>
+
+<div class="gap-card critical">
+  <div class="gap-header">
+    <div class="gap-title">Boleta electrónica integrada con SII</div>
+    <div class="gap-meta">
+      <span class="pill crit">Crítica</span>
+      <span class="pill nodisc">Sin discovery</span>
+    </div>
+  </div>
+  <div class="gap-desc">Toda factura/boleta en Chile debe emitirse por el SII vía DTE. Sin esto, las clínicas no pueden cobrar legalmente desde Molaris — necesitan otro sistema, lo que hace inviable reemplazar a DentaLink o Reservo.</div>
+  <div class="gap-comp"><strong>Quién lo tiene:</strong> DentaLink, Reservo, DENTIDESK · <strong>Integración requerida:</strong> Certificado digital SII, librería Chilesystems o API directa SII</div>
+</div>
+
+<div class="gap-card critical">
+  <div class="gap-header">
+    <div class="gap-title">Pagos online (Transbank Webpay / Mercado Pago / Khipu)</div>
+    <div class="gap-meta">
+      <span class="pill crit">Crítica</span>
+      <span class="pill nodisc">Sin discovery</span>
+    </div>
+  </div>
+  <div class="gap-desc">Hoy Molaris registra estados de pago manualmente. Los pacientes esperan poder pagar online (webpay, transferencia automática) — especialmente para confirmar reservas o pagar copagos.</div>
+  <div class="gap-comp"><strong>Quién lo tiene:</strong> DentaLink, Reservo · <strong>Integración:</strong> Mercado Pago (más simple) o Transbank Webpay Plus (más usado por chilenos)</div>
+</div>
+
+<h4>🟡 Alto valor (diferenciadores)</h4>
+
+<div class="gap-card high">
+  <div class="gap-header">
+    <div class="gap-title">Patient Portal — pacientes ven historial, próximas citas, ficha</div>
+    <div class="gap-meta">
+      <span class="pill high">Alto valor</span>
+      <span class="pill nodisc">Sin discovery</span>
+    </div>
+  </div>
+  <div class="gap-desc">Ya existe el modelo \`PatientUser\` con login y \`patient-auth\` route. Falta toda la UI para que el paciente vea sus próximas citas, historial, descargar boletas, ver su ficha clínica. Es estándar en todos los competidores.</div>
+  <div class="gap-comp"><strong>Quién lo tiene:</strong> Todos los competidores principales · <strong>Esfuerzo:</strong> ~2 días para v1 (lista de citas + perfil + reagendar)</div>
+</div>
+
+<div class="gap-card high">
+  <div class="gap-header">
+    <div class="gap-title">Sistema de recall — recordatorios de chequeo periódico</div>
+    <div class="gap-meta">
+      <span class="pill high">Alto valor</span>
+      <span class="pill nodisc">Sin discovery</span>
+    </div>
+  </div>
+  <div class="gap-desc">"Vuelve para tu chequeo en 6 meses". Es la gallina de los huevos de oro de las clínicas — la mayoría de pacientes no vuelven solos. Molaris ya tiene reminderService y recall endpoint, pero el recall actual es manual ("hace X días no viene"). Falta: ciclos automáticos por tipo de tratamiento (limpieza cada 6m, ortodoncia cada 1m).</div>
+  <div class="gap-comp"><strong>Quién lo tiene:</strong> Todos · <strong>Base existente en Molaris:</strong> \`POST /api/clinics/:id/recall/run\` ya funciona, falta agregar reglas automáticas</div>
+</div>
+
+<div class="gap-card high">
+  <div class="gap-header">
+    <div class="gap-title">Lista de espera con auto-aviso al abrirse cupo</div>
+    <div class="gap-meta">
+      <span class="pill high">Alto valor</span>
+      <span class="pill nodisc">Sin discovery</span>
+    </div>
+  </div>
+  <div class="gap-desc">Cuando un paciente cancela, automáticamente notificar a los siguientes en la lista de espera. Maximiza ocupación de la agenda — uno de los KPIs principales de cualquier clínica.</div>
+  <div class="gap-comp"><strong>Quién lo tiene:</strong> Adit, DentaLink, Curve · <strong>Esfuerzo:</strong> ~1 día</div>
+</div>
+
+<h4>🟡 Alto valor pero requiere discovery con dentistas</h4>
+
+<div class="gap-card high">
+  <div class="gap-header">
+    <div class="gap-title">Periodontograma</div>
+    <div class="gap-meta">
+      <span class="pill high">Alto valor</span>
+      <span class="pill needsdisc">Discovery clínico</span>
+    </div>
+  </div>
+  <div class="gap-desc">Registro detallado del estado periodontal — profundidad de saco, recesión, sangrado por pieza/superficie. Estándar en odontología pero requiere mapear el flujo clínico real con un periodoncista.</div>
+  <div class="gap-comp"><strong>Quién lo tiene:</strong> DentaLink, Reservo, DENTIDESK · <strong>Bloqueo:</strong> Requiere discovery (similar a #11 odontograma)</div>
+</div>
+
+<div class="gap-card high">
+  <div class="gap-header">
+    <div class="gap-title">Integración Fonasa / Isapre</div>
+    <div class="gap-meta">
+      <span class="pill high">Alto valor</span>
+      <span class="pill needsdisc">Discovery</span>
+    </div>
+  </div>
+  <div class="gap-desc">Verificación automática de cobertura del paciente y emisión de bonos. Requiere validar con dentistas qué cobertura usan más (las isapres tienen APIs diferentes).</div>
+</div>
+
+<h4>🔵 Valor medio (mejoras al diferenciador AI)</h4>
+
+<div class="gap-card medium">
+  <div class="gap-header">
+    <div class="gap-title">Formularios digitales custom (pre-cita)</div>
+    <div class="gap-meta">
+      <span class="pill med">Medio</span>
+      <span class="pill nodisc">Sin discovery (estructura)</span>
+    </div>
+  </div>
+  <div class="gap-desc">El paciente recibe un link por WhatsApp con un formulario de anamnesis a completar antes de llegar — el dentista lee la respuesta y ahorra 5-10 min de consulta. La infraestructura es genérica (form builder), el contenido se valida con dentistas después.</div>
+</div>
+
+<div class="gap-card medium">
+  <div class="gap-header">
+    <div class="gap-title">Inbox unificada multi-canal (WhatsApp + web + email)</div>
+    <div class="gap-meta">
+      <span class="pill med">Medio</span>
+      <span class="pill nodisc">Sin discovery</span>
+    </div>
+  </div>
+  <div class="gap-desc">Hoy las conversaciones del chat web y WhatsApp viven en sesiones separadas. Adit y TensorLinks unifican todo en una bandeja única que el equipo puede tomar en cualquier momento. Posicionamiento "front-desk AI".</div>
+</div>
+
+<div class="gap-card medium">
+  <div class="gap-header">
+    <div class="gap-title">Sentiment analysis del chat → flag pacientes insatisfechos</div>
+    <div class="gap-meta">
+      <span class="pill med">Medio</span>
+      <span class="pill nodisc">Sin discovery</span>
+    </div>
+  </div>
+  <div class="gap-desc">Adit lo hace en llamadas. Molaris tiene todas las conversaciones del chat — agregar un score de sentimiento permitiría flaggear casos delicados (reclamos, dudas no resueltas) para revisión humana.</div>
+</div>
+
+<h4>⚪ Bajo valor / nice-to-have</h4>
+
+<div class="gap-card low">
+  <div class="gap-header">
+    <div class="gap-title">AI análisis de rayos X (Overjet-style)</div>
+    <div class="gap-meta">
+      <span class="pill low">Bajo</span>
+      <span class="pill needsdisc">Requiere discovery + IA especializada</span>
+    </div>
+  </div>
+  <div class="gap-desc">Diferenciador fuerte pero requiere integración con servicio especializado (Overjet, Pearl) o entrenar modelo propio. Validar primero con dentistas si usan radiografías digitales hoy.</div>
+</div>
+
+<div class="gap-card low">
+  <div class="gap-header">
+    <div class="gap-title">Programa de fidelización / referidos</div>
+    <div class="gap-meta">
+      <span class="pill low">Bajo</span>
+      <span class="pill nodisc">Sin discovery</span>
+    </div>
+  </div>
+  <div class="gap-desc">DentaLink y Reservo lo tienen pero no es lo que vende. Más relevante en mercados maduros (USA).</div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     OPORTUNIDADES ESTRATÉGICAS
+═══════════════════════════════════════════════ -->
+<h2>Lectura estratégica</h2>
+
+<div class="card highlight">
+  <h3>Dónde Molaris ya está bien posicionado</h3>
+  <ul style="font-size:13px; color:var(--muted); padding-left:16px; margin-top:8px; line-height:1.8">
+    <li><strong>Agente conversacional con IA</strong> nativo — solo Adit en USA lo hace tan bien; DentaLink lo lanzó 2026 pero parece más bot que conversación</li>
+    <li><strong>Lead scoring automático</strong> con contexto extraído del chat — único en el segmento</li>
+    <li><strong>Multi-tenant nativo</strong> — bien arquitecturado para crecer (modelo Identity+PatientUser permite portabilidad del paciente entre clínicas)</li>
+    <li><strong>Stack moderno</strong> — Fastify + Next.js 15 vs DentaLink que es PHP legacy. Velocidad de desarrollo a favor.</li>
+  </ul>
+</div>
+
+<div class="card critical">
+  <h3>Dónde Molaris pierde la venta hoy</h3>
+  <ul style="font-size:13px; color:var(--muted); padding-left:16px; margin-top:8px; line-height:1.8">
+    <li>🔴 <strong>Sin facturación SII</strong> — primer "no" de cualquier clínica establecida</li>
+    <li>🔴 <strong>Sin pagos online</strong> — los pacientes ya no esperan más por esto</li>
+    <li>🟡 <strong>Ficha clínica incompleta</strong> — los dentistas no van a duplicar la ficha en dos sistemas</li>
+    <li>🟡 <strong>Sin patient portal</strong> — los pacientes esperan ver su historial 24/7</li>
+    <li>🟡 <strong>Sin recall automático</strong> — pierde la recurrencia, que es lo que sostiene a una clínica</li>
+  </ul>
+</div>
+
+<div class="card" style="background: #F0FDF4; border-color: #86EFAC">
+  <h3>Recomendación de roadmap</h3>
+  <p style="margin-bottom: 8px"><strong>Fase 1 — Lo que cierra ventas en Chile (sin discovery):</strong></p>
+  <ol style="font-size:13px; color:var(--muted); padding-left:18px; margin-bottom: 12px; line-height:1.8">
+    <li>Boleta electrónica SII (vía proveedor como Chilesystems o Acepta)</li>
+    <li>Pagos online (Mercado Pago primero — API más simple)</li>
+    <li>Patient Portal v1 (citas + historial + perfil)</li>
+    <li>Recall system con reglas automáticas</li>
+    <li>Lista de espera</li>
+  </ol>
+  <p style="margin-bottom: 8px"><strong>Fase 2 — Lo que sucede después del discovery con dentistas:</strong></p>
+  <ol style="font-size:13px; color:var(--muted); padding-left:18px; margin-bottom: 12px; line-height:1.8">
+    <li>Ficha clínica completa (#12 ya en backlog)</li>
+    <li>Odontograma con persistencia (#13 ya en backlog)</li>
+    <li>Periodontograma</li>
+    <li>Formularios digitales pre-cita</li>
+  </ol>
+  <p style="margin-bottom: 0"><strong>Fase 3 — Diferenciadores AI (donde Molaris puede liderar):</strong></p>
+  <ol style="font-size:13px; color:var(--muted); padding-left:18px; margin-top: 8px; line-height:1.8">
+    <li>Inbox multi-canal unificada (WhatsApp + web + email)</li>
+    <li>Sentiment analysis + flagging de pacientes insatisfechos</li>
+    <li>Voice-to-chart (dictado de notas clínicas)</li>
+    <li>AI análisis de rayos X (integración con Overjet/Pearl si justifica el costo)</li>
+  </ol>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     FUENTES
+═══════════════════════════════════════════════ -->
+<h2>Fuentes</h2>
+
+<ul class="source-list">
+  <li><a href="https://www.softwaredentalink.com/">DentaLink — software líder en Latinoamérica</a></li>
+  <li><a href="https://www.softwaredentalink.com/funcionalidades">DentaLink — Lista de funcionalidades</a></li>
+  <li><a href="https://reservo.cl/salud/centro-dental/">Reservo — Software dental Chile</a></li>
+  <li><a href="https://turnito.app/blog/los-mejores-software-de-reservas-para-odontologos-en-chile-2026/">Turnito — Comparativa de softwares dentales Chile 2026</a></li>
+  <li><a href="https://adit.com/dental">Adit — All-in-one AI-powered dental software</a></li>
+  <li><a href="https://www.curvedental.com/">Curve Dental — Cloud-based dental software</a></li>
+  <li><a href="https://www.tensorlinks.com/blog/best-ai-dental-receptionist-2026/">TensorLinks — Best AI Dental Receptionist 2026</a></li>
+  <li><a href="https://blog.titanwebagency.com/dental-management-software-reviews">Titan Web Agency — Top 10 Dental Practice Management Software 2026</a></li>
+  <li><a href="https://www.dentidesk.com/">DENTIDESK — Software dental Latam</a></li>
+  <li><a href="https://www.softwaredentalink.com/blog/boleta-electronica-obligatoria">DentaLink — Boleta Electrónica Obligatoria Chile</a></li>
+</ul>
+
+
+<div class="footer">
+  Análisis competitivo Molaris v1.0 · Researcher Agent · Mayo 2026<br>
+  Actualizar este doc cada 3-6 meses — el mercado AI dental está cambiando rápido.
+</div>
+
+</body>
+</html>

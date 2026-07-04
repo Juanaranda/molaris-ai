@@ -14,6 +14,9 @@ interface ClinicRow {
   plan: string;
   active: boolean;
   createdAt: string;
+  agentEnabled: boolean;
+  agentDisabledAt: string | null;
+  agentDisabledReason: string | null;
   _count: { sessions: number; bookings: number; partnerUsers: number };
   usage30d: { calls: number; tokensIn: number; tokensOut: number; costUsd: number };
 }
@@ -163,6 +166,22 @@ export default function AdminPage() {
           <h1 className="text-2xl font-bold mb-1" style={{ color: "var(--ink)" }}>Panel de monitoreo</h1>
           <p className="text-sm" style={{ color: "var(--ink-muted)" }}>Uso de plataforma, costos y actividad por clínica</p>
         </div>
+
+        {/* Alertas: agentes apagados (Issue #49/#50) */}
+        {clinics.some((c) => !c.agentEnabled) && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+            <p className="text-sm font-bold text-red-700 mb-1">⚠️ Agentes apagados</p>
+            <ul className="text-xs text-red-600 space-y-0.5">
+              {clinics.filter((c) => !c.agentEnabled).map((c) => (
+                <li key={c.id}>
+                  <span className="font-semibold">{c.name}</span>
+                  {c.agentDisabledAt && <> · desde {new Date(c.agentDisabledAt).toLocaleString("es-CL")}</>}
+                  {c.agentDisabledReason && <> · {c.agentDisabledReason}</>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* KPIs globales */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">

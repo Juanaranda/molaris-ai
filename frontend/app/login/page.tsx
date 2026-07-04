@@ -4,24 +4,31 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { login } from "@/lib/auth";
+import { login, forgotPassword } from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [mode, setMode] = useState<"login" | "forgot">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setError("");
+    setError(""); setNotice("");
     setLoading(true);
     try {
-      await login(email, password);
-      router.push("/partners/dashboard");
+      if (mode === "forgot") {
+        await forgotPassword(email);
+        setNotice("Si el correo está registrado, te enviamos un enlace para recuperar tu contraseña. Revisá tu bandeja (y spam).");
+      } else {
+        await login(email, password);
+        router.push("/partners/dashboard");
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al iniciar sesión");
+      setError(err instanceof Error ? err.message : "Error");
     } finally {
       setLoading(false);
     }
@@ -71,26 +78,39 @@ export default function LoginPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: "#607281" }}>
-                  Contraseña
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="w-full px-4 py-3 rounded-xl text-sm outline-none transition"
-                  style={{ border: "1px solid #E5E0D9", backgroundColor: "#F7F5F1", color: "#0C1B26" }}
-                  onFocus={(e) => (e.currentTarget.style.borderColor = "#1A5C7A")}
-                  onBlur={(e) => (e.currentTarget.style.borderColor = "#E5E0D9")}
-                />
-              </div>
+              {mode === "login" && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold uppercase tracking-wider" style={{ color: "#607281" }}>
+                      Contraseña
+                    </label>
+                    <button type="button" onClick={() => { setMode("forgot"); setError(""); setNotice(""); }}
+                      className="text-xs font-semibold hover:underline" style={{ color: "#1A5C7A" }}>
+                      ¿La olvidaste?
+                    </button>
+                  </div>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    className="w-full px-4 py-3 rounded-xl text-sm outline-none transition"
+                    style={{ border: "1px solid #E5E0D9", backgroundColor: "#F7F5F1", color: "#0C1B26" }}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = "#1A5C7A")}
+                    onBlur={(e) => (e.currentTarget.style.borderColor = "#E5E0D9")}
+                  />
+                </div>
+              )}
 
               {error && (
                 <p className="text-sm rounded-xl px-4 py-2.5" style={{ color: "#D95F45", backgroundColor: "#FDECEA", border: "1px solid rgba(217,95,69,0.15)" }}>
                   {error}
+                </p>
+              )}
+              {notice && (
+                <p className="text-sm rounded-xl px-4 py-2.5" style={{ color: "#1A5C7A", backgroundColor: "#E8F3F7", border: "1px solid rgba(26,92,122,0.15)" }}>
+                  {notice}
                 </p>
               )}
 
@@ -100,8 +120,15 @@ export default function LoginPage() {
                 className="w-full text-white font-semibold py-3 rounded-xl text-sm mt-1 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ backgroundColor: "#0B2F42" }}
               >
-                {loading ? "Ingresando..." : "Ingresar"}
+                {loading ? "Enviando..." : mode === "forgot" ? "Enviar enlace de recuperación" : "Ingresar"}
               </button>
+
+              {mode === "forgot" && (
+                <button type="button" onClick={() => { setMode("login"); setError(""); setNotice(""); }}
+                  className="text-xs font-semibold hover:underline mx-auto" style={{ color: "#607281" }}>
+                  ← Volver al inicio de sesión
+                </button>
+              )}
             </form>
 
             <p className="text-center text-xs mt-6" style={{ color: "#607281" }}>

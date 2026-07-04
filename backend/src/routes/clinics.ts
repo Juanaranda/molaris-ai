@@ -1,8 +1,17 @@
 import { FastifyInstance } from "fastify";
 import { Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
 import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
+import { sendWhatsAppMessage } from "../services/notifications/whatsappService";
+import { notifyWaitlistForCanceledBooking } from "../services/waitlist/waitlistService";
+import { triggerAlert } from "../services/alerts/alertService";
+import { audit } from "../services/audit/auditService";
+
+// Versión vigente del DPA Molaris ↔ Clínica (Issue #38, Ley 21.719).
+// BORRADOR — pendiente validación legal. Subir la versión cuando cambie el texto.
+export const DPA_VERSION = "2026-06-draft";
 
 export async function clinicRoutes(app: FastifyInstance) {
 
@@ -26,6 +35,8 @@ export async function clinicRoutes(app: FastifyInstance) {
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
+      // BUG FIX #9: include slotBooked in the main Promise.all to avoid a
+      // sequential await that unnecessarily extends response time.
       const [
         totalSessions,
         totalLeads,
@@ -51,31 +62,33 @@ export async function clinicRoutes(app: FastifyInstance) {
         incomeByService,
         avgTicket,
         bookingsByHour,
+        slotBooked,
+        channelBreakdown,
       ] = await Promise.all([
-        // Total conversaciones
-        prisma.session.count({ where: { clinicId } }),
+        // Total conversaciones (excluye sandbox y demo interna)
+        prisma.session.count({ where: { clinicId, isSandbox: false, channel: { not: "demo" } } }),
 
-        // Leads (sesiones con contexto capturado)
-        prisma.patientContext.count({ where: { session: { clinicId } } }),
+        // Leads (sesiones con contexto capturado, excluye sandbox)
+        prisma.patientContext.count({ where: { session: { clinicId, isSandbox: false } } }),
 
         // Desglose por intent
         prisma.patientContext.groupBy({
           by: ["intent"],
-          where: { session: { clinicId }, intent: { not: null } },
+          where: { session: { clinicId, isSandbox: false }, intent: { not: null } },
           _count: true,
         }),
 
         // Desglose por urgencia
         prisma.patientContext.groupBy({
           by: ["urgency"],
-          where: { session: { clinicId }, urgency: { not: null } },
+          where: { session: { clinicId, isSandbox: false }, urgency: { not: null } },
           _count: true,
         }),
 
         // Top servicios
         prisma.patientContext.groupBy({
           by: ["serviceInterest"],
-          where: { session: { clinicId }, serviceInterest: { not: null } },
+          where: { session: { clinicId, isSandbox: false }, serviceInterest: { not: null } },
           _count: { serviceInterest: true },
           orderBy: { _count: { serviceInterest: "desc" } },
           take: 6,
@@ -83,27 +96,28 @@ export async function clinicRoutes(app: FastifyInstance) {
 
         // Score promedio
         prisma.patientContext.aggregate({
-          where: { session: { clinicId }, score: { not: null } },
+          where: { session: { clinicId, isSandbox: false }, score: { not: null } },
           _avg: { score: true },
         }),
 
         // Citas agendadas (booking page)
         prisma.booking.count({ where: { clinicId } }),
 
-        // Leads recientes con detalle
+        // Leads recientes con detalle (excluye sandbox)
         prisma.patientContext.findMany({
-          where: { session: { clinicId } },
+          where: { session: { clinicId, isSandbox: false } },
           include: { session: { select: { createdAt: true, channel: true } } },
           orderBy: { session: { createdAt: "desc" } },
           take: 25,
         }),
 
-        // Sesiones por día (últimos N días)
+        // Sesiones por día (últimos N días, excluye sandbox)
         prisma.$queryRaw<Array<{ day: string; count: bigint }>>`
           SELECT DATE(s."createdAt") as day, COUNT(*)::int as count
           FROM sessions s
           WHERE s."clinicId" = ${clinicId}
             AND s."createdAt" >= ${since}
+            AND s."isSandbox" = false
           GROUP BY DATE(s."createdAt")
           ORDER BY day ASC
         `,
@@ -233,12 +247,28 @@ export async function clinicRoutes(app: FastifyInstance) {
           GROUP BY SPLIT_PART(time, ':', 1)
           ORDER BY hour
         `,
+
+        // Slots reservados vía chat (parte del Bug Fix #9 — movido al Promise.all)
+        prisma.patientContext.count({ where: { session: { clinicId }, slotBooked: true } }),
+
+        // Conversaciones agrupadas por canal (web / whatsapp / instagram)
+        prisma.$queryRaw<Array<{ channel: string; sessions: bigint; leads: bigint; booked: bigint }>>`
+          SELECT
+            s.channel,
+            COUNT(*)::int                                                       as sessions,
+            COUNT(pc.id)::int                                                   as leads,
+            COUNT(pc.id) FILTER (WHERE pc."slotBooked" = true)::int             as booked
+          FROM sessions s
+          LEFT JOIN patient_contexts pc ON pc."sessionId" = s.id
+          WHERE s."clinicId" = ${clinicId}
+            AND s."isSandbox" = false
+            AND s.channel <> 'demo'
+          GROUP BY s.channel
+          ORDER BY sessions DESC
+        `,
       ]);
 
       const readyToBook = intentCounts.find((i) => i.intent === "ready_to_book")?._count ?? 0;
-      const slotBooked = await prisma.patientContext.count({
-        where: { session: { clinicId }, slotBooked: true },
-      });
 
       return reply.send({
         totals: {
@@ -303,6 +333,15 @@ export async function clinicRoutes(app: FastifyInstance) {
             count: s._count,
             income: s._sum.amountPaid ?? 0,
           })),
+        channels: channelBreakdown.map((c) => ({
+          channel: c.channel,
+          sessions: Number(c.sessions),
+          leads:    Number(c.leads),
+          booked:   Number(c.booked),
+          conversionRate: Number(c.sessions) > 0
+            ? Math.round((Number(c.booked) / Number(c.sessions)) * 100)
+            : 0,
+        })),
         payments: {
           thisMonth: {
             income: paymentThisMonth._sum.amountPaid ?? 0,
@@ -377,6 +416,16 @@ export async function clinicRoutes(app: FastifyInstance) {
 
     const { name, phone, whatsapp, instagram, location, config } = req.body ?? {};
 
+    // BUG FIX #5: validate that config only contains known keys to prevent
+    // arbitrary JSON injection into the clinic config object.
+    const ALLOWED_CONFIG_KEYS = new Set(["tone", "schedule", "doctors", "services", "boxes", "reminders"]);
+    if (config !== undefined) {
+      const unknownKeys = Object.keys(config).filter((k) => !ALLOWED_CONFIG_KEYS.has(k));
+      if (unknownKeys.length > 0) {
+        return reply.status(400).send({ error: `Claves de config no permitidas: ${unknownKeys.join(", ")}` });
+      }
+    }
+
     const updated = await prisma.clinic.update({
       where: { id: req.params.id },
       data: {
@@ -449,14 +498,93 @@ export async function clinicRoutes(app: FastifyInstance) {
         return reply.status(400).send({ error: "Estado inválido" });
       }
 
+      const booking = await prisma.booking.findFirst({
+        where: { id: req.params.bookingId, clinicId: req.params.id },
+      });
+      if (!booking) return reply.status(404).send({ error: "Cita no encontrada" });
+
       const updated = await prisma.booking.update({
-        where: { id: req.params.bookingId },
+        where: { id: booking.id },
         data: { status },
       });
+
+      // Hook: si se canceló, intentar notificar al primero de la lista de espera (async)
+      if (booking.status !== "cancelled" && status === "cancelled") {
+        notifyWaitlistForCanceledBooking(booking.id)
+          .catch((e) => console.error("[Waitlist] notify failed:", e));
+      }
 
       return reply.send(updated);
     }
   );
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // KILL SWITCH DEL AGENTE IA (Issue #49)
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // GET /api/clinics/:id/agent — estado del agente
+  app.get<{ Params: { id: string } }>("/clinics/:id/agent", async (req, reply) => {
+    let payload;
+    try { payload = verifyToken(req.headers.authorization); }
+    catch { return reply.status(401).send({ error: "No autorizado" }); }
+    if (payload.role !== "SUPERADMIN" && payload.clinicId !== req.params.id) {
+      return reply.status(403).send({ error: "Acceso denegado" });
+    }
+    const c = await prisma.clinic.findUnique({
+      where: { id: req.params.id },
+      select: { agentEnabled: true, agentDisabledAt: true, agentDisabledReason: true },
+    });
+    if (!c) return reply.status(404).send({ error: "Clínica no encontrada" });
+    return reply.send(c);
+  });
+
+  // PATCH /api/clinics/:id/agent — encender/apagar el agente IA
+  app.patch<{
+    Params: { id: string };
+    Body: { enabled: boolean; reason?: string };
+  }>("/clinics/:id/agent", async (req, reply) => {
+    let payload;
+    try { payload = verifyToken(req.headers.authorization); }
+    catch { return reply.status(401).send({ error: "No autorizado" }); }
+    if (payload.role === "USER") return reply.status(403).send({ error: "Sin permisos" });
+    if (payload.role !== "SUPERADMIN" && payload.clinicId !== req.params.id) {
+      return reply.status(403).send({ error: "Acceso denegado" });
+    }
+
+    const { enabled, reason } = req.body ?? {};
+    if (typeof enabled !== "boolean") {
+      return reply.status(400).send({ error: "El campo 'enabled' es obligatorio (true/false)" });
+    }
+
+    const clinic = await prisma.clinic.findUnique({ where: { id: req.params.id }, select: { name: true } });
+    if (!clinic) return reply.status(404).send({ error: "Clínica no encontrada" });
+
+    const updated = await prisma.clinic.update({
+      where: { id: req.params.id },
+      data: enabled
+        ? { agentEnabled: true, agentDisabledAt: null, agentDisabledReason: null }
+        : { agentEnabled: false, agentDisabledAt: new Date(), agentDisabledReason: reason?.trim() || null },
+      select: { agentEnabled: true, agentDisabledAt: true, agentDisabledReason: true },
+    });
+
+    // Auditoría
+    audit({
+      req, actorId: payload.userId, clinicId: req.params.id,
+      action: "update", resourceType: "ClinicalRecord", resourceId: req.params.id,
+      snapshotAfter: { agentEnabled: enabled, reason: reason ?? null },
+    });
+
+    // Alerta al proveedor (panel de monitoreo + WhatsApp)
+    triggerAlert({
+      kind: enabled ? "agent_enabled" : "agent_disabled",
+      severity: enabled ? "info" : "warn",
+      message: `Agente ${enabled ? "ENCENDIDO" : "APAGADO"} en ${clinic.name}`,
+      detail: { clinicId: req.params.id, reason: reason ?? null },
+      cooldownMs: 0,
+    }).catch(() => {});
+
+    return reply.send(updated);
+  });
 
   // POST /api/clinics — registro público de nueva clínica + admin
   app.post<{
@@ -490,10 +618,16 @@ export async function clinicRoutes(app: FastifyInstance) {
       .replace(/^-|-$/g, "")
       .slice(0, 40);
 
-    // Asegurar unicidad del slug
+    // BUG FIX #4: resolve slug uniqueness in a single DB round trip instead
+    // of N sequential findUnique calls inside a while loop.
+    const existingSlugs = await prisma.clinic.findMany({
+      where: { slug: { startsWith: baseSlug } },
+      select: { slug: true },
+    });
+    const slugSet = new Set(existingSlugs.map((c) => c.slug));
     let slug = baseSlug;
     let counter = 1;
-    while (await prisma.clinic.findUnique({ where: { slug } })) {
+    while (slugSet.has(slug)) {
       slug = `${baseSlug}-${counter++}`;
     }
 
@@ -508,6 +642,9 @@ export async function clinicRoutes(app: FastifyInstance) {
         instagram: clinicData.instagram ?? null,
         whatsapp: clinicData.whatsapp ?? null,
         plan: "starter",
+        // DPA aceptado al crear cuenta (Issue #38, Ley 21.719)
+        dpaAcceptedVersion: DPA_VERSION,
+        dpaAcceptedAt: new Date(),
         config: {
           tone: "profesional pero cercano",
           schedule: { weekdays: "Lunes a Viernes: 09:00 - 18:00", saturday: "Sábado: cerrado", sunday: "Domingo: cerrado" },
@@ -528,5 +665,241 @@ export async function clinicRoutes(app: FastifyInstance) {
     });
 
     return reply.status(201).send({ clinicId: newClinic.id, slug: newClinic.slug, message: "Clínica registrada correctamente" });
+  });
+
+  // POST /api/clinics/:id/recall/run — dispara campaña de recall manual
+  app.post<{
+    Params: { id: string };
+    Body: { daysInactive?: number; message?: string };
+  }>("/clinics/:id/recall/run", async (req, reply) => {
+    let payload;
+    try { payload = verifyToken(req.headers.authorization); } catch {
+      return reply.status(401).send({ error: "No autorizado" });
+    }
+    if (payload.role === "USER") return reply.status(403).send({ error: "Sin permisos" });
+    if (payload.role !== "SUPERADMIN" && payload.clinicId !== req.params.id) {
+      return reply.status(403).send({ error: "Acceso denegado" });
+    }
+
+    const daysInactive = req.body?.daysInactive ?? 90;
+    const message = req.body?.message ?? "Hola {nombre}, te echamos de menos en {clinica}. ¿Qué tal si agendamos tu próximo control?";
+    const cutoff = new Date(Date.now() - daysInactive * 24 * 60 * 60 * 1000);
+
+    const clinic = await prisma.clinic.findUnique({
+      where: { id: req.params.id },
+      select: { name: true, slug: true, waVerified: true, waPhoneId: true, waToken: true },
+    });
+    if (!clinic) return reply.status(404).send({ error: "Clínica no encontrada" });
+
+    const clinicMeta = (clinic.waVerified && clinic.waPhoneId && clinic.waToken)
+      ? { phoneId: clinic.waPhoneId, token: clinic.waToken }
+      : undefined;
+
+    // Última cita por teléfono (solo pacientes con teléfono)
+    const lastBookings = await prisma.booking.findMany({
+      where: { clinicId: req.params.id, patientPhone: { not: null }, status: { not: "cancelled" } },
+      orderBy: { date: "desc" },
+      select: { patientPhone: true, patientName: true, date: true },
+    });
+
+    // Agrupar por teléfono — solo la más reciente
+    const byPhone = new Map<string, { name: string | null; lastDate: Date }>();
+    for (const b of lastBookings) {
+      if (!b.patientPhone) continue;
+      const phone = b.patientPhone.replace(/\D/g, "");
+      if (!byPhone.has(phone)) byPhone.set(phone, { name: b.patientName, lastDate: b.date });
+    }
+
+    // Filtrar inactivos
+    const targets: { phone: string; name: string | null }[] = [];
+    for (const [phone, { name, lastDate }] of byPhone) {
+      if (lastDate < cutoff) targets.push({ phone, name });
+    }
+
+    // Envío en paralelo (usa Meta si la clínica está verificada, fallback a Twilio)
+    const results = await Promise.allSettled(
+      targets.map((t) => {
+        const body = message
+          .replace("{nombre}", t.name?.split(" ")[0] ?? "")
+          .replace("{clinica}", clinic.name);
+        return sendWhatsAppMessage(t.phone, body, clinicMeta);
+      })
+    );
+    const sent = results.filter((r) => r.status === "fulfilled").length;
+
+    return reply.send({ sent, total: targets.length, daysInactive });
+  });
+
+  // POST /api/clinics/:id/survey/send — envía encuesta post-cita a un paciente
+  app.post<{
+    Params: { id: string };
+    Body: { phone: string; patientName?: string; clinicName?: string };
+  }>("/clinics/:id/survey/send", async (req, reply) => {
+    let payload;
+    try { payload = verifyToken(req.headers.authorization); } catch {
+      return reply.status(401).send({ error: "No autorizado" });
+    }
+    if (payload.role === "USER") return reply.status(403).send({ error: "Sin permisos" });
+    if (payload.role !== "SUPERADMIN" && payload.clinicId !== req.params.id) {
+      return reply.status(403).send({ error: "Acceso denegado" });
+    }
+
+    const { phone, patientName, clinicName } = req.body ?? {};
+    if (!phone) return reply.status(400).send({ error: "Teléfono requerido" });
+
+    const clinic = await prisma.clinic.findUnique({
+      where: { id: req.params.id },
+      select: { waVerified: true, waPhoneId: true, waToken: true },
+    });
+    const clinicMeta = (clinic?.waVerified && clinic.waPhoneId && clinic.waToken)
+      ? { phoneId: clinic.waPhoneId, token: clinic.waToken }
+      : undefined;
+
+    const name = patientName?.split(" ")[0] ?? "";
+    const body = `Hola ${name}! 😊 Gracias por visitar ${clinicName ?? "nuestra clínica"}. ¿Cómo fue tu experiencia? ¿Nos dejarías una reseña en Google? Tu opinión nos ayuda mucho 🙏`;
+    await sendWhatsAppMessage(phone, body, clinicMeta);
+
+    return reply.send({ ok: true });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════
+  // GESTIÓN DE EQUIPO — usuarios de la clínica
+  // Permisos: ADMIN/SUPERADMIN. ADMIN solo de su propia clínica.
+  // ════════════════════════════════════════════════════════════════════════
+
+  function guardTeamAccess(req: { headers: { authorization?: string }; params: { id: string } }):
+    | { ok: true;  payload: ReturnType<typeof verifyToken> }
+    | { ok: false; status: number; error: string }
+  {
+    let payload;
+    try { payload = verifyToken(req.headers.authorization); }
+    catch { return { ok: false, status: 401, error: "No autorizado" }; }
+    if (payload.role === "USER") return { ok: false, status: 403, error: "Sin permisos" };
+    if (payload.role !== "SUPERADMIN" && payload.clinicId !== req.params.id) {
+      return { ok: false, status: 403, error: "Acceso denegado" };
+    }
+    return { ok: true, payload };
+  }
+
+  // GET /api/clinics/:id/users — lista usuarios de la clínica
+  app.get<{ Params: { id: string } }>("/clinics/:id/users", async (req, reply) => {
+    const guard = guardTeamAccess(req);
+    if (!guard.ok) return reply.status(guard.status).send({ error: guard.error });
+
+    const users = await prisma.partnerUser.findMany({
+      where: { clinicId: req.params.id },
+      orderBy: [{ active: "desc" }, { name: "asc" }],
+      select: {
+        id: true, name: true, email: true, role: true, clinicalRole: true, active: true,
+        photoUrl: true, occupation: true, phone: true, bio: true,
+        createdAt: true,
+      },
+    });
+    return reply.send({ users });
+  });
+
+  // POST /api/clinics/:id/users — invitar nuevo usuario (genera password temporal)
+  app.post<{
+    Params: { id: string };
+    Body:   { name: string; email: string; role?: "USER" | "ADMIN"; occupation?: string };
+  }>("/clinics/:id/users", async (req, reply) => {
+    const guard = guardTeamAccess(req);
+    if (!guard.ok) return reply.status(guard.status).send({ error: guard.error });
+
+    const { name, email, role, occupation } = req.body ?? {};
+    if (!name?.trim() || !email?.trim()) {
+      return reply.status(400).send({ error: "Nombre y email son requeridos" });
+    }
+    const normalizedEmail = email.toLowerCase().trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return reply.status(400).send({ error: "Email inválido" });
+    }
+    const finalRole = role === "ADMIN" ? "ADMIN" : "USER";
+    // Solo SUPERADMIN puede crear otros SUPERADMIN (no permitimos crear esa jerarquía acá)
+    if (role && !["USER", "ADMIN"].includes(role)) {
+      return reply.status(400).send({ error: "Rol inválido" });
+    }
+
+    const existing = await prisma.partnerUser.findUnique({ where: { email: normalizedEmail } });
+    if (existing) return reply.status(409).send({ error: "Ya existe una cuenta con ese email" });
+
+    // Password temporal random (12 chars alfanuméricos)
+    const tempPassword = Array.from(crypto.getRandomValues(new Uint8Array(9)))
+      .map((b) => "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789"[b % 56])
+      .join("");
+    const passwordHash = await bcrypt.hash(tempPassword, 12);
+
+    const created = await prisma.partnerUser.create({
+      data: {
+        clinicId: req.params.id,
+        name:     name.trim(),
+        email:    normalizedEmail,
+        passwordHash,
+        mustChangePassword: true,
+        role:     finalRole,
+        occupation: occupation?.trim() || null,
+        active:   true,
+      },
+      select: {
+        id: true, name: true, email: true, role: true, active: true,
+        photoUrl: true, occupation: true, phone: true, bio: true, createdAt: true,
+      },
+    });
+
+    return reply.status(201).send({ user: created, tempPassword });
+  });
+
+  // PATCH /api/clinics/:id/users/:userId — cambiar role o active
+  app.patch<{
+    Params: { id: string; userId: string };
+    Body:   { role?: "USER" | "ADMIN"; clinicalRole?: "HYGIENIST" | "GENERAL_DENTIST" | "SPECIALIST" | "RECEPTION" | "CLINIC_ADMIN" | null; active?: boolean };
+  }>("/clinics/:id/users/:userId", async (req, reply) => {
+    const guard = guardTeamAccess(req);
+    if (!guard.ok) return reply.status(guard.status).send({ error: guard.error });
+
+    const { role, clinicalRole, active } = req.body ?? {};
+    if (role === undefined && clinicalRole === undefined && active === undefined) {
+      return reply.status(400).send({ error: "Nada que actualizar" });
+    }
+    if (role !== undefined && !["USER", "ADMIN"].includes(role)) {
+      return reply.status(400).send({ error: "Rol inválido (no se permite asignar SUPERADMIN)" });
+    }
+    if (clinicalRole !== undefined && clinicalRole !== null
+        && !["HYGIENIST", "GENERAL_DENTIST", "SPECIALIST", "RECEPTION", "CLINIC_ADMIN"].includes(clinicalRole)) {
+      return reply.status(400).send({ error: "ClinicalRole inválido" });
+    }
+
+    const target = await prisma.partnerUser.findUnique({ where: { id: req.params.userId } });
+    if (!target || target.clinicId !== req.params.id) {
+      return reply.status(404).send({ error: "Usuario no encontrado" });
+    }
+
+    // Nadie puede modificar a un SUPERADMIN excepto otro SUPERADMIN
+    if (target.role === "SUPERADMIN" && guard.payload.role !== "SUPERADMIN") {
+      return reply.status(403).send({ error: "No puedes modificar a un superadmin" });
+    }
+    // El propio usuario no puede degradarse ni desactivarse
+    if (target.id === guard.payload.userId) {
+      if (role !== undefined && role !== target.role) {
+        return reply.status(400).send({ error: "No puedes cambiarte tu propio rol" });
+      }
+      if (active === false) {
+        return reply.status(400).send({ error: "No puedes desactivarte a ti mismo" });
+      }
+    }
+
+    const updated = await prisma.partnerUser.update({
+      where: { id: req.params.userId },
+      data: {
+        ...(role         !== undefined && { role }),
+        ...(clinicalRole !== undefined && { clinicalRole }),
+        ...(active       !== undefined && { active }),
+      },
+      select: {
+        id: true, name: true, email: true, role: true, clinicalRole: true, active: true,
+        photoUrl: true, occupation: true, phone: true, bio: true, createdAt: true,
+      },
+    });
+    return reply.send({ user: updated });
   });
 }
