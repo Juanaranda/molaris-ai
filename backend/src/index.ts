@@ -58,7 +58,7 @@ app.register(rateLimit, {
 
 app.register(cors, {
   origin: isProd
-    ? [config.frontendUrl, /\.molari\.ai$/]
+    ? [config.frontendUrl, /\.molari\.ai$/, /\.vercel\.app$/]
     : true,
   methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
