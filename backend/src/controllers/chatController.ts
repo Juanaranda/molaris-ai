@@ -217,6 +217,11 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
     if (bookingAction && !isSandbox) {
       try {
         const { doctor, date, time, patientName, patientRut, service } = bookingAction;
+        // El modelo puede emitir un tool call incompleto — sin estos campos no
+        // hay cita válida y el .replace/.split de abajo lanzaría TypeError.
+        if (!doctor || !date || !time || !patientName) {
+          throw new Error(`bookingAction incompleto: ${JSON.stringify(bookingAction)}`);
+        }
 
         // Slot conflict check + booking creation are wrapped in a single
         // interactive transaction so that two concurrent requests for the same
@@ -235,7 +240,7 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
             data: {
               clinicId: clinic.id,
               patientName,
-              patientRut: patientRut.replace(/[.\-]/g, ""),
+              patientRut: patientRut?.replace(/[.\-]/g, "") ?? null,
               doctor, date: requestedDate, time,
               service: service ?? null,
               status: "confirmed",

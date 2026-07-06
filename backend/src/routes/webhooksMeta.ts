@@ -77,7 +77,11 @@ export async function webhookMetaRoutes(app: FastifyInstance) {
         .createHmac("sha256", config.meta.appSecret)
         .update(rawBody)
         .digest("hex");
-      if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
+      const sigBuf = Buffer.from(signature);
+      const expBuf = Buffer.from(expected);
+      // timingSafeEqual lanza si los largos difieren — una firma malformada
+      // debe responder 403, no 500.
+      if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
         console.warn("[Meta webhook] Firma HMAC inválida — request rechazada");
         return reply.status(403).send("Invalid signature");
       }
