@@ -2,6 +2,7 @@ import { FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { getAIResponse } from "../services/ai/claudeService";
 import { recordAgentSuccess, recordAgentFailure } from "../services/agent/agentHealth";
+import { checkDailyBudget, allowNewSession, allowMessage } from "../services/ai/budgetGuard";
 import prisma from "../config/prisma";
 import { config } from "../config/env";
 import { sendBookingNotification } from "../services/notifications/whatsappService";
@@ -129,6 +130,11 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
   const { message, clinicSlug, sessionId, slotBooked, isDemoMode, isSandbox } = parsed.data;
   const callStart = Date.now();
 
+  // Anti-abuso por IP (#59): el rate limit global no impide quemar tokens sostenido
+  if (!allowMessage(req.ip)) {
+    return reply.status(429).send({ error: "Demasiados mensajes desde esta conexión. Intenta más tarde." });
+  }
+
   try {
     const clinic = await prisma.clinic.findUnique({ where: { slug: clinicSlug } });
     if (!clinic) {
@@ -143,6 +149,10 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
     if (session && session.clinicId !== clinic.id) session = null;
 
     if (!session) {
+      // Crear sesiones era gratis e ilimitado → cap por IP/día (#59)
+      if (!allowNewSession(req.ip)) {
+        return reply.status(429).send({ error: "Demasiadas conversaciones nuevas desde esta conexión. Intenta más tarde." });
+      }
       session = await prisma.session.create({
         data: {
           clinicId: clinic.id,
@@ -161,6 +171,17 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
     // Kill switch del agente (#49): si está apagado, no llamamos a la IA.
     // Guardamos el mensaje (ya hecho arriba) y respondemos con fallback humano.
     if (clinic.agentEnabled === false) {
+      const fallback = "¡Gracias por tu mensaje! 🙏 En este momento te atiende una persona del equipo; te respondemos a la brevedad.";
+      await prisma.message.create({ data: { sessionId: session.id, role: "assistant", content: fallback } });
+      return reply.send({ reply: fallback, sessionId: session.id, context: existingCtx, isFarewell: false, showScheduler: false });
+    }
+
+    // Presupuesto diario de IA (#59): al exceder el cap se auto-pausa el agente.
+    // Mismo fallback humano que el kill switch — el paciente no ve el problema.
+    // Aplica también a demo/sandbox: sus UsageEvents cuestan dinero igual.
+    const clinicCfg = clinic.config as { aiDailyBudgetUsd?: number } | null;
+    const withinBudget = await checkDailyBudget(clinic.id, clinic.name, clinicCfg?.aiDailyBudgetUsd);
+    if (!withinBudget) {
       const fallback = "¡Gracias por tu mensaje! 🙏 En este momento te atiende una persona del equipo; te respondemos a la brevedad.";
       await prisma.message.create({ data: { sessionId: session.id, role: "assistant", content: fallback } });
       return reply.send({ reply: fallback, sessionId: session.id, context: existingCtx, isFarewell: false, showScheduler: false });
