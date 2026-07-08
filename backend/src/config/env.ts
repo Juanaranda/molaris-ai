@@ -45,6 +45,13 @@ export const config = {
   mercadoPago: {
     clientId:     process.env.MP_CLIENT_ID ?? "",
     clientSecret: process.env.MP_CLIENT_SECRET ?? "",
+    // Secret del webhook (panel MP → Webhooks) para validar x-signature (#61).
+    // Vacío = no se valida (dev / aún no configurado).
+    webhookSecret: process.env.MP_WEBHOOK_SECRET ?? "",
+  },
+  // Presupuesto diario de IA por clínica en USD (#59). 0 = sin límite.
+  ai: {
+    dailyBudgetUsd: Number(process.env.AI_DAILY_BUDGET_USD ?? 5),
   },
   // Email (Issue #55) — Resend. Sin key → modo dev (log en consola).
   email: {

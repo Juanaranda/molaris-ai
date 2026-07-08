@@ -55,7 +55,10 @@ export function canPerform(
     case "read_clinical":
     case "write_clinical":
     case "limpieza_only":
-      return role !== "USER" || true; // USER también podía antes — preservamos
+      // Compat intencional (#63): usuarios creados antes del #32 no tienen
+      // clinicalRole y conservan acceso clínico completo, incluido USER.
+      // Para restringir a alguien, asignarle un clinicalRole (ej: RECEPTION).
+      return true;
     case "manage_team":
       return role === "ADMIN";
   }

@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import crypto from "crypto";
 import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
 import { config } from "../config/env";
@@ -31,6 +32,10 @@ export async function paymentRoutes(app: FastifyInstance) {
     let payload;
     try { payload = verifyToken(req.headers.authorization); }
     catch { return reply.status(401).send({ error: "No autorizado" }); }
+    // Cobros solo para ADMIN/SUPERADMIN — consistente con GET /clinics/:id/payments (#63)
+    if (payload.role === "USER") {
+      return reply.status(403).send({ error: "Sin permisos para generar links de cobro" });
+    }
 
     const booking = await prisma.booking.findUnique({
       where: { id: req.params.bookingId },
@@ -69,7 +74,10 @@ export async function paymentRoutes(app: FastifyInstance) {
     const notificationUrl = `${config.frontendUrl.replace(/\/$/, "")}/api/webhooks/mercadopago`;
     // OJO: notification_url debe apuntar al BACKEND público. Usar env var dedicada si frontendUrl no aplica.
     // Para v1 dejamos esto y el admin lo puede sobreescribir vía MP_NOTIFICATION_URL si difiere.
-    const finalNotificationUrl = process.env.MP_NOTIFICATION_URL ?? notificationUrl;
+    const baseNotificationUrl = process.env.MP_NOTIFICATION_URL ?? notificationUrl;
+    // ?ref=Payment.id permite al webhook resolver el pago directo, sin loop de tokens (#61)
+    const finalNotificationUrl =
+      `${baseNotificationUrl}${baseNotificationUrl.includes("?") ? "&" : "?"}ref=${payment.id}`;
 
     let result;
     try {
@@ -127,74 +135,91 @@ export async function paymentRoutes(app: FastifyInstance) {
   });
 
   // ── Webhook Mercado Pago ────────────────────────────────────────────────────
-  // POST /api/webhooks/mercadopago
-  // Responder 200 inmediatamente y procesar async.
-  // Defensa: en lugar de validar firma, re-consultamos MP con el payment ID
-  // usando el accessToken de la clínica — si el ID no existe o no pertenece
-  // a la clínica, ignoramos.
-  app.post("/webhooks/mercadopago", async (req, reply) => {
-    reply.status(200).send({ ok: true });
+  // POST /api/webhooks/mercadopago?ref=<Payment.id>
+  // Defensas (#61):
+  //   1. Firma x-signature (HMAC-SHA256 con el secret del webhook de MP) si
+  //      MP_WEBHOOK_SECRET está configurado — 403 si no calza.
+  //   2. Re-consulta a MP con el accessToken de la clínica dueña del Payment:
+  //      el estado siempre sale de la API de MP, nunca del payload recibido.
+  // El Payment se resuelve por providerPaymentId o por ?ref= (sin probar
+  // tokens de todas las clínicas en loop).
+  function isValidMpSignature(
+    headers: Record<string, string | string[] | undefined>,
+    dataId: string | number,
+  ): boolean {
+    const secret = config.mercadoPago.webhookSecret;
+    if (!secret) return true; // sin secret configurado no podemos validar
+    const sigHeader = headers["x-signature"];
+    if (typeof sigHeader !== "string") return false;
+    const parts: Record<string, string> = {};
+    for (const p of sigHeader.split(",")) {
+      const [k, ...v] = p.trim().split("=");
+      parts[k] = v.join("=");
+    }
+    const ts = parts["ts"];
+    const v1 = parts["v1"];
+    if (!ts || !v1) return false;
+    const requestId = typeof headers["x-request-id"] === "string" ? headers["x-request-id"] : "";
+    // Manifest oficial de MP: "id:{data.id};request-id:{x-request-id};ts:{ts};"
+    const manifest = `id:${String(dataId).toLowerCase()};request-id:${requestId};ts:${ts};`;
+    const expected = crypto.createHmac("sha256", secret).update(manifest).digest("hex");
+    try {
+      return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(v1));
+    } catch {
+      return false; // largos distintos
+    }
+  }
 
+  app.post<{
+    Querystring: { ref?: string; "data.id"?: string; type?: string };
+  }>("/webhooks/mercadopago", async (req, reply) => {
     const body = req.body as { type?: string; action?: string; data?: { id?: string | number } } | undefined;
-    const topic = body?.type ?? body?.action;
-    const mpPaymentId = body?.data?.id;
+    const topic = body?.type ?? body?.action ?? req.query.type;
+    const mpPaymentId = body?.data?.id ?? req.query["data.id"];
+
     if (!topic || !mpPaymentId) {
       console.warn("[MP webhook] Payload sin type/data.id, ignorado:", JSON.stringify(body));
-      return;
+      return reply.status(200).send({ ok: true });
     }
+    if (!isValidMpSignature(req.headers, mpPaymentId)) {
+      console.warn(`[MP webhook] Firma x-signature inválida para mpId=${mpPaymentId}`);
+      return reply.status(403).send({ error: "Firma inválida" });
+    }
+    // Responder 200 ya validada la firma y procesar async
+    reply.status(200).send({ ok: true });
+
     if (!String(topic).includes("payment")) {
       // Ignorar notificaciones que no son de payment (merchant_order, etc.)
       return;
     }
 
     try {
-      // Buscar primero el Payment local por providerPaymentId; si no existe,
-      // necesitamos el accessToken de la clínica vía external_reference. Para
-      // eso consultamos MP con cualquier accessToken válido — pero como cada
-      // clínica tiene el suyo, lo resolvemos en dos pasos:
-      // 1. Buscar Payment por providerPaymentId si ya lo registramos
-      // 2. Si no, intentar resolver vía external_reference (que es Payment.id)
-
+      // 1. Payment ya registrado con este providerPaymentId
       let payment = await prisma.payment.findFirst({
         where: { providerPaymentId: String(mpPaymentId) },
         include: { clinic: { select: { mpAccessToken: true } } },
       });
 
-      // Si no encontramos por providerPaymentId, MP nos pasa solo el id.
-      // Necesitamos consultar MP — pero no sabemos qué token usar.
-      // Workaround: probar con todas las clínicas con MP configurado hasta
-      // que una devuelva el payment exitosamente.
-      if (!payment) {
-        const clinics = await prisma.clinic.findMany({
-          where: { mpVerified: true, mpAccessToken: { not: null } },
-          select: { id: true, mpAccessToken: true },
+      // 2. Primera notificación: resolver por ?ref= (= Payment.id, viaja en
+      //    la notification_url que registramos al crear la preferencia)
+      if (!payment && req.query.ref) {
+        payment = await prisma.payment.findUnique({
+          where: { id: req.query.ref },
+          include: { clinic: { select: { mpAccessToken: true } } },
         });
-        for (const c of clinics) {
-          if (!c.mpAccessToken) continue;
-          try {
-            const mpData = await getPayment(c.mpAccessToken, mpPaymentId);
-            if (mpData.external_reference) {
-              const local = await prisma.payment.findUnique({
-                where: { id: mpData.external_reference },
-                include: { clinic: { select: { mpAccessToken: true } } },
-              });
-              if (local && local.clinicId === c.id) {
-                payment = local;
-                break;
-              }
-            }
-          } catch {
-            // probar siguiente clínica
-          }
-        }
       }
 
       if (!payment || !payment.clinic.mpAccessToken) {
-        console.warn(`[MP webhook] No se pudo resolver Payment para mpId=${mpPaymentId}`);
+        console.warn(`[MP webhook] No se pudo resolver Payment para mpId=${mpPaymentId} ref=${req.query.ref ?? "-"}`);
         return;
       }
 
       const mp = await getPayment(payment.clinic.mpAccessToken, mpPaymentId);
+      // El pago de MP debe referenciar a ESTE Payment local (anti-spoofing de ?ref=)
+      if (mp.external_reference && mp.external_reference !== payment.id) {
+        console.warn(`[MP webhook] external_reference no coincide: mp=${mp.external_reference} local=${payment.id}`);
+        return;
+      }
       const internalStatus = mapMpStatusToInternal(mp.status);
       const paid = internalStatus === "approved";
 
