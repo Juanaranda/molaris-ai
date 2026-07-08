@@ -1,4 +1,5 @@
 import { FastifyInstance } from "fastify";
+import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../config/prisma";
@@ -9,6 +10,13 @@ interface JwtPayload {
   userId: string;
   role: string;
   clinicId: string | null;
+}
+
+// Tokens de reset de un solo uso (#60): el token lleva un fragmento HMAC del
+// passwordHash vigente al emitirlo. Al cambiar la contraseña cambia el hash,
+// por lo que todo token emitido antes deja de validar — sin tocar el esquema.
+function passwordFingerprint(passwordHash: string): string {
+  return crypto.createHmac("sha256", config.jwtSecret).update(passwordHash).digest("hex").slice(0, 16);
 }
 
 export function verifyToken(authHeader: string | undefined): JwtPayload {
@@ -76,7 +84,11 @@ export async function authRoutes(app: FastifyInstance) {
     if (email) {
       const user = await prisma.partnerUser.findUnique({ where: { email } });
       if (user && user.active) {
-        const token = jwt.sign({ userId: user.id, type: "reset" }, config.jwtSecret, { expiresIn: "1h" });
+        const token = jwt.sign(
+          { userId: user.id, type: "reset", pwf: passwordFingerprint(user.passwordHash) },
+          config.jwtSecret,
+          { expiresIn: "1h" }
+        );
         const link = `${config.frontendUrl}/reset-password?token=${encodeURIComponent(token)}`;
         await sendEmail({
           to: user.email,
@@ -99,9 +111,9 @@ export async function authRoutes(app: FastifyInstance) {
     if (!token || !newPassword) return reply.status(400).send({ error: "Token y nueva contraseña requeridos" });
     if (newPassword.length < 8) return reply.status(400).send({ error: "La contraseña debe tener al menos 8 caracteres" });
 
-    let payload: { userId: string; type: string };
+    let payload: { userId: string; type: string; pwf?: string };
     try {
-      payload = jwt.verify(token, config.jwtSecret) as { userId: string; type: string };
+      payload = jwt.verify(token, config.jwtSecret) as { userId: string; type: string; pwf?: string };
       if (payload.type !== "reset") throw new Error("tipo inválido");
     } catch {
       return reply.status(400).send({ error: "El enlace es inválido o expiró. Pedí uno nuevo." });
@@ -109,6 +121,12 @@ export async function authRoutes(app: FastifyInstance) {
 
     const user = await prisma.partnerUser.findUnique({ where: { id: payload.userId } });
     if (!user || !user.active) return reply.status(400).send({ error: "Usuario no encontrado" });
+
+    // Un solo uso (#60): si la contraseña cambió después de emitir el token
+    // (por este mismo flujo o por change-password), el fingerprint ya no calza.
+    if (payload.pwf !== passwordFingerprint(user.passwordHash)) {
+      return reply.status(400).send({ error: "El enlace ya fue usado o expiró. Pedí uno nuevo." });
+    }
 
     const hash = await bcrypt.hash(newPassword, 12);
     await prisma.partnerUser.update({
