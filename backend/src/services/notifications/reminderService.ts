@@ -118,11 +118,16 @@ export async function runReminderCheck(): Promise<void> {
   });
 
   for (const b of dayBookings) {
+    // Claim atómico (#53): marcar ANTES de enviar. Si otra instancia (o un
+    // check solapado) ya lo tomó, count=0 y saltamos — no hay duplicados.
+    const claimed = await prisma.booking.updateMany({
+      where: { id: b.id, reminderDaySent: false },
+      data:  { reminderDaySent: true },
+    });
+    if (claimed.count === 0) continue;
+
     const remCfg = getReminderConfig(b.clinic.config);
-    if (!remCfg.enabled || !remCfg.dayBefore) {
-      await prisma.booking.update({ where: { id: b.id }, data: { reminderDaySent: true } });
-      continue;
-    }
+    if (!remCfg.enabled || !remCfg.dayBefore) continue; // queda marcado, no se envía
 
     const patientName = b.patientUser
       ? `${b.patientUser.identity.firstName} ${b.patientUser.identity.lastName}`
@@ -144,9 +149,11 @@ export async function runReminderCheck(): Promise<void> {
         time: b.time,
         type: "day",
       });
-      await prisma.booking.update({ where: { id: b.id }, data: { reminderDaySent: true } });
     } catch (err: unknown) {
       console.error(`[Reminder] Error D-1 booking ${b.id}:`, err instanceof Error ? err.message : err);
+      // Falló el envío → liberar el claim para reintentar en el próximo check
+      await prisma.booking.update({ where: { id: b.id }, data: { reminderDaySent: false } })
+        .catch(() => {});
     }
   }
 
@@ -185,11 +192,15 @@ export async function runReminderCheck(): Promise<void> {
   });
 
   for (const b of hourBookings) {
+    // Claim atómico (#53) — mismo patrón que D-1
+    const claimed = await prisma.booking.updateMany({
+      where: { id: b.id, reminderHourSent: false },
+      data:  { reminderHourSent: true },
+    });
+    if (claimed.count === 0) continue;
+
     const remCfg = getReminderConfig(b.clinic.config);
-    if (!remCfg.enabled || !remCfg.twoHours) {
-      await prisma.booking.update({ where: { id: b.id }, data: { reminderHourSent: true } });
-      continue;
-    }
+    if (!remCfg.enabled || !remCfg.twoHours) continue; // queda marcado, no se envía
 
     const patientName = b.patientUser
       ? `${b.patientUser.identity.firstName} ${b.patientUser.identity.lastName}`
@@ -211,9 +222,10 @@ export async function runReminderCheck(): Promise<void> {
         time: b.time,
         type: "hour",
       });
-      await prisma.booking.update({ where: { id: b.id }, data: { reminderHourSent: true } });
     } catch (err: unknown) {
       console.error(`[Reminder] Error 2h booking ${b.id}:`, err instanceof Error ? err.message : err);
+      await prisma.booking.update({ where: { id: b.id }, data: { reminderHourSent: false } })
+        .catch(() => {});
     }
   }
 
