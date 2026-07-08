@@ -4,7 +4,7 @@
   "description": "AI Growth System for dental clinics",
   "main": "dist/index.js",
   "engines": {
-    "node": "20.x"
+    "node": ">=20.19 <23"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",

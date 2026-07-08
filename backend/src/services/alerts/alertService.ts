@@ -6,6 +6,7 @@ export type AlertKind =
   | "ai_all_providers_down"
   | "ai_provider_degraded"
   | "ai_fallback_used"
+  | "ai_budget_exceeded"
   | "agent_disabled"
   | "agent_enabled";
 

@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import prisma from "../config/prisma";
+import { config } from "../config/env";
 import { verifyToken } from "./auth";
 import { runReminderCheck } from "../services/notifications/reminderService";
 
@@ -300,6 +301,51 @@ export async function adminRoutes(app: FastifyInstance) {
       });
     }
   );
+
+  // GET /api/admin/budget — gasto de IA del día por clínica vs cap (#59)
+  app.get("/admin/budget", async (req, reply) => {
+    if (!assertSuperAdmin(req, reply)) return;
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const [clinics, spendToday] = await Promise.all([
+      prisma.clinic.findMany({
+        select: {
+          id: true, slug: true, name: true, active: true, config: true,
+          agentEnabled: true, agentDisabledReason: true,
+        },
+      }),
+      prisma.usageEvent.groupBy({
+        by: ["clinicId"],
+        where: { createdAt: { gte: startOfDay } },
+        _sum: { costUsd: true, tokensIn: true, tokensOut: true },
+        _count: true,
+      }),
+    ]);
+
+    const spendMap = new Map(spendToday.map((s) => [s.clinicId, s]));
+    const defaultCap = config.ai.dailyBudgetUsd;
+
+    return reply.send({
+      date: startOfDay.toISOString().slice(0, 10),
+      defaultCapUsd: defaultCap,
+      clinics: clinics.map((c) => {
+        const s = spendMap.get(c.id);
+        const spentUsd = Number((s?._sum.costUsd ?? 0).toFixed(4));
+        const capUsd = (c.config as { aiDailyBudgetUsd?: number } | null)?.aiDailyBudgetUsd ?? defaultCap;
+        return {
+          clinicId: c.id, slug: c.slug, name: c.name, active: c.active,
+          agentEnabled: c.agentEnabled, agentDisabledReason: c.agentDisabledReason,
+          spentUsd, capUsd,
+          pctUsed: capUsd > 0 ? Number(((spentUsd / capUsd) * 100).toFixed(1)) : null,
+          calls: s?._count ?? 0,
+          tokensIn: s?._sum.tokensIn ?? 0,
+          tokensOut: s?._sum.tokensOut ?? 0,
+        };
+      }),
+    });
+  });
 
   // POST /api/admin/reminders/run — trigger manual para pruebas
   app.post("/admin/reminders/run", async (req, reply) => {
