@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -114,7 +114,7 @@ export default function AdminPage() {
     const token = localStorage.getItem("partner_token");
     if (!token) { router.push("/login"); return; }
 
-    fetch(`${API}/admin/overview`, { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${API}/api/admin/overview`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => {
         if (r.status === 403) { setError("Acceso denegado. Solo SUPERADMIN puede ver esta página."); setLoading(false); return null; }
         if (!r.ok) throw new Error("Error cargando datos");
