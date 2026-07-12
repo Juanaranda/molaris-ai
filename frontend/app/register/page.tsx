@@ -476,33 +476,46 @@ function Field({
   label: string; value: string; onChange: (v: string) => void;
   placeholder?: string; type?: string; autoFocus?: boolean;
 }) {
+  const [show, setShow] = useState(false);
+  const isPassword = type === "password";
+  const inputType = isPassword ? (show ? "text" : "password") : type;
   return (
     <div>
       <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5"
         style={{ color: "var(--ink-muted, #607281)" }}>
         {label}
       </label>
-      <input
-        type={type}
-        value={value}
-        autoFocus={autoFocus}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full px-4 py-3 rounded-xl border text-sm transition focus:outline-none focus:ring-2"
-        style={{
-          borderColor: "#E5E0D9",
-          backgroundColor: "var(--surface, #F7F5F1)",
-          color: "var(--ink, #0C1B26)",
-        } as React.CSSProperties}
-        onFocus={(e) => {
-          e.target.style.borderColor = "var(--teal-mid, #1A5C7A)";
-          e.target.style.backgroundColor = "white";
-        }}
-        onBlur={(e) => {
-          e.target.style.borderColor = "#E5E0D9";
-          e.target.style.backgroundColor = "var(--surface, #F7F5F1)";
-        }}
-      />
+      <div className="relative">
+        <input
+          type={inputType}
+          value={value}
+          autoFocus={autoFocus}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={`w-full px-4 py-3 rounded-xl border text-sm transition focus:outline-none focus:ring-2 ${isPassword ? "pr-11" : ""}`}
+          style={{
+            borderColor: "#E5E0D9",
+            backgroundColor: "var(--surface, #F7F5F1)",
+            color: "var(--ink, #0C1B26)",
+          } as React.CSSProperties}
+          onFocus={(e) => {
+            e.target.style.borderColor = "var(--teal-mid, #1A5C7A)";
+            e.target.style.backgroundColor = "white";
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = "#E5E0D9";
+            e.target.style.backgroundColor = "var(--surface, #F7F5F1)";
+          }}
+        />
+        {isPassword && (
+          <button type="button" onClick={() => setShow((s) => !s)}
+            aria-label={show ? "Ocultar contraseña" : "Mostrar contraseña"}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold hover:opacity-70 transition"
+            style={{ color: "#607281" }}>
+            {show ? "Ocultar" : "Mostrar"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
