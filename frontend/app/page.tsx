@@ -328,14 +328,16 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 mt-10 animate-fade-up animate-fade-up-delay-3">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ backgroundColor: "#E8F3F7", border: "1px solid rgba(26,92,122,0.15)" }}>
-                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#1A5C7A" }} />
-                  <p className="text-xs font-semibold" style={{ color: "#1A5C7A" }}>
-                    En producción · Galana Clínica Dental, Santiago
-                  </p>
+              {process.env.NEXT_PUBLIC_LIVE_CLINIC_LABEL && (
+                <div className="flex items-center gap-3 mt-10 animate-fade-up animate-fade-up-delay-3">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ backgroundColor: "#E8F3F7", border: "1px solid rgba(26,92,122,0.15)" }}>
+                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#1A5C7A" }} />
+                    <p className="text-xs font-semibold" style={{ color: "#1A5C7A" }}>
+                      En producción · {process.env.NEXT_PUBLIC_LIVE_CLINIC_LABEL}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="animate-fade-up animate-fade-up-delay-2 animate-float-slow">
