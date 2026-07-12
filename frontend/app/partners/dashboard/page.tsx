@@ -15,6 +15,7 @@ import { DashboardTab } from "@/components/DashboardTab";
 import { ClinicProfileTab } from "@/components/ClinicProfileTab";
 import { MyProfileTab } from "@/components/MyProfileTab";
 import { TeamTab } from "@/components/TeamTab";
+import { ConversationsTab } from "@/components/ConversationsTab";
 import { ChangePasswordGate } from "@/components/ChangePasswordGate";
 import { RecallSection } from "@/components/RecallSection";
 import { AuditLogSection } from "@/components/AuditLogSection";
@@ -147,7 +148,7 @@ function InfoField({ label, value, editable, onChange, placeholder }: {
   );
 }
 
-type Tab = "inicio" | "agenda" | "analytics" | "patients" | "bookings" | "perfil" | "equipo" | "inventario" | "clinica" | "config";
+type Tab = "inicio" | "conversaciones" | "agenda" | "analytics" | "patients" | "bookings" | "perfil" | "equipo" | "inventario" | "clinica" | "config";
 
 /* ─── Analytics Panel ──────────────────────────────────────────────────────── */
 const MONTH_LABELS: Record<string, string> = {
@@ -1189,7 +1190,7 @@ export default function PartnersDashboard() {
             <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
               <div className="flex border-b border-gray-200 gap-1 min-w-max sm:min-w-0">
                 {(([
-                  ["inicio", "Inicio"], ["agenda", "Agenda"], ["analytics", "Analítica"],
+                  ["inicio", "Inicio"], ["conversaciones", "Conversaciones"], ["agenda", "Agenda"], ["analytics", "Analítica"],
                   ["patients", "Pacientes"], ["bookings", "Citas"], ["perfil", "Mi Perfil"],
                   ...(user && user.role !== "USER" ? [["equipo", "Equipo"]] as [Tab, string][] : []),
                   ["inventario", "Inventario"],
@@ -1215,6 +1216,9 @@ export default function PartnersDashboard() {
                 onNewPatient={() => setActiveTab("patients")}
               />
             )}
+
+            {/* ══ TAB CONVERSACIONES ═════════════════════════════════════════ */}
+            {activeTab === "conversaciones" && <ConversationsTab />}
 
             {/* ══ TAB ANALÍTICA ══════════════════════════════════════════════ */}
             {activeTab === "analytics" && (

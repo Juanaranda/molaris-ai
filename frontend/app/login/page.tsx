@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "forgot">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
@@ -89,17 +90,25 @@ export default function LoginPage() {
                       ¿La olvidaste?
                     </button>
                   </div>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
-                    className="w-full px-4 py-3 rounded-xl text-sm outline-none transition"
-                    style={{ border: "1px solid #E5E0D9", backgroundColor: "#F7F5F1", color: "#0C1B26" }}
-                    onFocus={(e) => (e.currentTarget.style.borderColor = "#1A5C7A")}
-                    onBlur={(e) => (e.currentTarget.style.borderColor = "#E5E0D9")}
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      className="w-full px-4 py-3 pr-16 rounded-xl text-sm outline-none transition"
+                      style={{ border: "1px solid #E5E0D9", backgroundColor: "#F7F5F1", color: "#0C1B26" }}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = "#1A5C7A")}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = "#E5E0D9")}
+                    />
+                    <button type="button" onClick={() => setShowPassword((s) => !s)}
+                      aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold hover:opacity-70 transition"
+                      style={{ color: "#607281" }}>
+                      {showPassword ? "Ocultar" : "Mostrar"}
+                    </button>
+                  </div>
                 </div>
               )}
 
