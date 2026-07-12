@@ -667,6 +667,83 @@ export async function clinicRoutes(app: FastifyInstance) {
     return reply.status(201).send({ clinicId: newClinic.id, slug: newClinic.slug, message: "Clínica registrada correctamente" });
   });
 
+  // DELETE /api/clinics/:id — baja de cuenta / derecho de supresión (Ley 21.719)
+  // SUPERADMIN puede eliminar cualquier clínica. El ADMIN dueño puede eliminar la
+  // suya confirmando su contraseña (acción irreversible). Borra en cascada TODOS
+  // los datos de la clínica dentro de una transacción: si algo falla, no borra nada.
+  app.delete<{ Params: { id: string }; Body: { password?: string } }>(
+    "/clinics/:id",
+    async (req, reply) => {
+      let payload;
+      try { payload = verifyToken(req.headers.authorization); }
+      catch { return reply.status(401).send({ error: "No autorizado" }); }
+
+      if (payload.role === "USER") {
+        return reply.status(403).send({ error: "Sin permisos para eliminar la clínica" });
+      }
+      const clinicId = req.params.id;
+
+      // ADMIN: solo su propia clínica y con confirmación de contraseña
+      if (payload.role === "ADMIN") {
+        if (payload.clinicId !== clinicId) {
+          return reply.status(403).send({ error: "Acceso denegado" });
+        }
+        const password = req.body?.password;
+        if (!password) {
+          return reply.status(400).send({ error: "Confirma tu contraseña para eliminar la clínica" });
+        }
+        const me = await prisma.partnerUser.findUnique({ where: { id: payload.userId } });
+        if (!me || !(await bcrypt.compare(password, me.passwordHash))) {
+          return reply.status(403).send({ error: "Contraseña incorrecta" });
+        }
+      }
+
+      const clinic = await prisma.clinic.findUnique({
+        where: { id: clinicId },
+        select: { id: true, name: true, slug: true },
+      });
+      if (!clinic) return reply.status(404).send({ error: "Clínica no encontrada" });
+
+      // Orden de borrado por dependencias de FK (hijos → padres). Las tablas con
+      // onDelete: Cascade (DentalEventSurface, DentalQuoteItem) caen con su padre.
+      // Identity NO se borra: es compartida entre clínicas (RUT del paciente).
+      await prisma.$transaction([
+        prisma.message.deleteMany({ where: { session: { clinicId } } }),
+        prisma.patientContext.deleteMany({ where: { session: { clinicId } } }),
+        prisma.patientConsent.deleteMany({ where: { patientUser: { clinicId } } }),
+        prisma.recallEvent.deleteMany({ where: { clinicId } }),
+        prisma.inventoryMovement.deleteMany({ where: { clinicId } }),
+        prisma.consentSignature.deleteMany({ where: { clinicId } }),
+        prisma.payment.deleteMany({ where: { clinicId } }),
+        prisma.boleta.deleteMany({ where: { clinicId } }),
+        prisma.accountEntry.deleteMany({ where: { clinicId } }),
+        prisma.usageEvent.deleteMany({ where: { clinicId } }),
+        prisma.clinicalNote.deleteMany({ where: { clinicId } }),
+        prisma.dentalEvent.deleteMany({ where: { clinicId } }),
+        prisma.toothImage.deleteMany({ where: { clinicId } }),
+        prisma.anamnesisResponse.deleteMany({ where: { clinicId } }),
+        prisma.labOrder.deleteMany({ where: { clinicId } }),
+        prisma.booking.deleteMany({ where: { clinicId } }),
+        prisma.treatmentPlan.deleteMany({ where: { clinicId } }),
+        prisma.dentalQuote.deleteMany({ where: { clinicId } }),
+        prisma.inventoryItem.deleteMany({ where: { clinicId } }),
+        prisma.recallRule.deleteMany({ where: { clinicId } }),
+        prisma.consentTemplate.deleteMany({ where: { clinicId } }),
+        prisma.anamnesisTemplate.deleteMany({ where: { clinicId } }),
+        prisma.waitlistEntry.deleteMany({ where: { clinicId } }),
+        prisma.auditLog.deleteMany({ where: { clinicId } }),
+        prisma.session.deleteMany({ where: { clinicId } }),
+        prisma.patient.deleteMany({ where: { clinicId } }),
+        prisma.patientUser.deleteMany({ where: { clinicId } }),
+        prisma.partnerUser.deleteMany({ where: { clinicId } }),
+        prisma.clinic.delete({ where: { id: clinicId } }),
+      ]);
+
+      console.warn(`[clinic-delete] Clínica ${clinic.slug} (${clinicId}) eliminada por ${payload.role} ${payload.userId}`);
+      return reply.send({ ok: true, deleted: { id: clinic.id, slug: clinic.slug, name: clinic.name } });
+    }
+  );
+
   // POST /api/clinics/:id/recall/run — dispara campaña de recall manual
   app.post<{
     Params: { id: string };
