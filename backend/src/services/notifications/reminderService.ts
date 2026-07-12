@@ -1,5 +1,6 @@
 import prisma from "../../config/prisma";
 import { config } from "../../config/env";
+import { sendMetaMessage } from "../whatsapp/metaService";
 
 interface ClinicReminderConfig {
   enabled: boolean;
@@ -21,6 +22,7 @@ interface ReminderPayload {
   phone: string | null | undefined;
   clinicName: string;
   clinicWhatsapp: string;
+  clinicMeta?: { phoneId: string; token: string };
   patientName: string;
   doctor: string;
   dateStr: string;   // "martes 6 de mayo"
@@ -53,27 +55,12 @@ function buildReminderMessage({ clinicName, patientName, doctor, dateStr, time, 
   return lines.join("\n");
 }
 
-function formatPhoneForWhatsapp(raw: string): string {
-  return "whatsapp:+" + raw.replace(/\D/g, "");
+function normalizePhone(raw: string): string {
+  return raw.replace(/\D/g, "");
 }
 
 function formatDateSpanish(d: Date): string {
   return d.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
-}
-
-async function sendViaWhatsapp(to: string, body: string): Promise<void> {
-  const { accountSid, authToken, from } = config.twilio;
-
-  if (!accountSid || !authToken || !from) {
-    console.info("[Reminder] Twilio no configurado — simulando envío a", to);
-    console.info("[Reminder] Mensaje:", body);
-    return;
-  }
-
-  const twilio = (await import("twilio")).default;
-  const client = twilio(accountSid, authToken);
-  await client.messages.create({ from, to, body });
-  console.info(`[Reminder] Enviado a ${to}`);
 }
 
 async function sendReminder(payload: ReminderPayload): Promise<void> {
@@ -84,8 +71,26 @@ async function sendReminder(payload: ReminderPayload): Promise<void> {
     return;
   }
 
-  const toNumber = formatPhoneForWhatsapp(payload.phone);
-  await sendViaWhatsapp(toNumber, msg);
+  const digits = normalizePhone(payload.phone);
+
+  // Intentar Meta Cloud API primero (si la clínica lo tiene configurado)
+  if (payload.clinicMeta) {
+    await sendMetaMessage(payload.clinicMeta.phoneId, payload.clinicMeta.token, digits, msg);
+    console.info(`[Reminder] Enviado vía Meta a ${digits}`);
+    return;
+  }
+
+  // Fallback a Twilio si está configurado
+  const { accountSid, authToken, from } = config.twilio;
+  if (!accountSid || !authToken || !from) {
+    console.info(`[Reminder] Sin canal configurado — simulando envío a ${digits}`);
+    console.info("[Reminder] Mensaje:", msg);
+    return;
+  }
+  const twilio = (await import("twilio")).default;
+  const client = twilio(accountSid, authToken);
+  await client.messages.create({ from, to: `whatsapp:+${digits}`, body: msg });
+  console.info(`[Reminder] Enviado vía Twilio a ${digits}`);
 }
 
 export async function runReminderCheck(): Promise<void> {
@@ -113,33 +118,43 @@ export async function runReminderCheck(): Promise<void> {
   });
 
   for (const b of dayBookings) {
+    // Claim atómico (#53): marcar ANTES de enviar. Si otra instancia (o un
+    // check solapado) ya lo tomó, count=0 y saltamos — no hay duplicados.
+    const claimed = await prisma.booking.updateMany({
+      where: { id: b.id, reminderDaySent: false },
+      data:  { reminderDaySent: true },
+    });
+    if (claimed.count === 0) continue;
+
     const remCfg = getReminderConfig(b.clinic.config);
-    if (!remCfg.enabled || !remCfg.dayBefore) {
-      await prisma.booking.update({ where: { id: b.id }, data: { reminderDaySent: true } });
-      continue;
-    }
+    if (!remCfg.enabled || !remCfg.dayBefore) continue; // queda marcado, no se envía
 
     const patientName = b.patientUser
       ? `${b.patientUser.identity.firstName} ${b.patientUser.identity.lastName}`
       : (b.patientName ?? "Paciente");
-    const phone = b.patientUser?.identity.phone ?? null;
+    const phone = b.patientUser?.identity.phone ?? b.patientPhone ?? null;
+    const clinicMeta = (b.clinic.waVerified && b.clinic.waPhoneId && b.clinic.waToken)
+      ? { phoneId: b.clinic.waPhoneId, token: b.clinic.waToken }
+      : undefined;
 
     try {
       await sendReminder({
         phone,
         clinicName: b.clinic.name,
         clinicWhatsapp: b.clinic.whatsapp ?? "",
+        clinicMeta,
         patientName,
         doctor: b.doctor,
         dateStr: formatDateSpanish(new Date(b.date)),
         time: b.time,
         type: "day",
       });
-    } catch (err: any) {
-      console.error(`[Reminder] Error D-1 booking ${b.id}:`, err?.message ?? err);
+    } catch (err: unknown) {
+      console.error(`[Reminder] Error D-1 booking ${b.id}:`, err instanceof Error ? err.message : err);
+      // Falló el envío → liberar el claim para reintentar en el próximo check
+      await prisma.booking.update({ where: { id: b.id }, data: { reminderDaySent: false } })
+        .catch(() => {});
     }
-
-    await prisma.booking.update({ where: { id: b.id }, data: { reminderDaySent: true } });
   }
 
   if (dayBookings.length > 0) {
@@ -177,33 +192,41 @@ export async function runReminderCheck(): Promise<void> {
   });
 
   for (const b of hourBookings) {
+    // Claim atómico (#53) — mismo patrón que D-1
+    const claimed = await prisma.booking.updateMany({
+      where: { id: b.id, reminderHourSent: false },
+      data:  { reminderHourSent: true },
+    });
+    if (claimed.count === 0) continue;
+
     const remCfg = getReminderConfig(b.clinic.config);
-    if (!remCfg.enabled || !remCfg.twoHours) {
-      await prisma.booking.update({ where: { id: b.id }, data: { reminderHourSent: true } });
-      continue;
-    }
+    if (!remCfg.enabled || !remCfg.twoHours) continue; // queda marcado, no se envía
 
     const patientName = b.patientUser
       ? `${b.patientUser.identity.firstName} ${b.patientUser.identity.lastName}`
       : (b.patientName ?? "Paciente");
-    const phone = b.patientUser?.identity.phone ?? null;
+    const phone = b.patientUser?.identity.phone ?? b.patientPhone ?? null;
+    const clinicMeta = (b.clinic.waVerified && b.clinic.waPhoneId && b.clinic.waToken)
+      ? { phoneId: b.clinic.waPhoneId, token: b.clinic.waToken }
+      : undefined;
 
     try {
       await sendReminder({
         phone,
         clinicName: b.clinic.name,
         clinicWhatsapp: b.clinic.whatsapp ?? "",
+        clinicMeta,
         patientName,
         doctor: b.doctor,
         dateStr: formatDateSpanish(new Date(b.date)),
         time: b.time,
         type: "hour",
       });
-    } catch (err: any) {
-      console.error(`[Reminder] Error 2h booking ${b.id}:`, err?.message ?? err);
+    } catch (err: unknown) {
+      console.error(`[Reminder] Error 2h booking ${b.id}:`, err instanceof Error ? err.message : err);
+      await prisma.booking.update({ where: { id: b.id }, data: { reminderHourSent: false } })
+        .catch(() => {});
     }
-
-    await prisma.booking.update({ where: { id: b.id }, data: { reminderHourSent: true } });
   }
 
   if (hourBookings.length > 0) {

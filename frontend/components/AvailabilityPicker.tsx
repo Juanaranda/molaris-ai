@@ -19,9 +19,11 @@ interface DayAvailability {
 
 interface Props {
   service?: string;
-  doctorFilter?: string;      // si el AI recomendó un doctor específico
-  preferredDate?: string;     // YYYY-MM-DD — salta a este día automáticamente
+  doctorFilter?: string;
+  preferredDate?: string;
+  color?: string;
   onSelect: (slot: { date: string; dayName: string; time: string; doctor: string; box: string | null }) => void;
+  onDismiss?: () => void;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -46,7 +48,7 @@ function weekOffsetForDate(targetDate: string): number {
   return Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
 }
 
-export function AvailabilityPicker({ service, doctorFilter, preferredDate, onSelect }: Props) {
+export function AvailabilityPicker({ service, doctorFilter, preferredDate, color = "#0891B2", onSelect, onDismiss }: Props) {
   const initialOffset = preferredDate ? weekOffsetForDate(preferredDate) : 0;
   const [weekOffset, setWeekOffset] = useState(Math.max(0, initialOffset));
   const [days, setDays] = useState<DayAvailability[]>([]);
@@ -57,14 +59,18 @@ export function AvailabilityPicker({ service, doctorFilter, preferredDate, onSel
   const weekStart = getMondayOfWeek(weekOffset);
 
   useEffect(() => {
+    const controller = new AbortController();
     setLoading(true);
     setSelectedSlot(null);
     const params = new URLSearchParams({ weekStart });
     if (service) params.set("service", service);
     if (doctorFilter) params.set("doctor", doctorFilter);
 
-    fetch(`${API_URL}/api/availability?${params}`)
-      .then((r) => r.json())
+    fetch(`${API_URL}/api/availability?${params}`, { signal: controller.signal })
+      .then((r) => {
+        if (!r.ok) throw new Error("non-200");
+        return r.json();
+      })
       .then((data: { days: DayAvailability[] }) => {
         const fetchedDays = data.days ?? [];
         setDays(fetchedDays);
@@ -77,8 +83,11 @@ export function AvailabilityPicker({ service, doctorFilter, preferredDate, onSel
         const firstOpen = fetchedDays.findIndex((d) => d.isOpen);
         setSelectedDay(firstOpen >= 0 ? firstOpen : 0);
       })
-      .finally(() => setLoading(false));
-  }, [weekStart, service, doctorFilter]);
+      .catch((err) => { if (err.name !== "AbortError") setDays([]); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+
+    return () => controller.abort();
+  }, [weekStart, service, doctorFilter, preferredDate]);
 
   const currentDay = days[selectedDay];
 
@@ -96,18 +105,18 @@ export function AvailabilityPicker({ service, doctorFilter, preferredDate, onSel
   }
 
   return (
-    <div className="rounded-2xl border border-sky-100 bg-white shadow-sm overflow-hidden w-full max-w-sm">
+    <div style={{ borderColor: `${color}22` }} className="rounded-2xl border bg-white shadow-sm overflow-hidden w-full max-w-sm">
       {/* Header semana */}
-      <div className="flex items-center justify-between px-4 py-3 bg-sky-50 border-b border-sky-100">
+      <div style={{ backgroundColor: `${color}11`, borderColor: `${color}22` }} className="flex items-center justify-between px-4 py-2.5 border-b">
         <button
           onClick={() => setWeekOffset((w) => w - 1)}
           disabled={weekOffset === 0}
-          className="text-sky-500 disabled:opacity-30 hover:text-sky-700 transition p-1 rounded"
+          style={{ color }} className="disabled:opacity-30 transition p-1 rounded font-bold text-lg leading-none"
         >‹</button>
-        <span className="text-xs font-semibold text-sky-700 uppercase tracking-wide">
+        <span style={{ color }} className="text-xs font-semibold uppercase tracking-wide">
           {weekOffset === 0 ? "Esta semana" : weekOffset === 1 ? "Próxima semana" : `Sem. del ${weekStart}`}
         </span>
-        <button onClick={() => setWeekOffset((w) => w + 1)} className="text-sky-500 hover:text-sky-700 transition p-1 rounded">›</button>
+        <button onClick={() => setWeekOffset((w) => w + 1)} style={{ color }} className="transition p-1 rounded font-bold text-lg leading-none">›</button>
       </div>
 
       {/* Tabs de días */}
@@ -117,12 +126,13 @@ export function AvailabilityPicker({ service, doctorFilter, preferredDate, onSel
             key={day.date}
             disabled={!day.isOpen}
             onClick={() => { setSelectedDay(idx); setSelectedSlot(null); }}
+            style={idx === selectedDay && day.isOpen ? { color, borderColor: color, backgroundColor: `${color}0d` } : {}}
             className={`flex-1 min-w-[44px] py-2 px-1 text-center text-xs font-medium transition border-b-2 ${
               !day.isOpen
                 ? "text-gray-300 cursor-not-allowed border-transparent"
                 : idx === selectedDay
-                ? "text-sky-600 border-sky-500 bg-sky-50/60"
-                : "text-gray-500 border-transparent hover:text-sky-500"
+                ? "border-current"
+                : "text-gray-500 border-transparent"
             }`}
           >
             <div className="text-[10px] uppercase">{day.dayName.slice(0, 3)}</div>
@@ -132,7 +142,7 @@ export function AvailabilityPicker({ service, doctorFilter, preferredDate, onSel
       </div>
 
       {/* Grilla de slots */}
-      <div className="p-3 max-h-56 overflow-y-auto">
+      <div className="p-3 max-h-52 overflow-y-auto">
         {currentDay?.isOpen && visibleSlots && visibleSlots.length > 0 ? (
           <div className="grid grid-cols-2 gap-2">
             {visibleSlots.map((slot) => {
@@ -142,16 +152,17 @@ export function AvailabilityPicker({ service, doctorFilter, preferredDate, onSel
                   key={`${slot.time}-${slot.doctor}`}
                   disabled={!slot.available}
                   onClick={() => setSelectedSlot(isSelected ? null : slot)}
+                  style={isSelected ? { backgroundColor: color, borderColor: color } : {}}
                   className={`rounded-xl px-3 py-2 text-left transition border ${
                     !slot.available
                       ? "bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed"
                       : isSelected
-                      ? "bg-sky-500 border-sky-500 text-white shadow"
-                      : "bg-white border-gray-200 text-gray-700 hover:border-sky-300 hover:bg-sky-50"
+                      ? "text-white shadow"
+                      : "bg-white border-gray-200 text-gray-700 hover:border-gray-300"
                   }`}
                 >
                   <div className="font-bold text-sm">{slot.time}</div>
-                  <div className={`text-[10px] truncate ${isSelected ? "text-sky-100" : "text-gray-400"}`}>
+                  <div className={`text-[10px] truncate ${isSelected ? "text-white/70" : "text-gray-400"}`}>
                     {slot.doctor}{slot.box ? ` · ${slot.box}` : ""}
                   </div>
                 </button>
@@ -167,12 +178,25 @@ export function AvailabilityPicker({ service, doctorFilter, preferredDate, onSel
 
       {/* Confirmar */}
       {selectedSlot && currentDay && (
-        <div className="px-3 pb-3">
+        <div className="px-3 pt-1 pb-2">
           <button
             onClick={() => onSelect({ date: currentDay.date, dayName: currentDay.dayName, time: selectedSlot.time, doctor: selectedSlot.doctor, box: selectedSlot.box })}
-            className="w-full bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-xl py-2.5 text-sm transition"
+            style={{ backgroundColor: color }}
+            className="w-full text-white font-semibold rounded-xl py-2.5 text-sm transition hover:opacity-90"
           >
-            Confirmar {currentDay.dayName} {formatTabDate(currentDay.date)} a las {selectedSlot.time}
+            Confirmar {currentDay.dayName} {formatTabDate(currentDay.date)} · {selectedSlot.time}
+          </button>
+        </div>
+      )}
+
+      {/* Continuar conversando sin agendar */}
+      {onDismiss && (
+        <div className="px-3 pb-3">
+          <button
+            onClick={onDismiss}
+            className="w-full text-gray-400 text-xs py-1.5 hover:text-gray-600 transition"
+          >
+            Continuar conversando →
           </button>
         </div>
       )}

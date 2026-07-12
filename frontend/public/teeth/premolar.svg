@@ -1,0 +1,88 @@
+<svg viewBox="0 0 100 100">
+  <defs>
+    <!-- Main tooth body gradient: white-ivory with subtle warm tones for realism -->
+    <radialGradient id="toothGradient" cx="50%" cy="50%" r="50%" fx="50%" fy="30%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="20%" stop-color="#FCFCF0"/>
+      <stop offset="60%" stop-color="#F0F0E0"/>
+      <stop offset="100%" stop-color="#E0E0D0"/>
+    </radialGradient>
+
+    <!-- Gradient for grooves and fossae: darker, brownish-grey for depth -->
+    <radialGradient id="grooveFill" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+      <stop offset="0%" stop-color="#908070"/>
+      <stop offset="100%" stop-color="#706050"/>
+    </radialGradient>
+
+    <!-- Gradient for gum collar: realistic pink tones -->
+    <radialGradient id="gumGradient" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+      <stop offset="0%" stop-color="#FFC0CB"/> <!-- Light pink -->
+      <stop offset="100%" stop-color="#E07080"/> <!-- Deeper pink -->
+    </radialGradient>
+
+    <!-- Filter for subtle shadow to lift the tooth from the background -->
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0.5" dy="0.5" stdDeviation="1.5" flood-color="rgba(0,0,0,0.2)"/>
+    </filter>
+  </defs>
+
+  <!-- Gum collar: a slightly enlarged version of the tooth's outline, placed beneath the tooth -->
+  <path d="M 37 39         <!-- Slightly outside mesial-buccal line angle -->
+           C 39 34, 44 31, 50 31 <!-- Slightly outside buccal cusp prominence -->
+           C 56 31, 61 34, 63 39 <!-- Slightly outside distal-buccal line angle -->
+           C 69 44, 71 50, 69 56 <!-- Slightly outside distal outline -->
+           C 66 61, 61 66, 55 69 <!-- Slightly outside distal-lingual line angle to lingual cusp prominence -->
+           C 50 71, 45 69, 40 66 <!-- Slightly outside lingual cusp prominence to mesial-lingual line angle -->
+           C 34 61, 29 56, 31 51 <!-- Slightly outside mesial outline -->
+           C 29 46, 34 41, 37 39 Z"
+        fill="url(#gumGradient)"
+        opacity="0.9"/>
+
+  <!-- Main tooth crown shape: Upper first premolar, occlusal view.
+       Characterized by a prominent buccal cusp (top) and a smaller lingual cusp (bottom).
+       Wider bucco-lingually than mesio-distally. -->
+  <path d="M 38 40         <!-- Mesial-buccal line angle -->
+           C 40 35, 45 32, 50 32 <!-- Buccal cusp prominence (larger, sharper) -->
+           C 55 32, 60 35, 62 40 <!-- Distal-buccal line angle -->
+           C 68 45, 70 50, 68 55 <!-- Distal outline (more convex) -->
+           C 65 60, 60 65, 55 68 <!-- Distal-lingual line angle to lingual cusp prominence -->
+           C 50 70, 45 68, 40 65 <!-- Lingual cusp prominence (smaller, rounder) to mesial-lingual line angle -->
+           C 35 60, 30 55, 32 50 <!-- Mesial outline (flatter, often with concavity not visible in crown-only occlusal) -->
+           C 30 45, 35 40, 38 40 Z"
+        fill="url(#toothGradient)"
+        filter="url(#shadow)"/>
+
+  <!-- Occlusal surface details -->
+
+  <!-- Central groove: Runs mesio-distally, separating buccal and lingual cusps -->
+  <path d="M 38 50       <!-- Start near mesial fossa -->
+           C 42 48, 48 48, 50 50 <!-- Curve towards central fossa -->
+           C 52 52, 58 52, 62 50 <!-- Curve towards distal fossa -->
+           "
+        stroke="url(#grooveFill)" stroke-width="1.5" fill="none"/>
+
+  <!-- Mesial developmental groove: Often crosses the mesial marginal ridge -->
+  <path d="M 40 50 Q 38 52, 35 50"
+        stroke="url(#grooveFill)" stroke-width="1" fill="none"/>
+
+  <!-- Distal developmental groove: Less prominent, usually confined to the occlusal surface -->
+  <path d="M 60 50 Q 62 48, 65 50"
+        stroke="url(#grooveFill)" stroke-width="1" fill="none"/>
+
+  <!-- Central Fossa: Depression where grooves converge -->
+  <circle cx="50" cy="50" r="1.5" fill="url(#grooveFill)"/>
+
+  <!-- Mesial Fossa: Depression at the mesial end of the central groove -->
+  <circle cx="40" cy="50" r="1" fill="url(#grooveFill)"/>
+
+  <!-- Distal Fossa: Depression at the distal end of the central groove -->
+  <circle cx="60" cy="50" r="1" fill="url(#grooveFill)"/>
+
+  <!-- Subtle highlights for cusps to emphasize their prominence -->
+  <path d="M 48 35 Q 50 33, 52 35 Q 50 37, 48 35 Z" fill="rgba(255,255,255,0.4)"/> <!-- Buccal cusp highlight -->
+  <path d="M 49 66 Q 50 65, 51 66 Q 50 67, 49 66 Z" fill="rgba(255,255,255,0.3)"/> <!-- Lingual cusp highlight -->
+
+  <!-- Subtle texture/surface irregularities for added realism -->
+  <path d="M 45 40 Q 47 39, 49 40 Q 51 41, 53 40" stroke="rgba(0,0,0,0.05)" stroke-width="0.5" fill="none"/>
+  <path d="M 45 60 Q 47 61, 49 60 Q 51 59, 53 60" stroke="rgba(0,0,0,0.05)" stroke-width="0.5" fill="none"/>
+</svg>

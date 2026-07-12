@@ -56,9 +56,23 @@ export async function getMessageCount(sessionId: string): Promise<number> {
   return s.messageCount;
 }
 
+// appendToHistory is intentionally synchronous for callers that have already
+// awaited getHistory/getMessageCount (which guarantees the session is cached).
+// For callers that have NOT yet loaded the session (e.g. the topicGuard early-
+// exit path in claudeService), they must call ensureCached first to avoid
+// creating a blank entry that warmUp will later overwrite.
+export async function ensureCached(sessionId: string): Promise<void> {
+  await getOrLoad(sessionId);
+}
+
 export function appendToHistory(sessionId: string, role: "user" | "assistant", content: string) {
   let s = cache.get(sessionId);
   if (!s) {
+    // Session not yet warm — create a minimal entry. This path should only be
+    // reached after ensureCached() has been called; if it isn't, the next
+    // getHistory call will call warmUp and restore DB data (messages already
+    // persisted to DB won't be lost — only this in-memory message is at risk
+    // of being orphaned until warmUp re-reads DB).
     s = { messages: [], messageCount: 0, lastActivityAt: now() };
     cache.set(sessionId, s);
   }

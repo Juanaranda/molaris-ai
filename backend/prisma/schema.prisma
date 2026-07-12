@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -11,6 +12,16 @@ enum PartnerRole {
   SUPERADMIN
   ADMIN
   USER
+}
+
+// Rol clínico granular — separado del role de plataforma (Issue #32)
+// null = cae al permiso del role (compat hacia atrás).
+enum ClinicalRole {
+  HYGIENIST         // higienista (limpiezas, lectura de ficha)
+  GENERAL_DENTIST   // odontólogo general
+  SPECIALIST        // endodoncista, ortodoncista, periodoncista, etc.
+  RECEPTION         // recepción/admin no-clínico — sin acceso a ficha
+  CLINIC_ADMIN      // admin con visión clínica completa
 }
 
 // ─── CLÍNICA (TENANT) ────────────────────────────────────────────────────────
@@ -26,15 +37,57 @@ model Clinic {
   apiKey    String   @unique @default(cuid())
   plan      String   @default("starter")
   active    Boolean  @default(true)
+  // WhatsApp Business (Meta Cloud API) — credenciales por clínica
+  waPhoneId String?  @unique  // Phone Number ID de Meta
+  waToken   String?           // System User Access Token de Meta
+  waVerified Boolean @default(false)
+  // Mercado Pago — credenciales por clínica
+  mpAccessToken String?       // Access token de la cuenta MP
+  mpVerified    Boolean @default(false)
+  // SII / OpenFactura — facturación electrónica por clínica
+  siiProvider      String?    @default("openfactura")
+  siiApiKey        String?    // API key del provider (OpenFactura)
+  siiRutEmisor     String?    // RUT del emisor formato "76.123.456-7"
+  siiRazonSocial   String?    // Razón social legal
+  siiGiro          String?    // Giro económico (ej: "Servicios odontológicos")
+  siiDocumentType  Int?       @default(39)  // 39 = Boleta afecta, 41 = exenta
+  siiExenta        Boolean    @default(true)  // servicios médicos suelen ser exentos
+  siiVerified      Boolean    @default(false)
+  // ZapSign — consentimientos firmados (Issue #36)
+  zapsignApiKey    String?
+  zapsignVerified  Boolean    @default(false)
+  // DPA — Data Processing Agreement Molaris ↔ Clínica (Issue #38, Ley 21.719)
+  dpaAcceptedVersion String?   // versión del DPA que la clínica aceptó (null = no aceptado)
+  dpaAcceptedAt      DateTime?
+  // Kill switch del agente IA (Issue #49) — apagar/encender la IA al instante
+  agentEnabled        Boolean   @default(true)
+  agentDisabledAt     DateTime?
+  agentDisabledReason String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  patients     Patient[]
-  sessions     Session[]
-  bookings     Booking[]
-  partnerUsers PartnerUser[]
-  patientUsers PatientUser[]
-  usageEvents  UsageEvent[]
+  patients        Patient[]
+  sessions        Session[]
+  bookings        Booking[]
+  partnerUsers    PartnerUser[]
+  patientUsers    PatientUser[]
+  usageEvents     UsageEvent[]
+  treatmentPlans  TreatmentPlan[]
+  dentalQuotes    DentalQuote[]
+  payments        Payment[]
+  boletas         Boleta[]
+  dentalEvents    DentalEvent[]
+  toothImages     ToothImage[]
+  clinicalNotes   ClinicalNote[]
+  waitlist        WaitlistEntry[]
+  auditLogs       AuditLog[]
+  anamnesisTemplates AnamnesisTemplate[]
+  consentTemplates  ConsentTemplate[]
+  consentSignatures ConsentSignature[]
+  labOrders         LabOrder[]
+  accountEntries    AccountEntry[]
+  inventoryItems    InventoryItem[]
+  inventoryMovements InventoryMovement[]
 
   @@map("clinics")
 }
@@ -47,11 +100,26 @@ model PartnerUser {
   name             String
   email            String      @unique
   passwordHash     String
+  mustChangePassword Boolean   @default(false)
   role             PartnerRole @default(USER)
+  clinicalRole     ClinicalRole?  // null = sin permisos clínicos granulares — usa role base
   active           Boolean     @default(true)
   acceptedTermsAt  DateTime?
+  // Perfil personal
+  photoUrl         String?     // Data URL o URL externa (limitado a 600KB en backend)
+  occupation       String?     // Ej: "Odontóloga General", "Recepcionista"
+  phone            String?     // Teléfono personal del usuario
+  bio              String?     // Descripción breve (máx 500 chars en backend)
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
+
+  dentalEvents     DentalEvent[]
+  toothImages      ToothImage[]
+  clinicalNotes    ClinicalNote[]
+  auditLogs        AuditLog[]
+  anamnesisResponses AnamnesisResponse[]
+  consentSignatures  ConsentSignature[]
+  labOrders          LabOrder[]
 
   @@map("partner_users")
 }
@@ -65,6 +133,17 @@ model Identity {
   email      String?       @unique
   phone      String?
   birthDate  DateTime?
+  // ── Datos adicionales para ficha clínica (Issue #17, Ley 20.584) ──
+  gender                   String?   // "M" | "F" | "X" | "no_responde"
+  address                  String?
+  emergencyContactName     String?
+  emergencyContactPhone    String?
+  emergencyContactRelation String?
+  // ── Tutor para menores ──
+  guardianIdentityId String?
+  guardian           Identity?  @relation("GuardianOf", fields: [guardianIdentityId], references: [id])
+  wards              Identity[] @relation("GuardianOf")
+
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
 
@@ -86,11 +165,48 @@ model PatientUser {
   lastVisit    DateTime?
   notes        String?
   active       Boolean   @default(true)
+  // ── Previsión (Issue #17) ──
+  insuranceProvider String?  // "fonasa" | "isapre" | "particular" | "otro"
+  insuranceTier     String?  // "A" | "B" | "C" | "D" (solo Fonasa)
+  insuranceCompany  String?  // nombre isapre si aplica
+  // ── Permiso de marketing (parte de #38, Ley 21.719) ──
+  marketingImagesConsent Boolean @default(false)
 
   bookings     Booking[]
+  consents     PatientConsent[]
 
   @@unique([identityId, clinicId])
   @@map("patient_users")
+}
+
+// ─── BASE LEGAL DE TRATAMIENTO DE DATOS (Issue #38, Ley 21.719) ──────────────
+// Catálogo de propósitos para los que Molaris trata datos del paciente. Los
+// "required" (ejecución del contrato) no son opt-out; el resto exige consentimiento.
+model DataProcessingPurpose {
+  id           String  @id @default(cuid())
+  key          String  @unique          // "appointments" | "ai_chat" | "marketing" ...
+  label        String                   // texto corto para el paciente
+  description  String                   // qué datos y para qué
+  legalBasis   String                   // "contrato" | "consentimiento" | "obligacion_legal"
+  required     Boolean @default(false)  // true = no se puede rechazar (ejecución del contrato)
+  displayOrder Int     @default(0)
+  active       Boolean @default(true)
+  createdAt    DateTime @default(now())
+
+  @@map("data_processing_purposes")
+}
+
+// Consentimiento del paciente por propósito (snapshot del key para auditabilidad).
+model PatientConsent {
+  id            String      @id @default(cuid())
+  patientUserId String
+  patientUser   PatientUser @relation(fields: [patientUserId], references: [id])
+  purposeKey    String      // snapshot del DataProcessingPurpose.key
+  granted       Boolean
+  createdAt     DateTime    @default(now())
+
+  @@index([patientUserId])
+  @@map("patient_consents")
 }
 
 // ─── PACIENTE ────────────────────────────────────────────────────────────────
@@ -106,7 +222,13 @@ model Patient {
   channel    String?   // "whatsapp" | "web" | "instagram"
   createdAt  DateTime  @default(now())
 
-  sessions   Session[]
+  sessions      Session[]
+  dentalEvents  DentalEvent[]
+  toothImages   ToothImage[]
+  clinicalNotes ClinicalNote[]
+  anamnesisResponses AnamnesisResponse[]
+  consentSignatures  ConsentSignature[]
+  labOrders          LabOrder[]
 
   @@map("patients")
 }
@@ -118,13 +240,18 @@ model Session {
   clinic    Clinic   @relation(fields: [clinicId], references: [id])
   patientId String?
   patient   Patient? @relation(fields: [patientId], references: [id])
-  channel   String   @default("web")
-  status    String   @default("open")  // "open" | "booked" | "closed"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  channel    String   @default("web")
+  isSandbox  Boolean  @default(false)  // true = sesión de prueba desde /partners/preview
+  status     String   @default("open")  // "open" | "booked" | "closed"
+  leadScore  Int      @default(0)       // 0-100, calculado por leadScoring.ts
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   messages  Message[]
   context   PatientContext?
+  dentalEvents  DentalEvent[]
+  toothImages   ToothImage[]
+  clinicalNotes ClinicalNote[]
 
   @@map("sessions")
 }
@@ -162,21 +289,129 @@ model PatientContext {
 
 // ─── EVENTOS DE USO (MONITOREO INTERNO) ──────────────────────────────────────
 model UsageEvent {
-  id         String   @id @default(cuid())
-  clinicId   String
-  clinic     Clinic   @relation(fields: [clinicId], references: [id])
-  sessionId  String?
-  model      String
-  tier       String   // "fast" | "balanced" | "smart"
-  tokensIn   Int      @default(0)
-  tokensOut  Int      @default(0)
-  costUsd    Float    @default(0)
-  latencyMs  Int?
-  createdAt  DateTime @default(now())
+  id           String   @id @default(cuid())
+  clinicId     String
+  clinic       Clinic   @relation(fields: [clinicId], references: [id])
+  sessionId    String?
+  model        String
+  tier         String   // "fast" | "balanced" | "smart"
+  tokensIn     Int      @default(0)
+  tokensOut    Int      @default(0)
+  costUsd      Float    @default(0)
+  latencyMs    Int?
+  success      Boolean  @default(true)
+  errorType    String?  // "timeout" | "rate_limit" | "content_filter" | "model_error" | "parse_error" | "unknown"
+  errorMessage String?
+  isSandbox    Boolean  @default(false)
+  channel      String?  // "web" | "whatsapp" | "sandbox" | "demo"
+  createdAt    DateTime @default(now())
 
   @@index([clinicId])
   @@index([createdAt])
+  @@index([success])
   @@map("usage_events")
+}
+
+// ─── PLANES DE TRATAMIENTO ───────────────────────────────────────────────────
+model TreatmentPlan {
+  id          String    @id @default(cuid())
+  clinicId    String
+  clinic      Clinic    @relation(fields: [clinicId], references: [id])
+  patientRut  String?
+  patientName String
+  doctor      String?
+  title       String                        // "Ortodoncia completa", "Implante superior"
+  description String?
+  totalAmount Float?                        // Monto total acordado (CLP)
+  amountPaid  Float     @default(0)         // Monto pagado hasta ahora
+  sessions    Int       @default(1)         // Número de sesiones planificadas
+  sessionsCompleted Int @default(0)
+  status      String    @default("active")  // "active" | "completed" | "cancelled" | "paused"
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([clinicId])
+  @@index([patientRut])
+  @@map("treatment_plans")
+}
+
+// ─── PRESUPUESTOS DENTALES (ODONTOGRAMA) ─────────────────────────────────────
+model DentalQuote {
+  id          String           @id @default(cuid())
+  clinicId    String
+  clinic      Clinic           @relation(fields: [clinicId], references: [id])
+  patientRut  String?
+  patientName String
+  doctor      String?
+  status      String           @default("draft") // "draft" | "sent" | "accepted" | "rejected"
+  discount    Float            @default(0)        // % descuento general
+  totalAmount Float            @default(0)        // calculado
+  notes       String?
+  paymentInfo String?
+  accepted    Boolean          @default(false)
+  sentAt      DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  items       DentalQuoteItem[]
+
+  @@index([clinicId])
+  @@index([patientRut])
+  @@map("dental_quotes")
+}
+
+model DentalQuoteItem {
+  id         String      @id @default(cuid())
+  quoteId    String
+  quote      DentalQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  toothFDI   String?     // "1.1", "3.6", null = no asociada a pieza
+  surfaces   String?     // "V,D,O" — comma-separated
+  prestacion String      // "Endodoncia", "Implante", "Corona"...
+  unitPrice  Float
+  quantity   Int         @default(1)
+  discount   Float       @default(0)
+  total      Float
+
+  @@map("dental_quote_items")
+}
+
+// ─── RECALL (RECORDATORIOS DE CHEQUEO PERIÓDICO) ─────────────────────────────
+model RecallRule {
+  id              String   @id @default(cuid())
+  clinicId        String
+  triggerService  String              // ej: "Limpieza", "Ortodoncia", "Control endodoncia"
+  intervalDays    Int                 // cada cuántos días recordar
+  messageTemplate String              // texto con {nombre} y {clinica}
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  events RecallEvent[]
+
+  @@index([clinicId])
+  @@map("recall_rules")
+}
+
+model RecallEvent {
+  id           String     @id @default(cuid())
+  ruleId       String
+  rule         RecallRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  clinicId     String
+  patientPhone String
+  patientName  String?
+  patientRut   String?
+  lastBookingAt DateTime
+  sentAt       DateTime   @default(now())
+  channel      String     @default("whatsapp")
+  success      Boolean    @default(true)
+  errorMessage String?
+
+  @@index([clinicId, sentAt])
+  @@index([patientPhone, ruleId])
+  @@map("recall_events")
 }
 
 // ─── BOOKINGS (CITAS CONFIRMADAS) ────────────────────────────────────────────
@@ -208,5 +443,416 @@ model Booking {
   paidAt           DateTime?
   createdAt        DateTime     @default(now())
 
+  payments         Payment[]
+  boletas          Boleta[]
+
   @@map("bookings")
+}
+
+// ─── CONSENTIMIENTOS INFORMADOS (Issue #36) ───────────────────────────────────
+// Cumple Ley 20.584: procedimientos invasivos requieren consentimiento escrito.
+// 3 métodos: zapsign (link online), manual_upload (PDF físico escaneado), in_person_pad.
+model ConsentTemplate {
+  id            String   @id @default(cuid())
+  clinicId      String
+  clinic        Clinic   @relation(fields: [clinicId], references: [id])
+  title         String
+  body          String   // markdown del consentimiento
+  procedureCode String?  // "extraccion" | "endodoncia" | "implante" | "ortodoncia" | "cirugia" | "otro"
+  version       Int
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  signatures    ConsentSignature[]
+
+  @@unique([clinicId, version, title])
+  @@index([clinicId, active])
+  @@map("consent_templates")
+}
+
+model ConsentSignature {
+  id                String          @id @default(cuid())
+  clinicId          String
+  clinic            Clinic          @relation(fields: [clinicId], references: [id])
+  templateId        String
+  template          ConsentTemplate @relation(fields: [templateId], references: [id])
+  templateVersion   Int
+  patientId         String
+  patient           Patient         @relation(fields: [patientId], references: [id])
+  patientName       String          // snapshot al momento de la solicitud
+  patientRut        String?         // snapshot
+  sessionId         String?
+  signatureMethod   String          // "zapsign" | "manual_upload" | "in_person_pad"
+  externalRef       String?         // ID del doc en ZapSign (si aplica)
+  signedAt          DateTime?
+  signedDocumentUrl String?         // URL al PDF firmado (data URL v1 para manual_upload)
+  requestedAt       DateTime        @default(now())
+  requestedById     String
+  requestedBy       PartnerUser     @relation(fields: [requestedById], references: [id])
+  status            String          @default("pending")  // pending | signed | rejected | expired | cancelled
+  notes             String?
+
+  @@index([clinicId, patientId])
+  @@index([status])
+  @@map("consent_signatures")
+}
+
+// ─── AUDIT LOG MÉDICO-LEGAL (Issue #34) ───────────────────────────────────────
+// Ley 20.584 / 21.719: trazabilidad obligatoria de toda lectura/edición de
+// datos clínicos sensibles. Retención mínima 15 años. Append-only.
+model AuditLog {
+  id             String       @id @default(cuid())
+  clinicId       String
+  clinic         Clinic       @relation(fields: [clinicId], references: [id])
+  actorId        String?      // FK PartnerUser — null = acción del sistema
+  actor          PartnerUser? @relation(fields: [actorId], references: [id])
+  action         String       // "read" | "create" | "update" | "delete"
+  resourceType   String       // "ClinicalRecord" | "DentalEvent" | "ToothImage" | "Identity" | "Boleta"
+  resourceId     String
+  snapshotBefore Json?        // sanitizado por el caller (sin secretos)
+  snapshotAfter  Json?
+  ip             String?
+  userAgent      String?
+  createdAt      DateTime     @default(now())
+
+  @@index([clinicId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([resourceType, resourceId])
+  @@map("audit_logs")
+}
+
+// ─── ANAMNESIS (Issue #35) ────────────────────────────────────────────────────
+// Cuestionario estructurado y versionado. Cada edición del template crea una
+// nueva versión; las respuestas previas mantienen su referencia a la versión
+// con la que fueron contestadas (auditabilidad médico-legal).
+model AnamnesisTemplate {
+  id        String   @id @default(cuid())
+  clinicId  String
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+  version   Int
+  questions Json     // array de { code, label, type, section, redFlag?, options? }
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  responses AnamnesisResponse[]
+
+  @@unique([clinicId, version])
+  @@index([clinicId, active])
+  @@map("anamnesis_templates")
+}
+
+model AnamnesisResponse {
+  id              String            @id @default(cuid())
+  clinicId        String
+  patientId       String
+  patient         Patient           @relation(fields: [patientId], references: [id])
+  templateId      String
+  template        AnamnesisTemplate @relation(fields: [templateId], references: [id])
+  templateVersion Int
+  answers         Json              // { code: value } - value puede ser boolean, string, number, string[]
+  redFlags        String[]          // codes que matchearon como red flag (precomputado)
+  recordedById    String
+  recordedBy      PartnerUser       @relation(fields: [recordedById], references: [id])
+  completedAt     DateTime          @default(now())
+
+  @@index([clinicId, patientId])
+  @@index([patientId, completedAt])
+  @@map("anamnesis_responses")
+}
+
+// ─── NOTAS CLÍNICAS POR SESIÓN (FICHA — Issue #17) ────────────────────────────
+// Cumple con Decreto 41 MINSAL: motivo + hallazgos + procedimientos + indicaciones + plan
+// Inmutable (append-only). Cualquier corrección crea una nueva nota.
+model ClinicalNote {
+  id              String   @id @default(cuid())
+  clinicId        String
+  clinic          Clinic   @relation(fields: [clinicId], references: [id])
+  patientId       String
+  patient         Patient  @relation(fields: [patientId], references: [id])
+  sessionId       String?
+  session         Session? @relation(fields: [sessionId], references: [id])
+  professionalId  String
+  professional    PartnerUser @relation(fields: [professionalId], references: [id])
+
+  // Contenido (Decreto 41 MINSAL)
+  reason          String?  // motivo de consulta — texto libre (entre comillas idealmente)
+  reasonCategory  String?  // "urgencia" | "dolor" | "control" | "estetica" | "derivacion" | "otro"
+  findings        String?  // hallazgos / diagnóstico
+  procedures      String?  // procedimientos realizados (texto + ref a DentalEvents)
+  prescriptions   String?  // indicaciones / prescripciones
+  nextVisitPlan   String?  // plan para próxima visita
+
+  occurredAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+  // NO updatedAt — inmutable
+
+  @@index([clinicId, patientId])
+  @@index([patientId, occurredAt])
+  @@map("clinical_notes")
+}
+
+// ─── ODONTOGRAMA (EVENT SOURCING) ─────────────────────────────────────────────
+// Discovery validado en Issue #11 + #13:
+//   - Diente ↔ condición es M:N (una pieza puede tener implante + corona + endodoncia)
+//   - Eventos inmutables — el odontograma "actual" es proyección derivada
+//   - Notación FDI obligatoria (11-48, no 1-32)
+//   - Trazabilidad: cada evento queda vinculado al profesional y la sesión
+//   - Cumplimiento Ley 20.584 (ficha médico-legal)
+
+enum DentalEventType {
+  DIAGNOSIS    // hallazgo clínico
+  TREATMENT    // procedimiento realizado
+  OBSERVATION  // nota libre
+}
+
+enum DentalSurface {
+  V   // Vestibular
+  P   // Palatino (maxilar superior)
+  L   // Lingual (mandibular inferior)
+  M   // Mesial
+  D   // Distal
+  O   // Oclusal
+  I   // Incisal (anteriores)
+}
+
+model DentalEvent {
+  id              String   @id @default(cuid())
+  clinicId        String
+  clinic          Clinic   @relation(fields: [clinicId], references: [id])
+  patientId       String
+  patient         Patient  @relation(fields: [patientId], references: [id])
+  sessionId       String?
+  session         Session? @relation(fields: [sessionId], references: [id])
+  professionalId  String
+  professional    PartnerUser @relation(fields: [professionalId], references: [id])
+
+  toothFDI        String   // "11"-"48" (validado en backend)
+  eventType       DentalEventType
+  conditionCode   String   // "caries" | "endodoncia" | "corona" | "implante" | "extraccion" | "sano" | "perno" | "obturacion" | "ortodoncia" | ...
+  severity        Int?     // opcional — ICDAS 0-6 para caries, mm de bolsa para periodontal
+  notes           String?
+
+  occurredAt      DateTime @default(now())   // cuándo ocurrió clínicamente
+  createdAt       DateTime @default(now())   // cuándo se registró
+  // NO updatedAt — eventos son inmutables (event sourcing)
+
+  surfaces        DentalEventSurface[]
+
+  @@index([clinicId, patientId])
+  @@index([patientId, toothFDI])
+  @@index([sessionId])
+  @@map("dental_events")
+}
+
+model DentalEventSurface {
+  eventId String
+  event   DentalEvent   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  surface DentalSurface
+
+  @@id([eventId, surface])
+  @@map("dental_event_surfaces")
+}
+
+model ToothImage {
+  id              String   @id @default(cuid())
+  clinicId        String
+  clinic          Clinic   @relation(fields: [clinicId], references: [id])
+  patientId       String
+  patient         Patient  @relation(fields: [patientId], references: [id])
+  sessionId       String?
+  session         Session? @relation(fields: [sessionId], references: [id])
+  professionalId  String
+  professional    PartnerUser @relation(fields: [professionalId], references: [id])
+
+  toothFDI        String?  // null = panorámica/general; "11"-"48" = pieza específica
+  imageType       String   // "panoramic" | "periapical" | "bitewing" | "photo" | "other"
+  url             String   // v1: data URL (limit en backend); v2: URL externa S3
+  notes           String?
+
+  takenAt         DateTime
+  createdAt       DateTime @default(now())
+
+  @@index([clinicId, patientId])
+  @@index([patientId, toothFDI])
+  @@map("tooth_images")
+}
+
+// ─── ÓRDENES DE LABORATORIO (Issue #37) ──────────────────────────────────────
+// Diferenciador comercial — tracking de prótesis enviadas al lab y recibidas.
+// Status flow: pending → in_transit → received → installed | rejected
+model LabOrder {
+  id               String   @id @default(cuid())
+  clinicId         String
+  clinic           Clinic   @relation(fields: [clinicId], references: [id])
+  patientId        String?
+  patient          Patient? @relation(fields: [patientId], references: [id])
+  toothFDI         String?  // opcional — pieza específica
+
+  labName          String
+  orderType        String   // "corona" | "protesis" | "placa" | "puente" | "implante_corona" | "otro"
+  description      String?
+
+  sentAt           DateTime
+  expectedReturnAt DateTime?
+  receivedAt       DateTime?
+  installedAt      DateTime?
+
+  status           String   @default("pending")  // pending | in_transit | received | installed | rejected
+  cost             Float?
+  notes            String?
+
+  createdById      String
+  createdBy        PartnerUser @relation(fields: [createdById], references: [id])
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([clinicId, status])
+  @@index([patientId])
+  @@map("lab_orders")
+}
+
+// ─── LISTA DE ESPERA (#26) ────────────────────────────────────────────────────
+// Cuando un Booking se cancela, el primer match en la waitlist es notificado.
+model WaitlistEntry {
+  id               String   @id @default(cuid())
+  clinicId         String
+  clinic           Clinic   @relation(fields: [clinicId], references: [id])
+  patientName      String
+  patientPhone     String
+  patientRut       String?
+  preferredDoctor  String?  // null = cualquiera
+  preferredService String?  // null = cualquiera
+  dateFrom         DateTime?
+  dateTo           DateTime?
+  notes            String?
+  status           String   @default("waiting")  // waiting | notified | converted | expired | cancelled
+  notifiedAt       DateTime?
+  notifiedForDate  DateTime?  // qué slot se le ofreció
+  convertedBookingId String?  // si se concretó en una cita
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([clinicId, status])
+  @@map("waitlist_entries")
+}
+
+// ─── BOLETAS / DTE (SII Chile) ────────────────────────────────────────────────
+model Boleta {
+  id           String   @id @default(cuid())
+  clinicId     String
+  clinic       Clinic   @relation(fields: [clinicId], references: [id])
+  bookingId    String?
+  booking      Booking? @relation(fields: [bookingId], references: [id])
+
+  documentType Int      @default(39)   // 39 = afecta, 41 = exenta
+  folio        Int?                    // asignado por SII tras emisión
+  rutReceptor  String?                 // "11.111.111-1" o null = sin RUT (boleta consumidor final)
+  patientName  String?
+  description  String?                 // ej: "Limpieza dental"
+
+  netAmount    Float                    // monto neto
+  iva          Float    @default(0)     // IVA (0 si exenta)
+  totalAmount  Float                    // total = neto + iva
+
+  status       String   @default("draft")  // draft | issued | accepted | rejected | error
+  provider     String   @default("openfactura")
+  providerRef  String?                     // ID interno del provider
+  pdfUrl       String?                     // URL al PDF
+  xmlContent   String?                     // XML del DTE (puede ser largo)
+  timbreUrl    String?                     // imagen del timbre electrónico
+  errorMessage String?
+
+  emittedAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([clinicId, status])
+  @@index([bookingId])
+  @@map("boletas")
+}
+
+// ─── PAGOS ONLINE (Mercado Pago, futuro: Transbank) ──────────────────────────
+model Payment {
+  id                String   @id @default(cuid())
+  clinicId          String
+  clinic            Clinic   @relation(fields: [clinicId], references: [id])
+  bookingId         String?
+  booking           Booking? @relation(fields: [bookingId], references: [id])
+  provider          String   @default("mercadopago")
+  providerPaymentId String?  @unique     // id que devuelve MP cuando se concreta
+  externalRef       String   @unique     // id interno (Payment.id) que pasamos a MP
+  amount            Float
+  currency          String   @default("CLP")
+  status            String   @default("pending") // pending | approved | rejected | cancelled | refunded
+  payerEmail        String?
+  initPoint         String?               // URL del checkout
+  description       String?
+  paidAt            DateTime?
+  raw               Json?                 // último payload recibido del proveedor
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([clinicId, status])
+  @@index([bookingId])
+  @@map("payments")
+}
+
+// ─── CUENTA CORRIENTE DEL PACIENTE (Issue #43) ───────────────────────────────
+// Movimientos manuales de cuenta (abonos en caja, ajustes). Los cargos y pagos
+// ligados a citas se derivan de Booking.amountTotal/amountPaid; este ledger cubre
+// los abonos/ajustes que no están atados a una cita puntual.
+model AccountEntry {
+  id          String   @id @default(cuid())
+  clinicId    String
+  clinic      Clinic   @relation(fields: [clinicId], references: [id])
+  patientRut  String                       // identificador del paciente (igual que Booking.patientRut)
+  kind        String                       // "charge" | "payment" | "adjustment"
+  amount      Float                        // CLP, positivo
+  description String?
+  method      String?                      // "cash" | "transfer" | "card" | "other" (para payment)
+  bookingId   String?                      // opcional: si el abono se asocia a una cita
+  createdBy   String?                      // PartnerUser.id que registró el movimiento
+  createdAt   DateTime @default(now())
+
+  @@index([clinicId, patientRut])
+  @@map("account_entries")
+}
+
+// ─── INVENTARIO / STOCK DE INSUMOS (Issue #45) ───────────────────────────────
+model InventoryItem {
+  id           String   @id @default(cuid())
+  clinicId     String
+  clinic       Clinic   @relation(fields: [clinicId], references: [id])
+  name         String
+  category     String?                       // "Anestesia" | "Restauración" | "Descartables" ...
+  unit         String   @default("unidad")   // unidad | caja | ml | g ...
+  currentStock Float    @default(0)
+  minStock     Float    @default(0)          // umbral de alerta
+  cost         Float?                         // costo unitario referencial (CLP)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  movements    InventoryMovement[]
+
+  @@index([clinicId, active])
+  @@map("inventory_items")
+}
+
+// Movimientos de stock: entrada (compra) / salida (consumo) / ajuste.
+model InventoryMovement {
+  id        String   @id @default(cuid())
+  clinicId  String
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+  itemId    String
+  item      InventoryItem @relation(fields: [itemId], references: [id])
+  kind      String                           // "in" | "out" | "adjustment"
+  quantity  Float                            // positivo
+  reason    String?
+  createdBy String?                          // PartnerUser.id
+  createdAt DateTime @default(now())
+
+  @@index([clinicId, itemId])
+  @@map("inventory_movements")
 }

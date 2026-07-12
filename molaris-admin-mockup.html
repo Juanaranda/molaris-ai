@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>molaris admin — mockup</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #F7F5F1; color: #0B2F42; display: flex; height: 100vh; overflow: hidden; }
+
+  /* ── Sidebar ── */
+  .sidebar { width: 220px; background: #0B2F42; display: flex; flex-direction: column; flex-shrink: 0; }
+  .sidebar-logo { padding: 24px 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .sidebar-logo span { font-size: 18px; font-weight: 800; color: white; letter-spacing: -0.5px; }
+  .sidebar-logo span em { color: #1A9FCC; font-style: normal; }
+  .sidebar-badge { font-size: 9px; font-weight: 700; background: #D95F45; color: white; px: 4px; padding: 2px 6px; border-radius: 99px; margin-left: 6px; vertical-align: middle; }
+  .nav { flex: 1; padding: 12px 0; }
+  .nav-section { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; color: rgba(255,255,255,0.3); padding: 16px 20px 6px; text-transform: uppercase; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.6); cursor: pointer; transition: all 0.15s; border-radius: 0; }
+  .nav-item:hover { background: rgba(255,255,255,0.06); color: white; }
+  .nav-item.active { background: rgba(255,255,255,0.12); color: white; font-weight: 600; }
+  .nav-item .icon { width: 16px; text-align: center; opacity: 0.8; font-size: 14px; }
+  .nav-item .badge { margin-left: auto; font-size: 10px; font-weight: 700; background: #D95F45; color: white; padding: 1px 6px; border-radius: 99px; }
+  .sidebar-footer { padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.08); }
+  .sidebar-user { display: flex; align-items: center; gap: 10px; }
+  .sidebar-avatar { width: 30px; height: 30px; border-radius: 50%; background: #1A5C7A; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: white; }
+  .sidebar-user-info p { font-size: 12px; font-weight: 600; color: white; }
+  .sidebar-user-info span { font-size: 10px; color: rgba(255,255,255,0.4); }
+
+  /* ── Main ── */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .topbar { background: white; border-bottom: 1px solid #E5E0D9; padding: 0 28px; height: 56px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .topbar-title { font-size: 15px; font-weight: 700; color: #0B2F42; }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .btn { padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; }
+  .btn-primary { background: #D95F45; color: white; }
+  .btn-ghost { background: transparent; border: 1px solid #E5E0D9; color: #607281; }
+  .search { display: flex; align-items: center; gap: 8px; background: #F7F5F1; border: 1px solid #E5E0D9; border-radius: 8px; padding: 6px 12px; font-size: 12px; color: #607281; }
+
+  .content { flex: 1; overflow-y: auto; padding: 24px 28px; }
+
+  /* ── KPI strip ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px; }
+  .kpi { background: white; border-radius: 14px; padding: 16px 18px; border: 1px solid #EEE9E1; }
+  .kpi-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #9CA3AF; margin-bottom: 6px; }
+  .kpi-value { font-size: 24px; font-weight: 800; color: #0B2F42; line-height: 1; }
+  .kpi-sub { font-size: 11px; color: #9CA3AF; margin-top: 4px; }
+  .kpi-up { color: #10B981; font-weight: 600; }
+  .kpi-down { color: #EF4444; font-weight: 600; }
+
+  /* ── Two-col layout ── */
+  .two-col { display: grid; grid-template-columns: 1fr 340px; gap: 16px; }
+
+  /* ── Clinics table ── */
+  .card { background: white; border-radius: 16px; border: 1px solid #EEE9E1; overflow: hidden; }
+  .card-header { padding: 16px 20px; border-bottom: 1px solid #F3F0EB; display: flex; align-items: center; justify-content: space-between; }
+  .card-title { font-size: 13px; font-weight: 700; color: #0B2F42; }
+  .card-sub { font-size: 11px; color: #9CA3AF; }
+  .table-head { display: grid; grid-template-columns: 1fr 80px 90px 90px 80px 90px 36px; gap: 12px; padding: 10px 20px; background: #FAFAF9; border-bottom: 1px solid #F3F0EB; }
+  .th { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #9CA3AF; }
+  .table-row { display: grid; grid-template-columns: 1fr 80px 90px 90px 80px 90px 36px; gap: 12px; padding: 12px 20px; border-bottom: 1px solid #F7F5F1; align-items: center; cursor: pointer; transition: background 0.1s; }
+  .table-row:hover { background: #FAFAF9; }
+  .table-row:last-child { border-bottom: none; }
+  .clinic-name { font-size: 13px; font-weight: 600; color: #0B2F42; }
+  .clinic-plan { font-size: 10px; color: #9CA3AF; margin-top: 1px; }
+  .td { font-size: 12px; color: #607281; }
+  .td-bold { font-size: 12px; font-weight: 700; color: #0B2F42; }
+
+  /* pills */
+  .pill { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 99px; font-size: 10px; font-weight: 700; }
+  .pill-green { background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; }
+  .pill-yellow { background: #FFFBEB; color: #D97706; border: 1px solid #FDE68A; }
+  .pill-red { background: #FEF2F2; color: #DC2626; border: 1px solid #FCA5A5; }
+  .pill-gray { background: #F9FAFB; color: #6B7280; border: 1px solid #E5E7EB; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .dot-green { background: #10B981; }
+  .dot-yellow { background: #F59E0B; }
+  .dot-red { background: #EF4444; }
+  .dot-gray { background: #9CA3AF; }
+
+  .action-btn { width: 28px; height: 28px; border-radius: 8px; border: 1px solid #E5E0D9; background: white; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; color: #9CA3AF; }
+  .action-btn:hover { background: #F7F5F1; }
+
+  /* ── Right col ── */
+  .right-col { display: flex; flex-direction: column; gap: 16px; }
+
+  /* Activity */
+  .activity-list { padding: 0 20px; }
+  .activity-item { display: flex; align-items: flex-start; gap: 10px; padding: 12px 0; border-bottom: 1px solid #F7F5F1; }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+  .activity-text { font-size: 12px; color: #607281; line-height: 1.4; }
+  .activity-text strong { color: #0B2F42; font-weight: 600; }
+  .activity-time { font-size: 10px; color: #C4B9A8; margin-top: 2px; }
+
+  /* Alerts */
+  .alert-item { display: flex; align-items: center; gap: 10px; padding: 10px 20px; border-bottom: 1px solid #F7F5F1; cursor: pointer; }
+  .alert-item:hover { background: #FAFAF9; }
+  .alert-item:last-child { border-bottom: none; }
+  .alert-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .alert-icon-red { background: #FEF2F2; }
+  .alert-icon-yellow { background: #FFFBEB; }
+  .alert-icon-blue { background: #EFF6FF; }
+  .alert-text { font-size: 12px; color: #0B2F42; font-weight: 500; flex: 1; }
+  .alert-sub { font-size: 10px; color: #9CA3AF; }
+  .alert-chevron { color: #C4B9A8; font-size: 14px; }
+
+  /* Mini chart placeholder */
+  .sparkline { height: 36px; display: flex; align-items: flex-end; gap: 3px; padding: 0 20px 16px; }
+  .bar { border-radius: 3px 3px 0 0; flex: 1; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid #F3F0EB; }
+  .tab { padding: 10px 16px; font-size: 12px; font-weight: 600; color: #9CA3AF; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab.active { color: #0B2F42; border-bottom-color: #1A5C7A; }
+
+  /* Architecture diagram */
+  .arch { background: #F0F4F8; border-radius: 16px; padding: 24px; margin-top: 24px; border: 1px dashed #C4D4E0; }
+  .arch-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #607281; margin-bottom: 16px; }
+  .arch-row { display: flex; align-items: center; gap: 0; margin-bottom: 0; }
+  .arch-box { background: white; border-radius: 10px; padding: 10px 14px; font-size: 11px; font-weight: 600; color: #0B2F42; border: 1px solid #DDE5EC; text-align: center; min-width: 120px; }
+  .arch-box-accent { background: #1A5C7A; color: white; border-color: #1A5C7A; }
+  .arch-box-orange { background: #FEF3F0; color: #D95F45; border-color: #F5C2B4; }
+  .arch-box-teal { background: #E8F3F7; color: #1A5C7A; border-color: #B8D9EA; }
+  .arch-arrow { flex: 1; height: 1px; background: #C4D4E0; position: relative; margin: 0 4px; }
+  .arch-arrow::after { content: "›"; position: absolute; right: -6px; top: -9px; color: #607281; font-size: 16px; }
+  .arch-col { display: flex; flex-direction: column; gap: 8px; }
+  .arch-spacer { width: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: #9CA3AF; font-size: 10px; }
+  .arch-vline { width: 1px; height: 24px; background: #C4D4E0; }
+
+  .section-title { font-size: 12px; font-weight: 700; color: #9CA3AF; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; margin-top: 28px; }
+</style>
+</head>
+<body>
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <span>molaris<em>.ai</em></span>
+    <span class="sidebar-badge">ADMIN</span>
+  </div>
+  <nav class="nav">
+    <div class="nav-section">Plataforma</div>
+    <div class="nav-item active"><span class="icon">◉</span> Overview</div>
+    <div class="nav-item"><span class="icon">🏥</span> Clínicas <span class="badge">7</span></div>
+    <div class="nav-item"><span class="icon">📊</span> Analytics global</div>
+    <div class="nav-item"><span class="icon">⚡</span> Actividad en vivo</div>
+
+    <div class="nav-section">Gestión</div>
+    <div class="nav-item"><span class="icon">👤</span> Usuarios</div>
+    <div class="nav-item"><span class="icon">💳</span> Planes & billing</div>
+    <div class="nav-item"><span class="icon">🔑</span> API Keys</div>
+
+    <div class="nav-section">Sistema</div>
+    <div class="nav-item"><span class="icon">🔔</span> Alertas <span class="badge">3</span></div>
+    <div class="nav-item"><span class="icon">📋</span> Logs</div>
+    <div class="nav-item"><span class="icon">⚙️</span> Config</div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="sidebar-avatar">JA</div>
+      <div class="sidebar-user-info">
+        <p>Juan Aranda</p>
+        <span>superadmin@molari.ai</span>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ── MAIN ── -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title">Overview de plataforma</div>
+    <div class="topbar-right">
+      <div class="search">🔍 &nbsp;Buscar clínica…</div>
+      <button class="btn btn-ghost">Exportar</button>
+      <button class="btn btn-primary">+ Nueva clínica</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">Clínicas activas</div>
+        <div class="kpi-value">7</div>
+        <div class="kpi-sub"><span class="kpi-up">+2</span> este mes</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Conversaciones</div>
+        <div class="kpi-value">2,841</div>
+        <div class="kpi-sub"><span class="kpi-up">↑ 18%</span> vs mes ant.</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Citas agendadas</div>
+        <div class="kpi-value">394</div>
+        <div class="kpi-sub"><span class="kpi-up">↑ 11%</span> vs mes ant.</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">MRR</div>
+        <div class="kpi-value">$2.1M</div>
+        <div class="kpi-sub"><span class="kpi-up">↑ $300k</span> vs mes ant.</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Alertas activas</div>
+        <div class="kpi-value" style="color:#D95F45">3</div>
+        <div class="kpi-sub"><span class="kpi-down">2 críticas</span></div>
+      </div>
+    </div>
+
+    <!-- Two-col -->
+    <div class="two-col">
+
+      <!-- Clinic table -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Clínicas</div>
+            <div class="card-sub">7 registradas · 6 activas · 1 sin configurar</div>
+          </div>
+          <div class="tabs" style="margin: 0; border: none;">
+            <div class="tab active">Todas</div>
+            <div class="tab">Activas</div>
+            <div class="tab">Alertas</div>
+          </div>
+        </div>
+        <div class="table-head">
+          <div class="th">Clínica</div>
+          <div class="th">Estado</div>
+          <div class="th">Conversaciones</div>
+          <div class="th">Citas / mes</div>
+          <div class="th">Plan</div>
+          <div class="th">Último acceso</div>
+          <div class="th"></div>
+        </div>
+
+        <!-- Rows -->
+        <div class="table-row">
+          <div>
+            <div class="clinic-name">Galana Clínica Dental</div>
+            <div class="clinic-plan">galana · Santiago</div>
+          </div>
+          <div><span class="pill pill-green"><span class="dot dot-green"></span>Activa</span></div>
+          <div class="td-bold">841</div>
+          <div class="td-bold">127</div>
+          <div><span class="pill pill-gray">Pro</span></div>
+          <div class="td">hace 2h</div>
+          <div><div class="action-btn">›</div></div>
+        </div>
+
+        <div class="table-row">
+          <div>
+            <div class="clinic-name">Clínica Sonrisas</div>
+            <div class="clinic-plan">sonrisas · Providencia</div>
+          </div>
+          <div><span class="pill pill-green"><span class="dot dot-green"></span>Activa</span></div>
+          <div class="td-bold">562</div>
+          <div class="td-bold">84</div>
+          <div><span class="pill pill-gray">Pro</span></div>
+          <div class="td">hace 1d</div>
+          <div><div class="action-btn">›</div></div>
+        </div>
+
+        <div class="table-row">
+          <div>
+            <div class="clinic-name">Dental Express</div>
+            <div class="clinic-plan">dental-express · Las Condes</div>
+          </div>
+          <div><span class="pill pill-yellow"><span class="dot dot-yellow"></span>Advertencia</span></div>
+          <div class="td-bold">312</div>
+          <div class="td-bold">41</div>
+          <div><span class="pill pill-gray">Starter</span></div>
+          <div class="td">hace 3d</div>
+          <div><div class="action-btn">›</div></div>
+        </div>
+
+        <div class="table-row">
+          <div>
+            <div class="clinic-name">OrthoCenter</div>
+            <div class="clinic-plan">orthocenter · Ñuñoa</div>
+          </div>
+          <div><span class="pill pill-red"><span class="dot dot-red"></span>Error</span></div>
+          <div class="td-bold">89</div>
+          <div class="td-bold">9</div>
+          <div><span class="pill pill-gray">Starter</span></div>
+          <div class="td">hace 8d</div>
+          <div><div class="action-btn">›</div></div>
+        </div>
+
+        <div class="table-row">
+          <div>
+            <div class="clinic-name">Clínica del Río</div>
+            <div class="clinic-plan">del-rio · Maipú</div>
+          </div>
+          <div><span class="pill pill-green"><span class="dot dot-green"></span>Activa</span></div>
+          <div class="td-bold">421</div>
+          <div class="td-bold">63</div>
+          <div><span class="pill pill-gray">Pro</span></div>
+          <div class="td">hace 5h</div>
+          <div><div class="action-btn">›</div></div>
+        </div>
+
+        <div class="table-row">
+          <div>
+            <div class="clinic-name">SmilePro</div>
+            <div class="clinic-plan">smilepro · Vitacura</div>
+          </div>
+          <div><span class="pill pill-green"><span class="dot dot-green"></span>Activa</span></div>
+          <div class="td-bold">276</div>
+          <div class="td-bold">38</div>
+          <div><span class="pill pill-gray">Starter</span></div>
+          <div class="td">hace 12h</div>
+          <div><div class="action-btn">›</div></div>
+        </div>
+
+        <div class="table-row">
+          <div>
+            <div class="clinic-name">Dental Norte</div>
+            <div class="clinic-plan">dental-norte · Huechuraba</div>
+          </div>
+          <div><span class="pill pill-gray"><span class="dot dot-gray"></span>Sin config</span></div>
+          <div class="td">—</div>
+          <div class="td">—</div>
+          <div><span class="pill pill-gray">Trial</span></div>
+          <div class="td">Nunca</div>
+          <div><div class="action-btn">›</div></div>
+        </div>
+      </div>
+
+      <!-- Right col -->
+      <div class="right-col">
+
+        <!-- Alerts -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">⚠️ Alertas activas</div>
+            <span class="pill pill-red">3</span>
+          </div>
+          <div class="alert-item">
+            <div class="alert-icon alert-icon-red">🔴</div>
+            <div style="flex:1">
+              <div class="alert-text">WhatsApp desconectado</div>
+              <div class="alert-sub">OrthoCenter · hace 8 días</div>
+            </div>
+            <div class="alert-chevron">›</div>
+          </div>
+          <div class="alert-item">
+            <div class="alert-icon alert-icon-yellow">⚡</div>
+            <div style="flex:1">
+              <div class="alert-text">API key próxima a expirar</div>
+              <div class="alert-sub">Dental Express · en 3 días</div>
+            </div>
+            <div class="alert-chevron">›</div>
+          </div>
+          <div class="alert-item">
+            <div class="alert-icon alert-icon-blue">💬</div>
+            <div style="flex:1">
+              <div class="alert-text">Tasa de error elevada IA</div>
+              <div class="alert-sub">OrthoCenter · 12% error rate</div>
+            </div>
+            <div class="alert-chevron">›</div>
+          </div>
+        </div>
+
+        <!-- Activity -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Actividad reciente</div>
+          </div>
+          <div class="activity-list">
+            <div class="activity-item">
+              <div class="activity-dot" style="background:#10B981"></div>
+              <div>
+                <div class="activity-text"><strong>Galana</strong> agendó 3 citas nuevas vía chat</div>
+                <div class="activity-time">hace 14 min</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-dot" style="background:#3B82F6"></div>
+              <div>
+                <div class="activity-text"><strong>Dental Norte</strong> se registró en la plataforma</div>
+                <div class="activity-time">hace 2h</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-dot" style="background:#F59E0B"></div>
+              <div>
+                <div class="activity-text"><strong>SmilePro</strong> cambió su configuración de horarios</div>
+                <div class="activity-time">hace 5h</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-dot" style="background:#EF4444"></div>
+              <div>
+                <div class="activity-text"><strong>OrthoCenter</strong> WhatsApp dejó de responder</div>
+                <div class="activity-time">hace 8d</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-dot" style="background:#10B981"></div>
+              <div>
+                <div class="activity-text"><strong>Clínica del Río</strong> superó 400 conversaciones</div>
+                <div class="activity-time">hace 1d</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Architecture diagram -->
+    <div class="arch">
+      <div class="arch-title">Arquitectura del repo molaris-admin</div>
+      <div style="display:flex; flex-direction:column; gap:20px;">
+
+        <!-- Row 1: auth flow -->
+        <div>
+          <div style="font-size:10px; font-weight:700; color:#607281; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.8px;">Auth flow</div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div class="arch-box arch-box-accent">molaris-admin<br/><span style="font-size:9px;opacity:0.7">Next.js · puerto 3002</span></div>
+            <div class="arch-arrow"></div>
+            <div class="arch-box arch-box-teal">POST /api/auth/login<br/><span style="font-size:9px">role: superadmin</span></div>
+            <div class="arch-arrow"></div>
+            <div class="arch-box arch-box-teal">JWT token<br/><span style="font-size:9px">mismo backend molari.ai</span></div>
+            <div class="arch-arrow"></div>
+            <div class="arch-box">Cookie HttpOnly<br/><span style="font-size:9px">persistencia sesión</span></div>
+          </div>
+        </div>
+
+        <!-- Row 2: data -->
+        <div>
+          <div style="font-size:10px; font-weight:700; color:#607281; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.8px;">Datos (endpoints nuevos en backend)</div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <div class="arch-box arch-box-orange">GET /api/admin/clinics<br/><span style="font-size:9px">lista + métricas por clínica</span></div>
+            <div class="arch-box arch-box-orange">GET /api/admin/metrics<br/><span style="font-size:9px">KPIs globales</span></div>
+            <div class="arch-box arch-box-orange">GET /api/admin/alerts<br/><span style="font-size:9px">errores, desconexiones</span></div>
+            <div class="arch-box arch-box-orange">POST /api/admin/clinics<br/><span style="font-size:9px">crear / editar clínica</span></div>
+            <div class="arch-box arch-box-orange">GET /api/admin/logs<br/><span style="font-size:9px">actividad del sistema</span></div>
+          </div>
+        </div>
+
+        <!-- Row 3: pages -->
+        <div>
+          <div style="font-size:10px; font-weight:700; color:#607281; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.8px;">Páginas del admin</div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <div class="arch-box" style="min-width:100px">/admin<br/><span style="font-size:9px">overview + KPIs</span></div>
+            <div class="arch-box" style="min-width:100px">/admin/clinics<br/><span style="font-size:9px">tabla de clínicas</span></div>
+            <div class="arch-box" style="min-width:110px">/admin/clinics/[id]<br/><span style="font-size:9px">detalle + impersonar</span></div>
+            <div class="arch-box" style="min-width:100px">/admin/users<br/><span style="font-size:9px">partner_users</span></div>
+            <div class="arch-box" style="min-width:100px">/admin/alerts<br/><span style="font-size:9px">alertas sistema</span></div>
+            <div class="arch-box" style="min-width:100px">/admin/logs<br/><span style="font-size:9px">actividad detallada</span></div>
+          </div>
+        </div>
+
+        <!-- Row 4: guard -->
+        <div style="background: rgba(217,95,69,0.06); border: 1px solid rgba(217,95,69,0.2); border-radius:10px; padding:12px 16px;">
+          <div style="font-size:10px; font-weight:700; color:#D95F45; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.8px;">🔒 Seguridad</div>
+          <div style="display:flex; gap:16px; font-size:11px; color:#607281;">
+            <div>Middleware Next.js verifica <strong>role === "superadmin"</strong> en cada ruta</div>
+            <div>|</div>
+            <div>IP allowlist opcional para acceso externo</div>
+            <div>|</div>
+            <div>Sin datos de pacientes — solo métricas agregadas</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

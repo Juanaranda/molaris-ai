@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { AvailabilityPicker } from "@/components/AvailabilityPicker";
 
 interface Message {
   role: "user" | "assistant";
   text: string;
+  showPicker?: boolean;
 }
 
 interface LeadContext {
@@ -21,6 +23,8 @@ interface LeadContext {
 interface Props {
   clinicSlug?: string;
   clinicName?: string;
+  isDemoMode?: boolean;
+  isSandbox?: boolean;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -43,18 +47,34 @@ const SCORE_COLOR = (score: number) => {
   return "text-gray-400";
 };
 
-export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica Dental" }: Props = {}) {
-  const [assistantName, setAssistantName] = useState<string | null>(null);
-  const [displayClinicName, setDisplayClinicName] = useState(clinicName);
+export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica Dental", isDemoMode = false, isSandbox = false }: Props = {}) {
+  const [assistantName, setAssistantName] = useState<string | null>(isDemoMode ? "Juan" : null);
+  const [displayClinicName, setDisplayClinicName] = useState(isDemoMode ? "molari.ai" : clinicName);
+  const [slotBooked, setSlotBooked] = useState(false);
+
+  function handleDismissPicker() {
+    setMessages((prev) => prev.map((m) => ({ ...m, showPicker: false })));
+  }
+
+  function handleSlotSelected(slot: { date: string; dayName: string; time: string; doctor: string; box: string | null }) {
+    setSlotBooked(true);
+    setMessages((prev) => prev.map((m) => ({ ...m, showPicker: false })));
+    const text = `Seleccioné el ${slot.dayName} ${slot.date.slice(8)} a las ${slot.time} con ${slot.doctor}`;
+    setMessages((prev) => [...prev, { role: "user", text }]);
+    sendMessage(text, true);
+  }
 
   function buildGreeting(aName: string | null, cName: string) {
+    if (isDemoMode) {
+      return "Hola, soy Juan de molari.ai. Estoy aquí para mostrarte cómo funciona el sistema para clínicas dentales. ¿Qué te gustaría conocer?";
+    }
     return aName
       ? `Hola, soy ${aName}, asistente virtual de ${cName}. ¿En qué puedo ayudarte?`
       : `Hola, soy el asistente virtual de ${cName}. ¿En qué puedo ayudarte?`;
   }
 
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", text: buildGreeting(null, clinicName) },
+    { role: "assistant", text: buildGreeting(isDemoMode ? "Juan" : null, isDemoMode ? "molari.ai" : clinicName) },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -65,6 +85,12 @@ export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica 
   useEffect(() => {
     setSessionId(null);
     setContext(null);
+    if (isDemoMode) {
+      setAssistantName("Juan");
+      setDisplayClinicName("molari.ai");
+      setMessages([{ role: "assistant", text: buildGreeting("Juan", "molari.ai") }]);
+      return;
+    }
     // Fetch clinic info to get assistantName
     fetch(`${API_URL}/api/book/${clinicSlug}`)
       .then((r) => r.ok ? r.json() : null)
@@ -78,29 +104,39 @@ export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica 
       .catch(() => {
         setMessages([{ role: "assistant", text: buildGreeting(null, clinicName) }]);
       });
-  }, [clinicSlug, clinicName]);
+  }, [clinicSlug, clinicName, isDemoMode]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  async function sendMessage() {
-    const text = input.trim();
+  async function sendMessage(overrideText?: string, slotJustBooked = false) {
+    const text = overrideText ?? input.trim();
     if (!text || loading) return;
-    setMessages((prev) => [...prev, { role: "user", text }]);
-    setInput("");
+    if (!overrideText) {
+      setMessages((prev) => [...prev, { role: "user", text }]);
+      setInput("");
+    }
     setLoading(true);
+    const bookedNow = slotBooked || slotJustBooked;
 
     try {
       const res = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, clinicSlug, sessionId: sessionId ?? undefined }),
+        body: JSON.stringify({
+          message: text, clinicSlug,
+          sessionId: sessionId ?? undefined,
+          slotBooked: bookedNow,
+          isDemoMode: isDemoMode || undefined,
+          isSandbox: isSandbox || undefined,
+        }),
       });
       const data = await res.json();
       if (!sessionId && data.sessionId) setSessionId(data.sessionId);
       if (data.context) setContext((prev) => ({ ...prev, ...data.context }));
-      setMessages((prev) => [...prev, { role: "assistant", text: data.reply ?? "Sin respuesta. Intenta de nuevo." }]);
+      const showPicker = !bookedNow && !!data.showScheduler && !isDemoMode;
+      setMessages((prev) => [...prev, { role: "assistant", text: data.reply ?? "Sin respuesta. Intenta de nuevo.", showPicker }]);
     } catch {
       setMessages((prev) => [...prev, { role: "assistant", text: "Hubo un problema al conectar. Intenta de nuevo." }]);
     } finally {
@@ -130,29 +166,47 @@ export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica 
       {/* Chat */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden flex flex-col h-[520px]">
         {/* Header */}
-        <div className="bg-sky-600 px-5 py-4 flex items-center gap-3">
-          <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-sky-600 font-bold text-sm">
-            {(assistantName ?? displayClinicName).charAt(0).toUpperCase()}
+        <div className="px-5 py-4 flex items-center gap-3"
+          style={{ backgroundColor: isDemoMode ? "#0B2F42" : "#0284C7" }}>
+          <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center font-bold text-sm"
+            style={{ color: isDemoMode ? "#0B2F42" : "#0284C7" }}>
+            {isDemoMode ? "J" : (assistantName ?? displayClinicName).charAt(0).toUpperCase()}
           </div>
           <div>
-            <p className="text-white font-semibold text-sm">{assistantName ?? displayClinicName}</p>
-            <p className="text-sky-200 text-xs">{assistantName ? `Asistente de ${displayClinicName}` : "Asistente virtual"} · En línea</p>
+            <p className="text-white font-semibold text-sm">
+              {isDemoMode ? "Juan" : (assistantName ?? displayClinicName)}
+            </p>
+            <p className="text-xs" style={{ color: "rgba(255,255,255,0.65)" }}>
+              {isDemoMode ? "Agente de molari.ai · En línea" : `${assistantName ? `Asistente de ${displayClinicName}` : "Asistente virtual"} · En línea`}
+            </p>
           </div>
         </div>
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
           {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div
-                className={`max-w-[82%] px-4 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
-                  msg.role === "user"
-                    ? "bg-sky-600 text-white rounded-br-sm"
-                    : "bg-gray-100 text-gray-800 rounded-bl-sm"
-                }`}
-              >
-                {msg.role === "assistant" ? renderText(msg.text) : msg.text}
+            <div key={i}>
+              <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div
+                  className={`max-w-[82%] px-4 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+                    msg.role === "user"
+                      ? "bg-sky-600 text-white rounded-br-sm"
+                      : "bg-gray-100 text-gray-800 rounded-bl-sm"
+                  }`}
+                >
+                  {msg.role === "assistant" ? renderText(msg.text) : msg.text}
+                </div>
               </div>
+              {msg.showPicker && msg.role === "assistant" && (
+                <div className="mt-2">
+                  <AvailabilityPicker
+                    service={context?.serviceInterest}
+                    color="#0284C7"
+                    onSelect={handleSlotSelected}
+                    onDismiss={handleDismissPicker}
+                  />
+                </div>
+              )}
             </div>
           ))}
           {loading && (
@@ -176,7 +230,7 @@ export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica 
             className="flex-1 text-sm border border-gray-200 rounded-full px-4 py-2 focus:outline-none focus:border-sky-400"
           />
           <button
-            onClick={sendMessage}
+            onClick={() => sendMessage()}
             disabled={loading || !input.trim()}
             className="bg-sky-600 text-white text-sm font-medium px-4 py-2 rounded-full hover:bg-sky-700 disabled:opacity-40 transition-colors"
           >

@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import prisma from "../config/prisma";
 import { sendBookingNotification } from "../services/notifications/whatsappService";
+import { verifyPatientToken } from "./patient-auth";
 
 interface DoctorConfig {
   name: string;
@@ -197,7 +198,7 @@ export async function bookRoutes(app: FastifyInstance) {
 
     const clinic = await prisma.clinic.findUnique({
       where: { slug },
-      select: { id: true, slug: true, name: true, phone: true, whatsapp: true, config: true, active: true },
+      select: { id: true, slug: true, name: true, phone: true, whatsapp: true, config: true, active: true, waVerified: true, waPhoneId: true, waToken: true },
     });
     if (!clinic || !clinic.active) return reply.status(404).send({ error: "Clínica no encontrada" });
 
@@ -232,8 +233,11 @@ export async function bookRoutes(app: FastifyInstance) {
     if (clinic.whatsapp) {
       const DAY_NAMES_ES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
       const dayName = DAY_NAMES_ES[new Date(`${date}T12:00:00`).getDay()];
+      const clinicMeta = (clinic.waVerified && clinic.waPhoneId && clinic.waToken)
+        ? { phoneId: clinic.waPhoneId, token: clinic.waToken }
+        : undefined;
       sendBookingNotification({
-        clinicName: clinic.name, clinicWhatsapp: clinic.whatsapp,
+        clinicName: clinic.name, clinicWhatsapp: clinic.whatsapp, clinicMeta,
         patientName, service: service ?? "A confirmar",
         date, dayName, time, doctor, box: null, sessionId: booking.id,
       }).catch(() => {});

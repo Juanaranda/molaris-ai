@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import prisma from "../config/prisma";
 import { getAIResponse } from "../services/ai/claudeService";
+import { config } from "../config/env";
 
 function twiml(message: string): string {
   const safe = message
@@ -27,6 +28,20 @@ export async function webhookRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const { slug } = req.params;
       const body = req.body as Record<string, string>;
+
+      // Validate Twilio signature to prevent forged webhook requests
+      if (config.twilio.authToken) {
+        const twilioSignature = req.headers["x-twilio-signature"] as string | undefined;
+        if (!twilioSignature) {
+          return reply.status(403).send("Forbidden");
+        }
+        const { default: twilio } = await import("twilio");
+        const webhookUrl = `${config.frontendUrl.replace(/\/$/, "").replace(/:\d+$/, ":3001")}/api/webhooks/whatsapp/${slug}`;
+        const isValid = twilio.validateRequest(config.twilio.authToken, twilioSignature, webhookUrl, body);
+        if (!isValid) {
+          return reply.status(403).send("Forbidden");
+        }
+      }
 
       const fromRaw    = body.From ?? "";
       const messageText = (body.Body ?? "").trim();
@@ -70,8 +85,47 @@ export async function webhookRoutes(app: FastifyInstance) {
       // Obtener respuesta de la IA
       let aiReply = "Lo siento, tuve un problema al procesar tu mensaje. Intenta de nuevo.";
       try {
-        const result = await getAIResponse({ message: messageText, clinic, sessionId: session.id });
-        aiReply = result.reply || aiReply;
+        const currentContext = await prisma.patientContext.findUnique({ where: { sessionId: session.id } });
+        const ctx = currentContext ? {
+          patientName: currentContext.patientName ?? undefined,
+          rut: currentContext.rut ?? undefined,
+          serviceInterest: currentContext.serviceInterest ?? undefined,
+          intent: currentContext.intent ?? undefined,
+          urgency: currentContext.urgency ?? undefined,
+        } : {};
+
+        const result = await getAIResponse({ message: messageText, clinic, sessionId: session.id, currentContext: ctx });
+
+        // Si el modelo pidió crear una cita, ejecutarla
+        if (result.bookingAction) {
+          const { doctor, date, time, patientName, patientRut, service } = result.bookingAction;
+          try {
+            const bookingDate = new Date(`${date}T12:00:00`);
+            const booking = await prisma.booking.create({
+              data: {
+                clinicId:    clinic.id,
+                patientName: patientName || patient.phone,
+                patientRut:  patientRut  || null,
+                patientPhone: fromPhone,
+                date:    bookingDate,
+                time,
+                doctor,
+                service: service || null,
+                status:  "pending",
+                sessionId: session.id,
+              },
+            });
+            const DAY_NAMES_ES = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
+            const dayName = DAY_NAMES_ES[bookingDate.getDay()];
+            aiReply = `¡Listo ${patientName.split(" ")[0]}! Tu cita está confirmada para el ${dayName} ${date.slice(8)}/${date.slice(5,7)} a las ${time} con ${doctor}. Te esperamos en ${clinic.name}. 🦷`;
+            console.info(`[Webhook] Cita creada id=${booking.id} para ${patientName}`);
+          } catch (bookingErr: any) {
+            console.error("[Webhook] Error al crear cita:", bookingErr?.message);
+            aiReply = result.reply || "Hubo un problema al confirmar tu cita. Por favor llámanos directamente.";
+          }
+        } else {
+          aiReply = result.reply || aiReply;
+        }
 
         await prisma.message.create({
           data: { sessionId: session.id, role: "assistant", content: aiReply },

@@ -233,9 +233,14 @@ export function ServicesEditor({ services, canEdit, onSave }: Props) {
                 className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               >
                 <option value="fixed">Precio fijo</option>
-                <option value="range">Rango de precio</option>
-                <option value="variable">Variable / a consultar</option>
+                <option value="range">Rango de precios</option>
+                <option value="variable">Precio a consultar</option>
               </select>
+              <p className="text-[10px] text-gray-400 mt-1">
+                {form.pricingType === "fixed" && "El agente informa el precio exacto al paciente."}
+                {form.pricingType === "range" && "El agente informa que el precio varía entre un mínimo y un máximo según la complejidad del caso."}
+                {form.pricingType === "variable" && "El agente informará que el precio varía según cada caso y se cotiza en la consulta."}
+              </p>
             </div>
 
             {form.pricingType === "fixed" && (
@@ -251,7 +256,7 @@ export function ServicesEditor({ services, canEdit, onSave }: Props) {
             )}
 
             {form.pricingType === "range" && (
-              <>
+              <div className="col-span-2 grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Precio mínimo</label>
                   <input
@@ -270,7 +275,7 @@ export function ServicesEditor({ services, canEdit, onSave }: Props) {
                     className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-              </>
+              </div>
             )}
 
             {form.pricingType === "variable" && (

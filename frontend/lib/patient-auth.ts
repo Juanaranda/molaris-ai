@@ -9,15 +9,89 @@ export interface PatientData {
   rut: string;
   email: string | null;
   phone?: string | null;
+  birthDate?: string | null;
+  address?: string | null;
+  emergencyContactName?: string | null;
+  emergencyContactPhone?: string | null;
+  emergencyContactRelation?: string | null;
   clinicId: string;
   enrolledAt?: string;
   lastVisit?: string | null;
+}
+
+export interface PatientBoleta {
+  id: string;
+  folio: number | null;
+  totalAmount: number;
+  netAmount: number;
+  iva: number;
+  description: string | null;
+  pdfUrl: string | null;
+  emittedAt: string | null;
+}
+
+export async function patientUpdateProfile(data: {
+  firstName?: string;
+  lastName?: string;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  emergencyContactName?: string | null;
+  emergencyContactPhone?: string | null;
+  emergencyContactRelation?: string | null;
+}): Promise<PatientData> {
+  const token = getPatientToken();
+  const res = await fetch(`${API}/api/auth/patient/me`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error ?? "Error al guardar");
+  }
+  const json = await res.json();
+  return json.patient;
+}
+
+export async function getMyBoletas(): Promise<PatientBoleta[]> {
+  const token = getPatientToken();
+  const res = await fetch(`${API}/api/auth/patient/boletas`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error("Error cargando boletas");
+  const json = await res.json();
+  return json.boletas;
 }
 
 export interface PatientClinic {
   id: string;
   slug: string;
   name: string;
+}
+
+// ─── Derechos del titular — ARCO+ (Ley 21.719) ─────────────────────────────────
+
+/** Descarga todos los datos que la clínica mantiene sobre el paciente (JSON). */
+export async function downloadMyData(): Promise<Record<string, unknown>> {
+  const token = getPatientToken();
+  const res = await fetch(`${API}/api/auth/patient/my-data`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error("Error descargando tus datos");
+  return res.json();
+}
+
+/** Solicita la supresión de datos (revoca marketing al instante). */
+export async function requestMyDataDeletion(): Promise<{ message: string }> {
+  const token = getPatientToken();
+  const res = await fetch(`${API}/api/auth/patient/my-data`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((json as { error?: string }).error ?? "Error procesando la solicitud");
+  return json as { message: string };
 }
 
 // ─── Token helpers ────────────────────────────────────────────────────────────
@@ -33,6 +107,22 @@ export function clearPatientToken() {
 
 // ─── Auth requests ────────────────────────────────────────────────────────────
 
+export interface DataPurpose {
+  key: string;
+  label: string;
+  description: string;
+  legalBasis: string;
+  required: boolean;
+}
+
+/** Catálogo de propósitos de tratamiento de datos para el signup (Ley 21.719). */
+export async function getPurposes(): Promise<DataPurpose[]> {
+  const res = await fetch(`${API}/api/auth/patient/purposes`);
+  if (!res.ok) return [];
+  const json = await res.json();
+  return json.purposes ?? [];
+}
+
 export async function patientRegister(data: {
   rut: string;
   firstName: string;
@@ -41,6 +131,7 @@ export async function patientRegister(data: {
   phone?: string;
   password: string;
   clinicSlug: string;
+  consents?: Record<string, boolean>;
 }): Promise<{ token: string; patient: PatientData }> {
   const res = await fetch(`${API}/api/auth/patient/register`, {
     method: "POST",

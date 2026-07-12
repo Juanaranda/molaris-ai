@@ -4,6 +4,19 @@
   --font-family-display: var(--font-jakarta), "Plus Jakarta Sans", sans-serif;
   --font-family-body: var(--font-jakarta), "Plus Jakarta Sans", sans-serif;
   --font-family-sans: var(--font-jakarta), "Plus Jakarta Sans", sans-serif;
+
+  /* Override blue palette → brand teal (#1A5C7A family) */
+  --color-blue-50:  #EFF6FA;
+  --color-blue-100: #D4E9F2;
+  --color-blue-200: #A9D3E5;
+  --color-blue-300: #76B9D5;
+  --color-blue-400: #4A9EC4;
+  --color-blue-500: #2780A8;
+  --color-blue-600: #1A5C7A;
+  --color-blue-700: #124459;
+  --color-blue-800: #0B2F42;
+  --color-blue-900: #071E2B;
+  --color-blue-950: #040F16;
 }
 
 :root {
@@ -36,3 +49,12 @@ body {
 .animate-fade-up-delay-1 { animation-delay: 0.1s; }
 .animate-fade-up-delay-2 { animation-delay: 0.2s; }
 .animate-fade-up-delay-3 { animation-delay: 0.32s; }
+.animate-fade-up-delay-4 { animation-delay: 0.44s; }
+.animate-fade-up-delay-5 { animation-delay: 0.56s; }
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+.animate-float      { animation: float 5s ease-in-out infinite; }
+.animate-float-slow { animation: float 7s ease-in-out infinite; }
