@@ -1192,9 +1192,10 @@ export default function PartnersDashboard() {
                 {(([
                   ["inicio", "Inicio"], ["conversaciones", "Conversaciones"], ["agenda", "Agenda"], ["analytics", "Analítica"],
                   ["patients", "Pacientes"], ["bookings", "Citas"], ["perfil", "Mi Perfil"],
-                  ...(user && user.role !== "USER" ? [["equipo", "Equipo"]] as [Tab, string][] : []),
-                  ["inventario", "Inventario"],
-                  ["clinica", "Mi Clínica"], ["config", "Configuración"],
+                  // Modo solo (#69): un doctor independiente no tiene equipo ni inventario de clínica
+                  ...(user && user.role !== "USER" && clinic?.accountType !== "solo" ? [["equipo", "Equipo"]] as [Tab, string][] : []),
+                  ...(clinic?.accountType !== "solo" ? [["inventario", "Inventario"]] as [Tab, string][] : []),
+                  ["clinica", clinic?.accountType === "solo" ? "Mi consulta" : "Mi Clínica"], ["config", "Configuración"],
                 ] as [Tab, string][])).map(([tab, label]) => (
                   <button key={tab} onClick={() => setActiveTab(tab)}
                     className={`px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
