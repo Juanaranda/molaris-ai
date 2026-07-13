@@ -53,6 +53,11 @@ export const config = {
   ai: {
     dailyBudgetUsd: Number(process.env.AI_DAILY_BUDGET_USD ?? 5),
   },
+  clinics: {
+    // KYC (#66): si true, una clínica no aprobada no puede operar el agente público.
+    // En beta lo dejamos false para no bloquear el QA; en prod se pone true.
+    requireApproval: process.env.CLINIC_REQUIRE_APPROVAL === "true",
+  },
   // Email (Issue #55) — Resend. Sin key → modo dev (log en consola).
   email: {
     resendApiKey: process.env.RESEND_API_KEY ?? "",

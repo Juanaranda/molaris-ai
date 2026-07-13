@@ -187,6 +187,16 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
       return reply.send({ reply: fallback, sessionId: session.id, context: existingCtx, isFarewell: false, showScheduler: false });
     }
 
+    // KYC gate (#66): en producción, una clínica no aprobada no opera el agente
+    // público. En beta (requireApproval=false) no aplica. Demo/sandbox se saltan.
+    if (config.clinics.requireApproval && !isDemoMode && !isSandbox &&
+        clinic.verificationStatus !== "MANUAL_APPROVED" &&
+        clinic.verificationStatus !== "AUTO_VERIFIED") {
+      const fallback = "¡Gracias por tu mensaje! 🙌 Estamos terminando de activar esta clínica; muy pronto podremos atenderte.";
+      await prisma.message.create({ data: { sessionId: session.id, role: "assistant", content: fallback } });
+      return reply.send({ reply: fallback, sessionId: session.id, context: existingCtx, isFarewell: false, showScheduler: false });
+    }
+
     // En modo demo Juan no inyecta disponibilidad de citas reales
     let availabilityHint: string | undefined;
     if (!isDemoMode && existingCtx?.intent === "booking_via_chat") {

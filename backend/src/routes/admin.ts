@@ -347,6 +347,51 @@ export async function adminRoutes(app: FastifyInstance) {
     });
   });
 
+  // ── KYC: verificación de clínicas (Issue #66) ───────────────────────────────
+  // GET /api/admin/clinics/pending — clínicas esperando revisión
+  app.get("/admin/clinics/pending", async (req, reply) => {
+    if (!assertSuperAdmin(req, reply)) return;
+    const clinics = await prisma.clinic.findMany({
+      where: { verificationStatus: "PENDING" },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true, slug: true, name: true, phone: true, location: true,
+        professionalRut: true, professionalRegNumber: true, rnpiCertUrl: true,
+        createdAt: true,
+        partnerUsers: { where: { role: "ADMIN" }, select: { name: true, email: true }, take: 1 },
+      },
+    });
+    return reply.send({ clinics });
+  });
+
+  // POST /api/admin/clinics/:id/approve
+  app.post<{ Params: { id: string } }>("/admin/clinics/:id/approve", async (req, reply) => {
+    const payload = assertSuperAdmin(req, reply);
+    if (!payload) return;
+    const clinic = await prisma.clinic.findUnique({ where: { id: req.params.id }, select: { id: true, name: true } });
+    if (!clinic) return reply.status(404).send({ error: "Clínica no encontrada" });
+    await prisma.clinic.update({
+      where: { id: req.params.id },
+      data: { verificationStatus: "MANUAL_APPROVED", verifiedAt: new Date(), verifiedById: payload.userId, rejectionReason: null },
+    });
+    console.warn(`[kyc] Clínica ${clinic.name} (${clinic.id}) APROBADA por SUPERADMIN ${payload.userId}`);
+    return reply.send({ ok: true, status: "MANUAL_APPROVED" });
+  });
+
+  // POST /api/admin/clinics/:id/reject  { reason }
+  app.post<{ Params: { id: string }; Body: { reason?: string } }>("/admin/clinics/:id/reject", async (req, reply) => {
+    const payload = assertSuperAdmin(req, reply);
+    if (!payload) return;
+    const clinic = await prisma.clinic.findUnique({ where: { id: req.params.id }, select: { id: true, name: true } });
+    if (!clinic) return reply.status(404).send({ error: "Clínica no encontrada" });
+    await prisma.clinic.update({
+      where: { id: req.params.id },
+      data: { verificationStatus: "REJECTED", verifiedAt: new Date(), verifiedById: payload.userId, rejectionReason: req.body?.reason?.slice(0, 500) ?? null },
+    });
+    console.warn(`[kyc] Clínica ${clinic.name} (${clinic.id}) RECHAZADA por SUPERADMIN ${payload.userId}`);
+    return reply.send({ ok: true, status: "REJECTED" });
+  });
+
   // POST /api/admin/reminders/run — trigger manual para pruebas
   app.post("/admin/reminders/run", async (req, reply) => {
     if (!assertSuperAdmin(req, reply)) return;
