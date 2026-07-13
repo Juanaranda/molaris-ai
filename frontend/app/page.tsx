@@ -657,13 +657,38 @@ export default function Home() {
 
       {/* PRICING */}
       <section id="pricing" className="py-16 sm:py-24" style={{ backgroundColor: "#F7F5F1" }}>
-        <div className="max-w-5xl mx-auto px-6 sm:px-10">
+        <div className="max-w-6xl mx-auto px-6 sm:px-10">
           <h2 className="font-display text-3xl sm:text-4xl font-bold text-center mb-3">Planes y precios</h2>
           <p className="text-sm text-center mb-12" style={{ color: "#607281" }}>Sin contratos largos. Cancela cuando quieras.</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-6 items-stretch">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 items-stretch">
+
+            {/* Doctor — plan para dentista independiente (#69) */}
+            <AnimateIn delay={0} style={{ display: 'flex', flexDirection: 'column' }}>
+            <div className="flex flex-col rounded-2xl p-6 sm:p-7 flex-1" style={{ border: "1px solid #E5E0D9", backgroundColor: "#FDFCFB" }}>
+              <p className="text-xs font-bold uppercase tracking-[0.12em] mb-5" style={{ color: "#607281" }}>Doctor</p>
+              <div className="mb-1">
+                <span className="font-display text-4xl font-bold">$12.990</span>
+                <span className="text-sm ml-1.5" style={{ color: "#607281" }}>CLP / mes</span>
+              </div>
+              <p className="text-sm mb-6" style={{ color: "#607281" }}>Para el dentista independiente — menos que una consulta particular</p>
+              <ul className="flex flex-col gap-2.5 text-sm mb-8 flex-1">
+                {["Recepcionista IA en WhatsApp y web", "Agenda personal + recordatorios", "Ficha clínica + odontograma", "Pacientes y pagos", "1 profesional"].map((f) => (
+                  <li key={f} className="flex items-center gap-2.5">
+                    <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A" }}>✓</span>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <a href="/register"
+                className="block text-center font-semibold py-3 rounded-full text-sm transition-colors"
+                style={{ border: "1.5px solid #1A5C7A", color: "#1A5C7A" }}>
+                Empezar ahora
+              </a>
+            </div>
+            </AnimateIn>
 
             {/* Esencial */}
-            <AnimateIn delay={0} style={{ display: 'flex', flexDirection: 'column' }}>
+            <AnimateIn delay={110} style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="flex flex-col rounded-2xl p-6 sm:p-7 flex-1" style={{ border: "1px solid #E5E0D9", backgroundColor: "#FDFCFB" }}>
               <p className="text-xs font-bold uppercase tracking-[0.12em] mb-5" style={{ color: "#607281" }}>Esencial</p>
               <div className="mb-1">
@@ -688,7 +713,7 @@ export default function Home() {
             </AnimateIn>
 
             {/* Pro */}
-            <AnimateIn delay={110} style={{ display: 'flex', flexDirection: 'column' }}>
+            <AnimateIn delay={220} style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="flex flex-col rounded-2xl p-6 sm:p-7 relative shadow-lg flex-1" style={{ border: "2px solid #D95F45", backgroundColor: "#FDFCFB" }}>
               <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 text-white text-[11px] font-bold px-4 py-1 rounded-full whitespace-nowrap" style={{ backgroundColor: "#D95F45" }}>
                 Más popular
@@ -723,7 +748,7 @@ export default function Home() {
             </AnimateIn>
 
             {/* Clínica+ */}
-            <AnimateIn delay={220} style={{ display: 'flex', flexDirection: 'column' }}>
+            <AnimateIn delay={330} style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="flex flex-col rounded-2xl p-6 sm:p-7 flex-1" style={{ border: "1px solid #E5E0D9", backgroundColor: "#FDFCFB" }}>
               <p className="text-xs font-bold uppercase tracking-[0.12em] mb-5" style={{ color: "#607281" }}>Clínica+</p>
               <div className="mb-1">

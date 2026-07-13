@@ -3,6 +3,23 @@ import Link from "next/link";
 
 const PLANS = [
   {
+    name: "Doctor",
+    price: "$12.990",
+    period: "/mes",
+    description: "Para el dentista independiente. Menos que una consulta particular.",
+    highlight: false,
+    features: [
+      "Recepcionista IA en WhatsApp y web",
+      "Agenda personal + recordatorios",
+      "Ficha clínica + odontograma",
+      "Pacientes y pagos",
+      "1 profesional",
+      "Soporte por WhatsApp",
+    ],
+    cta: "Empezar ahora",
+    ctaHref: "/register",
+  },
+  {
     name: "Esencial",
     price: "$59.990",
     period: "/mes",
@@ -110,8 +127,8 @@ export default function PricingPage() {
       </section>
 
       {/* PLANES */}
-      <section className="max-w-5xl mx-auto px-8 pb-20">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <section className="max-w-6xl mx-auto px-8 pb-20">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {PLANS.map((plan) => (
             <div
               key={plan.name}
