@@ -148,13 +148,15 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Demo hint */}
-          <div className="mt-4 rounded-2xl p-4 text-center" style={{ backgroundColor: "#E8F3F7", border: "1px solid rgba(26,92,122,0.15)" }}>
-            <p className="text-xs font-bold mb-1" style={{ color: "#1A5C7A" }}>Demo disponible</p>
-            <p className="text-xs" style={{ color: "#1A5C7A" }}>
-              Prueba con <strong>admin@galana.cl</strong> / <strong>galana2024!</strong>
-            </p>
-          </div>
+          {/* Demo hint — solo en desarrollo local (oculto en beta y prod) */}
+          {process.env.NODE_ENV !== "production" && (
+            <div className="mt-4 rounded-2xl p-4 text-center" style={{ backgroundColor: "#E8F3F7", border: "1px solid rgba(26,92,122,0.15)" }}>
+              <p className="text-xs font-bold mb-1" style={{ color: "#1A5C7A" }}>Demo disponible</p>
+              <p className="text-xs" style={{ color: "#1A5C7A" }}>
+                Prueba con <strong>admin@galana.cl</strong> / <strong>galana2024!</strong>
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
