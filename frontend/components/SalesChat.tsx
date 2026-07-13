@@ -30,8 +30,12 @@ export function SalesChat() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    // No auto-scroll en la carga inicial: scrollIntoView movería TODA la página
+    // hacia el chat (que está justo antes de #pricing) al recargar. Solo scrollea
+    // una vez que el usuario empezó la conversación, y sin arrastrar la página.
+    if (!started) return;
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [messages, started]);
 
   async function send(text: string) {
     const trimmed = text.trim();
