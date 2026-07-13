@@ -8,6 +8,7 @@ import { sendWhatsAppMessage } from "../services/notifications/whatsappService";
 import { notifyWaitlistForCanceledBooking } from "../services/waitlist/waitlistService";
 import { triggerAlert } from "../services/alerts/alertService";
 import { audit } from "../services/audit/auditService";
+import { isValidRut, formatRut } from "../lib/rut";
 
 // Versión vigente del DPA Molaris ↔ Clínica (Issue #38, Ley 21.719).
 // BORRADOR — pendiente validación legal. Subir la versión cuando cambie el texto.
@@ -589,7 +590,7 @@ export async function clinicRoutes(app: FastifyInstance) {
   // POST /api/clinics — registro público de nueva clínica + admin
   app.post<{
     Body: {
-      clinic: { name: string; phone?: string; location?: string; instagram?: string; whatsapp?: string };
+      clinic: { name: string; phone?: string; location?: string; instagram?: string; whatsapp?: string; professionalRut?: string; professionalRegNumber?: string };
       admin: { name: string; email: string; password: string };
       acceptedTerms?: boolean;
     };
@@ -597,6 +598,14 @@ export async function clinicRoutes(app: FastifyInstance) {
     const { clinic: clinicData, admin, acceptedTerms } = req.body ?? {};
     if (!clinicData?.name || !admin?.email || !admin?.password || !admin?.name) {
       return reply.status(400).send({ error: "Nombre de clínica, nombre, email y contraseña son requeridos" });
+    }
+    // KYC (#66): RUT del profesional responsable — opcional al registrar, pero si viene se valida.
+    let professionalRut: string | null = null;
+    if (clinicData.professionalRut && clinicData.professionalRut.trim()) {
+      if (!isValidRut(clinicData.professionalRut)) {
+        return reply.status(400).send({ error: "RUT inválido — revisa el dígito verificador" });
+      }
+      professionalRut = formatRut(clinicData.professionalRut);
     }
     if (!acceptedTerms) {
       return reply.status(400).send({ error: "Debes aceptar los Términos y Condiciones para continuar" });
@@ -645,6 +654,9 @@ export async function clinicRoutes(app: FastifyInstance) {
         // DPA aceptado al crear cuenta (Issue #38, Ley 21.719)
         dpaAcceptedVersion: DPA_VERSION,
         dpaAcceptedAt: new Date(),
+        // KYC (#66): queda PENDING hasta aprobación manual del SUPERADMIN
+        professionalRut,
+        professionalRegNumber: clinicData.professionalRegNumber?.trim() || null,
         config: {
           tone: "profesional pero cercano",
           schedule: { weekdays: "Lunes a Viernes: 09:00 - 18:00", saturday: "Sábado: cerrado", sunday: "Domingo: cerrado" },
