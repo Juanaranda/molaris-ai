@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getMe, updateClinic } from "@/lib/auth";
+import { BetaWhatsappCard } from "@/components/BetaWhatsappCard";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -609,6 +610,9 @@ export default function SetupPage() {
                   style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
                 />
               </div>
+
+              {/* Número de prueba (beta): solo aparece si está configurado */}
+              <BetaWhatsappCard />
 
               {/* Widget embed */}
               <div className="bg-white rounded-2xl border p-5 flex flex-col gap-3" style={{ borderColor: "#E5E0D9" }}>
