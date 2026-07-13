@@ -510,28 +510,33 @@ export default function Home() {
             </AnimateIn>
           </div>
 
-          {/* Métricas del asistente — integradas en contexto */}
-          <div className="mt-14 rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(26,92,122,0.12)", backgroundColor: "#FDFCFB" }}>
-            <div className="px-6 py-3 border-b" style={{ borderColor: "rgba(26,92,122,0.08)", backgroundColor: "#F7F5F1" }}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-center" style={{ color: "#607281" }}>
-                Asistente IA · resultados en producción
-              </p>
+          {/* Métricas del asistente — se muestran solo cuando hay datos reales.
+              Activar con NEXT_PUBLIC_STATS_ENABLED=true y cargar los valores por
+              variables a medida que aparezcan resultados. Oculto por defecto para
+              no mostrar métricas inventadas en beta. */}
+          {process.env.NEXT_PUBLIC_STATS_ENABLED === "true" && (
+            <div className="mt-14 rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(26,92,122,0.12)", backgroundColor: "#FDFCFB" }}>
+              <div className="px-6 py-3 border-b" style={{ borderColor: "rgba(26,92,122,0.08)", backgroundColor: "#F7F5F1" }}>
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-center" style={{ color: "#607281" }}>
+                  Asistente IA · resultados en producción
+                </p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0" style={{ borderColor: "rgba(26,92,122,0.08)" }}>
+                {[
+                  { value: process.env.NEXT_PUBLIC_STAT_CONVERSATIONS ?? "—", label: "Conversaciones / mes",   color: "#0C1B26",  sub: process.env.NEXT_PUBLIC_STAT_CONVERSATIONS_SUB ?? "" },
+                  { value: process.env.NEXT_PUBLIC_STAT_CONVERSION    ?? "—", label: "Leads convertidos",      color: "#D95F45",  sub: process.env.NEXT_PUBLIC_STAT_CONVERSION_SUB    ?? "" },
+                  { value: process.env.NEXT_PUBLIC_STAT_BOOKINGS      ?? "—", label: "Citas generadas por IA", color: "#1A5C7A",  sub: process.env.NEXT_PUBLIC_STAT_BOOKINGS_SUB      ?? "sin intervención humana" },
+                  { value: process.env.NEXT_PUBLIC_STAT_RESPONSE      ?? "—", label: "Tiempo de respuesta",    color: "#059669",  sub: process.env.NEXT_PUBLIC_STAT_RESPONSE_SUB      ?? "disponible 24 / 7" },
+                ].map((m) => (
+                  <div key={m.label} className="flex flex-col items-center justify-center gap-1 py-6 px-4 text-center">
+                    <AnimatedCounter raw={m.value} color={m.color} />
+                    <p className="text-xs font-semibold mt-1" style={{ color: "#0C1B26" }}>{m.label}</p>
+                    {m.sub && <p className="text-[10px]" style={{ color: "#9CA8B3" }}>{m.sub}</p>}
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0" style={{ borderColor: "rgba(26,92,122,0.08)" }}>
-              {[
-                { value: "342",   label: "Conversaciones / mes",   color: "#0C1B26",  sub: "3 canales activos" },
-                { value: "68%",   label: "Leads convertidos",      color: "#D95F45",  sub: "vs media sector ~22%" },
-                { value: "127",   label: "Citas generadas por IA", color: "#1A5C7A",  sub: "sin intervención humana" },
-                { value: "< 2 s", label: "Tiempo de respuesta",    color: "#059669",  sub: "disponible 24 / 7" },
-              ].map((m) => (
-                <div key={m.label} className="flex flex-col items-center justify-center gap-1 py-6 px-4 text-center">
-                  <AnimatedCounter raw={m.value} color={m.color} />
-                  <p className="text-xs font-semibold mt-1" style={{ color: "#0C1B26" }}>{m.label}</p>
-                  <p className="text-[10px]" style={{ color: "#9CA8B3" }}>{m.sub}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+          )}
 
         </div>
       </section>
