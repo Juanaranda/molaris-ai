@@ -36,6 +36,48 @@ export interface ClinicData {
   plan: string;
   config: Record<string, unknown>;
   active: boolean;
+  verificationStatus?: "PENDING" | "AUTO_VERIFIED" | "MANUAL_APPROVED" | "REJECTED";
+  rejectionReason?: string | null;
+}
+
+/* ─── KYC (#66): verificación de clínicas — solo SUPERADMIN ───────────────── */
+export interface PendingClinic {
+  id: string;
+  slug: string;
+  name: string;
+  phone: string | null;
+  location: string | null;
+  professionalRut: string | null;
+  professionalRegNumber: string | null;
+  rnpiCertUrl: string | null;
+  createdAt: string;
+  partnerUsers: { name: string; email: string }[];
+}
+
+export async function listPendingClinics(): Promise<PendingClinic[]> {
+  const res = await fetch(`${API}/api/admin/clinics/pending`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  if (!res.ok) throw new Error("Error cargando clínicas por revisar");
+  const data = await res.json();
+  return data.clinics ?? [];
+}
+
+export async function approveClinic(id: string): Promise<void> {
+  const res = await fetch(`${API}/api/admin/clinics/${id}/approve`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  if (!res.ok) throw new Error("Error al aprobar la clínica");
+}
+
+export async function rejectClinic(id: string, reason: string): Promise<void> {
+  const res = await fetch(`${API}/api/admin/clinics/${id}/reject`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${getToken()}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok) throw new Error("Error al rechazar la clínica");
 }
 
 export async function login(email: string, password: string) {

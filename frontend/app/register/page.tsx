@@ -203,7 +203,7 @@ function LocationSelector({
 export default function RegisterPage() {
   const router = useRouter();
   const [step, setStep]   = useState<Step>(1);
-  const [clinic, setClinic] = useState({ name: "", phone: "", region: "", commune: "" });
+  const [clinic, setClinic] = useState({ name: "", phone: "", region: "", commune: "", professionalRut: "", professionalRegNumber: "" });
   const [admin, setAdmin]   = useState({ name: "", email: "", password: "", confirm: "" });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError]   = useState("");
@@ -232,7 +232,13 @@ export default function RegisterPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          clinic: { name: clinic.name, phone: clinic.phone, location },
+          clinic: {
+            name: clinic.name,
+            phone: clinic.phone,
+            location,
+            professionalRut: clinic.professionalRut || undefined,
+            professionalRegNumber: clinic.professionalRegNumber || undefined,
+          },
           admin: { name: admin.name, email: admin.email, password: admin.password },
           acceptedTerms: true,
         }),
@@ -423,6 +429,29 @@ export default function RegisterPage() {
                       onChange={(v) => setAdmin((a) => ({ ...a, confirm: v }))}
                       placeholder="Repite tu contraseña"
                     />
+                    {/* Verificación profesional (#66) — opcional en beta, acelera la aprobación */}
+                    <div className="rounded-xl border p-4 flex flex-col gap-4" style={{ borderColor: "#E5E0D9", backgroundColor: "var(--surface, #F7F5F1)" }}>
+                      <div>
+                        <p className="text-xs font-semibold" style={{ color: "var(--ink, #0C1B26)" }}>
+                          Verificación profesional
+                        </p>
+                        <p className="text-[11px] leading-relaxed mt-0.5" style={{ color: "var(--ink-muted, #607281)" }}>
+                          Opcional. Nos ayuda a verificar que atiende un profesional habilitado y agiliza la activación de tu cuenta.
+                        </p>
+                      </div>
+                      <Field
+                        label="RUT del profesional responsable"
+                        value={clinic.professionalRut}
+                        onChange={(v) => setClinic((c) => ({ ...c, professionalRut: v }))}
+                        placeholder="12.345.678-9"
+                      />
+                      <Field
+                        label="N° de registro Superintendencia (RNPI)"
+                        value={clinic.professionalRegNumber}
+                        onChange={(v) => setClinic((c) => ({ ...c, professionalRegNumber: v }))}
+                        placeholder="Opcional"
+                      />
+                    </div>
                     <label className="flex items-start gap-3 cursor-pointer select-none">
                       <input
                         type="checkbox"
