@@ -590,7 +590,7 @@ export async function clinicRoutes(app: FastifyInstance) {
   // POST /api/clinics — registro público de nueva clínica + admin
   app.post<{
     Body: {
-      clinic: { name: string; phone?: string; location?: string; instagram?: string; whatsapp?: string; professionalRut?: string; professionalRegNumber?: string };
+      clinic: { name: string; phone?: string; location?: string; instagram?: string; whatsapp?: string; professionalRut?: string; professionalRegNumber?: string; accountType?: string; specialty?: string };
       admin: { name: string; email: string; password: string };
       acceptedTerms?: boolean;
     };
@@ -642,6 +642,19 @@ export async function clinicRoutes(app: FastifyInstance) {
 
     const passwordHash = await bcrypt.hash(admin.password, 12);
 
+    // Tipo de cuenta (#69): "solo" = doctor independiente. Se auto-registra como el
+    // único profesional del tenant, con su especialidad. "clinic" = flujo normal.
+    const accountType = clinicData.accountType === "solo" ? "solo" : "clinic";
+    const soloSpecialty = clinicData.specialty?.trim() || "Odontología General";
+    const soloDoctors = accountType === "solo"
+      ? [{
+          name: admin.name,
+          specialty: soloSpecialty,
+          days: ["monday", "tuesday", "wednesday", "thursday", "friday"],
+        }]
+      : [];
+    const soloServices = accountType === "solo" ? [soloSpecialty] : [];
+
     const newClinic = await prisma.clinic.create({
       data: {
         slug,
@@ -651,6 +664,7 @@ export async function clinicRoutes(app: FastifyInstance) {
         instagram: clinicData.instagram ?? null,
         whatsapp: clinicData.whatsapp ?? null,
         plan: "starter",
+        accountType,
         // DPA aceptado al crear cuenta (Issue #38, Ley 21.719)
         dpaAcceptedVersion: DPA_VERSION,
         dpaAcceptedAt: new Date(),
@@ -660,8 +674,8 @@ export async function clinicRoutes(app: FastifyInstance) {
         config: {
           tone: "profesional pero cercano",
           schedule: { weekdays: "Lunes a Viernes: 09:00 - 18:00", saturday: "Sábado: cerrado", sunday: "Domingo: cerrado" },
-          doctors: [],
-          services: [],
+          doctors: soloDoctors,
+          services: soloServices,
           boxes: 1,
         },
         partnerUsers: {
