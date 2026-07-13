@@ -615,7 +615,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* JUAN — SALES AGENT */}
+      {/* JUAN — SALES AGENT — solo en desarrollo local (oculto en beta y prod) */}
+      {process.env.NODE_ENV !== "production" && (
       <section id="juan" className="py-16 sm:py-24" style={{ backgroundColor: "#0B2F42" }}>
         <div className="max-w-5xl mx-auto px-6 sm:px-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
@@ -652,6 +653,7 @@ export default function Home() {
           </div>
         </div>
       </section>
+      )}
 
       {/* PRICING */}
       <section id="pricing" className="py-16 sm:py-24" style={{ backgroundColor: "#F7F5F1" }}>
