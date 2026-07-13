@@ -156,7 +156,7 @@ export default function AdminPage() {
           className="text-sm font-medium hover:opacity-70 transition-opacity"
           style={{ color: "var(--ink-muted)" }}
         >
-          ← Panel clínica
+          Panel clínica
         </button>
       </nav>
 

@@ -324,7 +324,7 @@ export default function SetupPage() {
             <div className="flex flex-col gap-6">
               <div>
                 <button onClick={() => setStep(1)} className="text-xs mb-4 hover:opacity-70 transition flex items-center gap-1" style={{ color: "#607281" }}>
-                  ← Volver
+                  Volver
                 </button>
                 <h2 className="text-2xl font-black mb-1" style={{ color: "#0C1B26" }}>Datos de tu clínica</h2>
                 <p className="text-sm" style={{ color: "#607281" }}>
@@ -386,7 +386,7 @@ export default function SetupPage() {
             <div className="flex flex-col gap-6">
               <div>
                 <button onClick={() => setStep(2)} className="text-xs mb-4 hover:opacity-70 transition flex items-center gap-1" style={{ color: "#607281" }}>
-                  ← Volver
+                  Volver
                 </button>
                 <h2 className="text-2xl font-black mb-1" style={{ color: "#0C1B26" }}>Agrega tus doctores</h2>
                 <p className="text-sm" style={{ color: "#607281" }}>
@@ -484,7 +484,7 @@ export default function SetupPage() {
             <div className="flex flex-col gap-6">
               <div>
                 <button onClick={() => setStep(3)} className="text-xs mb-4 hover:opacity-70 transition flex items-center gap-1" style={{ color: "#607281" }}>
-                  ← Volver
+                  Volver
                 </button>
                 <h2 className="text-2xl font-black mb-1" style={{ color: "#0C1B26" }}>Horario y capacidad</h2>
                 <p className="text-sm" style={{ color: "#607281" }}>
@@ -582,7 +582,7 @@ export default function SetupPage() {
             <div className="flex flex-col gap-6">
               <div>
                 <button onClick={() => setStep(4)} className="text-xs mb-4 hover:opacity-70 transition flex items-center gap-1" style={{ color: "#607281" }}>
-                  ← Volver
+                  Volver
                 </button>
                 <h2 className="text-2xl font-black mb-1" style={{ color: "#0C1B26" }}>Conecta tus canales</h2>
                 <p className="text-sm" style={{ color: "#607281" }}>
