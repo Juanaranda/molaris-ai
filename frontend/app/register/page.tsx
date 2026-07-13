@@ -13,8 +13,21 @@ const BENEFITS = [
   "Asistente IA que responde 24/7 en WhatsApp y tu web",
   "Agendamiento directo sin llamadas ni intermediarios",
   "Lead scoring automático con cada conversación",
-  "Panel de control para ver leads y configurar tu clínica",
+  "Panel de control para ver leads y configurar tu consulta",
 ];
+
+const SPECIALTIES = [
+  "Odontología General",
+  "Ortodoncia",
+  "Endodoncia",
+  "Implantología",
+  "Periodoncia",
+  "Cirugía Oral",
+  "Blanqueamiento",
+  "Odontopediatría",
+];
+
+type AccountType = "clinic" | "solo";
 
 /* ─── Chile: regiones y comunas ─────────────────────────────────────────── */
 const REGIONS: { label: string; short: string; comunas: string[] }[] = [
@@ -203,7 +216,9 @@ function LocationSelector({
 export default function RegisterPage() {
   const router = useRouter();
   const [step, setStep]   = useState<Step>(1);
-  const [clinic, setClinic] = useState({ name: "", phone: "", region: "", commune: "", professionalRut: "", professionalRegNumber: "" });
+  const [accountType, setAccountType] = useState<AccountType>("clinic");
+  const [clinic, setClinic] = useState({ name: "", phone: "", region: "", commune: "", professionalRut: "", professionalRegNumber: "", specialty: "Odontología General" });
+  const isSolo = accountType === "solo";
   const [admin, setAdmin]   = useState({ name: "", email: "", password: "", confirm: "" });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError]   = useState("");
@@ -215,7 +230,9 @@ export default function RegisterPage() {
 
   function nextStep(e: FormEvent) {
     e.preventDefault();
-    if (!clinic.name.trim()) { setError("El nombre de la clínica es requerido"); return; }
+    // Para clínica el nombre es obligatorio; para doctor independiente es opcional
+    // (se usa su propio nombre si no ponen un nombre de consulta).
+    if (!isSolo && !clinic.name.trim()) { setError("El nombre de la clínica es requerido"); return; }
     setError("");
     setStep(2);
   }
@@ -233,9 +250,12 @@ export default function RegisterPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clinic: {
-            name: clinic.name,
+            // Doctor independiente: si no puso nombre de consulta, usamos su propio nombre.
+            name: (isSolo ? (clinic.name.trim() || admin.name.trim()) : clinic.name),
             phone: clinic.phone,
             location,
+            accountType,
+            specialty: isSolo ? clinic.specialty : undefined,
             professionalRut: clinic.professionalRut || undefined,
             professionalRegNumber: clinic.professionalRegNumber || undefined,
           },
@@ -330,7 +350,7 @@ export default function RegisterPage() {
                     className={`text-xs hidden sm:block ${step >= s ? "font-medium" : "text-gray-400"}`}
                     style={step >= s ? { color: "var(--ink, #0C1B26)" } : {}}
                   >
-                    {s === 1 ? "Tu clínica" : "Tu cuenta"}
+                    {s === 1 ? (isSolo ? "Tu consulta" : "Tu clínica") : "Tu cuenta"}
                   </span>
                   {i < 1 && (
                     <div
@@ -350,20 +370,68 @@ export default function RegisterPage() {
                   <div className="mb-7">
                     <h2 className="font-[family-name:var(--font-display,sans-serif)] text-2xl font-bold"
                       style={{ color: "var(--ink, #0C1B26)" }}>
-                      Información de tu clínica
+                      {isSolo ? "Sobre tu consulta" : "Información de tu clínica"}
                     </h2>
                     <p className="text-sm mt-1.5" style={{ color: "var(--ink-muted, #607281)" }}>
                       Así configuraremos tu asistente virtual
                     </p>
                   </div>
+
+                  {/* Tipo de cuenta (#69) — doctor independiente vs clínica */}
+                  <div className="mb-6">
+                    <label className="block text-xs font-semibold uppercase tracking-wider mb-2"
+                      style={{ color: "var(--ink-muted, #607281)" }}>
+                      ¿Cómo trabajas?
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([
+                        { key: "solo",   emoji: "🦷", title: "Doctor independiente", desc: "Atiendo yo solo" },
+                        { key: "clinic", emoji: "🏥", title: "Clínica o equipo", desc: "Varios profesionales" },
+                      ] as { key: AccountType; emoji: string; title: string; desc: string }[]).map((opt) => {
+                        const active = accountType === opt.key;
+                        return (
+                          <button
+                            key={opt.key}
+                            type="button"
+                            onClick={() => setAccountType(opt.key)}
+                            className="text-left rounded-xl border p-3 transition-all"
+                            style={active
+                              ? { borderColor: "var(--teal-mid, #1A5C7A)", backgroundColor: "#E8F3F7", boxShadow: "0 0 0 1px var(--teal-mid, #1A5C7A)" }
+                              : { borderColor: "#E5E0D9", backgroundColor: "var(--surface, #F7F5F1)" }}
+                          >
+                            <span className="text-lg">{opt.emoji}</span>
+                            <p className="text-sm font-bold mt-1" style={{ color: "var(--ink, #0C1B26)" }}>{opt.title}</p>
+                            <p className="text-[11px]" style={{ color: "var(--ink-muted, #607281)" }}>{opt.desc}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   <form onSubmit={nextStep} className="flex flex-col gap-5">
                     <Field
-                      label="Nombre de la clínica *"
+                      label={isSolo ? "Nombre de tu consulta (opcional)" : "Nombre de la clínica *"}
                       value={clinic.name}
                       onChange={(v) => setClinic((c) => ({ ...c, name: v }))}
-                      placeholder="Clínica Dental Las Condes"
+                      placeholder={isSolo ? "Ej: Consulta Dr. Juan Garcés" : "Clínica Dental Las Condes"}
                       autoFocus
                     />
+                    {isSolo && (
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5"
+                          style={{ color: "var(--ink-muted, #607281)" }}>
+                          Tu especialidad
+                        </label>
+                        <select
+                          value={clinic.specialty}
+                          onChange={(e) => setClinic((c) => ({ ...c, specialty: e.target.value }))}
+                          className="w-full px-4 py-3 rounded-xl border text-sm transition focus:outline-none focus:ring-2"
+                          style={{ borderColor: "#E5E0D9", backgroundColor: "var(--surface, #F7F5F1)", color: "var(--ink, #0C1B26)" }}
+                        >
+                          {SPECIALTIES.map((s) => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                    )}
                     <Field
                       label="Teléfono"
                       value={clinic.phone}
@@ -397,7 +465,9 @@ export default function RegisterPage() {
                       Crea tu cuenta de acceso
                     </h2>
                     <p className="text-sm mt-1.5" style={{ color: "var(--ink-muted, #607281)" }}>
-                      Administrarás {clinic.name} con estos datos
+                      {isSolo
+                        ? "Con estos datos accederás a tu panel"
+                        : `Administrarás ${clinic.name} con estos datos`}
                     </p>
                   </div>
                   <form onSubmit={handleSubmit} className="flex flex-col gap-4">

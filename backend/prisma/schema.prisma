@@ -44,6 +44,9 @@ model Clinic {
   config    Json                      // servicios, horarios, tono (reemplaza galana.ts)
   apiKey    String   @unique @default(cuid())
   plan      String   @default("starter")
+  // Tipo de cuenta (#69): "clinic" = clínica con equipo · "solo" = doctor independiente
+  // El doctor solo es un tenant con un único profesional (él mismo). Modo de UI simplificado.
+  accountType String @default("clinic")
   active    Boolean  @default(true)
   // WhatsApp Business (Meta Cloud API) — credenciales por clínica
   waPhoneId String?  @unique  // Phone Number ID de Meta

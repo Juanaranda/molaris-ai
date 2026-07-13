@@ -36,6 +36,7 @@ export interface ClinicData {
   plan: string;
   config: Record<string, unknown>;
   active: boolean;
+  accountType?: "clinic" | "solo";
   verificationStatus?: "PENDING" | "AUTO_VERIFIED" | "MANUAL_APPROVED" | "REJECTED";
   rejectionReason?: string | null;
 }
