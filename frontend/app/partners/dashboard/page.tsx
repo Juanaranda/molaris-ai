@@ -1375,7 +1375,7 @@ export default function PartnersDashboard() {
                       </div>
                       <a href="/partners/preview" target="_blank"
                         className="text-xs font-semibold px-4 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
-                        Probar asistente →
+                        Probar asistente
                       </a>
                     </div>
                   </div>

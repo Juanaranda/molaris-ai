@@ -43,7 +43,7 @@ export default function LoginPage() {
           <Image src="/logo.svg" alt="molari.ai" width={140} height={36} priority />
         </Link>
         <Link href="/" className="text-sm font-medium transition-colors" style={{ color: "#607281" }}>
-          ← Volver al inicio
+          Volver al inicio
         </Link>
       </nav>
 
@@ -135,7 +135,7 @@ export default function LoginPage() {
               {mode === "forgot" && (
                 <button type="button" onClick={() => { setMode("login"); setError(""); setNotice(""); }}
                   className="text-xs font-semibold hover:underline mx-auto" style={{ color: "#607281" }}>
-                  ← Volver al inicio de sesión
+                  Volver al inicio de sesión
                 </button>
               )}
             </form>

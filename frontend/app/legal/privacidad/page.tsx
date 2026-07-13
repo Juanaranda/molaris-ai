@@ -9,7 +9,7 @@ export default function PrivacidadPage() {
     <div className="min-h-screen" style={{ backgroundColor: "var(--surface, #F7F5F1)" }}>
       <nav className="bg-white border-b px-6 py-4" style={{ borderColor: "#E5E0D9" }}>
         <Link href="/" className="text-sm font-semibold hover:opacity-70 transition-opacity" style={{ color: "var(--teal-dark, #0B2F42)" }}>
-          ← molari.ai
+          molari.ai
         </Link>
       </nav>
 

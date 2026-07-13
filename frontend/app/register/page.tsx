@@ -258,7 +258,7 @@ export default function RegisterPage() {
       <div className="hidden lg:flex lg:w-[45%] flex-col justify-between p-12 text-white"
         style={{ backgroundColor: "var(--teal-dark, #0B2F42)" }}>
         <Link href="/" className="text-sm font-semibold tracking-tight opacity-80 hover:opacity-100 transition-opacity">
-          ← molari.ai
+          molari.ai
         </Link>
 
         <div>
@@ -290,7 +290,7 @@ export default function RegisterPage() {
         <nav className="lg:hidden flex items-center justify-between px-6 py-5 border-b"
           style={{ borderColor: "#E5E0D9", backgroundColor: "white" }}>
           <Link href="/" className="text-sm font-semibold" style={{ color: "var(--teal-dark, #0B2F42)" }}>
-            ← molari.ai
+            molari.ai
           </Link>
           <Link href="/login" className="text-sm" style={{ color: "var(--ink-muted, #607281)" }}>
             Ya tengo cuenta
@@ -384,7 +384,7 @@ export default function RegisterPage() {
                       className="text-xs mb-4 flex items-center gap-1 transition-opacity hover:opacity-70"
                       style={{ color: "var(--ink-muted, #607281)" }}
                     >
-                      ← Volver
+                      Volver
                     </button>
                     <h2 className="font-[family-name:var(--font-display,sans-serif)] text-2xl font-bold"
                       style={{ color: "var(--ink, #0C1B26)" }}>

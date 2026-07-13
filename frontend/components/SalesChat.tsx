@@ -157,7 +157,7 @@ export function SalesChat() {
           className="inline-block text-sm font-semibold px-6 py-2.5 rounded-full transition-opacity hover:opacity-90"
           style={{ backgroundColor: "#D95F45", color: "white" }}
         >
-          Prueba molari.ai gratis →
+          Prueba molari.ai gratis
         </Link>
       </div>
     </div>
