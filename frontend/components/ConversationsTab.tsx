@@ -5,6 +5,7 @@ import {
   listConversations, getConversation,
   type ConversationSummary, type ConversationDetail,
 } from "@/lib/conversations";
+import { BetaWhatsappCard } from "@/components/BetaWhatsappCard";
 
 const CH: Record<string, { label: string; bg: string; fg: string }> = {
   web:      { label: "Web",      bg: "#EEF3F8", fg: "#185FA5" },
@@ -64,6 +65,12 @@ export function ConversationsTab() {
       {error && (
         <p className="text-sm rounded-xl px-4 py-2.5 mb-4"
           style={{ color: "#993C1D", backgroundColor: "#FAECE7" }}>{error}</p>
+      )}
+
+      {!loadingList && list.length === 0 && (
+        <div className="mb-4 max-w-md">
+          <BetaWhatsappCard />
+        </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4">
