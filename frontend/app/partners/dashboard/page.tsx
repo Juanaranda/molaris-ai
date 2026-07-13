@@ -1208,6 +1208,26 @@ export default function PartnersDashboard() {
               </div>
             </div>
 
+            {/* ══ Estado de verificación (KYC #66) ═══════════════════════════ */}
+            {clinic?.verificationStatus === "REJECTED" && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                <p className="text-sm font-bold text-red-700 mb-0.5">Cuenta no verificada</p>
+                <p className="text-xs text-red-600">
+                  No pudimos verificar tu clínica.
+                  {clinic.rejectionReason ? ` Motivo: ${clinic.rejectionReason}.` : ""}
+                  {" "}Escríbenos a soporte para revisarlo.
+                </p>
+              </div>
+            )}
+            {clinic?.verificationStatus === "PENDING" && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <p className="text-sm font-bold text-amber-700 mb-0.5">Verificación en revisión</p>
+                <p className="text-xs text-amber-600">
+                  Estamos verificando los datos de tu clínica. Puedes seguir configurando tu cuenta mientras tanto.
+                </p>
+              </div>
+            )}
+
             {/* ══ TAB INICIO ═════════════════════════════════════════════════ */}
             {activeTab === "inicio" && clinic && (
               <DashboardTab
