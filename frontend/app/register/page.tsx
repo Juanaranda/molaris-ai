@@ -122,7 +122,7 @@ function LocationSelector({
       <div>
         <label className="block text-xs font-semibold uppercase tracking-wider mb-2"
           style={{ color: "var(--ink-muted, #607281)" }}>
-          Región *
+          Región
         </label>
         <div className="flex flex-wrap gap-1.5">
           {visibleRegions.map((r) => (
@@ -158,7 +158,7 @@ function LocationSelector({
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider mb-2"
             style={{ color: "var(--ink-muted, #607281)" }}>
-            Comuna *
+            Comuna
           </label>
           <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1">
             {visibleComunas.map((c) => (
@@ -513,7 +513,7 @@ export default function RegisterPage() {
                         label="RUT del profesional responsable"
                         value={clinic.professionalRut}
                         onChange={(v) => setClinic((c) => ({ ...c, professionalRut: v }))}
-                        placeholder="12.345.678-9"
+                        placeholder="12.345.678-5"
                       />
                       <Field
                         label="N° de registro Superintendencia (RNPI)"
@@ -546,9 +546,11 @@ export default function RegisterPage() {
                       </span>
                     </label>
                     {error && <ErrorMsg msg={error} />}
+                    {/* No deshabilitar por los términos: el submit valida y muestra
+                        el motivo. Un botón muerto sin mensaje bloquea el registro. */}
                     <SubmitBtn
                       label="Crear cuenta y ver mi demo"
-                      disabled={loading || !acceptedTerms}
+                      disabled={loading}
                       loading={loading}
                     />
                   </form>
