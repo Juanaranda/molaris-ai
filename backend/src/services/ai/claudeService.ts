@@ -316,7 +316,14 @@ export async function getAIResponse({
   // that a synchronous write on a post-restart cold session does not create a
   // blank entry that warmUp would later overwrite (losing the appended message).
   await ensureCached(sessionId);
-  const guard = overrideSystemPrompt ? { allowed: true as const } : checkTopic(message);
+  // El modo demo (Juan) puede hablar fuera del dominio dental, pero los
+  // checks de jailbreak y largo máximo aplican SIEMPRE — el endpoint es
+  // público y isDemoMode lo controla el cliente.
+  const rawGuard = checkTopic(message);
+  const guard =
+    overrideSystemPrompt && !rawGuard.allowed && rawGuard.reason === "off_topic"
+      ? { allowed: true as const }
+      : rawGuard;
   if (!guard.allowed) {
     appendToHistory(sessionId, "user", message);
     const reply =

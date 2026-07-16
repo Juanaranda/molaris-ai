@@ -31,21 +31,43 @@ export async function webhookRoutes(app: FastifyInstance) {
 
       // Validate Twilio signature to prevent forged webhook requests
       if (config.twilio.authToken) {
-        const twilioSignature = req.headers["x-twilio-signature"] as string | undefined;
+        const twilioSignature = req.headers["x-twilio-signature"] as
+          string | undefined;
         if (!twilioSignature) {
           return reply.status(403).send("Forbidden");
         }
         const { default: twilio } = await import("twilio");
-        const webhookUrl = `${config.frontendUrl.replace(/\/$/, "").replace(/:\d+$/, ":3001")}/api/webhooks/whatsapp/${slug}`;
-        const isValid = twilio.validateRequest(config.twilio.authToken, twilioSignature, webhookUrl, body);
+        // Twilio firma contra la URL pública EXACTA configurada en su consola.
+        // Derivarla del frontendUrl rompe la validación en prod (backend vive en
+        // otro dominio) — se reconstruye desde los headers del proxy, con
+        // PUBLIC_BACKEND_URL como override explícito.
+        const proto = ((req.headers["x-forwarded-proto"] as string) ?? "https")
+          .split(",")[0]
+          .trim();
+        const host = (
+          (req.headers["x-forwarded-host"] as string) ??
+          req.headers.host ??
+          ""
+        )
+          .split(",")[0]
+          .trim();
+        const webhookUrl = process.env.PUBLIC_BACKEND_URL
+          ? `${process.env.PUBLIC_BACKEND_URL.replace(/\/$/, "")}/api/webhooks/whatsapp/${slug}`
+          : `${proto}://${host}/api/webhooks/whatsapp/${slug}`;
+        const isValid = twilio.validateRequest(
+          config.twilio.authToken,
+          twilioSignature,
+          webhookUrl,
+          body,
+        );
         if (!isValid) {
           return reply.status(403).send("Forbidden");
         }
       }
 
-      const fromRaw    = body.From ?? "";
+      const fromRaw = body.From ?? "";
       const messageText = (body.Body ?? "").trim();
-      const fromPhone  = fromRaw.replace("whatsapp:", "").replace("+", "");
+      const fromPhone = fromRaw.replace("whatsapp:", "").replace("+", "");
 
       if (!messageText) {
         return reply.type("text/xml").send(twiml(""));
@@ -53,7 +75,11 @@ export async function webhookRoutes(app: FastifyInstance) {
 
       const clinic = await prisma.clinic.findUnique({ where: { slug } });
       if (!clinic || !clinic.active) {
-        return reply.type("text/xml").send(twiml("Lo siento, la clínica no está disponible en este momento."));
+        return reply
+          .type("text/xml")
+          .send(
+            twiml("Lo siento, la clínica no está disponible en este momento."),
+          );
       }
 
       // Encontrar o crear paciente por número WhatsApp
@@ -68,12 +94,21 @@ export async function webhookRoutes(app: FastifyInstance) {
 
       // Encontrar o crear sesión abierta para este número
       let session = await prisma.session.findFirst({
-        where: { clinicId: clinic.id, patientId: patient.id, channel: "whatsapp", status: "open" },
+        where: {
+          clinicId: clinic.id,
+          patientId: patient.id,
+          channel: "whatsapp",
+          status: "open",
+        },
         orderBy: { createdAt: "desc" },
       });
       if (!session) {
         session = await prisma.session.create({
-          data: { clinicId: clinic.id, patientId: patient.id, channel: "whatsapp" },
+          data: {
+            clinicId: clinic.id,
+            patientId: patient.id,
+            channel: "whatsapp",
+          },
         });
       }
 
@@ -83,45 +118,97 @@ export async function webhookRoutes(app: FastifyInstance) {
       });
 
       // Obtener respuesta de la IA
-      let aiReply = "Lo siento, tuve un problema al procesar tu mensaje. Intenta de nuevo.";
+      let aiReply =
+        "Lo siento, tuve un problema al procesar tu mensaje. Intenta de nuevo.";
       try {
-        const currentContext = await prisma.patientContext.findUnique({ where: { sessionId: session.id } });
-        const ctx = currentContext ? {
-          patientName: currentContext.patientName ?? undefined,
-          rut: currentContext.rut ?? undefined,
-          serviceInterest: currentContext.serviceInterest ?? undefined,
-          intent: currentContext.intent ?? undefined,
-          urgency: currentContext.urgency ?? undefined,
-        } : {};
+        const currentContext = await prisma.patientContext.findUnique({
+          where: { sessionId: session.id },
+        });
+        const ctx = currentContext
+          ? {
+              patientName: currentContext.patientName ?? undefined,
+              rut: currentContext.rut ?? undefined,
+              serviceInterest: currentContext.serviceInterest ?? undefined,
+              intent: currentContext.intent ?? undefined,
+              urgency: currentContext.urgency ?? undefined,
+            }
+          : {};
 
-        const result = await getAIResponse({ message: messageText, clinic, sessionId: session.id, currentContext: ctx });
+        const result = await getAIResponse({
+          message: messageText,
+          clinic,
+          sessionId: session.id,
+          currentContext: ctx,
+        });
 
         // Si el modelo pidió crear una cita, ejecutarla
         if (result.bookingAction) {
-          const { doctor, date, time, patientName, patientRut, service } = result.bookingAction;
+          const { doctor, date, time, patientName, patientRut, service } =
+            result.bookingAction;
           try {
+            if (!doctor || !date || !time)
+              throw new Error("bookingAction incompleto");
             const bookingDate = new Date(`${date}T12:00:00`);
-            const booking = await prisma.booking.create({
-              data: {
-                clinicId:    clinic.id,
-                patientName: patientName || patient.phone,
-                patientRut:  patientRut  || null,
-                patientPhone: fromPhone,
-                date:    bookingDate,
-                time,
-                doctor,
-                service: service || null,
-                status:  "pending",
-                sessionId: session.id,
-              },
+            const startOfDay = new Date(`${date}T00:00:00`);
+            const endOfDay = new Date(`${date}T23:59:59`);
+            const displayName = patientName || patient.phone || fromPhone;
+
+            // Mismo patrón que el chat web: conflict check + create en una
+            // transacción para que dos mensajes concurrentes no dupliquen el slot.
+            const txResult = await prisma.$transaction(async (tx) => {
+              const conflict = await tx.booking.findFirst({
+                where: {
+                  clinicId: clinic.id,
+                  doctor,
+                  time,
+                  date: { gte: startOfDay, lte: endOfDay },
+                  status: { not: "cancelled" },
+                },
+              });
+              if (conflict) return { conflict: true as const, booking: null };
+              const booking = await tx.booking.create({
+                data: {
+                  clinicId: clinic.id,
+                  patientName: displayName,
+                  patientRut: patientRut?.replace(/[.\-]/g, "") || null,
+                  patientPhone: fromPhone,
+                  date: bookingDate,
+                  time,
+                  doctor,
+                  service: service || null,
+                  status: "pending",
+                  sessionId: session.id,
+                },
+              });
+              return { conflict: false as const, booking };
             });
-            const DAY_NAMES_ES = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
-            const dayName = DAY_NAMES_ES[bookingDate.getDay()];
-            aiReply = `¡Listo ${patientName.split(" ")[0]}! Tu cita está confirmada para el ${dayName} ${date.slice(8)}/${date.slice(5,7)} a las ${time} con ${doctor}. Te esperamos en ${clinic.name}. 🦷`;
-            console.info(`[Webhook] Cita creada id=${booking.id} para ${patientName}`);
+
+            if (txResult.conflict) {
+              aiReply = `Ese horario (${time} con ${doctor}) acaba de ser reservado por otro paciente. ¿Te acomoda otro horario?`;
+            } else {
+              const DAY_NAMES_ES = [
+                "Domingo",
+                "Lunes",
+                "Martes",
+                "Miércoles",
+                "Jueves",
+                "Viernes",
+                "Sábado",
+              ];
+              const dayName = DAY_NAMES_ES[bookingDate.getDay()];
+              aiReply = `¡Listo ${displayName.split(" ")[0]}! Tu cita está confirmada para el ${dayName} ${date.slice(8)}/${date.slice(5, 7)} a las ${time} con ${doctor}. Te esperamos en ${clinic.name}. 🦷`;
+              console.info(
+                `[Webhook] Cita creada id=${txResult.booking!.id} para ${displayName}`,
+              );
+            }
           } catch (bookingErr: any) {
-            console.error("[Webhook] Error al crear cita:", bookingErr?.message);
-            aiReply = result.reply || "Hubo un problema al confirmar tu cita. Por favor llámanos directamente.";
+            console.error(
+              "[Webhook] Error al crear cita:",
+              bookingErr?.message,
+            );
+            aiReply =
+              result.reply ||
+              "Hubo un problema al confirmar tu cita. Por favor llámanos directamente.";
           }
         } else {
           aiReply = result.reply || aiReply;
@@ -143,6 +230,6 @@ export async function webhookRoutes(app: FastifyInstance) {
       }
 
       return reply.type("text/xml").send(twiml(aiReply));
-    }
+    },
   );
 }
