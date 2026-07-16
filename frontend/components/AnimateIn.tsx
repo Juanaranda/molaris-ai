@@ -16,7 +16,7 @@ export function AnimateIn({
   style,
   delay = 0,
   direction = 'up',
-  threshold = 0.12,
+  threshold = 0,
 }: AnimateInProps) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -24,20 +24,40 @@ export function AnimateIn({
     const el = ref.current;
     if (!el) return;
 
+    const reveal = () => {
+      el.style.opacity = '1';
+      el.style.transform = 'translate(0,0)';
+    };
+
+    // El contenido nunca debe quedarse invisible: sin soporte de observer o con
+    // movimiento reducido, se muestra de inmediato.
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reducedMotion || typeof IntersectionObserver === 'undefined') {
+      reveal();
+      return;
+    }
+
+    let timer: ReturnType<typeof setTimeout>;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setTimeout(() => {
-            el.style.opacity = '1';
-            el.style.transform = 'translate(0,0)';
-          }, delay);
+          timer = setTimeout(reveal, delay);
           observer.unobserve(el);
         }
       },
       { threshold }
     );
     observer.observe(el);
-    return () => observer.disconnect();
+
+    // Red de seguridad: si el observer nunca dispara (elemento más alto que el
+    // viewport, layout tardío), revelamos igual en vez de dejarlo apagado.
+    const failsafe = setTimeout(reveal, 2500 + delay);
+
+    return () => {
+      observer.disconnect();
+      clearTimeout(timer);
+      clearTimeout(failsafe);
+    };
   }, [delay, threshold]);
 
   const translateMap: Record<string, string> = {
