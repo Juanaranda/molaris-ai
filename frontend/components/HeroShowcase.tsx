@@ -2,8 +2,33 @@
 
 import { useEffect, useState } from "react";
 
+/* Las fechas se calculan tras montar: la landing se prerenderiza estática, así
+   que un new Date() en el render quedaría congelado en la fecha del build. */
+function useTodayLabel() {
+  const [label, setLabel] = useState("");
+  useEffect(() => {
+    setLabel(new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long" }));
+  }, []);
+  return label;
+}
+
+function useWeekRangeLabel() {
+  const [label, setLabel] = useState("");
+  useEffect(() => {
+    const now = new Date();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+    const saturday = new Date(monday);
+    saturday.setDate(monday.getDate() + 5);
+    const month = saturday.toLocaleDateString("es-CL", { month: "long" });
+    setLabel(`Lun ${monday.getDate()} — Sáb ${saturday.getDate()} ${month}`);
+  }, []);
+  return label;
+}
+
 /* ─── Mockup 1: Canales activos ─────────────────────────────────────────── */
 function ActivityMockup() {
+  const today = useTodayLabel();
   return (
     <div style={{ background: "#0B2F42", borderRadius: 20, overflow: "hidden",
       boxShadow: "0 24px 64px rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.08)" }}>
@@ -19,7 +44,7 @@ function ActivityMockup() {
       <div style={{ padding: "18px 18px 8px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "0.1em", margin: 0 }}>
-            Hoy · 5 de mayo
+            Hoy{today ? ` · ${today}` : ""}
           </p>
           <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "#4ade80" }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80", display: "inline-block" }} />
@@ -58,6 +83,7 @@ function ActivityMockup() {
 
 /* ─── Mockup 2: Agenda — fiel a la plataforma (fondo claro) ─────────────── */
 function AgendaMockup() {
+  const weekRange = useWeekRangeLabel();
   const doctors = [
     { name: "Dra. Aranda", bg: "#D1FAE5", border: "#10B981", text: "#065F46", initials: "AA" },
     { name: "Dr. Engel",   bg: "#DBEAFE", border: "#1A5C7A", text: "#0B2F42", initials: "PE" },
@@ -98,7 +124,7 @@ function AgendaMockup() {
             }}>{v}</span>
           ))}
         </div>
-        <span style={{ fontSize: 9, color: "#607281", fontWeight: 600 }}>Lun 5 — Sáb 10 mayo</span>
+        <span style={{ fontSize: 9, color: "#607281", fontWeight: 600 }}>{weekRange}</span>
       </div>
       {/* Doctor header */}
       <div style={{ display: "grid", gridTemplateColumns: "40px repeat(3, 1fr)",
