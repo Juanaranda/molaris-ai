@@ -1,8 +1,11 @@
 <svg width="150" height="52" viewBox="0 0 150 52" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="molari.ai">
   <title>molari.ai</title>
-  <!-- "M" = muela, teal como la miniatura -->
+  <!-- "M" = muela con carita, teal como la miniatura -->
   <g transform="translate(0,1) scale(0.82)">
     <path d="M20 8 C12 8 7 15 7 25 C7 31 9 35 11 39 C11 39 9 50 13 54 C16 57 21 53 24 49 C26 47 28 47 30 49 L40 49 C42 47 44 47 46 49 C49 53 53 56 55 52 C57 48 53 39 53 39 C55 35 57 31 57 25 C57 15 52 8 44 8 C39 8 35 12 32 17 C29 12 25 8 20 8 Z" fill="#1A5C7A"/>
+    <circle cx="24" cy="27" r="2.7" fill="#fff"/>
+    <circle cx="40" cy="27" r="2.7" fill="#fff"/>
+    <path d="M26,34 Q32,39.5 38,34" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round"/>
   </g>
   <!-- "O" = cerebro naranja, pegado a la M -->
   <g transform="translate(22.72,-7.7) scale(1.16)">
