@@ -34,7 +34,7 @@ export default function DemoPage({ params }: { params: Promise<{ slug: string }>
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "var(--surface, #F7F5F1)" }}>
       <nav className="bg-white border-b px-6 py-4 flex items-center justify-between" style={{ borderColor: "#E5E0D9" }}>
         <Link href="/" className="text-sm font-semibold hover:opacity-70 transition-opacity" style={{ color: "var(--teal-dark, #0B2F42)" }}>
-          ← molari.ai
+          molari.ai
         </Link>
         <div className="flex items-center gap-4">
           <span className="text-xs uppercase tracking-widest font-medium" style={{ color: "var(--ink-muted, #607281)" }}>

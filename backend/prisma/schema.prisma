@@ -14,6 +14,14 @@ enum PartnerRole {
   USER
 }
 
+// Estado de verificación de identidad/elegibilidad de la clínica (Issue #66, epic #65)
+enum ClinicVerificationStatus {
+  PENDING          // recién registrada, esperando revisión
+  AUTO_VERIFIED    // verificada automáticamente (reservado; hoy no se usa por reCAPTCHA del RNPI)
+  MANUAL_APPROVED  // aprobada manualmente por un SUPERADMIN
+  REJECTED         // rechazada (no es clínica/dentista válido)
+}
+
 // Rol clínico granular — separado del role de plataforma (Issue #32)
 // null = cae al permiso del role (compat hacia atrás).
 enum ClinicalRole {
@@ -36,6 +44,9 @@ model Clinic {
   config    Json                      // servicios, horarios, tono (reemplaza galana.ts)
   apiKey    String   @unique @default(cuid())
   plan      String   @default("starter")
+  // Tipo de cuenta (#69): "clinic" = clínica con equipo · "solo" = doctor independiente
+  // El doctor solo es un tenant con un único profesional (él mismo). Modo de UI simplificado.
+  accountType String @default("clinic")
   active    Boolean  @default(true)
   // WhatsApp Business (Meta Cloud API) — credenciales por clínica
   waPhoneId String?  @unique  // Phone Number ID de Meta
@@ -59,6 +70,14 @@ model Clinic {
   // DPA — Data Processing Agreement Molaris ↔ Clínica (Issue #38, Ley 21.719)
   dpaAcceptedVersion String?   // versión del DPA que la clínica aceptó (null = no aceptado)
   dpaAcceptedAt      DateTime?
+  // Verificación de identidad / elegibilidad — KYC del alta (Issue #66, epic #65)
+  verificationStatus    ClinicVerificationStatus @default(PENDING)
+  professionalRut       String?   // RUT del profesional responsable (validado, "12.345.678-5")
+  professionalRegNumber String?   // N° de registro en el RNPI (Superintendencia de Salud)
+  rnpiCertUrl           String?   // certificado de inscripción RNPI subido por la clínica (opcional)
+  verifiedAt            DateTime?
+  verifiedById          String?   // PartnerUser SUPERADMIN que aprobó/rechazó
+  rejectionReason       String?
   // Kill switch del agente IA (Issue #49) — apagar/encender la IA al instante
   agentEnabled        Boolean   @default(true)
   agentDisabledAt     DateTime?

@@ -13,8 +13,21 @@ const BENEFITS = [
   "Asistente IA que responde 24/7 en WhatsApp y tu web",
   "Agendamiento directo sin llamadas ni intermediarios",
   "Lead scoring automático con cada conversación",
-  "Panel de control para ver leads y configurar tu clínica",
+  "Panel de control para ver leads y configurar tu consulta",
 ];
+
+const SPECIALTIES = [
+  "Odontología General",
+  "Ortodoncia",
+  "Endodoncia",
+  "Implantología",
+  "Periodoncia",
+  "Cirugía Oral",
+  "Blanqueamiento",
+  "Odontopediatría",
+];
+
+type AccountType = "clinic" | "solo";
 
 /* ─── Chile: regiones y comunas ─────────────────────────────────────────── */
 const REGIONS: { label: string; short: string; comunas: string[] }[] = [
@@ -109,7 +122,7 @@ function LocationSelector({
       <div>
         <label className="block text-xs font-semibold uppercase tracking-wider mb-2"
           style={{ color: "var(--ink-muted, #607281)" }}>
-          Región *
+          Región
         </label>
         <div className="flex flex-wrap gap-1.5">
           {visibleRegions.map((r) => (
@@ -145,7 +158,7 @@ function LocationSelector({
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider mb-2"
             style={{ color: "var(--ink-muted, #607281)" }}>
-            Comuna *
+            Comuna
           </label>
           <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1">
             {visibleComunas.map((c) => (
@@ -203,7 +216,9 @@ function LocationSelector({
 export default function RegisterPage() {
   const router = useRouter();
   const [step, setStep]   = useState<Step>(1);
-  const [clinic, setClinic] = useState({ name: "", phone: "", region: "", commune: "" });
+  const [accountType, setAccountType] = useState<AccountType>("clinic");
+  const [clinic, setClinic] = useState({ name: "", phone: "", region: "", commune: "", professionalRut: "", professionalRegNumber: "", specialty: "Odontología General" });
+  const isSolo = accountType === "solo";
   const [admin, setAdmin]   = useState({ name: "", email: "", password: "", confirm: "" });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError]   = useState("");
@@ -215,7 +230,9 @@ export default function RegisterPage() {
 
   function nextStep(e: FormEvent) {
     e.preventDefault();
-    if (!clinic.name.trim()) { setError("El nombre de la clínica es requerido"); return; }
+    // Para clínica el nombre es obligatorio; para doctor independiente es opcional
+    // (se usa su propio nombre si no ponen un nombre de consulta).
+    if (!isSolo && !clinic.name.trim()) { setError("El nombre de la clínica es requerido"); return; }
     setError("");
     setStep(2);
   }
@@ -232,7 +249,16 @@ export default function RegisterPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          clinic: { name: clinic.name, phone: clinic.phone, location },
+          clinic: {
+            // Doctor independiente: si no puso nombre de consulta, usamos su propio nombre.
+            name: (isSolo ? (clinic.name.trim() || admin.name.trim()) : clinic.name),
+            phone: clinic.phone,
+            location,
+            accountType,
+            specialty: isSolo ? clinic.specialty : undefined,
+            professionalRut: clinic.professionalRut || undefined,
+            professionalRegNumber: clinic.professionalRegNumber || undefined,
+          },
           admin: { name: admin.name, email: admin.email, password: admin.password },
           acceptedTerms: true,
         }),
@@ -258,7 +284,7 @@ export default function RegisterPage() {
       <div className="hidden lg:flex lg:w-[45%] flex-col justify-between p-12 text-white"
         style={{ backgroundColor: "var(--teal-dark, #0B2F42)" }}>
         <Link href="/" className="text-sm font-semibold tracking-tight opacity-80 hover:opacity-100 transition-opacity">
-          ← molari.ai
+          molari.ai
         </Link>
 
         <div>
@@ -290,7 +316,7 @@ export default function RegisterPage() {
         <nav className="lg:hidden flex items-center justify-between px-6 py-5 border-b"
           style={{ borderColor: "#E5E0D9", backgroundColor: "white" }}>
           <Link href="/" className="text-sm font-semibold" style={{ color: "var(--teal-dark, #0B2F42)" }}>
-            ← molari.ai
+            molari.ai
           </Link>
           <Link href="/login" className="text-sm" style={{ color: "var(--ink-muted, #607281)" }}>
             Ya tengo cuenta
@@ -324,7 +350,7 @@ export default function RegisterPage() {
                     className={`text-xs hidden sm:block ${step >= s ? "font-medium" : "text-gray-400"}`}
                     style={step >= s ? { color: "var(--ink, #0C1B26)" } : {}}
                   >
-                    {s === 1 ? "Tu clínica" : "Tu cuenta"}
+                    {s === 1 ? (isSolo ? "Tu consulta" : "Tu clínica") : "Tu cuenta"}
                   </span>
                   {i < 1 && (
                     <div
@@ -344,20 +370,68 @@ export default function RegisterPage() {
                   <div className="mb-7">
                     <h2 className="font-[family-name:var(--font-display,sans-serif)] text-2xl font-bold"
                       style={{ color: "var(--ink, #0C1B26)" }}>
-                      Información de tu clínica
+                      {isSolo ? "Sobre tu consulta" : "Información de tu clínica"}
                     </h2>
                     <p className="text-sm mt-1.5" style={{ color: "var(--ink-muted, #607281)" }}>
                       Así configuraremos tu asistente virtual
                     </p>
                   </div>
+
+                  {/* Tipo de cuenta (#69) — doctor independiente vs clínica */}
+                  <div className="mb-6">
+                    <label className="block text-xs font-semibold uppercase tracking-wider mb-2"
+                      style={{ color: "var(--ink-muted, #607281)" }}>
+                      ¿Cómo trabajas?
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([
+                        { key: "solo",   emoji: "🦷", title: "Doctor independiente", desc: "Atiendo yo solo" },
+                        { key: "clinic", emoji: "🏥", title: "Clínica o equipo", desc: "Varios profesionales" },
+                      ] as { key: AccountType; emoji: string; title: string; desc: string }[]).map((opt) => {
+                        const active = accountType === opt.key;
+                        return (
+                          <button
+                            key={opt.key}
+                            type="button"
+                            onClick={() => setAccountType(opt.key)}
+                            className="text-left rounded-xl border p-3 transition-all"
+                            style={active
+                              ? { borderColor: "var(--teal-mid, #1A5C7A)", backgroundColor: "#E8F3F7", boxShadow: "0 0 0 1px var(--teal-mid, #1A5C7A)" }
+                              : { borderColor: "#E5E0D9", backgroundColor: "var(--surface, #F7F5F1)" }}
+                          >
+                            <span className="text-lg">{opt.emoji}</span>
+                            <p className="text-sm font-bold mt-1" style={{ color: "var(--ink, #0C1B26)" }}>{opt.title}</p>
+                            <p className="text-[11px]" style={{ color: "var(--ink-muted, #607281)" }}>{opt.desc}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   <form onSubmit={nextStep} className="flex flex-col gap-5">
                     <Field
-                      label="Nombre de la clínica *"
+                      label={isSolo ? "Nombre de tu consulta (opcional)" : "Nombre de la clínica *"}
                       value={clinic.name}
                       onChange={(v) => setClinic((c) => ({ ...c, name: v }))}
-                      placeholder="Clínica Dental Las Condes"
+                      placeholder={isSolo ? "Ej: Consulta Dr. Juan Garcés" : "Clínica Dental Las Condes"}
                       autoFocus
                     />
+                    {isSolo && (
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5"
+                          style={{ color: "var(--ink-muted, #607281)" }}>
+                          Tu especialidad
+                        </label>
+                        <select
+                          value={clinic.specialty}
+                          onChange={(e) => setClinic((c) => ({ ...c, specialty: e.target.value }))}
+                          className="w-full px-4 py-3 rounded-xl border text-sm transition focus:outline-none focus:ring-2"
+                          style={{ borderColor: "#E5E0D9", backgroundColor: "var(--surface, #F7F5F1)", color: "var(--ink, #0C1B26)" }}
+                        >
+                          {SPECIALTIES.map((s) => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                    )}
                     <Field
                       label="Teléfono"
                       value={clinic.phone}
@@ -384,14 +458,16 @@ export default function RegisterPage() {
                       className="text-xs mb-4 flex items-center gap-1 transition-opacity hover:opacity-70"
                       style={{ color: "var(--ink-muted, #607281)" }}
                     >
-                      ← Volver
+                      Volver
                     </button>
                     <h2 className="font-[family-name:var(--font-display,sans-serif)] text-2xl font-bold"
                       style={{ color: "var(--ink, #0C1B26)" }}>
                       Crea tu cuenta de acceso
                     </h2>
                     <p className="text-sm mt-1.5" style={{ color: "var(--ink-muted, #607281)" }}>
-                      Administrarás {clinic.name} con estos datos
+                      {isSolo
+                        ? "Con estos datos accederás a tu panel"
+                        : `Administrarás ${clinic.name} con estos datos`}
                     </p>
                   </div>
                   <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -423,6 +499,29 @@ export default function RegisterPage() {
                       onChange={(v) => setAdmin((a) => ({ ...a, confirm: v }))}
                       placeholder="Repite tu contraseña"
                     />
+                    {/* Verificación profesional (#66) — opcional en beta, acelera la aprobación */}
+                    <div className="rounded-xl border p-4 flex flex-col gap-4" style={{ borderColor: "#E5E0D9", backgroundColor: "var(--surface, #F7F5F1)" }}>
+                      <div>
+                        <p className="text-xs font-semibold" style={{ color: "var(--ink, #0C1B26)" }}>
+                          Verificación profesional
+                        </p>
+                        <p className="text-[11px] leading-relaxed mt-0.5" style={{ color: "var(--ink-muted, #607281)" }}>
+                          Opcional. Nos ayuda a verificar que atiende un profesional habilitado y agiliza la activación de tu cuenta.
+                        </p>
+                      </div>
+                      <Field
+                        label="RUT del profesional responsable"
+                        value={clinic.professionalRut}
+                        onChange={(v) => setClinic((c) => ({ ...c, professionalRut: v }))}
+                        placeholder="12.345.678-5"
+                      />
+                      <Field
+                        label="N° de registro Superintendencia (RNPI)"
+                        value={clinic.professionalRegNumber}
+                        onChange={(v) => setClinic((c) => ({ ...c, professionalRegNumber: v }))}
+                        placeholder="Opcional"
+                      />
+                    </div>
                     <label className="flex items-start gap-3 cursor-pointer select-none">
                       <input
                         type="checkbox"
@@ -447,9 +546,11 @@ export default function RegisterPage() {
                       </span>
                     </label>
                     {error && <ErrorMsg msg={error} />}
+                    {/* No deshabilitar por los términos: el submit valida y muestra
+                        el motivo. Un botón muerto sin mensaje bloquea el registro. */}
                     <SubmitBtn
                       label="Crear cuenta y ver mi demo"
-                      disabled={loading || !acceptedTerms}
+                      disabled={loading}
                       loading={loading}
                     />
                   </form>
@@ -476,33 +577,46 @@ function Field({
   label: string; value: string; onChange: (v: string) => void;
   placeholder?: string; type?: string; autoFocus?: boolean;
 }) {
+  const [show, setShow] = useState(false);
+  const isPassword = type === "password";
+  const inputType = isPassword ? (show ? "text" : "password") : type;
   return (
     <div>
       <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5"
         style={{ color: "var(--ink-muted, #607281)" }}>
         {label}
       </label>
-      <input
-        type={type}
-        value={value}
-        autoFocus={autoFocus}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full px-4 py-3 rounded-xl border text-sm transition focus:outline-none focus:ring-2"
-        style={{
-          borderColor: "#E5E0D9",
-          backgroundColor: "var(--surface, #F7F5F1)",
-          color: "var(--ink, #0C1B26)",
-        } as React.CSSProperties}
-        onFocus={(e) => {
-          e.target.style.borderColor = "var(--teal-mid, #1A5C7A)";
-          e.target.style.backgroundColor = "white";
-        }}
-        onBlur={(e) => {
-          e.target.style.borderColor = "#E5E0D9";
-          e.target.style.backgroundColor = "var(--surface, #F7F5F1)";
-        }}
-      />
+      <div className="relative">
+        <input
+          type={inputType}
+          value={value}
+          autoFocus={autoFocus}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={`w-full px-4 py-3 rounded-xl border text-sm transition focus:outline-none focus:ring-2 ${isPassword ? "pr-11" : ""}`}
+          style={{
+            borderColor: "#E5E0D9",
+            backgroundColor: "var(--surface, #F7F5F1)",
+            color: "var(--ink, #0C1B26)",
+          } as React.CSSProperties}
+          onFocus={(e) => {
+            e.target.style.borderColor = "var(--teal-mid, #1A5C7A)";
+            e.target.style.backgroundColor = "white";
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = "#E5E0D9";
+            e.target.style.backgroundColor = "var(--surface, #F7F5F1)";
+          }}
+        />
+        {isPassword && (
+          <button type="button" onClick={() => setShow((s) => !s)}
+            aria-label={show ? "Ocultar contraseña" : "Mostrar contraseña"}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold hover:opacity-70 transition"
+            style={{ color: "#607281" }}>
+            {show ? "Ocultar" : "Mostrar"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "forgot">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
@@ -42,7 +43,7 @@ export default function LoginPage() {
           <Image src="/logo.svg" alt="molari.ai" width={140} height={36} priority />
         </Link>
         <Link href="/" className="text-sm font-medium transition-colors" style={{ color: "#607281" }}>
-          ← Volver al inicio
+          Volver al inicio
         </Link>
       </nav>
 
@@ -89,17 +90,25 @@ export default function LoginPage() {
                       ¿La olvidaste?
                     </button>
                   </div>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
-                    className="w-full px-4 py-3 rounded-xl text-sm outline-none transition"
-                    style={{ border: "1px solid #E5E0D9", backgroundColor: "#F7F5F1", color: "#0C1B26" }}
-                    onFocus={(e) => (e.currentTarget.style.borderColor = "#1A5C7A")}
-                    onBlur={(e) => (e.currentTarget.style.borderColor = "#E5E0D9")}
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      className="w-full px-4 py-3 pr-16 rounded-xl text-sm outline-none transition"
+                      style={{ border: "1px solid #E5E0D9", backgroundColor: "#F7F5F1", color: "#0C1B26" }}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = "#1A5C7A")}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = "#E5E0D9")}
+                    />
+                    <button type="button" onClick={() => setShowPassword((s) => !s)}
+                      aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold hover:opacity-70 transition"
+                      style={{ color: "#607281" }}>
+                      {showPassword ? "Ocultar" : "Mostrar"}
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -126,7 +135,7 @@ export default function LoginPage() {
               {mode === "forgot" && (
                 <button type="button" onClick={() => { setMode("login"); setError(""); setNotice(""); }}
                   className="text-xs font-semibold hover:underline mx-auto" style={{ color: "#607281" }}>
-                  ← Volver al inicio de sesión
+                  Volver al inicio de sesión
                 </button>
               )}
             </form>
@@ -139,13 +148,15 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Demo hint */}
-          <div className="mt-4 rounded-2xl p-4 text-center" style={{ backgroundColor: "#E8F3F7", border: "1px solid rgba(26,92,122,0.15)" }}>
-            <p className="text-xs font-bold mb-1" style={{ color: "#1A5C7A" }}>Demo disponible</p>
-            <p className="text-xs" style={{ color: "#1A5C7A" }}>
-              Prueba con <strong>admin@galana.cl</strong> / <strong>galana2024!</strong>
-            </p>
-          </div>
+          {/* Demo hint — solo en desarrollo local (oculto en beta y prod) */}
+          {process.env.NODE_ENV !== "production" && (
+            <div className="mt-4 rounded-2xl p-4 text-center" style={{ backgroundColor: "#E8F3F7", border: "1px solid rgba(26,92,122,0.15)" }}>
+              <p className="text-xs font-bold mb-1" style={{ color: "#1A5C7A" }}>Demo disponible</p>
+              <p className="text-xs" style={{ color: "#1A5C7A" }}>
+                Prueba con <strong>admin@galana.cl</strong> / <strong>galana2024!</strong>
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

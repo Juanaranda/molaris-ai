@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getMe, updateClinic } from "@/lib/auth";
+import { BetaWhatsappCard } from "@/components/BetaWhatsappCard";
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3 | 4 | 5;
 
 const DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"] as const;
 const DAY_KEYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
@@ -54,13 +55,6 @@ const DEFAULT_SCHEDULE: Schedule = {
   sunday:    { open: false, from: "09:00", to: "13:00" },
 };
 
-const STEPS = [
-  { label: "Bienvenida" },
-  { label: "Doctores" },
-  { label: "Horario" },
-  { label: "Canales" },
-];
-
 function uid() {
   return Math.random().toString(36).slice(2, 9);
 }
@@ -90,8 +84,11 @@ function TimeSelect({ value, onChange }: { value: string; onChange: (v: string) 
 export default function SetupPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>(1);
+  const [isSolo, setIsSolo] = useState(false);
   const [clinicId, setClinicId] = useState<string | null>(null);
   const [clinicName, setClinicName] = useState("");
+  const [clinicPhone, setClinicPhone] = useState("");
+  const [clinicLocation, setClinicLocation] = useState("");
   const [clinicSlug, setClinicSlug] = useState("");
   const [doctors, setDoctors] = useState<Doctor[]>([
     { _id: uid(), name: "", specialty: "Odontología General", days: ["monday", "tuesday", "wednesday", "thursday", "friday"] },
@@ -109,8 +106,11 @@ export default function SetupPage() {
     getMe().then((data) => {
       if (!data?.clinic) { router.replace("/login"); return; }
       setClinicId(data.clinic.id);
+      setIsSolo(data.clinic.accountType === "solo");
       setClinicName(data.clinic.name);
       setClinicSlug(data.clinic.slug);
+      if (data.clinic.phone) setClinicPhone(data.clinic.phone);
+      if (data.clinic.location) setClinicLocation(data.clinic.location);
       if (data.clinic.whatsapp) setWhatsapp(data.clinic.whatsapp);
       if (data.clinic.instagram) setInstagram(data.clinic.instagram);
       const cfg = data.clinic.config as Record<string, unknown>;
@@ -175,6 +175,9 @@ export default function SetupPage() {
       });
 
       await updateClinic(clinicId, {
+        name: clinicName.trim() || undefined,
+        phone: clinicPhone.trim() || undefined,
+        location: clinicLocation.trim() || undefined,
         whatsapp: whatsapp.trim() || undefined,
         instagram: instagram.trim() || undefined,
         config: {
@@ -196,6 +199,12 @@ export default function SetupPage() {
 
   const embedCode = `<script src="https://molari.ai/widget.js" data-clinic="${clinicSlug}" defer></script>`;
 
+  // Pasos del onboarding. El doctor independiente (#69) no configura "Doctores"
+  // (ya es el único profesional) → flujo express de 4 pasos.
+  const stepList: { n: Step; label: string }[] = isSolo
+    ? [{ n: 1, label: "Bienvenida" }, { n: 2, label: "Tu consulta" }, { n: 4, label: "Horario" }, { n: 5, label: "Canales" }]
+    : [{ n: 1, label: "Bienvenida" }, { n: 2, label: "Tu clínica" }, { n: 3, label: "Doctores" }, { n: 4, label: "Horario" }, { n: 5, label: "Canales" }];
+
   /* ── Render ────────────────────────────────────────────────────────────── */
   return (
     <div className="min-h-screen flex" style={{ backgroundColor: "#F7F5F1" }}>
@@ -214,19 +223,18 @@ export default function SetupPage() {
 
           {/* Stepper vertical */}
           <div className="flex flex-col gap-0">
-            {STEPS.map((s, i) => {
-              const n = (i + 1) as Step;
-              const done = step > n;
-              const active = step === n;
+            {stepList.map((s, i) => {
+              const done = step > s.n;
+              const active = step === s.n;
               return (
-                <div key={n} className="flex items-start gap-4">
+                <div key={s.n} className="flex items-start gap-4">
                   <div className="flex flex-col items-center">
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all ${
                       done ? "bg-emerald-500 text-white" : active ? "bg-white text-[#0B2F42]" : "bg-white/10 text-white/40"
                     }`}>
-                      {done ? "✓" : n}
+                      {done ? "✓" : i + 1}
                     </div>
-                    {i < STEPS.length - 1 && (
+                    {i < stepList.length - 1 && (
                       <div className={`w-px flex-1 my-1 ${done ? "bg-emerald-400/50" : "bg-white/10"}`} style={{ height: 28 }} />
                     )}
                   </div>
@@ -252,18 +260,17 @@ export default function SetupPage() {
 
           {/* Mobile stepper */}
           <div className="flex items-center gap-2 mb-8 lg:hidden">
-            {STEPS.map((s, i) => {
-              const n = (i + 1) as Step;
-              const done = step > n;
-              const active = step === n;
+            {stepList.map((s, i) => {
+              const done = step > s.n;
+              const active = step === s.n;
               return (
-                <div key={n} className="flex items-center gap-1.5 flex-1">
+                <div key={s.n} className="flex items-center gap-1.5 flex-1">
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
                     done ? "bg-emerald-500 text-white" : active ? "text-white" : "bg-gray-100 text-gray-400"
                   }`} style={active ? { backgroundColor: "#0B2F42" } : {}}>
-                    {done ? "✓" : n}
+                    {done ? "✓" : i + 1}
                   </div>
-                  {i < STEPS.length - 1 && (
+                  {i < stepList.length - 1 && (
                     <div className={`flex-1 h-px ${done ? "bg-emerald-400" : "bg-gray-200"}`} />
                   )}
                 </div>
@@ -280,16 +287,23 @@ export default function SetupPage() {
                   {clinicName ? `Bienvenido, ${clinicName}` : "Bienvenido a molari.ai"}
                 </h2>
                 <p className="text-base" style={{ color: "#607281" }}>
-                  Configuremos tu asistente en 3 pasos simples.
+                  Configuremos tu asistente paso a paso.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {[
-                  { icon: "🦷", title: "Tus doctores", desc: "Agrega el equipo con sus especialidades y disponibilidad" },
-                  { icon: "🕐", title: "Horario", desc: "Define cuándo atiende tu clínica y cuántos boxes tienes" },
-                  { icon: "📲", title: "Canales", desc: "Conecta WhatsApp, Instagram y el widget de tu web" },
-                ].map((card) => (
+                {(isSolo
+                  ? [
+                      { icon: "🦷", title: "Tu consulta", desc: "Tus datos, especialidad y ubicación" },
+                      { icon: "🗓️", title: "Tu horario", desc: "Cuándo atiendes a tus pacientes" },
+                      { icon: "📲", title: "Tus canales", desc: "WhatsApp y web donde te escriben" },
+                    ]
+                  : [
+                      { icon: "🏥", title: "Tu clínica", desc: "Nombre, teléfono y ubicación de tu consulta" },
+                      { icon: "🦷", title: "Tus doctores", desc: "El equipo con sus especialidades y disponibilidad" },
+                      { icon: "📲", title: "Horario y canales", desc: "Cuándo atiendes y dónde te escriben los pacientes" },
+                    ]
+                ).map((card) => (
                   <div key={card.title} className="bg-white rounded-2xl border p-5 flex flex-col gap-2" style={{ borderColor: "#E5E0D9" }}>
                     <span className="text-2xl">{card.icon}</span>
                     <p className="text-sm font-bold" style={{ color: "#0C1B26" }}>{card.title}</p>
@@ -310,12 +324,78 @@ export default function SetupPage() {
             </div>
           )}
 
-          {/* ── Step 2: Doctors ── */}
+          {/* ── Step 2: Clinic ── */}
           {step === 2 && (
             <div className="flex flex-col gap-6">
               <div>
                 <button onClick={() => setStep(1)} className="text-xs mb-4 hover:opacity-70 transition flex items-center gap-1" style={{ color: "#607281" }}>
-                  ← Volver
+                  Volver
+                </button>
+                <h2 className="text-2xl font-black mb-1" style={{ color: "#0C1B26" }}>
+                  {isSolo ? "Datos de tu consulta" : "Datos de tu clínica"}
+                </h2>
+                <p className="text-sm" style={{ color: "#607281" }}>
+                  El asistente usará estos datos al atender a tus pacientes.
+                </p>
+              </div>
+
+              <div className="bg-white rounded-2xl border p-5 flex flex-col gap-4" style={{ borderColor: "#E5E0D9" }}>
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: "#607281" }}>
+                    {isSolo ? "Nombre de tu consulta" : "Nombre de la clínica"}
+                  </label>
+                  <input
+                    value={clinicName}
+                    onChange={(e) => setClinicName(e.target.value)}
+                    placeholder={isSolo ? "Ej: Consulta Dr. Juan Garcés" : "Clínica Dental Sonrisa"}
+                    className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                    style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold mb-1" style={{ color: "#607281" }}>Teléfono</label>
+                    <input
+                      value={clinicPhone}
+                      onChange={(e) => setClinicPhone(e.target.value)}
+                      placeholder="+56 2 2345 6789"
+                      className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                      style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1" style={{ color: "#607281" }}>Ciudad / comuna</label>
+                    <input
+                      value={clinicLocation}
+                      onChange={(e) => setClinicLocation(e.target.value)}
+                      placeholder="Providencia, Santiago"
+                      className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                      style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  if (!isSolo && !clinicName.trim()) { setError("El nombre de la clínica es obligatorio"); return; }
+                  setError("");
+                  setStep(isSolo ? 4 : 3);
+                }}
+                className="w-full py-4 rounded-2xl text-sm font-bold text-white transition hover:opacity-90"
+                style={{ backgroundColor: "#0B2F42" }}>
+                Continuar
+              </button>
+              {error && <p className="text-xs text-red-600 text-center">{error}</p>}
+            </div>
+          )}
+
+          {/* ── Step 3: Doctors ── */}
+          {step === 3 && (
+            <div className="flex flex-col gap-6">
+              <div>
+                <button onClick={() => setStep(2)} className="text-xs mb-4 hover:opacity-70 transition flex items-center gap-1" style={{ color: "#607281" }}>
+                  Volver
                 </button>
                 <h2 className="text-2xl font-black mb-1" style={{ color: "#0C1B26" }}>Agrega tus doctores</h2>
                 <p className="text-sm" style={{ color: "#607281" }}>
@@ -398,7 +478,7 @@ export default function SetupPage() {
                     return;
                   }
                   setError("");
-                  setStep(3);
+                  setStep(4);
                 }}
                 className="w-full py-4 rounded-2xl text-sm font-bold text-white transition hover:opacity-90"
                 style={{ backgroundColor: "#0B2F42" }}>
@@ -408,12 +488,12 @@ export default function SetupPage() {
             </div>
           )}
 
-          {/* ── Step 3: Schedule ── */}
-          {step === 3 && (
+          {/* ── Step 4: Schedule ── */}
+          {step === 4 && (
             <div className="flex flex-col gap-6">
               <div>
-                <button onClick={() => setStep(2)} className="text-xs mb-4 hover:opacity-70 transition flex items-center gap-1" style={{ color: "#607281" }}>
-                  ← Volver
+                <button onClick={() => setStep(isSolo ? 2 : 3)} className="text-xs mb-4 hover:opacity-70 transition flex items-center gap-1" style={{ color: "#607281" }}>
+                  Volver
                 </button>
                 <h2 className="text-2xl font-black mb-1" style={{ color: "#0C1B26" }}>Horario y capacidad</h2>
                 <p className="text-sm" style={{ color: "#607281" }}>
@@ -460,7 +540,8 @@ export default function SetupPage() {
                 </div>
               </div>
 
-              {/* Boxes */}
+              {/* Boxes — no aplica para doctor independiente (#69) */}
+              {!isSolo && (
               <div className="bg-white rounded-2xl border p-5" style={{ borderColor: "#E5E0D9" }}>
                 <label className="block text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#607281" }}>
                   Número de boxes / sillones
@@ -497,8 +578,9 @@ export default function SetupPage() {
                   </div>
                 )}
               </div>
+              )}
 
-              <button onClick={() => setStep(4)}
+              <button onClick={() => setStep(5)}
                 className="w-full py-4 rounded-2xl text-sm font-bold text-white transition hover:opacity-90"
                 style={{ backgroundColor: "#0B2F42" }}>
                 Continuar
@@ -506,12 +588,12 @@ export default function SetupPage() {
             </div>
           )}
 
-          {/* ── Step 4: Channels ── */}
-          {step === 4 && (
+          {/* ── Step 5: Channels ── */}
+          {step === 5 && (
             <div className="flex flex-col gap-6">
               <div>
-                <button onClick={() => setStep(3)} className="text-xs mb-4 hover:opacity-70 transition flex items-center gap-1" style={{ color: "#607281" }}>
-                  ← Volver
+                <button onClick={() => setStep(4)} className="text-xs mb-4 hover:opacity-70 transition flex items-center gap-1" style={{ color: "#607281" }}>
+                  Volver
                 </button>
                 <h2 className="text-2xl font-black mb-1" style={{ color: "#0C1B26" }}>Conecta tus canales</h2>
                 <p className="text-sm" style={{ color: "#607281" }}>
@@ -539,6 +621,9 @@ export default function SetupPage() {
                   style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
                 />
               </div>
+
+              {/* Número de prueba (beta): solo aparece si está configurado */}
+              <BetaWhatsappCard />
 
               {/* Widget embed */}
               <div className="bg-white rounded-2xl border p-5 flex flex-col gap-3" style={{ borderColor: "#E5E0D9" }}>

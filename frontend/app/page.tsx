@@ -6,6 +6,31 @@ import { AnimateIn } from "@/components/AnimateIn";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
 
 /* ─── Icons ─────────────────────────────────────────────────────────── */
+function IconLock() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-6 h-6">
+      <rect x="4" y="10" width="16" height="11" rx="3" />
+      <path d="M8 10V7a4 4 0 018 0v3" />
+      <circle cx="12" cy="15.5" r="1.4" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+function IconShieldCheck() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-6 h-6">
+      <path d="M12 3l7 3v6c0 4.2-2.9 7.7-7 9-4.1-1.3-7-4.8-7-9V6l7-3z" />
+      <path d="M9 12.2l2.1 2.1L15.2 10" />
+    </svg>
+  );
+}
+function IconExport() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-6 h-6">
+      <path d="M12 3v11m0 0l-3.5-3.5M12 14l3.5-3.5" />
+      <path d="M4 16v2.5A2.5 2.5 0 006.5 21h11a2.5 2.5 0 002.5-2.5V16" />
+    </svg>
+  );
+}
 function IconBot() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-6 h-6">
@@ -281,61 +306,63 @@ export default function Home() {
             Acceder
           </Link>
           <Link
-            href="#juan"
+            href="/register"
             className="text-sm font-semibold px-5 py-2 rounded-full text-white transition-opacity hover:opacity-90"
             style={{ backgroundColor: "#D95F45" }}
           >
-            Hablar con Juan
+            Prueba gratis
           </Link>
         </div>
       </nav>
 
       {/* HERO */}
       <section className="relative overflow-hidden" style={{ backgroundColor: "#F7F5F1" }}>
-        <div className="relative max-w-6xl mx-auto px-6 sm:px-10 pt-16 sm:pt-24 pb-12 sm:pb-20">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+        <div className="relative max-w-6xl mx-auto px-6 sm:px-10 pt-10 sm:pt-14 pb-12 sm:pb-16">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
             <div>
-              <span className="inline-flex items-center gap-2 text-xs font-bold px-4 py-1.5 rounded-full mb-8 animate-fade-up" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A", border: "1px solid rgba(26,92,122,0.2)" }}>
+              <span className="inline-flex items-center gap-2 text-xs font-bold px-4 py-1.5 rounded-full mb-5 animate-fade-up" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A", border: "1px solid rgba(26,92,122,0.2)" }}>
                 <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#D95F45" }} />
                 Recepcionista IA · responde en segundos, 24/7
               </span>
 
-              <h1 className="font-display text-5xl sm:text-6xl font-bold leading-[1.08] tracking-tight mb-6 animate-fade-up animate-fade-up-delay-1">
+              <h1 className="font-display text-3xl sm:text-5xl font-bold leading-[1.1] tracking-tight mb-4 text-balance animate-fade-up animate-fade-up-delay-1">
                 No pierdas pacientes<br />
-                <span style={{ color: "#D95F45" }}>por no contestar<br />a tiempo.</span>
+                {/* Espacio duro: evita que "tiempo." quede huérfano al envolver en móvil. */}
+                <span style={{ color: "#D95F45" }}>por no contestar a&nbsp;tiempo.</span>
               </h1>
 
-              <p className="text-base sm:text-lg max-w-md mb-10 animate-fade-up animate-fade-up-delay-2" style={{ color: "#607281" }}>
+              <p className="text-base max-w-md mb-6 animate-fade-up animate-fade-up-delay-2" style={{ color: "#607281" }}>
                 molari.ai es tu recepcionista con IA: responde a cada paciente en WhatsApp y tu web al instante, agenda la cita sola y hace el seguimiento — 24/7. Y por dentro, tu clínica completa: ficha, odontograma y pagos.
               </p>
 
-              <div className="flex flex-col gap-3 animate-fade-up animate-fade-up-delay-3">
+              {/* Un solo CTA primario por sección; el secundario va discreto (outline). */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 animate-fade-up animate-fade-up-delay-3">
                 <Link
                   href="/register"
-                  className="inline-flex items-center justify-center text-white font-bold px-10 py-5 rounded-2xl text-lg transition-all hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] w-full sm:w-auto"
+                  className="inline-flex items-center justify-center text-white font-bold px-8 py-4 rounded-2xl text-base transition-all hover:opacity-90 hover:scale-[1.02] active:scale-[0.98]"
                   style={{ backgroundColor: "#D95F45", boxShadow: "0 8px 30px rgba(217,95,69,0.35)" }}
                 >
                   Prueba molari.ai gratis
                 </Link>
-                <div className="flex items-center gap-4">
-                  <Link href="/login" className="text-sm font-semibold underline underline-offset-2" style={{ color: "#607281" }}>
-                    Iniciar sesión
-                  </Link>
-                  <span style={{ color: "#c0c8d0" }}>·</span>
-                  <a href="https://wa.me/56966865887" className="text-sm font-semibold" style={{ color: "#607281" }}>
-                    Hablar con el equipo
-                  </a>
-                </div>
+                <a
+                  href="https://wa.me/56966865887"
+                  className="inline-flex items-center justify-center font-semibold px-6 py-4 rounded-2xl text-base transition-colors hover:bg-[#E8F3F7]"
+                  style={{ border: "1.5px solid #1A5C7A", color: "#1A5C7A" }}
+                >
+                  Hablar por WhatsApp
+                </a>
               </div>
 
-              <div className="flex items-center gap-3 mt-10 animate-fade-up animate-fade-up-delay-3">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ backgroundColor: "#E8F3F7", border: "1px solid rgba(26,92,122,0.15)" }}>
-                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#1A5C7A" }} />
-                  <p className="text-xs font-semibold" style={{ color: "#1A5C7A" }}>
-                    En producción · Galana Clínica Dental, Santiago
-                  </p>
+              {process.env.NEXT_PUBLIC_LIVE_CLINIC_LABEL && (
+                <div className="flex items-center gap-3 mt-6 animate-fade-up animate-fade-up-delay-3">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ backgroundColor: "#E8F3F7", border: "1px solid rgba(26,92,122,0.15)" }}>
+                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#1A5C7A" }} />
+                    <p className="text-xs font-semibold" style={{ color: "#1A5C7A" }}>
+                      En producción · {process.env.NEXT_PUBLIC_LIVE_CLINIC_LABEL}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="animate-fade-up animate-fade-up-delay-2 animate-float-slow">
@@ -508,28 +535,33 @@ export default function Home() {
             </AnimateIn>
           </div>
 
-          {/* Métricas del asistente — integradas en contexto */}
-          <div className="mt-14 rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(26,92,122,0.12)", backgroundColor: "#FDFCFB" }}>
-            <div className="px-6 py-3 border-b" style={{ borderColor: "rgba(26,92,122,0.08)", backgroundColor: "#F7F5F1" }}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-center" style={{ color: "#607281" }}>
-                Asistente IA · resultados en producción
-              </p>
+          {/* Métricas del asistente — se muestran solo cuando hay datos reales.
+              Activar con NEXT_PUBLIC_STATS_ENABLED=true y cargar los valores por
+              variables a medida que aparezcan resultados. Oculto por defecto para
+              no mostrar métricas inventadas en beta. */}
+          {process.env.NEXT_PUBLIC_STATS_ENABLED === "true" && (
+            <div className="mt-14 rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(26,92,122,0.12)", backgroundColor: "#FDFCFB" }}>
+              <div className="px-6 py-3 border-b" style={{ borderColor: "rgba(26,92,122,0.08)", backgroundColor: "#F7F5F1" }}>
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-center" style={{ color: "#607281" }}>
+                  Asistente IA · resultados en producción
+                </p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0" style={{ borderColor: "rgba(26,92,122,0.08)" }}>
+                {[
+                  { value: process.env.NEXT_PUBLIC_STAT_CONVERSATIONS ?? "—", label: "Conversaciones / mes",   color: "#0C1B26",  sub: process.env.NEXT_PUBLIC_STAT_CONVERSATIONS_SUB ?? "" },
+                  { value: process.env.NEXT_PUBLIC_STAT_CONVERSION    ?? "—", label: "Leads convertidos",      color: "#D95F45",  sub: process.env.NEXT_PUBLIC_STAT_CONVERSION_SUB    ?? "" },
+                  { value: process.env.NEXT_PUBLIC_STAT_BOOKINGS      ?? "—", label: "Citas generadas por IA", color: "#1A5C7A",  sub: process.env.NEXT_PUBLIC_STAT_BOOKINGS_SUB      ?? "sin intervención humana" },
+                  { value: process.env.NEXT_PUBLIC_STAT_RESPONSE      ?? "—", label: "Tiempo de respuesta",    color: "#059669",  sub: process.env.NEXT_PUBLIC_STAT_RESPONSE_SUB      ?? "disponible 24 / 7" },
+                ].map((m) => (
+                  <div key={m.label} className="flex flex-col items-center justify-center gap-1 py-6 px-4 text-center">
+                    <AnimatedCounter raw={m.value} color={m.color} />
+                    <p className="text-xs font-semibold mt-1" style={{ color: "#0C1B26" }}>{m.label}</p>
+                    {m.sub && <p className="text-[10px]" style={{ color: "#9CA8B3" }}>{m.sub}</p>}
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0" style={{ borderColor: "rgba(26,92,122,0.08)" }}>
-              {[
-                { value: "342",   label: "Conversaciones / mes",   color: "#0C1B26",  sub: "3 canales activos" },
-                { value: "68%",   label: "Leads convertidos",      color: "#D95F45",  sub: "vs media sector ~22%" },
-                { value: "127",   label: "Citas generadas por IA", color: "#1A5C7A",  sub: "sin intervención humana" },
-                { value: "< 2 s", label: "Tiempo de respuesta",    color: "#059669",  sub: "disponible 24 / 7" },
-              ].map((m) => (
-                <div key={m.label} className="flex flex-col items-center justify-center gap-1 py-6 px-4 text-center">
-                  <AnimatedCounter raw={m.value} color={m.color} />
-                  <p className="text-xs font-semibold mt-1" style={{ color: "#0C1B26" }}>{m.label}</p>
-                  <p className="text-[10px]" style={{ color: "#9CA8B3" }}>{m.sub}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+          )}
 
         </div>
       </section>
@@ -608,7 +640,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* JUAN — SALES AGENT */}
+      {/* JUAN — SALES AGENT — solo en desarrollo local (oculto en beta y prod) */}
+      {process.env.NODE_ENV !== "production" && (
       <section id="juan" className="py-16 sm:py-24" style={{ backgroundColor: "#0B2F42" }}>
         <div className="max-w-5xl mx-auto px-6 sm:px-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
@@ -645,16 +678,83 @@ export default function Home() {
           </div>
         </div>
       </section>
+      )}
+
+      {/* SEGURIDAD DE DATOS */}
+      <section className="py-16 sm:py-24" style={{ backgroundColor: "#FDFCFB" }}>
+        <div className="max-w-5xl mx-auto px-6 sm:px-10">
+          <p className="text-xs font-bold uppercase tracking-[0.15em] text-center mb-3" style={{ color: "#1A5C7A" }}>
+            Seguridad y privacidad
+          </p>
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-center mb-14">
+            Los datos de tus pacientes, protegidos
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-10">
+            {[
+              {
+                icon: <IconLock />,
+                title: "Cifrado de extremo a extremo",
+                desc: "Los datos clínicos viajan cifrados y se almacenan cifrados en reposo.",
+              },
+              {
+                icon: <IconShieldCheck />,
+                title: "Cumplimiento normativo chileno",
+                desc: "Diseñado según la Ley 21.719 de protección de datos personales y la normativa de datos de salud.",
+              },
+              {
+                icon: <IconExport />,
+                title: "Tus datos son tuyos",
+                desc: "Exporta tu información completa cuando quieras, sin letra chica.",
+              },
+            ].map((item, i) => (
+              <AnimateIn key={item.title} delay={i * 110}>
+                <div className="flex flex-col gap-3">
+                  <span className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A" }}>
+                    {item.icon}
+                  </span>
+                  <h3 className="font-semibold text-base">{item.title}</h3>
+                  <p className="text-sm leading-relaxed" style={{ color: "#607281" }}>{item.desc}</p>
+                </div>
+              </AnimateIn>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* PRICING */}
       <section id="pricing" className="py-16 sm:py-24" style={{ backgroundColor: "#F7F5F1" }}>
-        <div className="max-w-5xl mx-auto px-6 sm:px-10">
+        <div className="max-w-6xl mx-auto px-6 sm:px-10">
           <h2 className="font-display text-3xl sm:text-4xl font-bold text-center mb-3">Planes y precios</h2>
           <p className="text-sm text-center mb-12" style={{ color: "#607281" }}>Sin contratos largos. Cancela cuando quieras.</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-6 items-stretch">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 items-stretch">
+
+            {/* Doctor — plan para dentista independiente (#69) */}
+            <AnimateIn delay={0} style={{ display: 'flex', flexDirection: 'column' }}>
+            <div className="flex flex-col rounded-2xl p-6 sm:p-7 flex-1" style={{ border: "1px solid #E5E0D9", backgroundColor: "#FDFCFB" }}>
+              <p className="text-xs font-bold uppercase tracking-[0.12em] mb-5" style={{ color: "#607281" }}>Doctor</p>
+              <div className="mb-1">
+                <span className="font-display text-4xl font-bold">$12.990</span>
+                <span className="text-sm ml-1.5" style={{ color: "#607281" }}>CLP / mes</span>
+              </div>
+              <p className="text-sm mb-6" style={{ color: "#607281" }}>Para el dentista independiente — menos que una consulta particular</p>
+              <ul className="flex flex-col gap-2.5 text-sm mb-8 flex-1">
+                {["Recepcionista IA en WhatsApp y web", "Agenda personal + recordatorios", "Ficha clínica + odontograma", "Pacientes y pagos", "1 profesional"].map((f) => (
+                  <li key={f} className="flex items-center gap-2.5">
+                    <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A" }}>✓</span>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <a href="/register"
+                className="block text-center font-semibold py-3 rounded-full text-sm transition-colors"
+                style={{ border: "1.5px solid #1A5C7A", color: "#1A5C7A" }}>
+                Empezar ahora
+              </a>
+            </div>
+            </AnimateIn>
 
             {/* Esencial */}
-            <AnimateIn delay={0} style={{ display: 'flex', flexDirection: 'column' }}>
+            <AnimateIn delay={110} style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="flex flex-col rounded-2xl p-6 sm:p-7 flex-1" style={{ border: "1px solid #E5E0D9", backgroundColor: "#FDFCFB" }}>
               <p className="text-xs font-bold uppercase tracking-[0.12em] mb-5" style={{ color: "#607281" }}>Esencial</p>
               <div className="mb-1">
@@ -679,7 +779,7 @@ export default function Home() {
             </AnimateIn>
 
             {/* Pro */}
-            <AnimateIn delay={110} style={{ display: 'flex', flexDirection: 'column' }}>
+            <AnimateIn delay={220} style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="flex flex-col rounded-2xl p-6 sm:p-7 relative shadow-lg flex-1" style={{ border: "2px solid #D95F45", backgroundColor: "#FDFCFB" }}>
               <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 text-white text-[11px] font-bold px-4 py-1 rounded-full whitespace-nowrap" style={{ backgroundColor: "#D95F45" }}>
                 Más popular
@@ -714,7 +814,7 @@ export default function Home() {
             </AnimateIn>
 
             {/* Clínica+ */}
-            <AnimateIn delay={220} style={{ display: 'flex', flexDirection: 'column' }}>
+            <AnimateIn delay={330} style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="flex flex-col rounded-2xl p-6 sm:p-7 flex-1" style={{ border: "1px solid #E5E0D9", backgroundColor: "#FDFCFB" }}>
               <p className="text-xs font-bold uppercase tracking-[0.12em] mb-5" style={{ color: "#607281" }}>Clínica+</p>
               <div className="mb-1">

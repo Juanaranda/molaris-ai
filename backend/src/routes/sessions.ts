@@ -67,4 +67,50 @@ export async function sessionRoutes(app: FastifyInstance) {
 
     return reply.send({ sessions, total: sessions.length });
   });
+
+  /**
+   * GET /api/sessions/:id
+   * Devuelve una conversación completa con todos sus mensajes (orden cronológico)
+   * y el contexto del paciente. Para que el dueño/equipo vea cómo respondió el agente.
+   * Solo la clínica dueña (o SUPERADMIN) puede verla.
+   */
+  app.get<{ Params: { id: string } }>("/sessions/:id", async (req, reply) => {
+    let payload;
+    try {
+      payload = verifyToken(req.headers.authorization);
+    } catch {
+      return reply.status(401).send({ error: "No autorizado" });
+    }
+
+    const session = await prisma.session.findUnique({
+      where: { id: req.params.id },
+      select: {
+        id: true,
+        clinicId: true,
+        channel: true,
+        status: true,
+        leadScore: true,
+        createdAt: true,
+        updatedAt: true,
+        context: {
+          select: {
+            patientName: true, rut: true, email: true,
+            serviceInterest: true, intent: true, urgency: true,
+            score: true, slotBooked: true, notes: true,
+          },
+        },
+        messages: {
+          orderBy: { createdAt: "asc" },
+          select: { id: true, role: true, content: true, createdAt: true },
+        },
+      },
+    });
+
+    if (!session) return reply.status(404).send({ error: "Conversación no encontrada" });
+    if (payload.role !== "SUPERADMIN" && session.clinicId !== payload.clinicId) {
+      return reply.status(403).send({ error: "Acceso denegado" });
+    }
+
+    return reply.send({ session });
+  });
 }

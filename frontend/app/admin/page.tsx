@@ -2,6 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  getToken,
+  listPendingClinics,
+  approveClinic,
+  rejectClinic,
+  type PendingClinic,
+} from "@/lib/auth";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -109,9 +116,15 @@ export default function AdminPage() {
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [pending, setPending] = useState<PendingClinic[]>([]);
+  const [acting, setActing] = useState<string | null>(null);
+
+  function loadPending() {
+    listPendingClinics().then(setPending).catch(() => {});
+  }
 
   useEffect(() => {
-    const token = localStorage.getItem("partner_token");
+    const token = getToken();
     if (!token) { router.push("/login"); return; }
 
     fetch(`${API}/api/admin/overview`, { headers: { Authorization: `Bearer ${token}` } })
@@ -122,7 +135,35 @@ export default function AdminPage() {
       })
       .then((d) => { if (d) setData(d); setLoading(false); })
       .catch((e) => { setError(e.message); setLoading(false); });
+
+    loadPending();
   }, [router]);
+
+  async function handleApprove(id: string) {
+    setActing(id);
+    try {
+      await approveClinic(id);
+      setPending((p) => p.filter((c) => c.id !== id));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Error al aprobar");
+    } finally {
+      setActing(null);
+    }
+  }
+
+  async function handleReject(id: string) {
+    const reason = window.prompt("Motivo del rechazo (se guarda y se muestra a la clínica):");
+    if (reason === null) return;
+    setActing(id);
+    try {
+      await rejectClinic(id, reason);
+      setPending((p) => p.filter((c) => c.id !== id));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Error al rechazar");
+    } finally {
+      setActing(null);
+    }
+  }
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--surface)" }}>
@@ -156,7 +197,7 @@ export default function AdminPage() {
           className="text-sm font-medium hover:opacity-70 transition-opacity"
           style={{ color: "var(--ink-muted)" }}
         >
-          ← Panel clínica
+          Panel clínica
         </button>
       </nav>
 
@@ -180,6 +221,61 @@ export default function AdminPage() {
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {/* Clínicas por revisar (KYC #66) */}
+        {pending.length > 0 && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 overflow-hidden">
+            <div className="px-5 py-3 border-b border-amber-200 flex items-center justify-between">
+              <p className="text-sm font-bold text-amber-800">
+                🔍 Clínicas por revisar
+                <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-200 text-amber-800">{pending.length}</span>
+              </p>
+              <p className="text-xs text-amber-700">Verificación manual de identidad profesional</p>
+            </div>
+            <div className="divide-y divide-amber-100">
+              {pending.map((c) => (
+                <div key={c.id} className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm" style={{ color: "var(--ink)" }}>{c.name}</p>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--ink-muted)" }}>
+                      /{c.slug}
+                      {c.location && <> · {c.location}</>}
+                      {" · "}{new Date(c.createdAt).toLocaleDateString("es-CL")}
+                    </p>
+                    <p className="text-xs mt-1" style={{ color: "var(--ink-muted)" }}>
+                      {c.partnerUsers[0]
+                        ? <>Admin: <span className="font-medium">{c.partnerUsers[0].name}</span> · {c.partnerUsers[0].email}</>
+                        : "Sin admin"}
+                    </p>
+                    <p className="text-xs mt-1" style={{ color: "var(--ink)" }}>
+                      RUT prof.: <span className="font-medium">{c.professionalRut ?? "—"}</span>
+                      {"   ·   "}RNPI: <span className="font-medium">{c.professionalRegNumber ?? "—"}</span>
+                      {c.rnpiCertUrl && (
+                        <>{"   ·   "}<a href={c.rnpiCertUrl} target="_blank" rel="noopener noreferrer" className="underline text-teal-700">certificado</a></>
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => handleReject(c.id)}
+                      disabled={acting === c.id}
+                      className="px-3 py-2 rounded-lg text-xs font-semibold border border-red-300 text-red-600 hover:bg-red-50 transition disabled:opacity-50"
+                    >
+                      Rechazar
+                    </button>
+                    <button
+                      onClick={() => handleApprove(c.id)}
+                      disabled={acting === c.id}
+                      className="px-3 py-2 rounded-lg text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition disabled:opacity-50"
+                    >
+                      {acting === c.id ? "…" : "Aprobar"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

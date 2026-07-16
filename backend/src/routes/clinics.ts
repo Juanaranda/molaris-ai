@@ -8,6 +8,7 @@ import { sendWhatsAppMessage } from "../services/notifications/whatsappService";
 import { notifyWaitlistForCanceledBooking } from "../services/waitlist/waitlistService";
 import { triggerAlert } from "../services/alerts/alertService";
 import { audit } from "../services/audit/auditService";
+import { isValidRut, formatRut } from "../lib/rut";
 
 // Versión vigente del DPA Molaris ↔ Clínica (Issue #38, Ley 21.719).
 // BORRADOR — pendiente validación legal. Subir la versión cuando cambie el texto.
@@ -589,7 +590,7 @@ export async function clinicRoutes(app: FastifyInstance) {
   // POST /api/clinics — registro público de nueva clínica + admin
   app.post<{
     Body: {
-      clinic: { name: string; phone?: string; location?: string; instagram?: string; whatsapp?: string };
+      clinic: { name: string; phone?: string; location?: string; instagram?: string; whatsapp?: string; professionalRut?: string; professionalRegNumber?: string; accountType?: string; specialty?: string };
       admin: { name: string; email: string; password: string };
       acceptedTerms?: boolean;
     };
@@ -597,6 +598,14 @@ export async function clinicRoutes(app: FastifyInstance) {
     const { clinic: clinicData, admin, acceptedTerms } = req.body ?? {};
     if (!clinicData?.name || !admin?.email || !admin?.password || !admin?.name) {
       return reply.status(400).send({ error: "Nombre de clínica, nombre, email y contraseña son requeridos" });
+    }
+    // KYC (#66): RUT del profesional responsable — opcional al registrar, pero si viene se valida.
+    let professionalRut: string | null = null;
+    if (clinicData.professionalRut && clinicData.professionalRut.trim()) {
+      if (!isValidRut(clinicData.professionalRut)) {
+        return reply.status(400).send({ error: "RUT inválido — revisa el dígito verificador" });
+      }
+      professionalRut = formatRut(clinicData.professionalRut);
     }
     if (!acceptedTerms) {
       return reply.status(400).send({ error: "Debes aceptar los Términos y Condiciones para continuar" });
@@ -633,6 +642,19 @@ export async function clinicRoutes(app: FastifyInstance) {
 
     const passwordHash = await bcrypt.hash(admin.password, 12);
 
+    // Tipo de cuenta (#69): "solo" = doctor independiente. Se auto-registra como el
+    // único profesional del tenant, con su especialidad. "clinic" = flujo normal.
+    const accountType = clinicData.accountType === "solo" ? "solo" : "clinic";
+    const soloSpecialty = clinicData.specialty?.trim() || "Odontología General";
+    const soloDoctors = accountType === "solo"
+      ? [{
+          name: admin.name,
+          specialty: soloSpecialty,
+          days: ["monday", "tuesday", "wednesday", "thursday", "friday"],
+        }]
+      : [];
+    const soloServices = accountType === "solo" ? [soloSpecialty] : [];
+
     const newClinic = await prisma.clinic.create({
       data: {
         slug,
@@ -642,14 +664,18 @@ export async function clinicRoutes(app: FastifyInstance) {
         instagram: clinicData.instagram ?? null,
         whatsapp: clinicData.whatsapp ?? null,
         plan: "starter",
+        accountType,
         // DPA aceptado al crear cuenta (Issue #38, Ley 21.719)
         dpaAcceptedVersion: DPA_VERSION,
         dpaAcceptedAt: new Date(),
+        // KYC (#66): queda PENDING hasta aprobación manual del SUPERADMIN
+        professionalRut,
+        professionalRegNumber: clinicData.professionalRegNumber?.trim() || null,
         config: {
           tone: "profesional pero cercano",
           schedule: { weekdays: "Lunes a Viernes: 09:00 - 18:00", saturday: "Sábado: cerrado", sunday: "Domingo: cerrado" },
-          doctors: [],
-          services: [],
+          doctors: soloDoctors,
+          services: soloServices,
           boxes: 1,
         },
         partnerUsers: {
@@ -666,6 +692,83 @@ export async function clinicRoutes(app: FastifyInstance) {
 
     return reply.status(201).send({ clinicId: newClinic.id, slug: newClinic.slug, message: "Clínica registrada correctamente" });
   });
+
+  // DELETE /api/clinics/:id — baja de cuenta / derecho de supresión (Ley 21.719)
+  // SUPERADMIN puede eliminar cualquier clínica. El ADMIN dueño puede eliminar la
+  // suya confirmando su contraseña (acción irreversible). Borra en cascada TODOS
+  // los datos de la clínica dentro de una transacción: si algo falla, no borra nada.
+  app.delete<{ Params: { id: string }; Body: { password?: string } }>(
+    "/clinics/:id",
+    async (req, reply) => {
+      let payload;
+      try { payload = verifyToken(req.headers.authorization); }
+      catch { return reply.status(401).send({ error: "No autorizado" }); }
+
+      if (payload.role === "USER") {
+        return reply.status(403).send({ error: "Sin permisos para eliminar la clínica" });
+      }
+      const clinicId = req.params.id;
+
+      // ADMIN: solo su propia clínica y con confirmación de contraseña
+      if (payload.role === "ADMIN") {
+        if (payload.clinicId !== clinicId) {
+          return reply.status(403).send({ error: "Acceso denegado" });
+        }
+        const password = req.body?.password;
+        if (!password) {
+          return reply.status(400).send({ error: "Confirma tu contraseña para eliminar la clínica" });
+        }
+        const me = await prisma.partnerUser.findUnique({ where: { id: payload.userId } });
+        if (!me || !(await bcrypt.compare(password, me.passwordHash))) {
+          return reply.status(403).send({ error: "Contraseña incorrecta" });
+        }
+      }
+
+      const clinic = await prisma.clinic.findUnique({
+        where: { id: clinicId },
+        select: { id: true, name: true, slug: true },
+      });
+      if (!clinic) return reply.status(404).send({ error: "Clínica no encontrada" });
+
+      // Orden de borrado por dependencias de FK (hijos → padres). Las tablas con
+      // onDelete: Cascade (DentalEventSurface, DentalQuoteItem) caen con su padre.
+      // Identity NO se borra: es compartida entre clínicas (RUT del paciente).
+      await prisma.$transaction([
+        prisma.message.deleteMany({ where: { session: { clinicId } } }),
+        prisma.patientContext.deleteMany({ where: { session: { clinicId } } }),
+        prisma.patientConsent.deleteMany({ where: { patientUser: { clinicId } } }),
+        prisma.recallEvent.deleteMany({ where: { clinicId } }),
+        prisma.inventoryMovement.deleteMany({ where: { clinicId } }),
+        prisma.consentSignature.deleteMany({ where: { clinicId } }),
+        prisma.payment.deleteMany({ where: { clinicId } }),
+        prisma.boleta.deleteMany({ where: { clinicId } }),
+        prisma.accountEntry.deleteMany({ where: { clinicId } }),
+        prisma.usageEvent.deleteMany({ where: { clinicId } }),
+        prisma.clinicalNote.deleteMany({ where: { clinicId } }),
+        prisma.dentalEvent.deleteMany({ where: { clinicId } }),
+        prisma.toothImage.deleteMany({ where: { clinicId } }),
+        prisma.anamnesisResponse.deleteMany({ where: { clinicId } }),
+        prisma.labOrder.deleteMany({ where: { clinicId } }),
+        prisma.booking.deleteMany({ where: { clinicId } }),
+        prisma.treatmentPlan.deleteMany({ where: { clinicId } }),
+        prisma.dentalQuote.deleteMany({ where: { clinicId } }),
+        prisma.inventoryItem.deleteMany({ where: { clinicId } }),
+        prisma.recallRule.deleteMany({ where: { clinicId } }),
+        prisma.consentTemplate.deleteMany({ where: { clinicId } }),
+        prisma.anamnesisTemplate.deleteMany({ where: { clinicId } }),
+        prisma.waitlistEntry.deleteMany({ where: { clinicId } }),
+        prisma.auditLog.deleteMany({ where: { clinicId } }),
+        prisma.session.deleteMany({ where: { clinicId } }),
+        prisma.patient.deleteMany({ where: { clinicId } }),
+        prisma.patientUser.deleteMany({ where: { clinicId } }),
+        prisma.partnerUser.deleteMany({ where: { clinicId } }),
+        prisma.clinic.delete({ where: { id: clinicId } }),
+      ]);
+
+      console.warn(`[clinic-delete] Clínica ${clinic.slug} (${clinicId}) eliminada por ${payload.role} ${payload.userId}`);
+      return reply.send({ ok: true, deleted: { id: clinic.id, slug: clinic.slug, name: clinic.name } });
+    }
+  );
 
   // POST /api/clinics/:id/recall/run — dispara campaña de recall manual
   app.post<{

@@ -40,7 +40,7 @@ export default function PreviewPage() {
         <Link href="/partners/dashboard"
           className="text-sm font-semibold hover:opacity-70 transition-opacity"
           style={{ color: "var(--teal-dark, #0B2F42)" }}>
-          ← Volver al panel
+          Volver al panel
         </Link>
         <div className="flex items-center gap-3">
           <span className="text-xs uppercase tracking-widest font-medium" style={{ color: "var(--ink-muted, #607281)" }}>

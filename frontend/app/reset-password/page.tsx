@@ -6,6 +6,25 @@ import { useState, useEffect, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { resetPassword } from "@/lib/auth";
 
+function PasswordInput({ value, onChange, placeholder, style }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; style: React.CSSProperties;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <input type={show ? "text" : "password"} value={value} onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder} required
+        className="w-full px-4 py-3 pr-16 rounded-xl text-sm outline-none" style={style} />
+      <button type="button" onClick={() => setShow((s) => !s)}
+        aria-label={show ? "Ocultar contraseña" : "Mostrar contraseña"}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold hover:opacity-70 transition"
+        style={{ color: "#607281" }}>
+        {show ? "Ocultar" : "Mostrar"}
+      </button>
+    </div>
+  );
+}
+
 export default function ResetPasswordPage() {
   const router = useRouter();
   const [token, setToken] = useState("");
@@ -43,7 +62,7 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F7F5F1" }}>
       <nav className="flex items-center justify-between px-8 py-5 border-b" style={{ backgroundColor: "#FDFCFB", borderColor: "#E5E0D9" }}>
         <Link href="/"><Image src="/logo.svg" alt="molari.ai" width={140} height={36} priority /></Link>
-        <Link href="/login" className="text-sm font-medium" style={{ color: "#607281" }}>← Iniciar sesión</Link>
+        <Link href="/login" className="text-sm font-medium" style={{ color: "#607281" }}>Iniciar sesión</Link>
       </nav>
 
       <div className="flex-1 flex items-center justify-center px-4 py-12">
@@ -66,13 +85,11 @@ export default function ResetPasswordPage() {
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: "#607281" }}>Nueva contraseña</label>
-                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" required
-                    className="w-full px-4 py-3 rounded-xl text-sm outline-none" style={inputStyle} />
+                  <PasswordInput value={password} onChange={setPassword} placeholder="Mínimo 8 caracteres" style={inputStyle} />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: "#607281" }}>Repetir contraseña</label>
-                  <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="••••••••" required
-                    className="w-full px-4 py-3 rounded-xl text-sm outline-none" style={inputStyle} />
+                  <PasswordInput value={confirm} onChange={setConfirm} placeholder="••••••••" style={inputStyle} />
                 </div>
                 {error && (
                   <p className="text-sm rounded-xl px-4 py-2.5" style={{ color: "#D95F45", backgroundColor: "#FDECEA", border: "1px solid rgba(217,95,69,0.15)" }}>{error}</p>

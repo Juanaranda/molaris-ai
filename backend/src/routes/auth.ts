@@ -73,6 +73,9 @@ export async function authRoutes(app: FastifyInstance) {
         instagram: user.clinic.instagram,
         location: user.clinic.location,
         config:   user.clinic.config,
+        accountType: user.clinic.accountType,
+        verificationStatus: user.clinic.verificationStatus,
+        rejectionReason:    user.clinic.rejectionReason,
       } : null,
     });
   });
@@ -214,6 +217,9 @@ export async function authRoutes(app: FastifyInstance) {
         instagram: user.clinic.instagram,
         location: user.clinic.location,
         config:   user.clinic.config,
+        accountType: user.clinic.accountType,
+        verificationStatus: user.clinic.verificationStatus,
+        rejectionReason:    user.clinic.rejectionReason,
       } : null,
     });
   });

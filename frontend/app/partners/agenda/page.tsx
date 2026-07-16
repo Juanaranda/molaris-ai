@@ -734,7 +734,7 @@ export default function AgendaPage() {
               display: "flex", alignItems: "center", gap: 5 }}
             onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = "white")}
             onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.55)")}>
-            ← Dashboard
+            Dashboard
           </Link>
           <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.15)" }} />
           <h1 style={{ color: "white", fontSize: 15, fontWeight: 800, margin: 0 }}>Agenda</h1>

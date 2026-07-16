@@ -196,7 +196,7 @@ export function AvailabilityPicker({ service, doctorFilter, preferredDate, color
             onClick={onDismiss}
             className="w-full text-gray-400 text-xs py-1.5 hover:text-gray-600 transition"
           >
-            Continuar conversando →
+            Continuar conversando
           </button>
         </div>
       )}

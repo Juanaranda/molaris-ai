@@ -53,6 +53,11 @@ export const config = {
   ai: {
     dailyBudgetUsd: Number(process.env.AI_DAILY_BUDGET_USD ?? 5),
   },
+  clinics: {
+    // KYC (#66): si true, una clínica no aprobada no puede operar el agente público.
+    // En beta lo dejamos false para no bloquear el QA; en prod se pone true.
+    requireApproval: process.env.CLINIC_REQUIRE_APPROVAL === "true",
+  },
   // Email (Issue #55) — Resend. Sin key → modo dev (log en consola).
   email: {
     resendApiKey: process.env.RESEND_API_KEY ?? "",
@@ -62,6 +67,13 @@ export const config = {
     accountSid: process.env.TWILIO_ACCOUNT_SID ?? "",
     authToken:  process.env.TWILIO_AUTH_TOKEN  ?? "",
     from:       process.env.TWILIO_WHATSAPP_FROM ?? "",
+    // WhatsApp de entrada por Twilio (número de beta compartido). Todos los
+    // mensajes entrantes se enrutan a esta clínica (por slug).
+    betaClinicSlug:    process.env.TWILIO_BETA_CLINIC_SLUG ?? "",
+    // Validación de firma X-Twilio-Signature. Apagada por defecto en beta para
+    // evitar fricción por mismatch de URL detrás del proxy; encender en prod.
+    validateSignature: process.env.TWILIO_VALIDATE_SIGNATURE === "true",
+    webhookUrl:        process.env.TWILIO_WEBHOOK_URL ?? "",
   },
   meta: {
     verifyToken: metaVerifyToken,

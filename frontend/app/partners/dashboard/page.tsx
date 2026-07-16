@@ -15,6 +15,7 @@ import { DashboardTab } from "@/components/DashboardTab";
 import { ClinicProfileTab } from "@/components/ClinicProfileTab";
 import { MyProfileTab } from "@/components/MyProfileTab";
 import { TeamTab } from "@/components/TeamTab";
+import { ConversationsTab } from "@/components/ConversationsTab";
 import { ChangePasswordGate } from "@/components/ChangePasswordGate";
 import { RecallSection } from "@/components/RecallSection";
 import { AuditLogSection } from "@/components/AuditLogSection";
@@ -147,7 +148,7 @@ function InfoField({ label, value, editable, onChange, placeholder }: {
   );
 }
 
-type Tab = "inicio" | "agenda" | "analytics" | "patients" | "bookings" | "perfil" | "equipo" | "inventario" | "clinica" | "config";
+type Tab = "inicio" | "conversaciones" | "agenda" | "analytics" | "patients" | "bookings" | "perfil" | "equipo" | "inventario" | "clinica" | "config";
 
 /* ─── Analytics Panel ──────────────────────────────────────────────────────── */
 const MONTH_LABELS: Record<string, string> = {
@@ -1189,11 +1190,12 @@ export default function PartnersDashboard() {
             <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
               <div className="flex border-b border-gray-200 gap-1 min-w-max sm:min-w-0">
                 {(([
-                  ["inicio", "Inicio"], ["agenda", "Agenda"], ["analytics", "Analítica"],
+                  ["inicio", "Inicio"], ["conversaciones", "Conversaciones"], ["agenda", "Agenda"], ["analytics", "Analítica"],
                   ["patients", "Pacientes"], ["bookings", "Citas"], ["perfil", "Mi Perfil"],
-                  ...(user && user.role !== "USER" ? [["equipo", "Equipo"]] as [Tab, string][] : []),
-                  ["inventario", "Inventario"],
-                  ["clinica", "Mi Clínica"], ["config", "Configuración"],
+                  // Modo solo (#69): un doctor independiente no tiene equipo ni inventario de clínica
+                  ...(user && user.role !== "USER" && clinic?.accountType !== "solo" ? [["equipo", "Equipo"]] as [Tab, string][] : []),
+                  ...(clinic?.accountType !== "solo" ? [["inventario", "Inventario"]] as [Tab, string][] : []),
+                  ["clinica", clinic?.accountType === "solo" ? "Mi consulta" : "Mi Clínica"], ["config", "Configuración"],
                 ] as [Tab, string][])).map(([tab, label]) => (
                   <button key={tab} onClick={() => setActiveTab(tab)}
                     className={`px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
@@ -1207,6 +1209,26 @@ export default function PartnersDashboard() {
               </div>
             </div>
 
+            {/* ══ Estado de verificación (KYC #66) ═══════════════════════════ */}
+            {clinic?.verificationStatus === "REJECTED" && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                <p className="text-sm font-bold text-red-700 mb-0.5">Cuenta no verificada</p>
+                <p className="text-xs text-red-600">
+                  No pudimos verificar tu clínica.
+                  {clinic.rejectionReason ? ` Motivo: ${clinic.rejectionReason}.` : ""}
+                  {" "}Escríbenos a soporte para revisarlo.
+                </p>
+              </div>
+            )}
+            {clinic?.verificationStatus === "PENDING" && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <p className="text-sm font-bold text-amber-700 mb-0.5">Verificación en revisión</p>
+                <p className="text-xs text-amber-600">
+                  Estamos verificando los datos de tu clínica. Puedes seguir configurando tu cuenta mientras tanto.
+                </p>
+              </div>
+            )}
+
             {/* ══ TAB INICIO ═════════════════════════════════════════════════ */}
             {activeTab === "inicio" && clinic && (
               <DashboardTab
@@ -1215,6 +1237,9 @@ export default function PartnersDashboard() {
                 onNewPatient={() => setActiveTab("patients")}
               />
             )}
+
+            {/* ══ TAB CONVERSACIONES ═════════════════════════════════════════ */}
+            {activeTab === "conversaciones" && <ConversationsTab />}
 
             {/* ══ TAB ANALÍTICA ══════════════════════════════════════════════ */}
             {activeTab === "analytics" && (
@@ -1371,7 +1396,7 @@ export default function PartnersDashboard() {
                       </div>
                       <a href="/partners/preview" target="_blank"
                         className="text-xs font-semibold px-4 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
-                        Probar asistente →
+                        Probar asistente
                       </a>
                     </div>
                   </div>
