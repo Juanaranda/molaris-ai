@@ -91,12 +91,14 @@ function classifyTier(
 
 // ── Precios por modelo (USD / 1M tokens) ──────────────────────────────────
 const MODEL_PRICING: Record<string, { in: number; out: number }> = {
-  "meta-llama/llama-3.1-8b-instruct:free": { in: 0,    out: 0    },
-  "meta-llama/llama-3.3-70b-instruct":     { in: 0.59, out: 0.79 },
-  "google/gemini-2.5-flash":               { in: 0.15, out: 0.60 },
-  "google/gemini-2.5-flash-preview":       { in: 0.15, out: 0.60 },
-  "anthropic/claude-haiku-4-5":            { in: 0.80, out: 4.00 },
-  "anthropic/claude-haiku-4-5-20251001":   { in: 0.80, out: 4.00 },
+  "meta-llama/llama-3.1-8b-instruct:free":  { in: 0,    out: 0    },
+  "meta-llama/llama-3.3-70b-instruct:free": { in: 0,    out: 0    },
+  "meta-llama/llama-3.3-70b-instruct":      { in: 0.59, out: 0.79 },
+  "google/gemini-2.5-flash":                { in: 0.15, out: 0.60 },
+  "google/gemini-2.5-flash-preview":        { in: 0.15, out: 0.60 },
+  "anthropic/claude-haiku-4.5":             { in: 0.80, out: 4.00 },
+  "anthropic/claude-haiku-4-5":             { in: 0.80, out: 4.00 },
+  "anthropic/claude-haiku-4-5-20251001":    { in: 0.80, out: 4.00 },
 };
 
 function calcCost(model: string, tokensIn: number, tokensOut: number): number {
