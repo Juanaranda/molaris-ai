@@ -7,6 +7,7 @@ import {
   listPendingClinics,
   approveClinic,
   rejectClinic,
+  deleteClinicAsAdmin,
   type PendingClinic,
 } from "@/lib/auth";
 
@@ -148,6 +149,27 @@ export default function AdminPage() {
       alert(e instanceof Error ? e.message : "Error al aprobar");
     } finally {
       setActing(null);
+    }
+  }
+
+  const [deleting, setDeleting] = useState<string | null>(null);
+  async function handleDelete(c: ClinicRow) {
+    // Confirmación fuerte: hay que escribir el slug exacto. Evita borrar una
+    // clínica real por un clic accidental. Acción irreversible (cascada).
+    const typed = window.prompt(
+      `⚠️ Esto elimina la clínica "${c.name}" y TODOS sus datos (pacientes, citas, fichas, conversaciones). Es IRREVERSIBLE.\n\nEscribe el slug exacto para confirmar: ${c.slug}`
+    );
+    if (typed === null) return;
+    if (typed.trim() !== c.slug) { alert("El slug no coincide. No se eliminó nada."); return; }
+    setDeleting(c.id);
+    try {
+      await deleteClinicAsAdmin(c.id);
+      setData((d) => d ? { ...d, clinics: d.clinics.filter((x) => x.id !== c.id) } : d);
+      setPending((p) => p.filter((x) => x.id !== c.id));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Error al eliminar");
+    } finally {
+      setDeleting(null);
     }
   }
 
@@ -345,6 +367,7 @@ export default function AdminPage() {
                   <th className="text-right px-3 py-3">Llamadas LLM</th>
                   <th className="text-right px-3 py-3">Tokens (30d)</th>
                   <th className="text-right px-5 py-3">Costo (30d)</th>
+                  <th className="text-right px-3 py-3"></th>
                 </tr>
               </thead>
               <tbody>
@@ -369,6 +392,16 @@ export default function AdminPage() {
                     </td>
                     <td className="text-right px-5 py-3 font-semibold" style={{ color: c.usage30d.costUsd > 1 ? "var(--coral)" : "var(--ink)" }}>
                       {fmtUsd(c.usage30d.costUsd)}
+                    </td>
+                    <td className="text-right px-3 py-3">
+                      <button
+                        onClick={() => handleDelete(c)}
+                        disabled={deleting === c.id}
+                        title="Eliminar clínica y todos sus datos"
+                        className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition disabled:opacity-50"
+                      >
+                        {deleting === c.id ? "…" : "Eliminar"}
+                      </button>
                     </td>
                   </tr>
                 ))}
