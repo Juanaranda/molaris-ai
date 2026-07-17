@@ -9,6 +9,7 @@ import { notifyWaitlistForCanceledBooking } from "../services/waitlist/waitlistS
 import { triggerAlert } from "../services/alerts/alertService";
 import { audit } from "../services/audit/auditService";
 import { isValidRut, formatRut } from "../lib/rut";
+import { sendMolariEmail } from "../services/email/molariEmails";
 
 // Claves válidas dentro de Clinic.config. Evita inyectar JSON arbitrario, pero
 // debe cubrir TODO lo que escribe el frontend: si falta una, el PATCH completo
@@ -696,6 +697,14 @@ export async function clinicRoutes(app: FastifyInstance) {
         },
       },
     });
+
+    // Email de bienvenida de molari (empresa → nuevo cliente). No bloqueante:
+    // si el envío falla, el registro igual se completa.
+    sendMolariEmail({
+      to: admin.email.toLowerCase().trim(),
+      toName: admin.name,
+      message: { type: "welcome", accountType, clinicName: clinicData.name },
+    }).catch((err) => console.error("[welcome-email] fallo el envío:", err instanceof Error ? err.message : err));
 
     return reply.status(201).send({ clinicId: newClinic.id, slug: newClinic.slug, message: "Clínica registrada correctamente" });
   });
