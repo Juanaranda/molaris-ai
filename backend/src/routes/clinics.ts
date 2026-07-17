@@ -10,6 +10,14 @@ import { triggerAlert } from "../services/alerts/alertService";
 import { audit } from "../services/audit/auditService";
 import { isValidRut, formatRut } from "../lib/rut";
 
+// Claves válidas dentro de Clinic.config. Evita inyectar JSON arbitrario, pero
+// debe cubrir TODO lo que escribe el frontend: si falta una, el PATCH completo
+// falla con 400 y no se guarda nada (pasó con "onboardingDone" y rompió el
+// cierre del onboarding). Al agregar una clave nueva en el front, sumarla acá.
+export const ALLOWED_CONFIG_KEYS = new Set([
+  "tone", "schedule", "doctors", "services", "boxes", "reminders", "onboardingDone",
+]);
+
 // Versión vigente del DPA Molaris ↔ Clínica (Issue #38, Ley 21.719).
 // BORRADOR — pendiente validación legal. Subir la versión cuando cambie el texto.
 export const DPA_VERSION = "2026-06-draft";
@@ -419,7 +427,6 @@ export async function clinicRoutes(app: FastifyInstance) {
 
     // BUG FIX #5: validate that config only contains known keys to prevent
     // arbitrary JSON injection into the clinic config object.
-    const ALLOWED_CONFIG_KEYS = new Set(["tone", "schedule", "doctors", "services", "boxes", "reminders"]);
     if (config !== undefined) {
       const unknownKeys = Object.keys(config).filter((k) => !ALLOWED_CONFIG_KEYS.has(k));
       if (unknownKeys.length > 0) {
