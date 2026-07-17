@@ -85,13 +85,13 @@ function render(msg: MolariEmail, toName: string): { subject: string; html: stri
           bodyHtml:
             p(saludo) +
             p(`Gracias por sumar <strong>${quien}</strong> a molari.ai. Tu recepcionista con IA ya está lista para responder a tus pacientes en WhatsApp y en tu web, agendar citas y hacer el seguimiento — 24/7.`) +
-            p("Para arrancar, te recomendamos:") +
+            p("Para comenzar, te recomendamos:") +
             p("· Completar tu horario de atención<br>· Conectar tu WhatsApp o el widget web<br>· Probar el agente escribiéndole como si fueras un paciente") +
-            p("Cualquier duda, respondé este correo y te ayudamos."),
+            p("Si tienes cualquier duda, responde este correo y te ayudamos."),
           ctaLabel: "Ir a mi panel",
           ctaUrl: panelUrl,
         }),
-        text: `${saludo}\n\nGracias por sumar ${quien} a molari.ai. Tu recepcionista con IA ya está lista.\n\nPrimeros pasos: completá tu horario, conectá WhatsApp o el widget web, y probá el agente.\n\nTu panel: ${panelUrl}`,
+        text: `${saludo}\n\nGracias por sumar ${quien} a molari.ai. Tu recepcionista con IA ya está lista.\n\nPrimeros pasos: completa tu horario, conecta WhatsApp o el widget web, y prueba el agente.\n\nTu panel: ${panelUrl}`,
       };
     }
     case "birthday": {
