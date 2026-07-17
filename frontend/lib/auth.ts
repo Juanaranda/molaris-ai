@@ -81,6 +81,16 @@ export async function rejectClinic(id: string, reason: string): Promise<void> {
   if (!res.ok) throw new Error("Error al rechazar la clínica");
 }
 
+/** Elimina una clínica y TODOS sus datos (cascada, irreversible). Solo SUPERADMIN. */
+export async function deleteClinicAsAdmin(id: string): Promise<void> {
+  const res = await fetch(`${API}/api/clinics/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((json as { error?: string }).error ?? "Error al eliminar la clínica");
+}
+
 export async function login(email: string, password: string) {
   const res = await fetch(`${API}/api/auth/login`, {
     method: "POST",
