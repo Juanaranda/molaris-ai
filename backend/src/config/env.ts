@@ -62,6 +62,11 @@ export const config = {
   email: {
     resendApiKey: process.env.RESEND_API_KEY ?? "",
     from:         process.env.EMAIL_FROM ?? "molari.ai <onboarding@resend.dev>",
+    // Emails de molari (empresa → clientes): bienvenida, cumpleaños, novedades.
+    // Mientras no haya un dominio verificado en Resend, si esta variable está
+    // seteada TODO email de molari se redirige a ese correo (el tuyo) para poder
+    // probar sin depender de dominio. Vaciar cuando el dominio esté verificado.
+    molariRedirectTo: process.env.MOLARI_EMAIL_REDIRECT_TO ?? "",
   },
   twilio: {
     accountSid: process.env.TWILIO_ACCOUNT_SID ?? "",

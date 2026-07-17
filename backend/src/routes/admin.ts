@@ -3,6 +3,7 @@ import prisma from "../config/prisma";
 import { config } from "../config/env";
 import { verifyToken } from "./auth";
 import { runReminderCheck } from "../services/notifications/reminderService";
+import { sendMolariEmail, type MolariEmail, type MolariEmailType } from "../services/email/molariEmails";
 
 export async function adminRoutes(app: FastifyInstance) {
 
@@ -402,4 +403,34 @@ export async function adminRoutes(app: FastifyInstance) {
       return reply.status(500).send({ error: err?.message ?? "Error desconocido" });
     }
   });
+
+  // POST /api/admin/emails/test — envía una plantilla de molari para probarla.
+  // Body: { type: "welcome" | "birthday" | "announcement", to?, name?, ...datos }
+  // Con MOLARI_EMAIL_REDIRECT_TO seteado, cae en tu inbox aunque "to" sea otro.
+  app.post<{ Body: { type?: MolariEmailType; to?: string; name?: string; accountType?: "solo" | "clinic"; clinicName?: string; title?: string; bodyHtml?: string } }>(
+    "/admin/emails/test",
+    async (req, reply) => {
+      if (!assertSuperAdmin(req, reply)) return;
+      const b = req.body ?? {};
+      const to = b.to?.trim() || config.email.molariRedirectTo;
+      if (!to) {
+        return reply.status(400).send({ error: "Falta 'to' o configurar MOLARI_EMAIL_REDIRECT_TO" });
+      }
+      let message: MolariEmail;
+      switch (b.type) {
+        case "birthday":
+          message = { type: "birthday" };
+          break;
+        case "announcement":
+          if (!b.title || !b.bodyHtml) return reply.status(400).send({ error: "announcement requiere title y bodyHtml" });
+          message = { type: "announcement", title: b.title, bodyHtml: b.bodyHtml };
+          break;
+        case "welcome":
+        default:
+          message = { type: "welcome", accountType: b.accountType ?? "solo", clinicName: b.clinicName };
+      }
+      const result = await sendMolariEmail({ to, toName: b.name, message });
+      return reply.send({ ok: true, ...result, sentTo: result.redirectedTo ?? to });
+    }
+  );
 }
