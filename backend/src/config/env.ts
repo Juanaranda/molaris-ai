@@ -32,9 +32,12 @@ export const config = {
   openRouter: {
     apiKey: process.env.OPENROUTER_API_KEY ?? "",
     models: {
-      fast:     process.env.OPENROUTER_MODEL_FAST     ?? "meta-llama/llama-3.1-8b-instruct:free",
-      balanced: process.env.OPENROUTER_MODEL_BALANCED ?? "anthropic/claude-haiku-4-5",
-      smart:    process.env.OPENROUTER_MODEL_SMART    ?? "anthropic/claude-haiku-4-5",
+      // OpenRouter renombró/eliminó IDs (jul 2026): "claude-haiku-4-5" → "claude-haiku-4.5"
+      // (guion→punto) y "llama-3.1-8b-instruct:free" ya no existe. Modelos muertos =
+      // el agente no responde. Si se setean estos en Railway, deben usar estos IDs.
+      fast:     process.env.OPENROUTER_MODEL_FAST     ?? "meta-llama/llama-3.3-70b-instruct:free",
+      balanced: process.env.OPENROUTER_MODEL_BALANCED ?? "anthropic/claude-haiku-4.5",
+      smart:    process.env.OPENROUTER_MODEL_SMART    ?? "anthropic/claude-haiku-4.5",
       reserve:  process.env.OPENROUTER_MODEL_RESERVE  ?? "google/gemini-2.5-flash",
     },
   },
