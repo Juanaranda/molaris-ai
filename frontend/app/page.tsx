@@ -322,7 +322,7 @@ export default function Home() {
             <div>
               <span className="inline-flex items-center gap-2 text-xs font-bold px-4 py-1.5 rounded-full mb-5 animate-fade-up" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A", border: "1px solid rgba(26,92,122,0.2)" }}>
                 <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#D95F45" }} />
-                Recepcionista IA · responde en segundos, 24/7
+                Software de gestión dental · con recepcionista IA 24/7
               </span>
 
               <h1 className="font-display text-3xl sm:text-5xl font-bold leading-[1.1] tracking-tight mb-4 text-balance animate-fade-up animate-fade-up-delay-1">
@@ -332,7 +332,7 @@ export default function Home() {
               </h1>
 
               <p className="text-base max-w-md mb-6 animate-fade-up animate-fade-up-delay-2" style={{ color: "#607281" }}>
-                molari.ai es tu recepcionista con IA: responde a cada paciente en WhatsApp y tu web al instante, agenda la cita sola y hace el seguimiento — 24/7. Y por dentro, tu clínica completa: ficha, odontograma y pagos.
+                molari.ai es tu clínica completa en un solo lugar: agenda, ficha clínica, odontograma, pagos y analytics. Y además, una recepcionista con IA que responde a tus pacientes en WhatsApp y tu web, agenda citas y hace el seguimiento — 24/7.
               </p>
 
               {/* Un solo CTA primario por sección; el secundario va discreto (outline). */}
@@ -377,10 +377,10 @@ export default function Home() {
         <div className="max-w-5xl mx-auto px-6 sm:px-10 py-12 sm:py-14">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8">
             {[
-              { icon: "🤖", value: "IA 24/7", label: "WhatsApp y tu web — atiende sola sin que nadie intervenga" },
               { icon: "📅", value: "Agenda incluida", label: "Calendario por profesional, sin pagar otra herramienta" },
-              { icon: "🦷", value: "Historial clínico", label: "Notas, planes de tratamiento, odontograma y pagos" },
+              { icon: "🦷", value: "Ficha clínica", label: "Notas, planes de tratamiento, odontograma y pagos" },
               { icon: "📊", value: "Analytics en vivo", label: "Ingresos, leads, conversión y rendimiento por doctor" },
+              { icon: "🤖", value: "Y además: IA 24/7", label: "Recepcionista que atiende sola en WhatsApp y tu web" },
             ].map((s, i) => (
               <AnimateIn key={s.value} delay={i * 90}>
                 <div className="flex flex-col gap-2">

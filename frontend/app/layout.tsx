@@ -10,8 +10,8 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "molari.ai — IA para clínicas dentales",
-  description: "Automatiza la atención, aumenta tus reservas y convierte más pacientes con inteligencia artificial.",
+  title: "molari.ai — software de gestión dental con recepcionista IA",
+  description: "Agenda, ficha clínica, odontograma, pagos y analytics para tu clínica dental — con una recepcionista IA que responde a tus pacientes 24/7 en WhatsApp y tu web.",
 };
 
 export default function RootLayout({
