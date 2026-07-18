@@ -418,6 +418,47 @@ export default function Home() {
         </div>
       </section>
 
+      {/* FOTOS — clínica moderna, doctor y tecnología (elegidas por Juan; Unsplash License) */}
+      <section style={{ backgroundColor: "#F7F5F1" }}>
+        <div className="max-w-5xl mx-auto px-6 sm:px-10 pb-14 sm:pb-20">
+          <AnimateIn>
+            <div className="grid grid-cols-2 sm:grid-cols-3 sm:grid-rows-2 gap-3 sm:gap-4 sm:h-[430px]">
+              <div className="relative col-span-2 sm:row-span-2 h-64 sm:h-auto rounded-3xl overflow-hidden">
+                <Image
+                  src="/photos/dentista-paciente.jpg"
+                  alt="Dentista conversando con una paciente en una clínica moderna"
+                  fill
+                  sizes="(max-width: 640px) 100vw, 60vw"
+                  className="object-cover"
+                />
+                <div className="absolute bottom-4 left-4 flex items-center gap-2 px-4 py-2 rounded-full shadow-sm" style={{ backgroundColor: "rgba(253,252,251,0.94)" }}>
+                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#D95F45" }} />
+                  <span className="text-xs font-bold" style={{ color: "#0B2F42" }}>Tu equipo atiende — molari responde</span>
+                </div>
+              </div>
+              <div className="relative h-40 sm:h-auto rounded-3xl overflow-hidden">
+                <Image
+                  src="/photos/box-moderno.jpg"
+                  alt="Box de atención dental moderno"
+                  fill
+                  sizes="(max-width: 640px) 50vw, 30vw"
+                  className="object-cover"
+                />
+              </div>
+              <div className="relative h-40 sm:h-auto rounded-3xl overflow-hidden">
+                <Image
+                  src="/photos/radiografias.jpg"
+                  alt="Dentista examinando radiografías en un panel de luz"
+                  fill
+                  sizes="(max-width: 640px) 50vw, 30vw"
+                  className="object-cover"
+                />
+              </div>
+            </div>
+          </AnimateIn>
+        </div>
+      </section>
+
       {/* FUNCIONES — 3 grandes tarjetas */}
       <section id="funciones" className="py-16 sm:py-24" style={{ backgroundColor: "#FDFCFB" }}>
         <div className="max-w-5xl mx-auto px-6 sm:px-10">
@@ -849,6 +890,15 @@ export default function Home() {
 
       {/* CTA */}
       <section className="relative py-16 sm:py-24 text-center overflow-hidden" style={{ backgroundColor: "#0B2F42" }}>
+        <Image
+          src="/photos/box-moderno.jpg"
+          alt=""
+          aria-hidden
+          fill
+          sizes="100vw"
+          className="object-cover"
+        />
+        <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(11,47,66,0.93) 0%, rgba(11,47,66,0.88) 100%)" }} />
         <div className="pointer-events-none absolute -top-32 -right-32 w-96 h-96 rounded-full opacity-10" style={{ border: "1px solid #D95F45" }} />
         <div className="pointer-events-none absolute -bottom-32 -left-32 w-96 h-96 rounded-full opacity-10" style={{ border: "1px solid white" }} />
         <div className="relative max-w-2xl mx-auto px-6 sm:px-10">
