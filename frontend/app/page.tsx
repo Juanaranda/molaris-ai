@@ -508,7 +508,22 @@ export default function Home() {
       </section>
 
       {/* PLATFORMS */}
-      <section className="py-16 sm:py-24" style={{ backgroundColor: "#F7F5F1" }}>
+      <section className="relative py-16 sm:py-24 overflow-hidden" style={{ backgroundColor: "#F7F5F1" }}>
+        {/* Foto fundida con el fondo: doctor revisando el celular (decorativa) */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute right-0 top-0 hidden lg:block"
+          style={{
+            width: 460,
+            height: 340,
+            backgroundImage: "url(/photos/doctor-celular.jpg)",
+            backgroundSize: "cover",
+            backgroundPosition: "center 35%",
+            opacity: 0.5,
+            WebkitMaskImage: "radial-gradient(75% 75% at 70% 40%, rgba(0,0,0,0.9) 25%, transparent 70%)",
+            maskImage: "radial-gradient(75% 75% at 70% 40%, rgba(0,0,0,0.9) 25%, transparent 70%)",
+          }}
+        />
         <div className="max-w-5xl mx-auto px-6 sm:px-10">
           <p className="text-xs font-bold uppercase tracking-[0.15em] text-center mb-3" style={{ color: "#1A5C7A" }}>
             Multiplataforma
@@ -653,7 +668,22 @@ export default function Home() {
       </section>
 
       {/* CÓMO FUNCIONA — fondo claro para romper el patrón oscuro */}
-      <section id="como-funciona" className="py-16 sm:py-24" style={{ backgroundColor: "#FDFCFB" }}>
+      <section id="como-funciona" className="relative py-16 sm:py-24 overflow-hidden" style={{ backgroundColor: "#FDFCFB" }}>
+        {/* Foto fundida con el fondo: doctora trabajando en el laptop (decorativa) */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute left-0 top-0 hidden lg:block"
+          style={{
+            width: 440,
+            height: 320,
+            backgroundImage: "url(/photos/doctora-laptop.jpg)",
+            backgroundSize: "cover",
+            backgroundPosition: "center 30%",
+            opacity: 0.45,
+            WebkitMaskImage: "radial-gradient(75% 75% at 30% 40%, rgba(0,0,0,0.9) 25%, transparent 70%)",
+            maskImage: "radial-gradient(75% 75% at 30% 40%, rgba(0,0,0,0.9) 25%, transparent 70%)",
+          }}
+        />
         <div className="max-w-4xl mx-auto px-6 sm:px-10">
           <p className="text-xs font-bold uppercase tracking-[0.15em] text-center mb-3" style={{ color: "#1A5C7A" }}>
             Proceso
