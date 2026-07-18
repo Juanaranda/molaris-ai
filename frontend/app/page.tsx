@@ -326,9 +326,9 @@ export default function Home() {
               </span>
 
               <h1 className="font-display text-3xl sm:text-5xl font-bold leading-[1.1] tracking-tight mb-4 text-balance animate-fade-up animate-fade-up-delay-1">
-                No pierdas pacientes<br />
-                {/* Espacio duro: evita que "tiempo." quede huérfano al envolver en móvil. */}
-                <span style={{ color: "#D95F45" }}>por no contestar a&nbsp;tiempo.</span>
+                Tu clínica completa.<br />
+                {/* Espacio duro: evita que "duerme." quede huérfano al envolver en móvil. */}
+                <span style={{ color: "#D95F45" }}>Y una recepcionista que nunca&nbsp;duerme.</span>
               </h1>
 
               <p className="text-base max-w-md mb-6 animate-fade-up animate-fade-up-delay-2" style={{ color: "#607281" }}>
