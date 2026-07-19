@@ -31,13 +31,22 @@ function IconExport() {
     </svg>
   );
 }
+function IconTooth() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-6 h-6">
+      <path d="M7.5 3C5 3 3.5 5.2 3.5 8c0 1.8.6 3 1.2 4.2.5 1 .3 4.6 1.6 6.2 1 1.2 2.3.3 2.9-1.1.5-1.2.8-2.3 2.8-2.3s2.3 1.1 2.8 2.3c.6 1.4 1.9 2.3 2.9 1.1 1.3-1.6 1.1-5.2 1.6-6.2.6-1.2 1.2-2.4 1.2-4.2 0-2.8-1.5-5-4-5-1.6 0-2.6 1-3.5 2.1C11.1 4 10.1 3 8.5 3h-1z" />
+    </svg>
+  );
+}
 function IconBot() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-6 h-6">
-      <rect x="3" y="11" width="18" height="11" rx="3" />
-      <path d="M8 11V7a4 4 0 018 0v4" />
-      <circle cx="9" cy="16.5" r="1" fill="currentColor" stroke="none" />
-      <circle cx="15" cy="16.5" r="1" fill="currentColor" stroke="none" />
+      <rect x="4" y="8" width="16" height="12" rx="3" />
+      <path d="M12 8V5.5" />
+      <circle cx="12" cy="4" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="9" cy="13.5" r="1" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="13.5" r="1" fill="currentColor" stroke="none" />
+      <path d="M9.5 17h5" />
     </svg>
   );
 }
@@ -377,14 +386,19 @@ export default function Home() {
         <div className="max-w-5xl mx-auto px-6 sm:px-10 py-12 sm:py-14">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8">
             {[
-              { icon: "📅", value: "Agenda incluida", label: "Calendario por profesional, sin pagar otra herramienta" },
-              { icon: "🦷", value: "Ficha clínica", label: "Notas, planes de tratamiento, odontograma y pagos" },
-              { icon: "📊", value: "Analytics en vivo", label: "Ingresos, leads, conversión y rendimiento por doctor" },
-              { icon: "🤖", value: "Y además: IA 24/7", label: "Recepcionista que atiende sola en WhatsApp y tu web" },
+              { icon: <IconCalendar />, value: "Agenda incluida", label: "Calendario por profesional, sin pagar otra herramienta" },
+              { icon: <IconTooth />, value: "Ficha clínica", label: "Notas, planes de tratamiento, odontograma y pagos" },
+              { icon: <IconChart />, value: "Analytics en vivo", label: "Ingresos, leads, conversión y rendimiento por doctor" },
+              { icon: <IconBot />, value: "Y además: IA 24/7", label: "Recepcionista que atiende sola en WhatsApp y tu web" },
             ].map((s, i) => (
               <AnimateIn key={s.value} delay={i * 90}>
-                <div className="flex flex-col gap-2">
-                  <span className="text-2xl">{s.icon}</span>
+                <div className="flex flex-col gap-3">
+                  <span
+                    className="w-11 h-11 rounded-xl flex items-center justify-center"
+                    style={{ backgroundColor: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "#E8A18F" }}
+                  >
+                    {s.icon}
+                  </span>
                   <p className="font-bold text-sm sm:text-base leading-tight" style={{ color: "rgba(255,255,255,0.95)" }}>{s.value}</p>
                   <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>{s.label}</p>
                 </div>
