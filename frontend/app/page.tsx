@@ -322,17 +322,17 @@ export default function Home() {
             <div>
               <span className="inline-flex items-center gap-2 text-xs font-bold px-4 py-1.5 rounded-full mb-5 animate-fade-up" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A", border: "1px solid rgba(26,92,122,0.2)" }}>
                 <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#D95F45" }} />
-                Recepcionista IA · responde en segundos, 24/7
+                Software de gestión dental · con recepcionista IA 24/7
               </span>
 
               <h1 className="font-display text-3xl sm:text-5xl font-bold leading-[1.1] tracking-tight mb-4 text-balance animate-fade-up animate-fade-up-delay-1">
-                No pierdas pacientes<br />
-                {/* Espacio duro: evita que "tiempo." quede huérfano al envolver en móvil. */}
-                <span style={{ color: "#D95F45" }}>por no contestar a&nbsp;tiempo.</span>
+                Tu clínica completa.<br />
+                {/* Espacio duro: evita que "duerme." quede huérfano al envolver en móvil. */}
+                <span style={{ color: "#D95F45" }}>Y una recepcionista que nunca&nbsp;duerme.</span>
               </h1>
 
               <p className="text-base max-w-md mb-6 animate-fade-up animate-fade-up-delay-2" style={{ color: "#607281" }}>
-                molari.ai es tu recepcionista con IA: responde a cada paciente en WhatsApp y tu web al instante, agenda la cita sola y hace el seguimiento — 24/7. Y por dentro, tu clínica completa: ficha, odontograma y pagos.
+                molari.ai es tu clínica completa en un solo lugar: agenda, ficha clínica, odontograma, pagos y analytics. Y además, una recepcionista con IA que responde a tus pacientes en WhatsApp y tu web, agenda citas y hace el seguimiento — 24/7.
               </p>
 
               {/* Un solo CTA primario por sección; el secundario va discreto (outline). */}
@@ -377,10 +377,10 @@ export default function Home() {
         <div className="max-w-5xl mx-auto px-6 sm:px-10 py-12 sm:py-14">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8">
             {[
-              { icon: "🤖", value: "IA 24/7", label: "WhatsApp y tu web — atiende sola sin que nadie intervenga" },
               { icon: "📅", value: "Agenda incluida", label: "Calendario por profesional, sin pagar otra herramienta" },
-              { icon: "🦷", value: "Historial clínico", label: "Notas, planes de tratamiento, odontograma y pagos" },
+              { icon: "🦷", value: "Ficha clínica", label: "Notas, planes de tratamiento, odontograma y pagos" },
               { icon: "📊", value: "Analytics en vivo", label: "Ingresos, leads, conversión y rendimiento por doctor" },
+              { icon: "🤖", value: "Y además: IA 24/7", label: "Recepcionista que atiende sola en WhatsApp y tu web" },
             ].map((s, i) => (
               <AnimateIn key={s.value} delay={i * 90}>
                 <div className="flex flex-col gap-2">
@@ -415,6 +415,47 @@ export default function Home() {
               </AnimateIn>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* FOTOS — clínica moderna, doctor y tecnología (elegidas por Juan; Unsplash License) */}
+      <section style={{ backgroundColor: "#F7F5F1" }}>
+        <div className="max-w-5xl mx-auto px-6 sm:px-10 pb-14 sm:pb-20">
+          <AnimateIn>
+            <div className="grid grid-cols-2 sm:grid-cols-3 sm:grid-rows-2 gap-3 sm:gap-4 sm:h-[430px]">
+              <div className="relative col-span-2 sm:row-span-2 h-64 sm:h-auto rounded-3xl overflow-hidden">
+                <Image
+                  src="/photos/dentista-paciente.jpg"
+                  alt="Dentista conversando con una paciente en una clínica moderna"
+                  fill
+                  sizes="(max-width: 640px) 100vw, 60vw"
+                  className="object-cover"
+                />
+                <div className="absolute bottom-4 left-4 flex items-center gap-2 px-4 py-2 rounded-full shadow-sm" style={{ backgroundColor: "rgba(253,252,251,0.94)" }}>
+                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#D95F45" }} />
+                  <span className="text-xs font-bold" style={{ color: "#0B2F42" }}>Tu equipo atiende — molari responde</span>
+                </div>
+              </div>
+              <div className="relative h-40 sm:h-auto rounded-3xl overflow-hidden">
+                <Image
+                  src="/photos/box-moderno.jpg"
+                  alt="Box de atención dental moderno"
+                  fill
+                  sizes="(max-width: 640px) 50vw, 30vw"
+                  className="object-cover"
+                />
+              </div>
+              <div className="relative h-40 sm:h-auto rounded-3xl overflow-hidden">
+                <Image
+                  src="/photos/radiografias.jpg"
+                  alt="Dentista examinando radiografías en un panel de luz"
+                  fill
+                  sizes="(max-width: 640px) 50vw, 30vw"
+                  className="object-cover"
+                />
+              </div>
+            </div>
+          </AnimateIn>
         </div>
       </section>
 
@@ -467,7 +508,22 @@ export default function Home() {
       </section>
 
       {/* PLATFORMS */}
-      <section className="py-16 sm:py-24" style={{ backgroundColor: "#F7F5F1" }}>
+      <section className="relative py-16 sm:py-24 overflow-hidden" style={{ backgroundColor: "#F7F5F1" }}>
+        {/* Foto fundida con el fondo: doctor revisando el celular (decorativa) */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute right-0 top-0 hidden lg:block"
+          style={{
+            width: 460,
+            height: 340,
+            backgroundImage: "url(/photos/doctor-celular.jpg)",
+            backgroundSize: "cover",
+            backgroundPosition: "center 35%",
+            opacity: 0.5,
+            WebkitMaskImage: "radial-gradient(75% 75% at 70% 40%, rgba(0,0,0,0.9) 25%, transparent 70%)",
+            maskImage: "radial-gradient(75% 75% at 70% 40%, rgba(0,0,0,0.9) 25%, transparent 70%)",
+          }}
+        />
         <div className="max-w-5xl mx-auto px-6 sm:px-10">
           <p className="text-xs font-bold uppercase tracking-[0.15em] text-center mb-3" style={{ color: "#1A5C7A" }}>
             Multiplataforma
@@ -612,7 +668,22 @@ export default function Home() {
       </section>
 
       {/* CÓMO FUNCIONA — fondo claro para romper el patrón oscuro */}
-      <section id="como-funciona" className="py-16 sm:py-24" style={{ backgroundColor: "#FDFCFB" }}>
+      <section id="como-funciona" className="relative py-16 sm:py-24 overflow-hidden" style={{ backgroundColor: "#FDFCFB" }}>
+        {/* Foto fundida con el fondo: doctora trabajando en el laptop (decorativa) */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute left-0 top-0 hidden lg:block"
+          style={{
+            width: 440,
+            height: 320,
+            backgroundImage: "url(/photos/doctora-laptop.jpg)",
+            backgroundSize: "cover",
+            backgroundPosition: "center 30%",
+            opacity: 0.45,
+            WebkitMaskImage: "radial-gradient(75% 75% at 30% 40%, rgba(0,0,0,0.9) 25%, transparent 70%)",
+            maskImage: "radial-gradient(75% 75% at 30% 40%, rgba(0,0,0,0.9) 25%, transparent 70%)",
+          }}
+        />
         <div className="max-w-4xl mx-auto px-6 sm:px-10">
           <p className="text-xs font-bold uppercase tracking-[0.15em] text-center mb-3" style={{ color: "#1A5C7A" }}>
             Proceso
@@ -849,6 +920,15 @@ export default function Home() {
 
       {/* CTA */}
       <section className="relative py-16 sm:py-24 text-center overflow-hidden" style={{ backgroundColor: "#0B2F42" }}>
+        <Image
+          src="/photos/box-moderno.jpg"
+          alt=""
+          aria-hidden
+          fill
+          sizes="100vw"
+          className="object-cover"
+        />
+        <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(11,47,66,0.93) 0%, rgba(11,47,66,0.88) 100%)" }} />
         <div className="pointer-events-none absolute -top-32 -right-32 w-96 h-96 rounded-full opacity-10" style={{ border: "1px solid #D95F45" }} />
         <div className="pointer-events-none absolute -bottom-32 -left-32 w-96 h-96 rounded-full opacity-10" style={{ border: "1px solid white" }} />
         <div className="relative max-w-2xl mx-auto px-6 sm:px-10">
