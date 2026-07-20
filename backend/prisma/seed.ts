@@ -15,31 +15,31 @@ const galanaConfig = {
   // son un supuesto inicial — la clínica los ajusta desde el editor de equipo.
   doctors: [
     {
-      name: "Ivonne Poblete",
+      name: "Dr. Ivonne Poblete",
       specialty: "General",
       schedule: "Lun/Mié/Vie/Sáb",
       services: ["Limpieza dental", "Blanqueamiento dental", "Carillas dentales"],
     },
     {
-      name: "Juan Garcés",
+      name: "Dr. Juan Garcés",
       specialty: "Endodoncia",
       schedule: "Mar/Jue",
       services: ["Endodoncia (tratamiento de conducto)"],
     },
     {
-      name: "Javiera Palmilla",
+      name: "Dr. Javiera Palmilla",
       specialty: "General",
       schedule: "Lun-Vie",
       services: ["Limpieza dental", "Blanqueamiento dental", "Carillas dentales", "Urgencias dentales"],
     },
     {
-      name: "Nicolás Rojas",
+      name: "Dr. Nicolás Rojas",
       specialty: "General",
       schedule: "Lun-Vie",
       services: ["Limpieza dental", "Extracción de muela del juicio", "Urgencias dentales"],
     },
     {
-      name: "Yamileth Zerpa",
+      name: "Dr. Yamileth Zerpa",
       specialty: "Ortodoncia",
       schedule: "Lun/Mié/Vie",
       services: ["Ortodoncia (brackets / alineadores)"],

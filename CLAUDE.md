@@ -25,9 +25,12 @@ AI Growth System para clínicas dentales chilenas. Monorepo:
 Equipo real confirmado por la clínica (jul 2026). Los horarios son un supuesto
 inicial del seed — la clínica los ajusta desde el editor de equipo.
 
-Ivonne Poblete (Cirujano Dentista) · Juan Garcés (Endodoncia)
-Javiera Palmilla (Cirujano Dentista) · Nicolás Rojas (Cirujano Dentista)
-Yamileth Zerpa (Ortodoncia) · 2 boxes, rotación libre
+El prefijo va "Dr." parejo para no deducir el género desde el nombre; cuando
+la clínica confirme quién lleva "Dra.", se corrige.
+
+Dr. Ivonne Poblete (Cirujano Dentista) · Dr. Juan Garcés (Endodoncia)
+Dr. Javiera Palmilla (Cirujano Dentista) · Dr. Nicolás Rojas (Cirujano Dentista)
+Dr. Yamileth Zerpa (Ortodoncia) · 2 boxes, rotación libre
 
 ---
 

@@ -82,9 +82,11 @@ export const galanaConfig = {
   // Equipo real de Galana, confirmado por la clínica (jul 2026). Los nombres y
   // especialidades vienen de la clínica; los workDays son un supuesto inicial
   // — la clínica los ajusta desde el editor de equipo.
+  // El prefijo va "Dr." parejo para no deducir el género desde el nombre.
+  // Cuando la clínica confirme quién lleva "Dra.", se corrige acá.
   doctors: [
     {
-      name: "Ivonne Poblete",
+      name: "Dr. Ivonne Poblete",
       specialty: "Odontología General",
       workDays: [1, 3, 5, 6], // Lun, Mié, Vie, Sáb
       box: null,
@@ -96,7 +98,7 @@ export const galanaConfig = {
       ],
     },
     {
-      name: "Juan Garcés",
+      name: "Dr. Juan Garcés",
       specialty: "Endodoncia",
       workDays: [2, 4], // Mar, Jue
       box: null,
@@ -106,7 +108,7 @@ export const galanaConfig = {
       ],
     },
     {
-      name: "Javiera Palmilla",
+      name: "Dr. Javiera Palmilla",
       specialty: "Odontología General",
       workDays: [1, 2, 3, 4, 5], // Lun-Vie
       box: null,
@@ -119,7 +121,7 @@ export const galanaConfig = {
       ],
     },
     {
-      name: "Nicolás Rojas",
+      name: "Dr. Nicolás Rojas",
       specialty: "Odontología General",
       workDays: [1, 2, 3, 4, 5], // Lun-Vie
       box: null,
@@ -131,7 +133,7 @@ export const galanaConfig = {
       ],
     },
     {
-      name: "Yamileth Zerpa",
+      name: "Dr. Yamileth Zerpa",
       specialty: "Ortodoncia",
       workDays: [1, 3, 5], // Lun, Mié, Vie
       box: null,
