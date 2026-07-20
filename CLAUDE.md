@@ -22,9 +22,12 @@ AI Growth System para clínicas dentales chilenas. Monorepo:
 - Nunca commitear `.env`, `node_modules/`, `backend/src/generated/`
 
 ## Doctores Galana
-Dra. Ana Aranda (General, Lun-Vie) · Dra. Ivonne Poblete (General, Lun/Mié/Vie/Sáb)
-Dr. Pedro Engel (General, Mar/Jue/Sáb) · Dr. Juan Garcés (Endodoncia, Mar/Jue)
-Dra. Jacqueline Pérez (Ortodoncia, Lun/Mié/Vie) · 2 boxes, rotación libre
+Equipo real confirmado por la clínica (jul 2026). Los horarios son un supuesto
+inicial del seed — la clínica los ajusta desde el editor de equipo.
+
+Ivonne Poblete (Cirujano Dentista) · Juan Garcés (Endodoncia)
+Javiera Palmilla (Cirujano Dentista) · Nicolás Rojas (Cirujano Dentista)
+Yamileth Zerpa (Ortodoncia) · 2 boxes, rotación libre
 
 ---
 

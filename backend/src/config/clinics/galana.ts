@@ -79,23 +79,12 @@ export const galanaConfig = {
   ] as Service[],
   bookingUrl: process.env.GALANA_BOOKING_URL ?? null,
   slotDurationMin: 45,
+  // Equipo real de Galana, confirmado por la clínica (jul 2026). Los nombres y
+  // especialidades vienen de la clínica; los workDays son un supuesto inicial
+  // — la clínica los ajusta desde el editor de equipo.
   doctors: [
     {
-      name: "Dra. Ana Aranda",
-      specialty: "Odontología General",
-      workDays: [1, 2, 3, 4, 5], // Lun-Vie
-      box: null,
-      services: [
-        "Resina / tapadura",
-        "Limpieza dental",
-        "Blanqueamiento dental",
-        "Carillas dentales",
-        "Extracción de muela del juicio",
-        "Urgencias dentales",
-      ],
-    },
-    {
-      name: "Dra. Ivonne Poblete",
+      name: "Ivonne Poblete",
       specialty: "Odontología General",
       workDays: [1, 3, 5, 6], // Lun, Mié, Vie, Sáb
       box: null,
@@ -107,19 +96,7 @@ export const galanaConfig = {
       ],
     },
     {
-      name: "Dr. Pedro Engel",
-      specialty: "Odontología General",
-      workDays: [2, 4, 6], // Mar, Jue, Sáb
-      box: null,
-      services: [
-        "Resina / tapadura",
-        "Limpieza dental",
-        "Extracción de muela del juicio",
-        "Urgencias dentales",
-      ],
-    },
-    {
-      name: "Dr. Juan Garcés",
+      name: "Juan Garcés",
       specialty: "Endodoncia",
       workDays: [2, 4], // Mar, Jue
       box: null,
@@ -129,7 +106,32 @@ export const galanaConfig = {
       ],
     },
     {
-      name: "Dra. Jacqueline Pérez",
+      name: "Javiera Palmilla",
+      specialty: "Odontología General",
+      workDays: [1, 2, 3, 4, 5], // Lun-Vie
+      box: null,
+      services: [
+        "Resina / tapadura",
+        "Limpieza dental",
+        "Blanqueamiento dental",
+        "Carillas dentales",
+        "Urgencias dentales",
+      ],
+    },
+    {
+      name: "Nicolás Rojas",
+      specialty: "Odontología General",
+      workDays: [1, 2, 3, 4, 5], // Lun-Vie
+      box: null,
+      services: [
+        "Resina / tapadura",
+        "Limpieza dental",
+        "Extracción de muela del juicio",
+        "Urgencias dentales",
+      ],
+    },
+    {
+      name: "Yamileth Zerpa",
       specialty: "Ortodoncia",
       workDays: [1, 3, 5], // Lun, Mié, Vie
       box: null,
