@@ -24,8 +24,8 @@ const PALETTE = [
 ];
 
 const FALLBACK_DOCTORS = [
-  "Dra. Ana Aranda", "Dra. Ivonne Poblete", "Dr. Pedro Engel",
-  "Dr. Juan Garcés", "Dra. Jacqueline Pérez",
+  "Ivonne Poblete", "Juan Garcés", "Javiera Palmilla",
+  "Nicolás Rojas", "Yamileth Zerpa",
 ];
 
 const DAY_LABELS  = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];

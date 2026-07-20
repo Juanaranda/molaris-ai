@@ -11,33 +11,35 @@ const galanaConfig = {
     saturday: "Sábado: 10:00 - 14:00",
     sunday: "Domingo: cerrado",
   },
+  // Equipo real de Galana, confirmado por la clínica (jul 2026). Los horarios
+  // son un supuesto inicial — la clínica los ajusta desde el editor de equipo.
   doctors: [
     {
-      name: "Dra. Ana Aranda",
-      specialty: "General",
-      schedule: "Lun-Vie",
-      services: ["Limpieza dental", "Urgencias dentales", "Consulta general"],
-    },
-    {
-      name: "Dra. Ivonne Poblete",
+      name: "Ivonne Poblete",
       specialty: "General",
       schedule: "Lun/Mié/Vie/Sáb",
       services: ["Limpieza dental", "Blanqueamiento dental", "Carillas dentales"],
     },
     {
-      name: "Dr. Pedro Engel",
-      specialty: "General",
-      schedule: "Mar/Jue/Sáb",
-      services: ["Limpieza dental", "Extracción de muela del juicio", "Urgencias dentales"],
-    },
-    {
-      name: "Dr. Juan Garcés",
+      name: "Juan Garcés",
       specialty: "Endodoncia",
       schedule: "Mar/Jue",
       services: ["Endodoncia (tratamiento de conducto)"],
     },
     {
-      name: "Dra. Jacqueline Pérez",
+      name: "Javiera Palmilla",
+      specialty: "General",
+      schedule: "Lun-Vie",
+      services: ["Limpieza dental", "Blanqueamiento dental", "Carillas dentales", "Urgencias dentales"],
+    },
+    {
+      name: "Nicolás Rojas",
+      specialty: "General",
+      schedule: "Lun-Vie",
+      services: ["Limpieza dental", "Extracción de muela del juicio", "Urgencias dentales"],
+    },
+    {
+      name: "Yamileth Zerpa",
       specialty: "Ortodoncia",
       schedule: "Lun/Mié/Vie",
       services: ["Ortodoncia (brackets / alineadores)"],
