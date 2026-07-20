@@ -5,6 +5,16 @@ import { HeroShowcase } from "@/components/HeroShowcase";
 import { AnimateIn } from "@/components/AnimateIn";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
 
+/* Muestra el chat de Juan (agente comercial). Se lee en build: cambiarlo en
+   Vercel exige redeploy, no basta con guardar la variable.
+   Prenderlo solo en ambientes donde exista la clínica "molaris-demo" — si no,
+   el chat aparece y contesta "Sin respuesta" a cualquier visitante.
+   Sin la variable seteada queda visible en local y oculto en beta/prod. */
+const salesChatEnabled =
+  process.env.NEXT_PUBLIC_SALES_CHAT === "true" ||
+  (process.env.NEXT_PUBLIC_SALES_CHAT !== "false" &&
+    process.env.NODE_ENV !== "production");
+
 /* ─── Icons ─────────────────────────────────────────────────────────── */
 function IconLock() {
   return (
@@ -725,8 +735,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* JUAN — SALES AGENT — solo en desarrollo local (oculto en beta y prod) */}
-      {process.env.NODE_ENV !== "production" && (
+      {/* JUAN — SALES AGENT. Requiere que la clínica "molaris-demo" exista en la
+          BBDD del ambiente (la crea `npm run seed`); sin ella el chat responde
+          "Sin respuesta". Por eso está detrás de un flag en vez de estar siempre
+          visible. En local se muestra salvo que se apague explícitamente. */}
+      {salesChatEnabled && (
       <section id="juan" className="py-16 sm:py-24" style={{ backgroundColor: "#0B2F42" }}>
         <div className="max-w-5xl mx-auto px-6 sm:px-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
