@@ -117,9 +117,9 @@ function IconFile() {
 /* ─── Agenda Calendar Mockup ────────────────────────────────────────── */
 function AgendaMockup() {
   const doctors = [
-    { name: "Dra. Aranda", bg: "#D1FAE5", border: "#10B981", text: "#065F46", initials: "AA" },
-    { name: "Dr. Engel",   bg: "#DBEAFE", border: "#3B82F6", text: "#1E40AF", initials: "PE" },
-    { name: "Dra. Pérez",  bg: "#EDE9FE", border: "#8B5CF6", text: "#5B21B6", initials: "JP" },
+    { name: "Dr. Poblete", bg: "#D1FAE5", border: "#10B981", text: "#065F46", initials: "IP" },
+    { name: "Dr. Garcés",  bg: "#DBEAFE", border: "#3B82F6", text: "#1E40AF", initials: "JG" },
+    { name: "Dr. Zerpa",   bg: "#EDE9FE", border: "#8B5CF6", text: "#5B21B6", initials: "YZ" },
   ];
   const slots = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30"];
   const appts: { doctor: number; slot: number; name: string; service: string; status: string }[] = [
@@ -568,7 +568,7 @@ export default function Home() {
                     { from: "user", text: "Hola, quiero agendar una limpieza 🦷" },
                     { from: "bot",  text: "¡Hola! ¿Tienes preferencia de día?" },
                     { from: "user", text: "El martes si es posible" },
-                    { from: "bot",  text: "Martes 10:00 con Dr. Engel ✅ ¿Confirmo?" },
+                    { from: "bot",  text: "Martes 10:00 con Dr. Poblete ✅ ¿Confirmo?" },
                   ]}
                   inputBg="#E5DDD5"
                   sendBg="#25D366"
@@ -584,7 +584,7 @@ export default function Home() {
                   headerBg="linear-gradient(135deg, #1A5C7A, #0e4560)"
                   messages={[
                     { from: "user", text: "Me interesa una consulta de ortodoncia" },
-                    { from: "bot",  text: "La Dra. Pérez atiende lun, mié y vie 😊 ¿Qué día?" },
+                    { from: "bot",  text: "Dr. Zerpa atiende lun, mié y vie 😊 ¿Qué día?" },
                     { from: "user", text: "El viernes" },
                     { from: "bot",  text: "¡Perfecto! ¿Me das tu nombre? ✨" },
                   ]}

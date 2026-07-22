@@ -53,11 +53,11 @@ function ActivityMockup() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {[
-            { canal: "WhatsApp",  msg: "Nueva cita — Dra. Aranda · 10:30",    dot: "#25D366", time: "2 min" },
+            { canal: "WhatsApp",  msg: "Nueva cita — Dr. Poblete · 10:30",     dot: "#25D366", time: "2 min" },
             { canal: "WhatsApp",  msg: "Lead calificado — ortodoncia",           dot: "#25D366", time: "5 min" },
             { canal: "Agenda",    msg: "Recordatorio enviado — Pedro R.",       dot: "#8B5CF6", time: "8 min" },
             { canal: "Web",       msg: "Consulta — precio implante dental",     dot: "#1A5C7A", time: "14 min" },
-            { canal: "WhatsApp",  msg: "Cita confirmada — Dra. Pérez · 11:00", dot: "#25D366", time: "22 min" },
+            { canal: "WhatsApp",  msg: "Cita confirmada — Dr. Zerpa · 11:00",  dot: "#25D366", time: "22 min" },
           ].map((item, idx) => (
             <div key={idx} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px",
               borderRadius: 12, background: "rgba(255,255,255,0.05)" }}>
@@ -85,9 +85,9 @@ function ActivityMockup() {
 function AgendaMockup() {
   const weekRange = useWeekRangeLabel();
   const doctors = [
-    { name: "Dra. Aranda", bg: "#D1FAE5", border: "#10B981", text: "#065F46", initials: "AA" },
-    { name: "Dr. Engel",   bg: "#DBEAFE", border: "#1A5C7A", text: "#0B2F42", initials: "PE" },
-    { name: "Dra. Pérez",  bg: "#EDE9FE", border: "#8B5CF6", text: "#5B21B6", initials: "JP" },
+    { name: "Dr. Poblete", bg: "#D1FAE5", border: "#10B981", text: "#065F46", initials: "IP" },
+    { name: "Dr. Garcés",  bg: "#DBEAFE", border: "#1A5C7A", text: "#0B2F42", initials: "JG" },
+    { name: "Dr. Zerpa",   bg: "#EDE9FE", border: "#8B5CF6", text: "#5B21B6", initials: "YZ" },
   ];
   const slots = ["09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30"];
   const appts: { doctor: number; slot: number; name: string; service: string }[] = [
