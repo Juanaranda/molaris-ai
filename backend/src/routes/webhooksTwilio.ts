@@ -18,6 +18,7 @@ import { config } from "../config/env";
 import { getAIResponse } from "../services/ai/claudeService";
 import { recordAgentSuccess, recordAgentFailure } from "../services/agent/agentHealth";
 import { checkDailyBudget } from "../services/ai/budgetGuard";
+import { isDuplicateWebhookEvent } from "../lib/webhookDedup";
 
 const DAYS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 const HUMAN_FALLBACK = "¡Gracias por tu mensaje! 🙏 En un momento te atiende una persona del equipo.";
@@ -72,6 +73,12 @@ export async function webhookTwilioRoutes(app: FastifyInstance) {
     const messageText = (body.Body ?? "").trim();
     const fromPhone = (body.From ?? "").replace(/^whatsapp:/i, "").replace(/\D/g, "");
     if (!messageText || !fromPhone) return reply.send(twiml());
+
+    // Twilio reintenta si no ve 2xx a tiempo; un MessageSid repetido no debe
+    // gatillar otra respuesta de la IA (#53). Respondemos 200 con TwiML vacío.
+    if (body.MessageSid && isDuplicateWebhookEvent("twilio", body.MessageSid)) {
+      return reply.send(twiml());
+    }
 
     const slug = config.twilio.betaClinicSlug;
     if (!slug) {

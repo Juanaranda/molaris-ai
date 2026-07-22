@@ -15,6 +15,7 @@ import { config } from "../config/env";
 import { getAIResponse } from "../services/ai/claudeService";
 import { sendMetaMessage, markMetaMessageRead } from "../services/whatsapp/metaService";
 import { recordAgentSuccess, recordAgentFailure } from "../services/agent/agentHealth";
+import { isDuplicateWebhookEvent } from "../lib/webhookDedup";
 
 interface MetaWebhookBody {
   object: string;
@@ -36,26 +37,6 @@ interface MetaWebhookBody {
       field: string;
     }>;
   }>;
-}
-
-// Dedupe de mensajes (#53): Meta entrega at-least-once y reintenta si no ve
-// 200 en 20 s — un wamid repetido no debe generar otra respuesta de la IA.
-// En memoria (Set con orden de inserción); se resetea al reiniciar, aceptable
-// porque los reintentos de Meta ocurren en ventanas cortas.
-const seenWamids = new Set<string>();
-const MAX_SEEN_WAMIDS = 5000;
-
-function isDuplicateWamid(wamid: string): boolean {
-  if (config.nodeEnv === "test") return false;
-  if (seenWamids.has(wamid)) return true;
-  seenWamids.add(wamid);
-  if (seenWamids.size > MAX_SEEN_WAMIDS) {
-    for (const w of seenWamids) {
-      seenWamids.delete(w);
-      if (seenWamids.size <= MAX_SEEN_WAMIDS / 2) break;
-    }
-  }
-  return false;
 }
 
 export async function webhookMetaRoutes(app: FastifyInstance) {
@@ -132,7 +113,7 @@ export async function webhookMetaRoutes(app: FastifyInstance) {
 
         for (const msg of val.messages) {
           if (msg.type !== "text" || !msg.text?.body) continue;
-          if (msg.id && isDuplicateWamid(msg.id)) continue; // reintento de Meta (#53)
+          if (msg.id && isDuplicateWebhookEvent("meta", msg.id)) continue; // reintento de Meta (#53)
 
           const fromPhone   = msg.from;          // número sin +
           const messageText = msg.text.body.trim();
