@@ -35,6 +35,8 @@ import { labOrderRoutes } from "./routes/labOrders";
 import { inventoryRoutes } from "./routes/inventory";
 import { startReminderScheduler } from "./services/notifications/reminderService";
 import { startRecallScheduler } from "./services/notifications/recallService";
+import prisma from "./config/prisma";
+import { getSchedulerHealth } from "./services/notifications/schedulerHealth";
 
 const isProd = config.nodeEnv === "production";
 
@@ -97,7 +99,38 @@ app.register(consentRoutes, { prefix: "/api" });
 app.register(labOrderRoutes, { prefix: "/api" });
 app.register(inventoryRoutes, { prefix: "/api" });
 
-app.get("/health", async () => ({ status: "ok", project: "molari.ai" }));
+// Health check para monitoreo externo (UptimeRobot, etc.) y diagnóstico (#58).
+// Devuelve 503 solo si la DB está caída (la clínica no puede operar); un
+// scheduler atrasado o una IA sin key dan "degraded" con 200, para no gatillar
+// una alerta de "sitio caído" cuando el servicio en realidad responde.
+app.get("/health", async (_req, reply) => {
+  const t0 = Date.now();
+  let db: { ok: boolean; latencyMs?: number; error?: string };
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    db = { ok: true, latencyMs: Date.now() - t0 };
+  } catch (e) {
+    db = { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+
+  const schedulers = getSchedulerHealth();
+  const ai = {
+    openRouter: Boolean(config.openRouter.apiKey),
+    groq: Boolean(config.groq.apiKey),
+  };
+
+  const schedulersOk = schedulers.every((s) => s.ok);
+  const aiOk = ai.openRouter || ai.groq; // al menos un proveedor configurado
+  const status = !db.ok ? "down" : schedulersOk && aiOk ? "ok" : "degraded";
+
+  return reply.code(db.ok ? 200 : 503).send({
+    status,
+    project: "molari.ai",
+    timestamp: new Date().toISOString(),
+    uptimeSec: Math.round(process.uptime()),
+    checks: { db, schedulers, ai },
+  });
+});
 
 app.listen({ port: config.port, host: "0.0.0.0" }, (err) => {
   if (err) {
