@@ -120,6 +120,57 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
+// Cita mía con el día resuelto (para las secciones "hoy"/"próximas").
+type MineBooking = Booking & { dateStr: string };
+
+// Declarados a nivel de módulo (no dentro del render) para no recrearlos en cada
+// render — si no, React los remonta y se pierde el estado de sus hijos.
+function BookingRow({ b, showDate = false }: { b: MineBooking; showDate?: boolean }) {
+  return (
+    <div className="flex items-center gap-4 px-5 py-4">
+      {showDate ? (
+        <div className="text-center shrink-0 w-16">
+          <p className="text-[10px] font-bold text-gray-400 uppercase leading-none mb-0.5">
+            {DAY_SHORT[new Date(b.dateStr + "T12:00:00").getDay()]}
+          </p>
+          <p className="text-sm font-black text-gray-800 tabular-nums">{b.time}</p>
+        </div>
+      ) : (
+        <span className="text-sm font-black text-gray-800 w-16 shrink-0 tabular-nums">{b.time}</span>
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-gray-800 truncate">{b.patientName ?? "—"}</p>
+        <p className="text-xs text-gray-400 truncate">{[b.service, b.patientRut].filter(Boolean).join(" · ")}</p>
+      </div>
+      {b.patientPhone && <span className="text-xs text-gray-400 hidden sm:block">{b.patientPhone}</span>}
+      <StatusPill status={b.status} />
+    </div>
+  );
+}
+
+function Section({ title, bookings, empty, showDate = false, loading }: {
+  title: string; bookings: MineBooking[]; empty: string; showDate?: boolean; loading: boolean;
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="px-5 py-3.5 border-b border-gray-50">
+        <h3 className="text-sm font-bold text-gray-800">{title}</h3>
+      </div>
+      {loading ? (
+        <div className="p-4 space-y-3">
+          {[1, 2, 3].map((i) => <div key={i} className="h-12 bg-gray-100 rounded-xl animate-pulse" />)}
+        </div>
+      ) : bookings.length === 0 ? (
+        <p className="text-sm text-gray-400 text-center py-8">{empty}</p>
+      ) : (
+        <div className="divide-y divide-gray-50">
+          {bookings.map((b) => <BookingRow key={b.id} b={b} showDate={showDate} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Booking detail modal ────────────────────────────────────────────── */
 const PAY_STATUS_LABELS: Record<string, { label: string; cls: string }> = {
   paid:    { label: "Pagado",   cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
@@ -937,52 +988,6 @@ function DoctorAgenda({ user }: { user: AuthUser }) {
   const pal = palOf(user.name);
   const initials = user.name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 
-  function BookingRow({ b, showDate = false }: { b: typeof mine[0]; showDate?: boolean }) {
-    return (
-      <div className="flex items-center gap-4 px-5 py-4">
-        {showDate ? (
-          <div className="text-center shrink-0 w-16">
-            <p className="text-[10px] font-bold text-gray-400 uppercase leading-none mb-0.5">
-              {DAY_SHORT[new Date(b.dateStr + "T12:00:00").getDay()]}
-            </p>
-            <p className="text-sm font-black text-gray-800 tabular-nums">{b.time}</p>
-          </div>
-        ) : (
-          <span className="text-sm font-black text-gray-800 w-16 shrink-0 tabular-nums">{b.time}</span>
-        )}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-800 truncate">{b.patientName ?? "—"}</p>
-          <p className="text-xs text-gray-400 truncate">{[b.service, b.patientRut].filter(Boolean).join(" · ")}</p>
-        </div>
-        {b.patientPhone && <span className="text-xs text-gray-400 hidden sm:block">{b.patientPhone}</span>}
-        <StatusPill status={b.status} />
-      </div>
-    );
-  }
-
-  function Section({ title, bookings, empty, showDate = false }: {
-    title: string; bookings: typeof mine; empty: string; showDate?: boolean;
-  }) {
-    return (
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-gray-50">
-          <h3 className="text-sm font-bold text-gray-800">{title}</h3>
-        </div>
-        {loading ? (
-          <div className="p-4 space-y-3">
-            {[1, 2, 3].map((i) => <div key={i} className="h-12 bg-gray-100 rounded-xl animate-pulse" />)}
-          </div>
-        ) : bookings.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-8">{empty}</p>
-        ) : (
-          <div className="divide-y divide-gray-50">
-            {bookings.map((b) => <BookingRow key={b.id} b={b} showDate={showDate} />)}
-          </div>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-5">
       {/* Doctor identity card */}
@@ -1000,8 +1005,8 @@ function DoctorAgenda({ user }: { user: AuthUser }) {
         </div>
       </div>
 
-      <Section title="Mis citas de hoy" bookings={todayMine} empty="No tienes citas para hoy" />
-      <Section title="Próximas citas esta semana" bookings={upcomingMine} empty="Sin citas próximas" showDate />
+      <Section title="Mis citas de hoy" bookings={todayMine} empty="No tienes citas para hoy" loading={loading} />
+      <Section title="Próximas citas esta semana" bookings={upcomingMine} empty="Sin citas próximas" showDate loading={loading} />
     </div>
   );
 }
