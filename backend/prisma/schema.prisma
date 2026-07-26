@@ -450,6 +450,9 @@ model Booking {
   time          String
   doctor        String
   box           String?
+  // Sede donde se atiende la cita (#69 Fase 4): para el doctor independiente
+  // que trabaja en varias clínicas. Etiqueta libre desde config.sedes.
+  sede          String?
   status           String       @default("pending") // "pending" | "confirmed" | "cancelled"
   notes            String?
   reminderDaySent  Boolean      @default(false)
