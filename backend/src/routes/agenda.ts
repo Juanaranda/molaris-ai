@@ -16,6 +16,7 @@ interface CreateBookingBody {
   date: string;
   time: string;
   box?: string;
+  sede?: string;
   patientName: string;
   patientRut?: string;
   patientPhone?: string;
@@ -27,6 +28,7 @@ interface CreateBookingBody {
 interface UpdateBookingBody {
   status?: "confirmed" | "cancelled" | "pending";
   notes?: string;
+  sede?: string | null;
   paymentStatus?: "pending" | "paid" | "partial" | "waived";
   amountTotal?: number;
   amountPaid?: number;
@@ -40,6 +42,7 @@ function bookingSelect() {
     time: true,
     date: true,
     box: true,
+    sede: true,
     patientName: true,
     patientRut: true,
     patientPhone: true,
@@ -150,7 +153,7 @@ export async function agendaRoutes(app: FastifyInstance) {
       return reply.status(403).send({ error: "Sin clínica asignada" });
     }
 
-    const { doctor, date, time, box, patientName, patientRut, patientPhone, patientEmail, service, notes } = req.body ?? {};
+    const { doctor, date, time, box, sede, patientName, patientRut, patientPhone, patientEmail, service, notes } = req.body ?? {};
 
     if (!doctor || !date || !time || !patientName) {
       return reply.status(400).send({ error: "Campos requeridos: doctor, date, time, patientName" });
@@ -182,6 +185,7 @@ export async function agendaRoutes(app: FastifyInstance) {
         date: new Date(`${date}T12:00:00`),
         time,
         box: box ?? null,
+        sede: sede?.trim() || null,
         patientName,
         patientRut: patientRut ?? null,
         patientPhone: patientPhone ?? null,
@@ -235,7 +239,7 @@ export async function agendaRoutes(app: FastifyInstance) {
     }
 
     const { id } = req.params;
-    const { status, notes, paymentStatus, amountTotal, amountPaid, paymentMethod } = req.body ?? {};
+    const { status, notes, sede, paymentStatus, amountTotal, amountPaid, paymentMethod } = req.body ?? {};
 
     if (amountTotal !== undefined && (typeof amountTotal !== "number" || !isFinite(amountTotal) || amountTotal < 0)) {
       return reply.status(400).send({ error: "amountTotal debe ser un número no negativo" });
@@ -266,6 +270,7 @@ export async function agendaRoutes(app: FastifyInstance) {
       data: {
         ...(status !== undefined ? { status } : {}),
         ...(notes !== undefined ? { notes } : {}),
+        ...(sede !== undefined ? { sede: sede?.trim() || null } : {}),
         ...(paymentStatus !== undefined ? { paymentStatus } : {}),
         ...(amountTotal !== undefined ? { amountTotal } : {}),
         ...(amountPaid !== undefined ? { amountPaid } : {}),
