@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { ToothProjection } from "@/lib/odontogram";
-import { ToothFrontView } from "@/components/ToothFrontView";
+import type { ToothProjection, DentalSurface } from "@/lib/odontogram";
+import { ToothSurfaceChart } from "@/components/ToothSurfaceChart";
+import { toothTypeOf, isUpperFdi } from "@/lib/tooth";
 
 /**
  * Odontograma estándar — vista simple y profesional (Issue #43).
@@ -18,17 +19,6 @@ import { ToothFrontView } from "@/components/ToothFrontView";
  */
 
 type Mode = "single" | "multi";
-
-/* ─── Imagen anatómica por tipo de diente ─────────────────────────────────── */
-type ToothType = "incisor" | "canine" | "premolar" | "molar";
-
-function getToothType(fdi: string): ToothType {
-  const pos = parseInt(fdi[1] ?? "1", 10);
-  if (pos <= 2) return "incisor";
-  if (pos === 3) return "canine";
-  if (pos <= 5) return "premolar";
-  return "molar";
-}
 
 interface ConditionSummary {
   /** Color de fondo de la celda según condición principal del diente */
@@ -58,6 +48,53 @@ const CONDITION_TO_STATE: Record<string, StateKey> = {
   extraccion: "extracted",  ausente: "extracted",
   sano: "healthy",
 };
+
+/* Color con que se pinta cada superficie según el estado de su hallazgo. */
+const SURFACE_PAINT: Partial<Record<StateKey, string>> = {
+  pending:    "#DC2626",
+  treated:    "#2563EB",
+  prosthetic: "#6D28D9",
+};
+
+// Si dos hallazgos caen en la misma cara, gana el más grave.
+const SURFACE_PRIORITY: StateKey[] = ["prosthetic", "pending", "treated"];
+
+/**
+ * Traduce las condiciones activas a color POR SUPERFICIE.
+ *
+ * El dato de superficies ya existía en el modelo (DentalEventSurface) pero la
+ * grilla lo ignoraba y teñía la pieza entera: una caries oclusal pintaba todo
+ * el diente de rojo y no se sabía qué cara tratar. Las condiciones sin
+ * superficie (endodoncia, corona, extracción) siguen siendo de diente completo.
+ */
+function surfacePaintFor(proj: ToothProjection | undefined): {
+  surfaces: Partial<Record<DentalSurface, string>>;
+  wholeTooth?: string;
+} {
+  if (!proj || proj.isExtracted) return { surfaces: {} };
+
+  const rank = new Map<DentalSurface, number>();
+  const surfaces: Partial<Record<DentalSurface, string>> = {};
+  let wholeRank = Infinity;
+  let wholeTooth: string | undefined;
+
+  for (const c of proj.activeConditions) {
+    const state = CONDITION_TO_STATE[c.conditionCode];
+    const color = state ? SURFACE_PAINT[state] : undefined;
+    if (!color || !state) continue;
+    const prio = SURFACE_PRIORITY.indexOf(state);
+    if (prio < 0) continue;
+
+    if (c.surfaces.length === 0) {
+      if (prio < wholeRank) { wholeRank = prio; wholeTooth = color; }
+      continue;
+    }
+    for (const s of c.surfaces) {
+      if (prio < (rank.get(s) ?? Infinity)) { rank.set(s, prio); surfaces[s] = color; }
+    }
+  }
+  return { surfaces, wholeTooth };
+}
 
 function summarize(proj: ToothProjection | undefined): { state: StateKey; meta: ConditionSummary } {
   if (!proj) {
@@ -285,6 +322,7 @@ interface ToothCellProps {
 
 function ToothCell({ fdi, proj, isMissing, isSelected, isHighlighted, onSelect, size }: ToothCellProps) {
   const { state, meta } = summarize(proj);
+  const paint = surfacePaintFor(proj);
   const style = STATE_STYLE[state];
   const symbol = isMissing ? "✕" : meta.symbol;
   // El resaltado (pieza con prestación) solo aplica si no está seleccionada ni ausente
@@ -294,7 +332,7 @@ function ToothCell({ fdi, proj, isMissing, isSelected, isHighlighted, onSelect, 
     : showHighlight
     ? "bg-emerald-50 border-emerald-400"
     : `${style.cellBg} ${style.ring}`;
-  const isUpper = fdi[0] === "1" || fdi[0] === "2" || fdi[0] === "5" || fdi[0] === "6";
+  const isUpper = isUpperFdi(fdi);
 
   // Tamaño total de la celda — altura mayor para acomodar diente + número
   const cellW = size;
@@ -319,18 +357,16 @@ function ToothCell({ fdi, proj, isMissing, isSelected, isHighlighted, onSelect, 
         }`}>{fdi}</span>
       )}
 
-      {/* Vista FRONTAL anatómica del diente (SVG escalable) */}
-      <div className="flex-1 flex items-center justify-center w-full relative" style={{ opacity: isMissing ? 0.25 : 1 }}>
-        <ToothFrontView
-          type={getToothType(fdi)}
+      {/* Diagrama clínico de superficies — pinta la cara exacta del hallazgo */}
+      <div className="flex-1 flex items-center justify-center w-full relative">
+        <ToothSurfaceChart
+          fdi={fdi}
+          toothType={toothTypeOf(fdi)}
           jaw={isUpper ? "upper" : "lower"}
-          size={Math.round(size * 0.7)}
-          tint={
-            state === "pending"    ? "#DC2626" :
-            state === "treated"    ? "#2563EB" :
-            state === "prosthetic" ? "#6D28D9" :
-            undefined
-          }
+          size={Math.round(size * 0.66)}
+          surfaceColors={paint.surfaces}
+          wholeToothColor={paint.wholeTooth}
+          isMissing={isMissing}
         />
         {/* Símbolo overlay (X de extracción, ⌒ corona) */}
         {symbol && (

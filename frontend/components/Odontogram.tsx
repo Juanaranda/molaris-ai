@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { ToothSurfaceChart } from "@/components/ToothSurfaceChart";
+import { toothTypeOf, type ToothType } from "@/lib/tooth";
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 export type DentitionType = "definitiva" | "temporal" | "mixta";
-export type ToothType = "incisor" | "canine" | "premolar" | "molar";
+export type { ToothType };
 
 export interface ToothMeta {
   fdi: string;        // formato dato: "1.8" (compatible con presupuestos guardados)
@@ -15,17 +17,13 @@ export interface ToothMeta {
   primary?: boolean;
 }
 
-const permType = (n: number): ToothType => n <= 2 ? "incisor" : n === 3 ? "canine" : n <= 5 ? "premolar" : "molar";
-const primType = (n: number): ToothType => n <= 2 ? "incisor" : n === 3 ? "canine" : "molar";
-
 function tooth(quadrant: number, num: number): ToothMeta {
-  const primary = quadrant >= 5;
   return {
     fdi: `${quadrant}.${num}`,
     quadrant, num,
-    type: primary ? primType(num) : permType(num),
+    type: toothTypeOf(`${quadrant}${num}`),
     jaw: [1, 2, 5, 6].includes(quadrant) ? "upper" : "lower",
-    primary,
+    primary: quadrant >= 5,
   };
 }
 
@@ -61,119 +59,43 @@ const QUICK_GROUPS: { key: string; label: string; filter: (t: ToothMeta) => bool
 /* ─── Diente anatómico SVG (corona + raíces) ─────────────────────────────── */
 type ToothState = "normal" | "primary" | "selected" | "active" | "treatment" | "missing";
 
-const TOOTH_PATHS: Record<ToothType, { crown: string; roots: string[]; detail?: string }> = {
-  incisor: {
-    // Trapezoidal crown, wider at cervical, subtle mamelons at incisal edge
-    crown: "M12,26 C11,24 11,18 13,12 C14,8 15,5 17,4 Q19,6 20,5 Q21,6 23,4 C25,5 26,8 27,12 C29,18 29,24 28,26 Z",
-    roots: ["M13,26 C12,35 12,45 14,53 Q17,60 20,60 Q23,60 26,53 C28,45 28,35 27,26 Z"],
-    detail: "M16,12 L16,23",
-  },
-  canine: {
-    // Pentagonal crown with pronounced cusp tip
-    crown: "M11,26 C10,22 10,15 13,9 C15,5 17,4 20,4 C23,4 25,5 27,9 C30,15 30,22 29,26 Z",
-    roots: ["M13,26 C12,37 11,49 13,57 Q15,62 20,62 Q25,62 27,57 C29,49 28,37 27,26 Z"],
-    detail: "M20,6 L20,22",
-  },
-  premolar: {
-    // Bicuspid crown — two cusps with valley between them
-    crown: "M10,26 C9,22 9,15 11,10 Q13,5 16,5 C17,9 18,12 20,10 C22,12 23,9 24,5 Q27,5 29,10 C31,15 31,22 30,26 Z",
-    roots: [
-      "M12,26 C11,34 10,44 12,52 Q14,58 17,57 Q19,53 18,44 C17,35 15,30 14,26 Z",
-      "M23,26 C25,30 27,35 28,44 Q29,53 31,57 Q34,58 35,52 C36,44 35,34 34,26 Z",
-    ],
-    detail: "M20,7 L20,23 M14,13 Q20,17 26,13",
-  },
-  molar: {
-    // Wide crown with 4 cusps and cross-shaped central fissure
-    crown: "M7,26 C6,21 6,14 8,10 Q10,5 13,5 C14,9 15,12 17,9 Q19,7 20,8 Q21,7 23,9 C25,12 26,9 27,5 Q30,5 32,10 C34,14 34,21 33,26 Z",
-    roots: [
-      "M10,26 C9,34 8,44 10,52 Q12,58 15,57 Q17,53 16,44 C15,35 13,30 12,26 Z",
-      "M26,26 C26,30 28,35 30,44 Q31,53 33,57 Q36,58 37,52 C38,44 37,34 36,26 Z",
-    ],
-    detail: "M20,8 L20,24 M11,17 Q20,21 29,17",
-  },
+/**
+ * Colores del diagrama de superficies según el estado de selección del
+ * presupuesto. Acá se eligen piezas completas (no caras), así que se pinta el
+ * diente entero; el detalle por superficie vive en la ficha clínica.
+ */
+const STATE_TINT: Record<ToothState, string | undefined> = {
+  normal:    undefined,
+  primary:   "#FDF3DA",
+  selected:  "#C7E5F0",
+  active:    "#8FC9DE",
+  treatment: "#DBE9FE",
+  missing:   undefined,
 };
 
-const STATE_STYLE: Record<ToothState, { crown: string; root: string; stroke: string; sw: number }> = {
-  normal:    { crown: "url(#od-crown)",   root: "url(#od-root)",   stroke: "#9DB2C4", sw: 1.3 },
-  primary:   { crown: "url(#od-primary)", root: "url(#od-root)",   stroke: "#C4A06A", sw: 1.3 },
-  selected:  { crown: "url(#od-sel)",     root: "url(#od-root)",   stroke: "#2B87A8", sw: 1.6 },
-  active:    { crown: "url(#od-active)",  root: "url(#od-root)",   stroke: "#1A5C7A", sw: 2 },
-  treatment: { crown: "url(#od-treat)",   root: "url(#od-root)",   stroke: "#3B82F6", sw: 1.5 },
-  missing:   { crown: "#EDF1F5",          root: "#F3F6F9",         stroke: "#CBD5E1", sw: 1.2 },
-};
-
-function ToothGlyph({ type, jaw, state, scale = 1 }: {
-  type: ToothType; jaw: "upper" | "lower"; state: ToothState; scale?: number;
+function ToothGlyph({ fdi, type, jaw, state, scale = 1 }: {
+  fdi: string; type: ToothType; jaw: "upper" | "lower"; state: ToothState; scale?: number;
 }) {
-  const p = TOOTH_PATHS[type];
-  const s = STATE_STYLE[state];
-  const w = 36 * scale, h = 58 * scale;
   return (
-    <svg viewBox="0 0 40 64" width={w} height={h} aria-hidden style={{ display: "block" }}>
-      <g transform={jaw === "upper" ? "translate(0,64) scale(1,-1)" : undefined}>
-        {p.roots.map((d, i) => (
-          <path key={i} d={d} fill={s.root} stroke={s.stroke} strokeWidth={s.sw * 0.85}
-            strokeLinejoin="round" strokeLinecap="round" />
-        ))}
-        <path d={p.crown} fill={s.crown} stroke={s.stroke} strokeWidth={s.sw}
-          strokeLinejoin="round" strokeLinecap="round" />
-        {/* reflejo especular sobre el esmalte */}
-        {state !== "missing" && (
-          <path d={p.crown} fill="url(#od-hl)" />
-        )}
-        {/* surcos / detalle anatómico */}
-        {state !== "missing" && p.detail && (
-          <path d={p.detail} fill="none" stroke={s.stroke} strokeWidth={0.85}
-            strokeLinecap="round" strokeLinejoin="round" opacity={0.38} />
-        )}
-        {/* línea cervical curva */}
-        <path d="M9,26 Q20,28 31,26" fill="none" stroke={s.stroke} strokeWidth={0.65} opacity={0.4} />
-        {state === "missing" && (
-          <g stroke="#EF4444" strokeWidth={2.4} strokeLinecap="round"
-            transform={jaw === "upper" ? "translate(0,64) scale(1,-1)" : undefined}>
-            <line x1={11} y1={20} x2={29} y2={44} />
-            <line x1={29} y1={20} x2={11} y2={44} />
+    <div style={{ position: "relative", display: "block" }}>
+      <ToothSurfaceChart
+        fdi={fdi}
+        toothType={type}
+        jaw={jaw}
+        size={34 * scale}
+        wholeToothColor={STATE_TINT[state]}
+        isMissing={state === "missing"}
+      />
+      {state === "missing" && (
+        <svg viewBox="0 0 40 40" width={34 * scale} height={34 * scale} aria-hidden
+          style={{ position: "absolute", inset: 0 }}>
+          <g stroke="#EF4444" strokeWidth={3} strokeLinecap="round">
+            <line x1={9} y1={9} x2={31} y2={31} />
+            <line x1={31} y1={9} x2={9} y2={31} />
           </g>
-        )}
-      </g>
-    </svg>
-  );
-}
-
-/* Gradientes compartidos — se renderizan una vez por instancia del odontograma */
-function SharedDefs() {
-  return (
-    <svg width={0} height={0} style={{ position: "absolute" }} aria-hidden>
-      <defs>
-        {/* Corona: gradiente radial para profundidad de esmalte */}
-        <radialGradient id="od-crown" cx="38%" cy="32%" r="65%" gradientUnits="objectBoundingBox">
-          <stop offset="0%"   stopColor="#FFFDF6" />
-          <stop offset="55%"  stopColor="#EFE4CC" />
-          <stop offset="100%" stopColor="#DBC898" />
-        </radialGradient>
-        {/* Overlay especular — reflejo de luz sobre el esmalte */}
-        <radialGradient id="od-hl" cx="16" cy="12" r="14" gradientUnits="userSpaceOnUse">
-          <stop offset="0%"   stopColor="#FFFFFF" stopOpacity="0.52" />
-          <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
-        </radialGradient>
-        <linearGradient id="od-root" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#EFE7D4" /><stop offset="100%" stopColor="#DCCBA6" />
-        </linearGradient>
-        <linearGradient id="od-primary" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#FDF6E0" /><stop offset="100%" stopColor="#EBD49A" />
-        </linearGradient>
-        <linearGradient id="od-sel" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#D8F0F7" /><stop offset="100%" stopColor="#8CC6DA" />
-        </linearGradient>
-        <linearGradient id="od-active" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#B8E4F2" /><stop offset="100%" stopColor="#4D9DBC" />
-        </linearGradient>
-        <linearGradient id="od-treat" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#E3EFFD" /><stop offset="100%" stopColor="#A9CBF5" />
-        </linearGradient>
-      </defs>
-    </svg>
+        </svg>
+      )}
+    </div>
   );
 }
 
@@ -221,8 +143,8 @@ function ToothCard({ t, state, count, onClick, disabled, missingMode }: {
           display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px",
         }}>{count}</span>
       )}
-      {t.jaw === "upper" ? (<>{num}<ToothGlyph type={t.type} jaw="upper" state={state} scale={0.72} /></>)
-                         : (<><ToothGlyph type={t.type} jaw="lower" state={state} scale={0.72} />{num}</>)}
+      {t.jaw === "upper" ? (<>{num}<ToothGlyph fdi={t.fdi} type={t.type} jaw="upper" state={state} scale={0.72} /></>)
+                         : (<><ToothGlyph fdi={t.fdi} type={t.type} jaw="lower" state={state} scale={0.72} />{num}</>)}
     </button>
   );
 }
@@ -300,8 +222,6 @@ export function Odontogram({
 
   return (
     <div style={{ background: "#F8FAFC", borderRadius: 14, padding: "10px 10px 8px", border: "1px solid #E2E8F0" }}>
-      <SharedDefs />
-
       {/* ── Fila 1: Dentición + Vista ─────────────────────────────────────── */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
         <div>

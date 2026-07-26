@@ -21,6 +21,41 @@ describe("Clinic.config — allowlist vs. lo que escribe el onboarding", () => {
     "onboardingDone",
   ];
 
+  // Claves que el seed deja en Clinic.config. Importan porque ClinicProfileTab
+  // guarda con { ...clinic.config, doctores } — reenvía la config completa, así
+  // que una clave sembrada y no permitida rompe TODA edición del perfil.
+  const CLAVES_QUE_SIEMBRA_EL_SEED = [
+    "tone",
+    "assistantName",
+    "schedule",
+    "doctors",
+    "boxes",
+    "services",
+  ];
+
+  // Claves que escribe components/ClinicProfileTab.tsx
+  const CLAVES_QUE_ESCRIBE_EL_PERFIL = [
+    "assistantName",
+    "tone",
+    "logoUrl",
+    "doctors",
+    "services",
+    "boxes",
+    "schedule",
+  ];
+
+  it("permite 'sedes' — las escribe Mi consulta en modo doctor independiente (#69)", () => {
+    expect(ALLOWED_CONFIG_KEYS.has("sedes")).toBe(true);
+  });
+
+  it.each(CLAVES_QUE_SIEMBRA_EL_SEED)("permite '%s' (la siembra el seed)", (key) => {
+    expect(ALLOWED_CONFIG_KEYS.has(key)).toBe(true);
+  });
+
+  it.each(CLAVES_QUE_ESCRIBE_EL_PERFIL)("permite '%s' (la escribe ClinicProfileTab)", (key) => {
+    expect(ALLOWED_CONFIG_KEYS.has(key)).toBe(true);
+  });
+
   it.each(CLAVES_QUE_ESCRIBE_EL_SETUP)("permite '%s' (la escribe el setup)", (key) => {
     expect(ALLOWED_CONFIG_KEYS.has(key)).toBe(true);
   });

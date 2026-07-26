@@ -1,6 +1,7 @@
 import prisma from "../../config/prisma";
 import { config } from "../../config/env";
 import { sendMetaMessage } from "../whatsapp/metaService";
+import { registerScheduler, markSchedulerRun } from "./schedulerHealth";
 
 interface ClinicReminderConfig {
   enabled: boolean;
@@ -94,6 +95,7 @@ async function sendReminder(payload: ReminderPayload): Promise<void> {
 }
 
 export async function runReminderCheck(): Promise<void> {
+  markSchedulerRun("reminder");
   const now = new Date();
 
   // ── Recordatorio del día anterior (D-1) ─────────────────────────────────────
@@ -237,6 +239,7 @@ export async function runReminderCheck(): Promise<void> {
 export function startReminderScheduler(): void {
   // Corre cada 15 minutos
   const INTERVAL_MS = 15 * 60 * 1000;
+  registerScheduler("reminder", INTERVAL_MS);
 
   runReminderCheck().catch((e) => console.error("[Reminder] Error inicial:", e));
   setInterval(() => {

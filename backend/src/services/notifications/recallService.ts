@@ -16,6 +16,7 @@
 import prisma from "../../config/prisma";
 import { sendMetaMessage } from "../whatsapp/metaService";
 import { config } from "../../config/env";
+import { registerScheduler, markSchedulerRun } from "./schedulerHealth";
 
 const DEFAULT_RULES = [
   { triggerService: "Limpieza",             intervalDays: 180, messageTemplate: "Hola {nombre} 👋 Han pasado 6 meses desde tu última limpieza dental en {clinica}. ¿Agendamos tu chequeo? Responde acá para reservar." },
@@ -171,6 +172,7 @@ async function sendRecall(c: RecallCandidate): Promise<void> {
 }
 
 export async function runRecallCheck(): Promise<{ clinics: number; sent: number; failed: number }> {
+  markSchedulerRun("recall");
   const clinics = await prisma.clinic.findMany({
     where: { active: true },
     select: { id: true, name: true, waVerified: true, waPhoneId: true, waToken: true },
@@ -203,6 +205,7 @@ export function startRecallScheduler(): void {
   // Correr una vez al día (24h) — primer run al iniciar después de 5 min
   const ONE_DAY_MS  = 24 * 60 * 60 * 1000;
   const FIRST_DELAY = 5  * 60 * 1000;
+  registerScheduler("recall", ONE_DAY_MS);
 
   setTimeout(() => {
     runRecallCheck().catch((e) => console.error("[Recall] Error inicial:", e));

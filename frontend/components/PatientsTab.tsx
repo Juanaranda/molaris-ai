@@ -718,9 +718,15 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
                   itemsByTooth={odontoItems} readOnly
                 />
                 <p className="text-[10px] text-gray-400 text-center">
-                  Las piezas destacadas en azul tienen prestaciones en presupuestos del paciente.
-                  Para registrar nuevas, usa la pestaña Presupuesto.
+                  Vista de solo lectura. Las piezas en azul tienen prestaciones en presupuestos del paciente.
                 </p>
+                <div className="flex justify-center mt-1">
+                  <button onClick={openClinicalRecord} disabled={openingRecord}
+                    className="text-xs font-bold px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white transition disabled:opacity-50"
+                    title="Editar el odontograma clínico (hallazgos y condiciones) en la ficha">
+                    🩺 {openingRecord ? "Abriendo…" : "Editar en la ficha clínica"}
+                  </button>
+                </div>
               </div>
             )}
           </div>

@@ -17,6 +17,13 @@ import { sendMolariEmail } from "../services/email/molariEmails";
 // cierre del onboarding). Al agregar una clave nueva en el front, sumarla acá.
 export const ALLOWED_CONFIG_KEYS = new Set([
   "tone", "schedule", "doctors", "services", "boxes", "reminders", "onboardingDone",
+  // Sedes donde atiende el doctor independiente (#69 Fase 4)
+  "sedes",
+  // Nombre del asistente IA (lo siembra el seed y lo edita ClinicProfileTab) y
+  // logo de la clínica (base64). Faltaban: como el front reenvía la config
+  // completa al guardar, cualquier edición de doctores/servicios/horario moría
+  // con 400 en clínicas que tenían assistantName.
+  "assistantName", "logoUrl",
 ]);
 
 // Versión vigente del DPA Molaris ↔ Clínica (Issue #38, Ley 21.719).
