@@ -96,6 +96,7 @@ function palOf(doctor: string, palMap?: Record<string, { dot: string; bg: string
 
 interface Booking {
   id: string; doctor: string; time: string; date: string; box: string | null;
+  sede: string | null;
   patientName: string | null; patientRut: string | null;
   patientPhone: string | null; patientEmail: string | null;
   service: string | null; status: string; notes: string | null;
@@ -282,6 +283,9 @@ function BookingModal({ booking, onClose, onSave, onCancel, onNewQuote }: {
                   ["Hora",     booking.time],
                   ["Fecha",    formatDate(booking.date)],
                   ["Box",      booking.box ? `Box ${booking.box}` : "—"],
+                  // Solo se lista si la cita trae sede — en clínica de una sola
+                  // sede la fila vacía sería ruido.
+                  ...(booking.sede ? [["Sede", booking.sede]] : []),
                   ["RUT",      booking.patientRut ?? "—"],
                   ["Teléfono", booking.patientPhone ?? "—"],
                   ["Email",    booking.patientEmail ?? "—"],
@@ -399,14 +403,17 @@ const TIME_OPTIONS = Array.from({ length: 20 }, (_, i) => {
   return `${String(h).padStart(2, "0")}:${m}`;
 });
 
-function NewBookingModal({ doctors, initialDate, boxes, onClose, onCreate }: {
+function NewBookingModal({ doctors, initialDate, boxes, sedes = [], onClose, onCreate }: {
   doctors: string[];
   initialDate: string;
   boxes: number;
+  /** Sedes del doctor independiente (#69). Vacío = no se muestra el selector. */
+  sedes?: string[];
   onClose: () => void;
-  onCreate: (data: { doctor: string; date: string; time: string; box?: string; patientName: string; patientRut?: string; patientPhone?: string; patientEmail?: string; service?: string }) => Promise<void>;
+  onCreate: (data: { doctor: string; date: string; time: string; box?: string; sede?: string; patientName: string; patientRut?: string; patientPhone?: string; patientEmail?: string; service?: string }) => Promise<void>;
 }) {
   const [form, setForm] = useState({ doctor: doctors[0] ?? "", date: initialDate, time: "10:00", box: "1",
+    sede: sedes[0] ?? "",
     patientName: "", patientRut: "", patientPhone: "", patientEmail: "", service: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -421,6 +428,7 @@ function NewBookingModal({ doctors, initialDate, boxes, onClose, onCreate }: {
     try {
       await onCreate({ doctor: form.doctor, date: form.date, time: form.time,
         box: form.box || undefined,
+        sede: form.sede || undefined,
         patientName: form.patientName,
         patientRut:   form.patientRut   || undefined,
         patientPhone: form.patientPhone || undefined,
@@ -473,6 +481,15 @@ function NewBookingModal({ doctors, initialDate, boxes, onClose, onCreate }: {
               </select>
             </div>
           </div>
+          {/* Sede — solo si el doctor configuró más de un lugar de atención */}
+          {sedes.length > 0 && (
+            <div>
+              <label className={lbl}>Sede</label>
+              <select value={form.sede} onChange={set("sede")} className={inp}>
+                {sedes.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          )}
           {/* Patient */}
           <div>
             <label className={lbl}>Nombre paciente *</label>
@@ -514,11 +531,13 @@ function NewBookingModal({ doctors, initialDate, boxes, onClose, onCreate }: {
 function AdminAgenda({
   boxes,
   doctors: doctorNames = [],
+  sedes = [],
   scheduleConfig,
   openNewBookingOnMount = false,
 }: {
   boxes: number;
   doctors?: string[];
+  sedes?: string[];
   scheduleConfig?: Record<string, string>;
   openNewBookingOnMount?: boolean;
 }) {
@@ -947,6 +966,7 @@ function AdminAgenda({
           doctors={doctorNames}
           initialDate={selectedDate}
           boxes={boxes}
+          sedes={sedes}
           onClose={() => setShowNew(false)}
           onCreate={handleCreate}
         />
@@ -1016,17 +1036,19 @@ export function AgendaTab({
   user,
   boxes = 2,
   doctors,
+  sedes,
   scheduleConfig,
   openNewBookingOnMount = false,
 }: {
   user: AuthUser;
   boxes?: number;
   doctors?: string[];
+  sedes?: string[];
   scheduleConfig?: Record<string, string>;
   openNewBookingOnMount?: boolean;
 }) {
   const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
   return isAdmin
-    ? <AdminAgenda boxes={boxes} doctors={doctors} scheduleConfig={scheduleConfig} openNewBookingOnMount={openNewBookingOnMount} />
+    ? <AdminAgenda boxes={boxes} doctors={doctors} sedes={sedes} scheduleConfig={scheduleConfig} openNewBookingOnMount={openNewBookingOnMount} />
     : <DoctorAgenda user={user} />;
 }

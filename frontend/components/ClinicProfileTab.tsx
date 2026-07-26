@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { updateClinic, ClinicData } from "@/lib/auth";
 import { DoctorsEditor, DoctorRow } from "@/components/DoctorsEditor";
 import { ServicesEditor, ServiceRow } from "@/components/ServicesEditor";
+import { SedesEditor } from "@/components/SedesEditor";
 import { IntegrationsSection } from "@/components/IntegrationsSection";
 import { AgentControl } from "@/components/AgentControl";
 
@@ -14,6 +15,7 @@ interface ClinicConfig {
   doctors?: DoctorRow[];
   services?: ServiceRow[];
   boxes?: number;
+  sedes?: string[];
   schedule?: { weekdays?: string; saturday?: string; sunday?: string };
 }
 
@@ -142,6 +144,12 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
 
   async function saveDoctors(doctors: DoctorRow[], boxes: number) {
     const config = { ...(clinic.config as ClinicConfig), doctors, boxes };
+    const updated = await updateClinic(clinic.id, { config: config as Record<string, unknown> });
+    onUpdate(updated);
+  }
+
+  async function saveSedes(sedes: string[]) {
+    const config = { ...(clinic.config as ClinicConfig), sedes };
     const updated = await updateClinic(clinic.id, { config: config as Record<string, unknown> });
     onUpdate(updated);
   }
@@ -402,6 +410,16 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
         canEdit={canEdit}
         onSave={saveDoctors}
       />
+
+      {/* ── Sedes (solo doctor independiente: la clínica con equipo ya tiene
+             una dirección única y usa boxes para separar la agenda) ── */}
+      {clinic.accountType === "solo" && (
+        <SedesEditor
+          sedes={cfg.sedes ?? []}
+          canEdit={canEdit}
+          onSave={saveSedes}
+        />
+      )}
 
       {/* ── Servicios ── */}
       <ServicesEditor

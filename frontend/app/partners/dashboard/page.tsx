@@ -50,6 +50,7 @@ interface ClinicConfig {
   doctors?: DoctorRow[];
   services?: ServiceRow[];
   boxes?: number;
+  sedes?: string[];
   schedule?: { weekdays?: string; saturday?: string; sunday?: string };
   reminders?: ReminderConfig;
   recallCampaign?: RecallConfig;
@@ -1307,6 +1308,7 @@ export default function PartnersDashboard() {
                   user={user}
                   boxes={(clinic.config as ClinicConfig).boxes ?? 2}
                   doctors={(clinic.config as ClinicConfig).doctors?.map((d) => d.name) ?? []}
+                  sedes={(clinic.config as ClinicConfig).sedes ?? []}
                   scheduleConfig={(clinic.config as ClinicConfig).schedule as Record<string, string> | undefined}
                   openNewBookingOnMount={agendaAutoOpen}
                 />
