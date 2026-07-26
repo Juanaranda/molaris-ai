@@ -6,6 +6,8 @@ import {
   getCatalog, getOdontogram, createDentalEvent,
 } from "@/lib/odontogram";
 import { StandardOdontogram } from "@/components/StandardOdontogram";
+import { ToothFrontView } from "@/components/ToothFrontView";
+import { toothTypeOf, isUpperFdi } from "@/lib/tooth";
 import { ToothSurfaceWheel } from "@/components/ToothSurfaceWheel";
 
 interface Props {
@@ -101,11 +103,21 @@ export function OdontogramPanel({ patientId }: Props) {
       {selected && (
         <div className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <div>
-              <h4 className="text-sm font-bold text-gray-900">Pieza {selected}</h4>
-              {selectedProjection?.isExtracted && (
-                <span className="text-[10px] font-bold uppercase tracking-wider text-red-600">Extraída</span>
-              )}
+            <div className="flex items-center gap-3">
+              {/* Vista anatómica: la grilla usa el diagrama de superficies (denso,
+                  para escanear); acá se ve la pieza real al analizarla. */}
+              <ToothFrontView
+                type={toothTypeOf(selected)}
+                jaw={isUpperFdi(selected) ? "upper" : "lower"}
+                size={34}
+                tint={selectedProjection?.isExtracted ? "#9CA3AF" : undefined}
+              />
+              <div>
+                <h4 className="text-sm font-bold text-gray-900">Pieza {selected}</h4>
+                {selectedProjection?.isExtracted && (
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-red-600">Extraída</span>
+                )}
+              </div>
             </div>
             <button onClick={() => setShowAddFor(selected)}
               className="text-xs font-bold px-3 py-1.5 rounded-xl bg-[#1A5C7A] text-white hover:bg-[#0e4560] transition">
