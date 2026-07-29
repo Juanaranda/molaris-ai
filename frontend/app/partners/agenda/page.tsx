@@ -50,26 +50,56 @@ function slotIndexOf(time: string): number {
   return (h - GRID_START) * 2 + Math.floor(m / 30);
 }
 
-/* Horario de atención de la clínica, por día de la semana (0 = domingo).
-   La grilla va de 9 a 19 para dar aire, pero fuera de estas horas no se
-   atiende: se atenúa para que nadie ofrezca —ni agende— una hora imposible.
-   TODO: hoy es fijo; cuando la clínica cargue sus horarios (y los de cada
-   profesional) esto debe salir de la configuración. */
-const HORARIO_ATENCION: Record<number, { desde: number; hasta: number } | null> = {
-  0: null,                        // domingo cerrado
-  1: { desde: 10, hasta: 18 }, 2: { desde: 10, hasta: 18 },
-  3: { desde: 10, hasta: 18 }, 4: { desde: 10, hasta: 18 },
-  5: { desde: 10, hasta: 18 },
-  6: { desde: 10, hasta: 14 },    // sábado corto
+interface HoraRango { from: string; to: string }
+
+/** Horario por defecto mientras la clínica no configure el suyo. */
+const HORARIO_POR_DEFECTO: Record<number, HoraRango | null> = {
+  0: null,                                                        // domingo cerrado
+  1: { from: "10:00", to: "18:00" }, 2: { from: "10:00", to: "18:00" },
+  3: { from: "10:00", to: "18:00" }, 4: { from: "10:00", to: "18:00" },
+  5: { from: "10:00", to: "18:00" },
+  6: { from: "10:00", to: "14:00" },                              // sábado corto
 };
 
-/** ¿Ese horario cae dentro de la atención de ese día? */
-function enHorario(dateStr: string, slot: string): boolean {
+function aMinutos(hhmm: string | undefined): number | null {
+  if (!hhmm) return null;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+/**
+ * Ventana de atención de ese día: el horario de la clínica, y si hay un
+ * profesional filtrado, la intersección con el suyo. Así al mirar la agenda
+ * de una doctora que entra a las 15:00, la mañana se ve cerrada para ella.
+ */
+function ventanaDe(
+  dateStr: string,
+  openingHours: Record<string, HoraRango | null> | undefined,
+  doctorHours: HoraRango | undefined,
+): { desde: number; hasta: number } | null {
   const dow = new Date(dateStr + "T12:00:00").getDay();
-  const h = HORARIO_ATENCION[dow];
-  if (!h) return false;
-  const hora = Number(slot.slice(0, 2));
-  return hora >= h.desde && hora < h.hasta;
+  const propio = openingHours?.[String(dow)];
+  const clinica = propio !== undefined ? propio : HORARIO_POR_DEFECTO[dow];
+  if (!clinica) return null;
+  const cD = aMinutos(clinica.from), cH = aMinutos(clinica.to);
+  if (cD == null || cH == null || cH <= cD) return null;
+  const desde = Math.max(cD, aMinutos(doctorHours?.from) ?? cD);
+  const hasta = Math.min(cH, aMinutos(doctorHours?.to) ?? cH);
+  return hasta > desde ? { desde, hasta } : null;
+}
+
+/** ¿Ese horario cae dentro de la ventana de atención? */
+function enHorario(
+  dateStr: string,
+  slot: string,
+  openingHours: Record<string, HoraRango | null> | undefined,
+  doctorHours: HoraRango | undefined,
+): boolean {
+  const v = ventanaDe(dateStr, openingHours, doctorHours);
+  if (!v) return false;
+  const t = aMinutos(slot);
+  return t != null && t >= v.desde && t < v.hasta;
 }
 
 function getMondayOf(date: Date): Date {
@@ -231,11 +261,14 @@ function TimeCell({ rowIdx }: { rowIdx: number }) {
 }
 
 /* ── Day view grid (doctors = columns) ────────────────────────────────────── */
-function DayGrid({ bookings, doctors, date, onSelect, onNewBooking }: {
+function DayGrid({ bookings, doctors, date, openingHours, doctorHours, onSelect, onNewBooking }: {
   bookings: Booking[];
   doctors: string[];
   /** Fecha del día mostrado, para saber su horario de atención. */
   date: string;
+  openingHours?: Record<string, HoraRango | null>;
+  /** Horario del profesional filtrado, si hay uno. */
+  doctorHours?: HoraRango;
   onSelect: (b: Booking) => void;
   onNewBooking: (time: string) => void;
 }) {
@@ -291,7 +324,7 @@ function DayGrid({ bookings, doctors, date, onSelect, onNewBooking }: {
               {doctors.map((doc, colIdx) => {
                 const pal = palMap[idDoctor(doc)] ?? PALETTE[colIdx % PALETTE.length];
                 const cell = bookings.filter((b) => idDoctor(b.doctor) === idDoctor(doc) && slotIndexOf(b.time) === rowIdx);
-                const abierto = enHorario(date, slot);
+                const abierto = enHorario(date, slot, openingHours, doctorHours);
                 const fondoBase = abierto ? "transparent" : "#F1EEE9";
                 return (
                   <div key={doc}
@@ -318,9 +351,12 @@ function DayGrid({ bookings, doctors, date, onSelect, onNewBooking }: {
 }
 
 /* ── Week view grid (days = columns) ──────────────────────────────────────── */
-function WeekGrid({ days, doctors, onSelect, onNewBooking }: {
+function WeekGrid({ days, doctors, openingHours, doctorHours, onSelect, onNewBooking }: {
   days: DayData[];
   doctors: string[];
+  openingHours?: Record<string, HoraRango | null>;
+  /** Horario del profesional filtrado, si hay uno. */
+  doctorHours?: HoraRango;
   onSelect: (b: Booking) => void;
   onNewBooking: (date: string, time: string) => void;
 }) {
@@ -391,7 +427,7 @@ function WeekGrid({ days, doctors, onSelect, onNewBooking }: {
               {days.map((day) => {
                 const isToday = day.date === todayStr;
                 const cell = day.bookings.filter((b) => slotIndexOf(b.time) === rowIdx);
-                const abierto = enHorario(day.date, slot);
+                const abierto = enHorario(day.date, slot, openingHours, doctorHours);
                 // Fuera de horario no se agenda, pero si ya hay una cita ahí
                 // se muestra igual: ocultarla sería peor que mostrarla.
                 const fondoBase = !abierto ? "#F1EEE9" : isToday ? `${C.accent}06` : "transparent";
@@ -681,6 +717,12 @@ export default function AgendaPage() {
   const [clinicDoctors, setClinicDoctors] = useState<string[]>(FALLBACK_DOCTORS);
   /** null = todos. Filtra la grilla para ver la agenda de un profesional. */
   const [doctorFiltro, setDoctorFiltro] = useState<string | null>(null);
+  const [openingHours, setOpeningHours] = useState<Record<string, HoraRango | null> | undefined>(undefined);
+  const [horasPorDoctor, setHorasPorDoctor] = useState<Record<string, HoraRango>>({});
+
+  // Solo al filtrar por una persona tiene sentido atenuar según SU horario;
+  // con "Todos" la grilla muestra la ventana completa de la clínica.
+  const horasDelFiltro = doctorFiltro ? horasPorDoctor[idDoctor(doctorFiltro)] : undefined;
 
   /**
    * Profesionales que muestra el filtro: los configurados MÁS los que
@@ -714,8 +756,21 @@ export default function AgendaPage() {
   useEffect(() => {
     getMe().then((data) => {
       if (!data) { router.push("/login"); return; }
-      const cfg = data.clinic?.config as { doctors?: { name: string }[] } | undefined;
-      if (cfg?.doctors?.length) setClinicDoctors(cfg.doctors.map((d) => d.name));
+      const cfg = data.clinic?.config as {
+        doctors?: { name: string; hours?: HoraRango }[];
+        openingHours?: Record<string, HoraRango | null>;
+      } | undefined;
+      if (cfg?.doctors?.length) {
+        setClinicDoctors(cfg.doctors.map((d) => d.name));
+        // Se guarda el horario de cada uno para poder atenuar la grilla según
+        // la persona que se esté mirando, no solo según la clínica.
+        setHorasPorDoctor(
+          Object.fromEntries(
+            cfg.doctors.filter((d) => d.hours?.from && d.hours?.to).map((d) => [idDoctor(d.name), d.hours!]),
+          ),
+        );
+      }
+      if (cfg?.openingHours) setOpeningHours(cfg.openingHours);
       setAuthChecked(true);
     });
   }, [router]);
@@ -998,6 +1053,8 @@ export default function AgendaPage() {
           <WeekGrid
             days={daysVisibles}
             doctors={clinicDoctors}
+            openingHours={openingHours}
+            doctorHours={horasDelFiltro}
             onSelect={setSelectedBooking}
             onNewBooking={openNewBooking}
           />
@@ -1033,6 +1090,8 @@ export default function AgendaPage() {
                 bookings={selectedDay.bookings}
                 doctors={doctorFiltro ? [doctorFiltro] : doctoresFiltro}
                 date={selectedDate}
+                openingHours={openingHours}
+                doctorHours={horasDelFiltro}
                 onSelect={setSelectedBooking}
                 onNewBooking={(time) => openNewBooking(selectedDate, time)}
               />
