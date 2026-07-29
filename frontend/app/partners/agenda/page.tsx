@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getMe, getToken } from "@/lib/auth";
@@ -50,6 +50,28 @@ function slotIndexOf(time: string): number {
   return (h - GRID_START) * 2 + Math.floor(m / 30);
 }
 
+/* Horario de atención de la clínica, por día de la semana (0 = domingo).
+   La grilla va de 9 a 19 para dar aire, pero fuera de estas horas no se
+   atiende: se atenúa para que nadie ofrezca —ni agende— una hora imposible.
+   TODO: hoy es fijo; cuando la clínica cargue sus horarios (y los de cada
+   profesional) esto debe salir de la configuración. */
+const HORARIO_ATENCION: Record<number, { desde: number; hasta: number } | null> = {
+  0: null,                        // domingo cerrado
+  1: { desde: 10, hasta: 18 }, 2: { desde: 10, hasta: 18 },
+  3: { desde: 10, hasta: 18 }, 4: { desde: 10, hasta: 18 },
+  5: { desde: 10, hasta: 18 },
+  6: { desde: 10, hasta: 14 },    // sábado corto
+};
+
+/** ¿Ese horario cae dentro de la atención de ese día? */
+function enHorario(dateStr: string, slot: string): boolean {
+  const dow = new Date(dateStr + "T12:00:00").getDay();
+  const h = HORARIO_ATENCION[dow];
+  if (!h) return false;
+  const hora = Number(slot.slice(0, 2));
+  return hora >= h.desde && hora < h.hasta;
+}
+
 function getMondayOf(date: Date): Date {
   const d = new Date(date);
   const day = d.getDay();
@@ -70,8 +92,32 @@ interface DayData { date: string; bookings: Booking[]; }
 type ViewMode = "day" | "week";
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
+/**
+ * Color por profesional, indexado por identidad y no por el texto exacto.
+ *
+ * Si se indexara por el string tal cual, una cita creada como "Dra. Ivonne
+ * Poblete" no encontraría el color de la configuración ("Dr. Ivonne Poblete")
+ * y caería al color por defecto: la tarjeta se vería de un color distinto al
+ * de su propio chip en la leyenda.
+ */
 function buildPalMap(doctors: string[]) {
-  return Object.fromEntries(doctors.map((d, i) => [d, PALETTE[i % PALETTE.length]]));
+  return Object.fromEntries(doctors.map((d, i) => [idDoctor(d), PALETTE[i % PALETTE.length]]));
+}
+
+/**
+ * Identidad de un profesional, ignorando el tratamiento y los acentos.
+ *
+ * "Dr. Nicolás Rojas", "Dra. Nicolas Rojas" y "nicolas rojas" son la misma
+ * persona: su agenda no debe partirse en dos porque alguien escribió "Dra."
+ * en vez de "Dr." al crear la cita, o porque se renombró en la configuración.
+ */
+function idDoctor(nombre: string): string {
+  return nombre
+    .replace(/^\s*dra?\.?\s+/i, "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
 }
 
 function nowOffsetPx(): number {
@@ -185,9 +231,11 @@ function TimeCell({ rowIdx }: { rowIdx: number }) {
 }
 
 /* ── Day view grid (doctors = columns) ────────────────────────────────────── */
-function DayGrid({ bookings, doctors, onSelect, onNewBooking }: {
+function DayGrid({ bookings, doctors, date, onSelect, onNewBooking }: {
   bookings: Booking[];
   doctors: string[];
+  /** Fecha del día mostrado, para saber su horario de atención. */
+  date: string;
   onSelect: (b: Booking) => void;
   onNewBooking: (time: string) => void;
 }) {
@@ -204,7 +252,7 @@ function DayGrid({ bookings, doctors, onSelect, onNewBooking }: {
         }}>
           <div />
           {doctors.map((doc, i) => {
-            const pal = palMap[doc] ?? PALETTE[i % PALETTE.length];
+            const pal = palMap[idDoctor(doc)] ?? PALETTE[i % PALETTE.length];
             const abbr = doc.replace("Dra. ","").replace("Dr. ","");
             const [first, ...rest] = abbr.split(" ");
             return (
@@ -241,16 +289,20 @@ function DayGrid({ bookings, doctors, onSelect, onNewBooking }: {
             }}>
               <TimeCell rowIdx={rowIdx} />
               {doctors.map((doc, colIdx) => {
-                const pal = palMap[doc] ?? PALETTE[colIdx % PALETTE.length];
-                const cell = bookings.filter((b) => b.doctor === doc && slotIndexOf(b.time) === rowIdx);
+                const pal = palMap[idDoctor(doc)] ?? PALETTE[colIdx % PALETTE.length];
+                const cell = bookings.filter((b) => idDoctor(b.doctor) === idDoctor(doc) && slotIndexOf(b.time) === rowIdx);
+                const abierto = enHorario(date, slot);
+                const fondoBase = abierto ? "transparent" : "#F1EEE9";
                 return (
                   <div key={doc}
-                    onClick={() => { if (!cell.length) onNewBooking(slot); }}
+                    onClick={() => { if (!cell.length && abierto) onNewBooking(slot); }}
+                    title={!abierto && !cell.length ? "Fuera del horario de atención" : undefined}
                     style={{ borderLeft: `1px solid ${C.border}`, padding: "4px 5px",
                       display: "flex", flexDirection: "column", gap: 3,
-                      cursor: cell.length ? "default" : "pointer" }}
-                    onMouseEnter={(e) => { if (!cell.length) (e.currentTarget as HTMLDivElement).style.background = `${C.accent}08`; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}>
+                      background: fondoBase,
+                      cursor: cell.length || !abierto ? "default" : "pointer" }}
+                    onMouseEnter={(e) => { if (!cell.length && abierto) (e.currentTarget as HTMLDivElement).style.background = `${C.accent}08`; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = fondoBase; }}>
                     {cell.map((b) => (
                       <BookingCard key={b.id} booking={b} color={pal} onClick={() => onSelect(b)} />
                     ))}
@@ -339,19 +391,24 @@ function WeekGrid({ days, doctors, onSelect, onNewBooking }: {
               {days.map((day) => {
                 const isToday = day.date === todayStr;
                 const cell = day.bookings.filter((b) => slotIndexOf(b.time) === rowIdx);
+                const abierto = enHorario(day.date, slot);
+                // Fuera de horario no se agenda, pero si ya hay una cita ahí
+                // se muestra igual: ocultarla sería peor que mostrarla.
+                const fondoBase = !abierto ? "#F1EEE9" : isToday ? `${C.accent}06` : "transparent";
                 return (
                   <div key={day.date}
-                    onClick={() => { if (!cell.length) onNewBooking(day.date, slot); }}
+                    onClick={() => { if (!cell.length && abierto) onNewBooking(day.date, slot); }}
+                    title={!abierto && !cell.length ? "Fuera del horario de atención" : undefined}
                     style={{
                       borderLeft: `1px solid ${C.border}`, padding: "3px 4px",
-                      background: isToday ? `${C.accent}06` : "transparent",
-                      cursor: cell.length ? "default" : "pointer",
+                      background: fondoBase,
+                      cursor: cell.length || !abierto ? "default" : "pointer",
                       transition: "background 0.1s",
                     }}
-                    onMouseEnter={(e) => { if (!cell.length) (e.currentTarget as HTMLDivElement).style.background = `${C.accent}10`; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = isToday ? `${C.accent}06` : "transparent"; }}>
+                    onMouseEnter={(e) => { if (!cell.length && abierto) (e.currentTarget as HTMLDivElement).style.background = `${C.accent}10`; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = fondoBase; }}>
                     {cell.map((b) => {
-                      const color = palMap[b.doctor] ?? PALETTE[0];
+                      const color = palMap[idDoctor(b.doctor)] ?? PALETTE[0];
                       return <MiniCard key={b.id} booking={b} color={color} onClick={() => onSelect(b)} />;
                     })}
                   </div>
@@ -622,6 +679,37 @@ export default function AgendaPage() {
   const [newDefaults, setNewDefaults] = useState({ date: toDateStr(new Date()), time: "10:00" });
   const [authChecked, setAuthChecked] = useState(false);
   const [clinicDoctors, setClinicDoctors] = useState<string[]>(FALLBACK_DOCTORS);
+  /** null = todos. Filtra la grilla para ver la agenda de un profesional. */
+  const [doctorFiltro, setDoctorFiltro] = useState<string | null>(null);
+
+  /**
+   * Profesionales que muestra el filtro: los configurados MÁS los que
+   * aparezcan en las citas de la semana.
+   *
+   * Si una cita tiene un nombre que no calza exacto con la configuración
+   * (renombrar "Dr." a "Dra.", una cita creada por el agente con otra grafía,
+   * o citas viejas de antes de un cambio), sin esta unión quedaría huérfana:
+   * visible en "Todos" pero fuera de todo filtro, o sea invisible para el
+   * doctor que busca su día. El filtro nunca debe esconder datos.
+   */
+  const doctoresFiltro = useMemo(() => {
+    const vistos = new Set(clinicDoctors.map(idDoctor));
+    const extras: string[] = [];
+    for (const d of days) {
+      for (const b of d.bookings) {
+        if (!b.doctor) continue;
+        const id = idDoctor(b.doctor);
+        if (vistos.has(id)) continue;   // ya cubierto por la configuración
+        vistos.add(id);
+        extras.push(b.doctor);
+      }
+    }
+    return [...clinicDoctors, ...extras.sort()];
+  }, [clinicDoctors, days]);
+
+  // Mismo criterio de color que usa la grilla, para que la leyenda y las
+  // tarjetas nunca se contradigan.
+  const palMapGlobal = useMemo(() => buildPalMap(doctoresFiltro), [doctoresFiltro]);
 
   useEffect(() => {
     getMe().then((data) => {
@@ -657,7 +745,18 @@ export default function AgendaPage() {
 
   const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 5);
   const todayStr = toDateStr(new Date());
-  const selectedDay = days.find((d) => d.date === selectedDate);
+
+  // El filtro se aplica sobre los datos ya cargados: la semana entera viene en
+  // una sola llamada, así que cambiar de profesional es instantáneo y no
+  // vuelve a pegarle al servidor.
+  const daysVisibles = doctorFiltro
+    ? days.map((d) => ({
+        ...d,
+        bookings: d.bookings.filter((b) => idDoctor(b.doctor) === idDoctor(doctorFiltro)),
+      }))
+    : days;
+
+  const selectedDay = daysVisibles.find((d) => d.date === selectedDate);
   const todayBookings = days.find((d) => d.date === todayStr)?.bookings ?? [];
   const confirmedToday = todayBookings.filter((b) => b.status === "confirmed").length;
   const pendingToday   = todayBookings.filter((b) => b.status === "pending").length;
@@ -837,6 +936,57 @@ export default function AgendaPage() {
         )}
       </div>
 
+      {/* ── Filtro por profesional + leyenda de colores ──────────────────────
+          Los colores ya distinguían a cada profesional, pero no había forma de
+          saber cuál era cuál: había que abrir una cita para averiguarlo. Esta
+          barra es leyenda y filtro a la vez, y responde al "muéstrame solo mis
+          horas", que es lo primero que pide un doctor al entrar. */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+        padding: "10px 24px", background: C.card, borderTop: `1px solid ${C.border}` }}>
+        <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase",
+          letterSpacing: 0.5, color: C.muted, marginRight: 2 }}>Profesional</span>
+
+        <button onClick={() => setDoctorFiltro(null)}
+          style={{
+            display: "flex", alignItems: "center", gap: 6, cursor: "pointer",
+            padding: "5px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700,
+            border: `1.5px solid ${doctorFiltro === null ? C.accent : C.border}`,
+            background: doctorFiltro === null ? C.accent : "white",
+            color: doctorFiltro === null ? "white" : C.muted,
+            transition: "all 0.15s",
+          }}>
+          Todos
+          <span style={{ fontSize: 10, opacity: 0.75 }}>
+            {days.reduce((n, d) => n + d.bookings.filter((b) => b.status !== "cancelled").length, 0)}
+          </span>
+        </button>
+
+        {doctoresFiltro.map((doc) => {
+          const color  = palMapGlobal[idDoctor(doc)] ?? PALETTE[0];
+          const activo = doctorFiltro === doc;
+          const n = days.reduce(
+            (acc, d) => acc + d.bookings.filter((b) => idDoctor(b.doctor) === idDoctor(doc) && b.status !== "cancelled").length, 0,
+          );
+          return (
+            <button key={doc} onClick={() => setDoctorFiltro(activo ? null : doc)}
+              title={n === 0 ? `${doc} — sin citas esta semana` : `${doc} — ${n} cita${n !== 1 ? "s" : ""} esta semana`}
+              style={{
+                display: "flex", alignItems: "center", gap: 6, cursor: "pointer",
+                padding: "5px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700,
+                border: `1.5px solid ${activo ? color.solid : C.border}`,
+                background: activo ? color.light : "white",
+                color: activo ? color.text : C.muted,
+                opacity: n === 0 && !activo ? 0.5 : 1,
+                transition: "all 0.15s",
+              }}>
+              <span style={{ width: 9, height: 9, borderRadius: "50%", background: color.solid, flexShrink: 0 }} />
+              {doc.replace(/^Dra?\.\s*/, "")}
+              <span style={{ fontSize: 10, opacity: 0.75 }}>{n}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* ── Grid ────────────────────────────────────────────────────────────── */}
       <div style={{ background: C.card, borderTop: `1px solid ${C.border}` }}>
         {loading ? (
@@ -846,7 +996,7 @@ export default function AgendaPage() {
           </div>
         ) : viewMode === "week" ? (
           <WeekGrid
-            days={days}
+            days={daysVisibles}
             doctors={clinicDoctors}
             onSelect={setSelectedBooking}
             onNewBooking={openNewBooking}
@@ -881,7 +1031,8 @@ export default function AgendaPage() {
             ) : (
               <DayGrid
                 bookings={selectedDay.bookings}
-                doctors={clinicDoctors}
+                doctors={doctorFiltro ? [doctorFiltro] : doctoresFiltro}
+                date={selectedDate}
                 onSelect={setSelectedBooking}
                 onNewBooking={(time) => openNewBooking(selectedDate, time)}
               />
