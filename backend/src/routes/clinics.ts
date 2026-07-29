@@ -24,6 +24,10 @@ export const ALLOWED_CONFIG_KEYS = new Set([
   // completa al guardar, cualquier edición de doctores/servicios/horario moría
   // con 400 en clínicas que tenían assistantName.
   "assistantName", "logoUrl",
+  // Horario estructurado por día (la agenda y la disponibilidad lo usan para
+  // decidir qué horas ofrecer). "schedule" queda como el texto derivado que
+  // lee el asistente.
+  "openingHours",
 ]);
 
 // Versión vigente del DPA Molaris ↔ Clínica (Issue #38, Ley 21.719).
