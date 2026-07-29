@@ -24,6 +24,18 @@ if (isProduction && !metaVerifyToken) {
   );
 }
 
+/**
+ * Deja el remitente de WhatsApp en el formato que exige Twilio: "whatsapp:+<número>".
+ * Acepta la variable con o sin el prefijo, y con o sin el "+".
+ * Devuelve "" si no hay número, que es la señal de "canal no configurado".
+ */
+function normalizeWhatsappFrom(raw?: string): string {
+  const valor = (raw ?? "").trim();
+  if (!valor) return "";
+  const digits = valor.replace(/^whatsapp:/i, "").replace(/\D/g, "");
+  return digits ? `whatsapp:+${digits}` : "";
+}
+
 export const config = {
   port: Number(process.env.PORT) || 3001,
   nodeEnv: process.env.NODE_ENV || "development",
@@ -74,7 +86,11 @@ export const config = {
   twilio: {
     accountSid: process.env.TWILIO_ACCOUNT_SID ?? "",
     authToken:  process.env.TWILIO_AUTH_TOKEN  ?? "",
-    from:       process.env.TWILIO_WHATSAPP_FROM ?? "",
+    // Twilio exige que `from` y `to` sean del mismo canal: si el número va sin
+    // el prefijo "whatsapp:" rechaza el envío con el error 21910 y el mensaje
+    // nunca sale. Se normaliza acá para que la variable de entorno pueda venir
+    // en cualquiera de los dos formatos.
+    from:       normalizeWhatsappFrom(process.env.TWILIO_WHATSAPP_FROM),
     // WhatsApp de entrada por Twilio (número de beta compartido). Todos los
     // mensajes entrantes se enrutan a esta clínica (por slug).
     betaClinicSlug:    process.env.TWILIO_BETA_CLINIC_SLUG ?? "",

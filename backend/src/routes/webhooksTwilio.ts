@@ -80,15 +80,21 @@ export async function webhookTwilioRoutes(app: FastifyInstance) {
       return reply.send(twiml());
     }
 
+    // Si el enrutamiento no está bien configurado, el paciente igual recibe una
+    // respuesta. Antes se devolvía TwiML vacío y quedaba en silencio absoluto:
+    // ni el paciente sabía que su mensaje llegó, ni Twilio registraba un error,
+    // así que el problema solo era visible leyendo estos logs.
     const slug = config.twilio.betaClinicSlug;
     if (!slug) {
-      console.warn("[Twilio webhook] TWILIO_BETA_CLINIC_SLUG no configurado — mensaje ignorado");
-      return reply.send(twiml());
+      console.error("[Twilio webhook] TWILIO_BETA_CLINIC_SLUG no configurado — el agente no puede responder");
+      return reply.send(twiml(HUMAN_FALLBACK));
     }
     const clinic = await prisma.clinic.findUnique({ where: { slug } });
     if (!clinic || !clinic.active) {
-      console.warn(`[Twilio webhook] Clínica "${slug}" no encontrada o inactiva`);
-      return reply.send(twiml());
+      console.error(
+        `[Twilio webhook] Clínica "${slug}" ${!clinic ? "no existe en la base (¿falta correr el seed?)" : "está inactiva"} — el agente no puede responder`,
+      );
+      return reply.send(twiml(HUMAN_FALLBACK));
     }
 
     // Paciente + sesión (por teléfono, canal whatsapp)
