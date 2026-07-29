@@ -101,6 +101,14 @@ export function OdontogramPanel({ patientId }: Props) {
         />
       </div>
 
+      {/* Tabla de hallazgos — la lectura auditable del odontograma */}
+      <FindingsTable
+        teeth={teeth}
+        catalog={catalog}
+        selected={selected}
+        onSelect={setSelected}
+      />
+
       {/* Detalle del diente seleccionado */}
       {selected && (
         <div className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-col gap-3">
@@ -188,6 +196,180 @@ export function OdontogramPanel({ patientId }: Props) {
     </div>
   );
 }
+
+/* ─── Tabla de hallazgos ───────────────────────────────────────────────────
+ * El odontograma se lee rápido pero no se audita: no permite ordenar por
+ * fecha, ni contar cuántas caries hay pendientes, ni leerlo en voz alta al
+ * paciente. Esta tabla es la misma información en forma de lista —el patrón
+ * que las clínicas ya usan bajo el gráfico— y mantiene la selección
+ * sincronizada con el diagrama en ambos sentidos.
+ */
+type FindingRow = {
+  fdi:           string;
+  conditionCode: string;
+  surfaces:      DentalSurface[];
+  occurredAt:    string;
+  severity:      number | null;
+  isExtracted:   boolean;
+};
+
+/** Orden anatómico: cuadrantes 1→4, y dentro de cada uno de la línea media hacia atrás. */
+function ordenFdi(a: string, b: string): number {
+  const qa = Number(a[0]), qb = Number(b[0]);
+  if (qa !== qb) return qa - qb;
+  return Number(a[1]) - Number(b[1]);
+}
+
+function FindingsTable({
+  teeth, catalog, selected, onSelect,
+}: {
+  teeth:    Record<string, ToothProjection>;
+  catalog:  { conditions: ConditionMeta[]; surfaces: DentalSurface[] };
+  selected: string | null;
+  onSelect: (fdi: string) => void;
+}) {
+  const [orden, setOrden] = useState<"pieza" | "fecha">("pieza");
+  const [soloPendientes, setSoloPendientes] = useState(false);
+
+  const filas = useMemo(() => {
+    const out: FindingRow[] = [];
+    for (const proj of Object.values(teeth)) {
+      if (proj.isExtracted) {
+        // La extracción se muestra como hallazgo aunque ya no tenga condiciones
+        // activas: es el dato más relevante de esa pieza.
+        const ev = proj.events.find((e) => e.conditionCode === "extraccion" || e.conditionCode === "ausente");
+        out.push({
+          fdi: proj.toothFDI, conditionCode: ev?.conditionCode ?? "ausente",
+          surfaces: [], occurredAt: ev?.occurredAt ?? "", severity: null, isExtracted: true,
+        });
+        continue;
+      }
+      for (const c of proj.activeConditions) {
+        if (c.conditionCode === "sano") continue;
+        out.push({
+          fdi: proj.toothFDI, conditionCode: c.conditionCode, surfaces: c.surfaces,
+          occurredAt: c.occurredAt, severity: c.severity, isExtracted: false,
+        });
+      }
+    }
+    const visibles = soloPendientes
+      ? out.filter((f) => CONDITION_STATE[f.conditionCode] === "pendiente")
+      : out;
+    return visibles.sort((a, b) =>
+      orden === "pieza"
+        ? ordenFdi(a.fdi, b.fdi)
+        : (b.occurredAt ?? "").localeCompare(a.occurredAt ?? ""),
+    );
+  }, [teeth, orden, soloPendientes]);
+
+  const pendientes = useMemo(
+    () => Object.values(teeth).reduce(
+      (n, p) => n + (p.isExtracted ? 0 : p.activeConditions.filter((c) => CONDITION_STATE[c.conditionCode] === "pendiente").length),
+      0,
+    ),
+    [teeth],
+  );
+
+  const labelDe = (code: string) =>
+    catalog.conditions.find((c) => c.code === code)?.label ?? code;
+
+  if (Object.keys(teeth).length === 0) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center">
+        <p className="text-sm text-gray-400">Sin hallazgos registrados</p>
+        <p className="text-[11px] text-gray-300 mt-1">Selecciona una pieza en el diagrama para registrar el primero</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      <div className="px-4 py-3 flex items-center gap-3 flex-wrap border-b border-gray-50">
+        <h4 className="text-sm font-bold text-gray-900">Hallazgos</h4>
+        <span className="text-[11px] text-gray-400">
+          {filas.length} registro{filas.length !== 1 ? "s" : ""}
+          {pendientes > 0 && <span className="text-red-600 font-bold"> · {pendientes} pendiente{pendientes !== 1 ? "s" : ""}</span>}
+        </span>
+        <div className="ml-auto flex items-center gap-1.5">
+          {pendientes > 0 && (
+            <button onClick={() => setSoloPendientes((v) => !v)}
+              className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition ${
+                soloPendientes
+                  ? "bg-red-50 text-red-700 border-red-200"
+                  : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+              }`}>
+              Solo pendientes
+            </button>
+          )}
+          <button onClick={() => setOrden((o) => (o === "pieza" ? "fecha" : "pieza"))}
+            className="text-[11px] font-bold px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:border-gray-300 transition"
+            title="Cambiar el orden de la tabla">
+            {orden === "pieza" ? "↕ Por pieza" : "↕ Por fecha"}
+          </button>
+        </div>
+      </div>
+
+      {filas.length === 0 ? (
+        <p className="text-xs text-gray-400 text-center py-6">Sin hallazgos con este filtro</p>
+      ) : (
+        <>
+          <div className="hidden sm:grid grid-cols-[70px_1fr_120px_90px_90px] gap-3 px-4 py-2 border-b border-gray-50">
+            {["Pieza", "Hallazgo", "Caras", "Estado", "Fecha"].map((h) => (
+              <span key={h} className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{h}</span>
+            ))}
+          </div>
+          <div className="divide-y divide-gray-50 max-h-80 overflow-y-auto">
+            {filas.map((f, i) => {
+              const estado = f.isExtracted ? "extraido" : (CONDITION_STATE[f.conditionCode] ?? "tratado");
+              const isSel = selected === f.fdi;
+              return (
+                <button key={`${f.fdi}-${f.conditionCode}-${i}`}
+                  onClick={() => onSelect(f.fdi)}
+                  className={`w-full text-left px-4 py-2.5 flex sm:grid sm:grid-cols-[70px_1fr_120px_90px_90px] sm:gap-3 items-center gap-2 transition ${
+                    isSel ? "bg-[#1A5C7A]/5" : "hover:bg-gray-50"
+                  }`}>
+                  <span className={`text-xs font-black tabular-nums ${isSel ? "text-[#1A5C7A]" : "text-gray-700"}`}>
+                    {f.fdi[0]}.{f.fdi[1]}
+                  </span>
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full justify-self-start ${conditionChipColor(f.conditionCode)}`}>
+                    {labelDe(f.conditionCode)}
+                    {f.severity != null && <span className="opacity-60 ml-1">sev {f.severity}</span>}
+                  </span>
+                  <span className="text-[11px] text-gray-500 tabular-nums">
+                    {f.surfaces.length > 0 ? f.surfaces.join("·") : <span className="text-gray-300">—</span>}
+                  </span>
+                  <span className={`text-[10px] font-bold uppercase tracking-wide ${ESTADO_TEXTO[estado].cls}`}>
+                    {ESTADO_TEXTO[estado].label}
+                  </span>
+                  <span className="text-[10px] text-gray-400 tabular-nums">
+                    {f.occurredAt
+                      ? new Date(f.occurredAt).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "2-digit" })
+                      : "—"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* Estado clínico por condición — el mismo criterio de color del diagrama. */
+const CONDITION_STATE: Record<string, "pendiente" | "tratado" | "protesis" | "extraido"> = {
+  caries: "pendiente", fractura: "pendiente", movilidad: "pendiente", periodontal_bolsa: "pendiente",
+  obturacion: "tratado", endodoncia: "tratado", sellante: "tratado", limpieza: "tratado", ortodoncia: "tratado",
+  corona: "protesis", implante: "protesis", perno: "protesis",
+  extraccion: "extraido", ausente: "extraido",
+};
+
+const ESTADO_TEXTO: Record<string, { label: string; cls: string }> = {
+  pendiente: { label: "Pendiente", cls: "text-red-600" },
+  tratado:   { label: "Tratado",   cls: "text-blue-600" },
+  protesis:  { label: "Prótesis",  cls: "text-violet-600" },
+  extraido:  { label: "Extraído",  cls: "text-gray-400" },
+};
 
 /* ─── Modal: registrar evento clínico ─────────────────────────────────── */
 interface AddEventModalProps {
