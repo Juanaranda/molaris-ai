@@ -95,6 +95,8 @@ export function OdontogramPanel({ patientId }: Props) {
           teeth={teeth}
           selectedFdis={selected}
           mode="single"
+          anatomical
+          cellSize={56}
           onSelectTooth={(fdi) => setSelected(fdi)}
         />
       </div>
@@ -160,7 +162,7 @@ export function OdontogramPanel({ patientId }: Props) {
                     {e.surfaces.length > 0 && (
                       <span className="text-[10px] text-gray-400">{e.surfaces.map((s) => s.surface).join("·")}</span>
                     )}
-                    <span className="ml-auto text-[10px] text-gray-400 truncate">{e.professional.name.split(" ")[0]}</span>
+                    <span className="ml-auto text-[10px] text-gray-400 truncate">{e.professional?.name?.split(" ")[0] ?? "—"}</span>
                   </div>
                 ))}
               </div>

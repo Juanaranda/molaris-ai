@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { ToothProjection, DentalSurface } from "@/lib/odontogram";
 import { ToothSurfaceChart } from "@/components/ToothSurfaceChart";
+import { ToothFrontView } from "@/components/ToothFrontView";
 import { toothTypeOf, isUpperFdi } from "@/lib/tooth";
 
 /**
@@ -158,12 +159,21 @@ interface Props {
   showLegend?:      boolean;
   /** Tamaño de la celda en px (default 44) */
   cellSize?:        number;
+  /**
+   * Vista anatómica: agrega la silueta del diente (corona + raíz) sobre el
+   * diagrama de caras, con la raíz apuntando hacia afuera de la boca — el
+   * layout que el ojo del dentista ya reconoce de Dentalink/Reservo. Las
+   * condiciones de diente completo tiñen la silueta; las de cara puntual
+   * pintan el diagrama. Apagada por defecto porque el builder de presupuesto
+   * necesita la grilla compacta.
+   */
+  anatomical?:      boolean;
 }
 
 export function StandardOdontogram({
   teeth = {}, selectedFdis, mode = "single", missingFdis, highlightFdis,
   onSelectTooth, onToggleMissing, defaultView = "all", view: viewProp, className,
-  showLegend = true, cellSize = 52,
+  showLegend = true, cellSize = 52, anatomical = false,
 }: Props) {
 
   const [viewState, setView] = useState<ArchView>(defaultView);
@@ -214,6 +224,7 @@ export function StandardOdontogram({
             onSelectTooth={onSelectTooth}
             onToggleMissing={onToggleMissing}
             cellSize={cellSize}
+            anatomical={anatomical}
             labelPosition="bottom"
           />
         )}
@@ -236,6 +247,7 @@ export function StandardOdontogram({
             onSelectTooth={onSelectTooth}
             onToggleMissing={onToggleMissing}
             cellSize={cellSize}
+            anatomical={anatomical}
             labelPosition="top"
           />
         )}
@@ -266,11 +278,12 @@ interface ArchRowProps {
   onToggleMissing?: (fdi: string) => void;
   cellSize:        number;
   labelPosition:   "top" | "bottom";
+  anatomical?:     boolean;
 }
 
 function ArchRow({
   label, quadrants, teeth, selectedSet, missingFdis, highlightFdis, mode,
-  onSelectTooth, onToggleMissing, cellSize, labelPosition,
+  onSelectTooth, onToggleMissing, cellSize, labelPosition, anatomical,
 }: ArchRowProps) {
   const labelEl = (
     <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 text-center">
@@ -283,7 +296,17 @@ function ArchRow({
       <div className="flex justify-center gap-3 flex-wrap">
         {quadrants.map((quadrant, idx) => (
           <div key={idx} className="flex gap-1">
-            {quadrant.map((fdi) => (
+            {quadrant.map((fdi) => anatomical ? (
+              <AnatomicalToothColumn key={fdi}
+                fdi={fdi}
+                proj={teeth[fdi]}
+                isMissing={missingFdis?.has(fdi) ?? false}
+                isSelected={selectedSet.has(fdi)}
+                isHighlighted={highlightFdis?.has(fdi) ?? false}
+                onSelect={() => onSelectTooth?.(fdi)}
+                size={cellSize}
+              />
+            ) : (
               <ToothCell key={fdi}
                 fdi={fdi}
                 proj={teeth[fdi]}
@@ -393,6 +416,100 @@ function ToothCell({ fdi, proj, isMissing, isSelected, isHighlighted, onSelect, 
           isMissing ? "text-gray-400 line-through" :
           isSelected ? "text-[#1A5C7A]" : "text-gray-600"
         }`}>{fdi}</span>
+      )}
+    </button>
+  );
+}
+
+/* ─── Vista anatómica (Dentalink-style, assets propios) ──────────────────
+ * Columna por pieza: silueta anatómica + diagrama de caras + número FDI.
+ * En la arcada superior la raíz apunta hacia arriba y el número queda junto a
+ * la línea media; en la inferior todo va espejado. Así las coronas de ambas
+ * arcadas se "miran" como en la boca real, que es como el dentista lee.
+ */
+interface AnatomicalToothColumnProps {
+  fdi:            string;
+  proj?:          ToothProjection;
+  isMissing:      boolean;
+  isSelected:     boolean;
+  isHighlighted?: boolean;
+  onSelect:       () => void;
+  size:           number;
+}
+
+function AnatomicalToothColumn({
+  fdi, proj, isMissing, isSelected, isHighlighted, onSelect, size,
+}: AnatomicalToothColumnProps) {
+  const { state, meta } = summarize(proj);
+  const paint = surfacePaintFor(proj);
+  const isUpper = isUpperFdi(fdi);
+  const extracted = isMissing || state === "extracted";
+  const showHighlight = Boolean(isHighlighted) && !isSelected && !extracted;
+
+  const innerSize = Math.round(size * 0.62);
+
+  const numberEl = (
+    <span className={`text-[10px] font-bold leading-none tabular-nums ${
+      extracted ? "text-gray-300 line-through" :
+      isSelected ? "text-[#1A5C7A]" : "text-gray-500"
+    }`}>
+      {fdi[0]}.{fdi[1]}
+    </span>
+  );
+
+  const chartEl = (
+    <ToothSurfaceChart
+      fdi={fdi}
+      toothType={toothTypeOf(fdi)}
+      jaw={isUpper ? "upper" : "lower"}
+      size={innerSize}
+      surfaceColors={paint.surfaces}
+      wholeToothColor={paint.wholeTooth}
+      isMissing={extracted}
+    />
+  );
+
+  const toothEl = (
+    <div className="relative">
+      <div style={{ opacity: extracted ? 0.3 : 1 }}>
+        <ToothFrontView
+          type={toothTypeOf(fdi)}
+          jaw={isUpper ? "upper" : "lower"}
+          size={innerSize}
+          tint={paint.wholeTooth}
+        />
+      </div>
+      {extracted && (
+        <span className="absolute inset-0 flex items-center justify-center text-xl font-black text-red-500 pointer-events-none"
+          style={{ textShadow: "0 0 4px rgba(255,255,255,0.9)" }}>✕</span>
+      )}
+      {meta.symbol && !extracted && (
+        <span className="absolute inset-0 flex items-center justify-center text-lg font-black text-violet-700 pointer-events-none"
+          style={{ textShadow: "0 0 4px rgba(255,255,255,0.9)" }}>{meta.symbol}</span>
+      )}
+    </div>
+  );
+
+  return (
+    <button
+      onClick={onSelect}
+      title={`Pieza ${fdi}\n${extracted ? "Ausente" : meta.tooltip}`}
+      style={{ width: size }}
+      className={`relative flex flex-col items-center gap-1 py-1.5 px-0.5 rounded-xl border-2 transition-all ${
+        isSelected
+          ? "border-[#1A5C7A] bg-[#1A5C7A]/5 ring-2 ring-[#1A5C7A]/25 shadow-md z-10"
+          : showHighlight
+          ? "border-emerald-400 bg-emerald-50"
+          : "border-transparent hover:border-gray-200 hover:bg-white hover:shadow-sm"
+      }`}>
+      {/* Superior: diente → caras → número (número hacia la línea media) */}
+      {isUpper ? (<>{toothEl}{chartEl}{numberEl}</>) : (<>{numberEl}{chartEl}{toothEl}</>)}
+      {/* Punto de estado, visible sin abrir la pieza */}
+      {!extracted && state !== "healthy" && (proj?.activeConditions.length ?? 0) > 0 && (
+        <span className={`absolute top-1 right-1 w-2 h-2 rounded-full ${meta.accent} ring-1 ring-white`} />
+      )}
+      {showHighlight && (
+        <span className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500 text-white text-[9px] font-black ring-2 ring-white pointer-events-none">✓</span>
       )}
     </button>
   );

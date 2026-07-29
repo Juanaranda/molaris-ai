@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getToken, getMe } from "@/lib/auth";
 import { ensurePatientId } from "@/lib/clinicalRecord";
-import { PatientRecordModal } from "@/components/PatientRecordModal";
 import { DentalQuoteTab } from "./DentalQuoteTab";
 import { Odontogram, type DentitionType } from "./Odontogram";
 
@@ -338,12 +338,14 @@ function NewBookingFromPatientModal({
 }
 
 function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient; onClose: () => void }) {
+  const router = useRouter();
   const [patient, setPatient] = useState(initialPatient);
   const [tab, setTab] = useState<"history" | "odontogram" | "plans" | "quotes">("history");
-  const [recordModalId, setRecordModalId] = useState<string | null>(null);
   const [openingRecord, setOpeningRecord] = useState(false);
   const [recordError, setRecordError]     = useState("");
 
+  // La ficha ahora es una página con URL propia (abrible en otra pestaña,
+  // compartible con el equipo), no un modal sobre un modal.
   async function openClinicalRecord() {
     setOpeningRecord(true); setRecordError("");
     try {
@@ -353,9 +355,11 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
         rut: patient.rut ?? undefined,
         phone: patient.phone ?? undefined,
       });
-      setRecordModalId(patientId);
-    } catch (e) { setRecordError(e instanceof Error ? e.message : "Error"); }
-    finally    { setOpeningRecord(false); }
+      router.push(`/partners/pacientes/${patientId}`);
+    } catch (e) {
+      setRecordError(e instanceof Error ? e.message : "Error");
+      setOpeningRecord(false);
+    }
   }
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -511,7 +515,6 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
             </div>
           </div>
           {recordError && <p className="mt-2 text-xs text-red-300">{recordError}</p>}
-          {recordModalId && <PatientRecordModal patientId={recordModalId} onClose={() => setRecordModalId(null)} />}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5">
             <div>
               <p className="text-[10px] text-white/40 font-bold uppercase tracking-wide">Teléfono</p>
