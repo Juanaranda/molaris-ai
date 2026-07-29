@@ -498,8 +498,19 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
                 </>
               ) : (
                 <>
+                  {/* Agendar es la acción más frecuente sobre un paciente, así
+                      que va sólida y primera. Antes vivía dentro del tab
+                      Historial, invisible desde cualquier otra pestaña. */}
+                  <button onClick={() => setShowNewBooking(true)}
+                    className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl bg-white text-slate-800 hover:bg-white/90 shadow-sm transition"
+                    title="Agendar una hora para este paciente">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                    Agendar
+                  </button>
                   <button onClick={openClinicalRecord} disabled={openingRecord}
-                    className="text-xs font-bold px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white transition disabled:opacity-50"
+                    className="text-xs font-bold px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white transition disabled:opacity-50"
                     title="Abrir ficha clínica completa con odontograma">
                     🩺 {openingRecord ? "Abriendo…" : "Ficha clínica"}
                   </button>
@@ -594,21 +605,15 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
         {/* Tab: History */}
         {tab === "history" && (
           <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-            <div className="px-5 py-2 border-b border-gray-50 flex items-center justify-between gap-3">
-              <button
-                onClick={() => setShowNewBooking(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-                Nueva cita
-              </button>
-              {patient.pendingCount > 0 && (
+            {/* "Agendar" subió al header del paciente, donde está disponible
+                desde cualquier pestaña. Acá queda solo el aviso de pagos. */}
+            {patient.pendingCount > 0 && (
+              <div className="px-5 py-2 border-b border-gray-50 flex items-center justify-end">
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                   {patient.pendingCount} sin registrar pago
                 </span>
-              )}
-            </div>
+              </div>
+            )}
             <div className="overflow-y-auto">
               {loadingHistory ? (
                 <div className="p-5 space-y-3">
@@ -1160,6 +1165,37 @@ function coincide(p: Patient, query: string): boolean {
   return false;
 }
 
+/**
+ * Resalta el tramo coincidente sin alterar el texto original.
+ *
+ * La comparación es sobre el texto normalizado (sin tildes), pero se recorta
+ * el ORIGINAL usando los índices, porque NFD conserva el largo carácter a
+ * carácter salvo por las marcas que se quitan. Para evitar desalineación se
+ * normaliza sin descomponer: se mapea cada carácter a su versión sin tilde,
+ * manteniendo 1 a 1 la posición.
+ */
+function sinTildes1a1(s: string): string {
+  return s
+    .toLowerCase()
+    .split("")
+    .map((ch) => ch.normalize("NFD").replace(/[\u0300-\u036f]/g, "") || ch)
+    .join("");
+}
+
+function Resaltado({ texto, query }: { texto: string; query: string }) {
+  const q = sinTildes1a1(query.trim());
+  if (!q) return <>{texto}</>;
+  const idx = sinTildes1a1(texto).indexOf(q);
+  if (idx < 0) return <>{texto}</>;
+  return (
+    <>
+      {texto.slice(0, idx)}
+      <mark className="bg-amber-200 text-inherit rounded-[2px] px-0">{texto.slice(idx, idx + q.length)}</mark>
+      {texto.slice(idx + q.length)}
+    </>
+  );
+}
+
 /* ── Main PatientsTab ─────────────────────────────────────────────────── */
 export function PatientsTab() {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -1296,7 +1332,9 @@ export function PatientsTab() {
                         {p.name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-800 truncate">{p.name}</p>
+                        <p className="text-sm font-semibold text-gray-800 truncate">
+                          <Resaltado texto={p.name} query={search} />
+                        </p>
                         {p.email ? (
                           <p className="text-[11px] text-gray-400 truncate">{p.email}</p>
                         ) : p.services.length > 0 ? (
@@ -1304,8 +1342,12 @@ export function PatientsTab() {
                         ) : null}
                       </div>
                     </div>
-                    <span className="text-xs text-gray-500 hidden sm:block">{p.rut ?? "—"}</span>
-                    <span className="text-xs text-gray-500 hidden sm:block">{p.phone ?? "—"}</span>
+                    <span className="text-xs text-gray-500 hidden sm:block">
+                      {p.rut ? <Resaltado texto={p.rut} query={soloRut(search)} /> : "—"}
+                    </span>
+                    <span className="text-xs text-gray-500 hidden sm:block">
+                      {p.phone ? <Resaltado texto={p.phone} query={search.replace(/\D/g, "")} /> : "—"}
+                    </span>
                     <span className="text-xs text-gray-500 hidden sm:block">{fmtDate(p.lastVisit)}</span>
                     <span className="text-xs text-gray-500 hidden sm:block truncate">{p.lastDoctor && p.lastDoctor !== "Sin asignar" ? p.lastDoctor : "—"}</span>
                     {/* Estado pago */}

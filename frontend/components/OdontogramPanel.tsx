@@ -57,6 +57,8 @@ export function OdontogramPanel({ patientId }: Props) {
   const [error,   setError]   = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const [showAddFor, setShowAddFor] = useState<string | null>(null);
+  /** El usuario pidió registrar sin tener pieza elegida: el diagrama entra en modo selección. */
+  const [pidiendoPieza, setPidiendoPieza] = useState(false);
 
   const fetchAll = useCallback(async () => {
     setLoading(true); setError("");
@@ -81,23 +83,46 @@ export function OdontogramPanel({ patientId }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Header con la acción primaria siempre visible. Antes "Registrar
+          evento" solo existía después de elegir una pieza, así que la acción
+          principal del odontograma estaba escondida tras un paso previo. */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h3 className="text-sm font-bold text-gray-900">Odontograma</h3>
           <p className="text-[11px] text-gray-400">Notación FDI · {Object.keys(teeth).length} pieza{Object.keys(teeth).length !== 1 ? "s" : ""} con eventos</p>
         </div>
+        <button
+          onClick={() => selected ? setShowAddFor(selected) : setPidiendoPieza(true)}
+          className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl bg-[#1A5C7A] text-white hover:bg-[#0e4560] shadow-sm transition">
+          <span className="text-sm leading-none">+</span>
+          {selected ? `Registrar en ${selected[0]}.${selected[1]}` : "Registrar hallazgo"}
+        </button>
       </div>
 
       {/* Odontograma estándar — grid simple y profesional */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-4 overflow-x-auto">
+      <div className={`bg-white rounded-2xl border p-4 overflow-x-auto transition ${
+        pidiendoPieza ? "border-[#1A5C7A] ring-2 ring-[#1A5C7A]/20" : "border-gray-100"
+      }`}>
+        {pidiendoPieza && (
+          <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl bg-[#1A5C7A]/5 text-[#1A5C7A]">
+            <span className="text-xs font-bold">Elige la pieza donde registrar el hallazgo</span>
+            <button onClick={() => setPidiendoPieza(false)}
+              className="ml-auto text-[11px] font-semibold text-gray-400 hover:text-gray-600">Cancelar</button>
+          </div>
+        )}
         <StandardOdontogram
           teeth={teeth}
           selectedFdis={selected}
           mode="single"
           anatomical
           cellSize={56}
-          onSelectTooth={(fdi) => setSelected(fdi)}
+          onSelectTooth={(fdi) => {
+            setSelected(fdi);
+            // Si el usuario pidió registrar antes de elegir pieza, el click en
+            // el diente encadena directo al formulario en vez de dejarlo a
+            // medio camino.
+            if (pidiendoPieza) { setPidiendoPieza(false); setShowAddFor(fdi); }
+          }}
         />
       </div>
 
