@@ -548,6 +548,9 @@ function AdminAgenda({
   const [loading, setLoading]         = useState(false);
   const [selectedDate, setSelectedDate] = useState(toDateStr(new Date()));
   const [doctorFilter, setDoctorFilter] = useState<string | null>(null);
+  // Filtro por sede (#69): la agenda es una sola aunque el doctor atienda en
+  // varios lugares; esto la acota al lugar donde está hoy.
+  const [sedeFilter, setSedeFilter] = useState<string | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showNew, setShowNew]         = useState(openNewBookingOnMount);
   const [quotePatient, setQuotePatient] = useState<{ name: string; rut: string | null } | null>(null);
@@ -588,10 +591,15 @@ function AdminAgenda({
   const selectedDay = days.find((d) => safeDateStr(d.date) === selectedDate);
   let dayBookings = [...(selectedDay?.bookings ?? [])];
   if (doctorFilter) dayBookings = dayBookings.filter((b) => b.doctor === doctorFilter);
+  if (sedeFilter)   dayBookings = dayBookings.filter((b) => b.sede === sedeFilter);
   dayBookings.sort((a, b) => a.time.localeCompare(b.time));
 
+  // Un booking pasa los filtros activos (doctor y/o sede).
+  const matchesFilters = (b: Booking) =>
+    (!doctorFilter || b.doctor === doctorFilter) && (!sedeFilter || b.sede === sedeFilter);
+
   function activeCnt(day: DayData) {
-    return day.bookings.filter((b) => b.status !== "cancelled" && (!doctorFilter || b.doctor === doctorFilter)).length;
+    return day.bookings.filter((b) => b.status !== "cancelled" && matchesFilters(b)).length;
   }
 
   async function handleSave(id: string, patch: {
@@ -752,6 +760,30 @@ function AdminAgenda({
         })}
       </div>
 
+      {/* Filtro por sede — solo si el doctor configuró más de un lugar */}
+      {sedes.length > 1 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-none"
+          style={{ scrollbarWidth: "none" }}>
+          <span className="text-xs font-semibold text-gray-400">Sede:</span>
+          <button onClick={() => setSedeFilter(null)}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition whitespace-nowrap ${
+              !sedeFilter ? "bg-gray-800 text-white border-gray-800" : "border-gray-200 text-gray-500 hover:border-gray-300 bg-white"
+            }`}>
+            Todas
+          </button>
+          {sedes.map((s) => (
+            <button key={s} onClick={() => setSedeFilter(sedeFilter === s ? null : s)}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition whitespace-nowrap ${
+                sedeFilter === s
+                  ? "bg-[#1A5C7A] text-white border-[#1A5C7A]"
+                  : "border-gray-200 text-gray-500 hover:border-gray-300 bg-white"
+              }`}>
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* ── Week grid ─────────────────────────────────────────────────── */}
       {viewMode === "week" && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -768,7 +800,7 @@ function AdminAgenda({
                   {days.map((day) => {
                     const d = new Date(safeDateStr(day.date) + "T12:00:00");
                     const isToday = safeDateStr(day.date) === todayStr;
-                    const cnt = day.bookings.filter((b) => b.status !== "cancelled" && (!doctorFilter || b.doctor === doctorFilter)).length;
+                    const cnt = day.bookings.filter((b) => b.status !== "cancelled" && matchesFilters(b)).length;
                     return (
                       <div key={day.date}
                         style={{ padding: "8px 4px", textAlign: "center", borderLeft: "1px solid #F1F5F9", background: isToday ? "#EFF6FF" : "transparent", cursor: "pointer" }}
@@ -799,7 +831,7 @@ function AdminAgenda({
                       {days.map((day) => {
                         const isToday = safeDateStr(day.date) === todayStr;
                         const cell = day.bookings.filter((b) => {
-                          if (doctorFilter && b.doctor !== doctorFilter) return false;
+                          if (!matchesFilters(b)) return false;
                           const [h, m] = b.time.split(":").map(Number);
                           return `${String(h).padStart(2,"0")}:${m < 30 ? "00" : "30"}` === slot;
                         });
