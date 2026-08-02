@@ -41,6 +41,9 @@ interface Props {
   doctors: DoctorRow[];
   boxes: number;
   canEdit: boolean;
+  /** Tope de profesionales (#69): 1 en cuentas "solo". El backend también lo
+   *  valida — esto solo evita ofrecer un botón que terminaría en error. */
+  maxDoctors?: number;
   onSave: (doctors: DoctorRow[], boxes: number) => Promise<void>;
 }
 
@@ -48,7 +51,7 @@ const EMPTY: DoctorRow = { name: "", specialty: "", schedule: "", services: [] }
 
 const SPECIALTIES = ["General", "Ortodoncia", "Endodoncia", "Periodoncia", "Cirugía maxilofacial", "Implantología", "Odontopediatría", "Estética dental"];
 
-export function DoctorsEditor({ doctors, boxes, canEdit, onSave }: Props) {
+export function DoctorsEditor({ doctors, boxes, canEdit, maxDoctors, onSave }: Props) {
   const [rows, setRows] = useState<DoctorRow[]>(doctors);
   const [boxCount, setBoxCount] = useState(boxes);
   const [editing, setEditing] = useState(false);
@@ -201,12 +204,18 @@ export function DoctorsEditor({ doctors, boxes, canEdit, onSave }: Props) {
       </div>
 
       {editing && (
-        <button
-          onClick={openAdd}
-          className="mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
-        >
-          <span className="text-lg leading-none">+</span> Agregar doctor
-        </button>
+        maxDoctors != null && rows.length >= maxDoctors ? (
+          <p className="mt-4 text-xs text-gray-400">
+            Tu plan incluye {maxDoctors} profesional. Para trabajar con un equipo, cambia al plan Clínica.
+          </p>
+        ) : (
+          <button
+            onClick={openAdd}
+            className="mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+          >
+            <span className="text-lg leading-none">+</span> Agregar doctor
+          </button>
+        )
       )}
 
       {/* Formulario inline */}

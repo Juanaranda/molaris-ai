@@ -30,6 +30,10 @@ export const ALLOWED_CONFIG_KEYS = new Set([
   "openingHours",
 ]);
 
+// Tope de profesionales en cuentas "solo" (#69). Protege el pricing: evita que
+// una clínica chica se registre en el plan barato y cargue a todo su equipo.
+export const MAX_SOLO_DOCTORS = 1;
+
 // Versión vigente del DPA Molaris ↔ Clínica (Issue #38, Ley 21.719).
 // BORRADOR — pendiente validación legal. Subir la versión cuando cambie el texto.
 export const DPA_VERSION = "2026-06-draft";
@@ -443,6 +447,23 @@ export async function clinicRoutes(app: FastifyInstance) {
       const unknownKeys = Object.keys(config).filter((k) => !ALLOWED_CONFIG_KEYS.has(k));
       if (unknownKeys.length > 0) {
         return reply.status(400).send({ error: `Claves de config no permitidas: ${unknownKeys.join(", ")}` });
+      }
+
+      // Cap de 1 profesional en cuentas "solo" (#69). Es el límite que protege
+      // el pricing: sin esto una clínica de 3 dentistas se registra en el plan
+      // barato y carga a todo el equipo. Se valida en el backend porque
+      // esconder el botón en el front no impide un PATCH directo.
+      if (Array.isArray((config as { doctors?: unknown[] }).doctors)) {
+        const clinic = await prisma.clinic.findUnique({
+          where: { id: req.params.id },
+          select: { accountType: true },
+        });
+        const doctors = (config as { doctors: unknown[] }).doctors;
+        if (clinic?.accountType === "solo" && doctors.length > MAX_SOLO_DOCTORS) {
+          return reply.status(400).send({
+            error: `El plan Solo permite ${MAX_SOLO_DOCTORS} profesional. Para trabajar con un equipo, cambia al plan Clínica.`,
+          });
+        }
       }
     }
 

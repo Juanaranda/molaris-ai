@@ -323,6 +323,7 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
         doctors={cfg.doctors ?? []}
         boxes={cfg.boxes ?? 1}
         canEdit={canEdit}
+        maxDoctors={clinic.accountType === "solo" ? 1 : undefined}
         onSave={saveDoctors}
       />
 
