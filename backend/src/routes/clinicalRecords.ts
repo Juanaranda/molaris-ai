@@ -52,29 +52,39 @@ export async function clinicalRecordRoutes(app: FastifyInstance) {
       ? await prisma.identity.findUnique({ where: { rut } })
       : null;
 
-    // 2. Buscar Patient existente
-    let patient = await prisma.patient.findFirst({
+    // 2. La cita es la que conoce TODOS los identificadores del paciente. Se
+    //    busca primero para no quedarse solo con el dato que vino en la query:
+    //    llamando solo con RUT, si aún no hay Identity el OR quedaba vacío, no
+    //    encontraba al paciente que sí existía por teléfono y se creaba un
+    //    duplicado — con la historia clínica partida entre las dos fichas.
+    const booking = await prisma.booking.findFirst({
       where: {
         clinicId: req.params.clinicId,
         OR: [
-          ...(identity ? [{ identityId: identity.id }] : []),
-          ...(phone    ? [{ phone }] : []),
+          ...(rut   ? [{ patientRut: rut }] : []),
+          ...(phone ? [{ patientPhone: phone }] : []),
         ],
       },
+      orderBy: { date: "desc" },
     });
 
-    // 3. Si no existe Patient pero hay bookings con esos datos → crearlo
+    const telefonos = [phone, booking?.patientPhone?.replace(/\D/g, "")].filter(Boolean) as string[];
+    const criterios = [
+      ...(identity ? [{ identityId: identity.id }] : []),
+      ...(telefonos.length > 0 ? [{ phone: { in: telefonos } }] : []),
+      ...(booking?.patientName ? [{ name: booking.patientName }] : []),
+    ];
+
+    // 3. Buscar Patient existente. Sin criterios no se busca: un OR vacío no
+    //    matchea nada y llevaría a crear siempre uno nuevo.
+    let patient = criterios.length > 0
+      ? await prisma.patient.findFirst({
+          where: { clinicId: req.params.clinicId, OR: criterios },
+        })
+      : null;
+
+    // 4. Si no existe Patient pero hay una cita con esos datos → crearlo
     if (!patient) {
-      const booking = await prisma.booking.findFirst({
-        where: {
-          clinicId: req.params.clinicId,
-          OR: [
-            ...(rut   ? [{ patientRut: rut }] : []),
-            ...(phone ? [{ patientPhone: phone }] : []),
-          ],
-        },
-        orderBy: { date: "desc" },
-      });
       if (!booking) {
         return reply.status(404).send({ error: "Paciente no encontrado en esta clínica" });
       }
