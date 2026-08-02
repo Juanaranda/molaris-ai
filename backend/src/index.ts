@@ -37,6 +37,8 @@ import { startReminderScheduler } from "./services/notifications/reminderService
 import { startRecallScheduler } from "./services/notifications/recallService";
 import prisma from "./config/prisma";
 import { getSchedulerHealth } from "./services/notifications/schedulerHealth";
+import { getOpenRouterCredits } from "./services/ai/creditsService";
+import { startRecoveryScheduler } from "./services/agent/agentRecovery";
 
 const isProd = config.nodeEnv === "production";
 
@@ -114,14 +116,21 @@ app.get("/health", async (_req, reply) => {
   }
 
   const schedulers = getSchedulerHealth();
+
+  // Saldo: solo el estado, NUNCA el monto — /health es público y lo consulta
+  // el monitoreo externo sin autenticarse. El detalle va en /api/admin/credits.
+  // "unknown" cubre tanto "sin key" como "OpenRouter no respondió".
+  const credits = await getOpenRouterCredits();
   const ai = {
     openRouter: Boolean(config.openRouter.apiKey),
     groq: Boolean(config.groq.apiKey),
+    credits: credits ? (credits.low ? "low" : "ok") : "unknown",
   };
 
   const schedulersOk = schedulers.every((s) => s.ok);
   const aiOk = ai.openRouter || ai.groq; // al menos un proveedor configurado
-  const status = !db.ok ? "down" : schedulersOk && aiOk ? "ok" : "degraded";
+  const creditsOk = ai.credits !== "low";
+  const status = !db.ok ? "down" : schedulersOk && aiOk && creditsOk ? "ok" : "degraded";
 
   return reply.code(db.ok ? 200 : 503).send({
     status,
@@ -139,4 +148,5 @@ app.listen({ port: config.port, host: "0.0.0.0" }, (err) => {
   }
   startReminderScheduler();
   startRecallScheduler();
+  startRecoveryScheduler();
 });

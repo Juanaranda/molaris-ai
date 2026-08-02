@@ -43,6 +43,8 @@ export async function recordAgentFailure(
         agentEnabled: false,
         agentDisabledAt: new Date(),
         agentDisabledReason: `Auto-pausa: ${THRESHOLD} fallos consecutivos de IA`,
+        // Marca que la pausa fue automática → elegible para auto-recuperación.
+        agentDisabledBy: "auto",
       },
     });
 

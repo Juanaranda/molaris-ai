@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { updateClinic, ClinicData } from "@/lib/auth";
 import { DoctorsEditor, DoctorRow } from "@/components/DoctorsEditor";
 import { ServicesEditor, ServiceRow } from "@/components/ServicesEditor";
+import { OpeningHoursEditor, OpeningHours, aScheduleTexto } from "@/components/OpeningHoursEditor";
+import { SedesEditor } from "@/components/SedesEditor";
 import { IntegrationsSection } from "@/components/IntegrationsSection";
 import { AgentControl } from "@/components/AgentControl";
 
@@ -14,7 +16,11 @@ interface ClinicConfig {
   doctors?: DoctorRow[];
   services?: ServiceRow[];
   boxes?: number;
+  sedes?: string[];
+  /** Texto que lee el asistente. Se DERIVA de openingHours, no se edita a mano. */
   schedule?: { weekdays?: string; saturday?: string; sunday?: string };
+  /** Horario estructurado: lo usan la agenda y la disponibilidad. */
+  openingHours?: OpeningHours;
 }
 
 interface Props {
@@ -94,15 +100,6 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
     location:  clinic.location  ?? "",
   });
 
-  const [schedEditing, setSchedEditing] = useState(false);
-  const [schedSaving, setSchedSaving]   = useState(false);
-  const [schedMsg, setSchedMsg]         = useState("");
-  const [schedForm, setSchedForm] = useState({
-    weekdays: cfg.schedule?.weekdays ?? "",
-    saturday: cfg.schedule?.saturday ?? "",
-    sunday:   cfg.schedule?.sunday   ?? "",
-  });
-
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoErr, setLogoErr]             = useState("");
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -114,11 +111,6 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
   function syncForm(c: ClinicData) {
     setForm({ name: c.name ?? "", phone: c.phone ?? "", whatsapp: c.whatsapp ?? "", instagram: c.instagram ?? "", location: c.location ?? "" });
   }
-  function syncSched(c: ClinicData) {
-    const cc = c.config as ClinicConfig;
-    setSchedForm({ weekdays: cc.schedule?.weekdays ?? "", saturday: cc.schedule?.saturday ?? "", sunday: cc.schedule?.sunday ?? "" });
-  }
-
   async function saveBasicInfo() {
     setSaving(true); setSaveMsg("");
     try {
@@ -129,19 +121,23 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
     finally { setSaving(false); }
   }
 
-  async function saveSchedule() {
-    setSchedSaving(true); setSchedMsg("");
-    try {
-      const config = { ...(clinic.config as ClinicConfig), schedule: schedForm };
-      const updated = await updateClinic(clinic.id, { config: config as Record<string, unknown> });
-      onUpdate(updated); syncSched(updated); setSchedEditing(false);
-      setSchedMsg("Guardado"); setTimeout(() => setSchedMsg(""), 3000);
-    } catch (e) { setSchedMsg(e instanceof Error ? e.message : "Error"); }
-    finally { setSchedSaving(false); }
+  /** Guarda el horario estructurado y, derivado de él, el texto que lee el
+      asistente. Una sola edición mantiene ambos en sincronía: antes el texto
+      se escribía a mano y podía contradecir lo que ofrecía la agenda. */
+  async function saveOpeningHours(h: OpeningHours) {
+    const config = { ...(clinic.config as ClinicConfig), openingHours: h, schedule: aScheduleTexto(h) };
+    const updated = await updateClinic(clinic.id, { config: config as Record<string, unknown> });
+    onUpdate(updated);
   }
 
   async function saveDoctors(doctors: DoctorRow[], boxes: number) {
     const config = { ...(clinic.config as ClinicConfig), doctors, boxes };
+    const updated = await updateClinic(clinic.id, { config: config as Record<string, unknown> });
+    onUpdate(updated);
+  }
+
+  async function saveSedes(sedes: string[]) {
+    const config = { ...(clinic.config as ClinicConfig), sedes };
     const updated = await updateClinic(clinic.id, { config: config as Record<string, unknown> });
     onUpdate(updated);
   }
@@ -178,12 +174,6 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
     reader.readAsDataURL(file);
     e.target.value = "";
   }
-
-  const schedRows = [
-    { key: "weekdays" as const, label: "Semana",  icon: "🗓️" },
-    { key: "saturday" as const, label: "Sábado",  icon: "📅" },
-    { key: "sunday"   as const, label: "Domingo", icon: "☀️" },
-  ];
 
   return (
     <div className="flex flex-col gap-6">
@@ -322,86 +312,30 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
       </section>
 
       {/* ── Horarios ── */}
-      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="font-semibold text-gray-900">Horarios de atención</h2>
-            <p className="text-xs text-gray-400 mt-0.5">El asistente informa estos horarios a los pacientes</p>
-          </div>
-          <div className="flex items-center gap-3">
-            {schedMsg && <span className={`text-xs font-medium ${schedMsg === "Guardado" ? "text-emerald-600" : "text-red-500"}`}>{schedMsg}</span>}
-            {canEdit && !schedEditing && (
-              <button onClick={() => setSchedEditing(true)} className="text-sm font-semibold px-4 py-1.5 rounded-full border transition-colors hover:bg-gray-50"
-                style={{ borderColor: "#D9D4CD", color: "#1A5C7A" }}>
-                Editar
-              </button>
-            )}
-            {canEdit && schedEditing && (
-              <div className="flex gap-2">
-                <button onClick={() => { setSchedEditing(false); syncSched(clinic); }} className="text-sm text-gray-400 hover:text-gray-600 px-3 py-1.5 transition">Cancelar</button>
-                <button onClick={saveSchedule} disabled={schedSaving}
-                  className="text-sm font-semibold px-4 py-1.5 rounded-full text-white disabled:opacity-50 transition-colors"
-                  style={{ backgroundColor: "#1A5C7A" }}>
-                  {schedSaving ? "Guardando..." : "Guardar cambios"}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {schedEditing ? (
-          <div className="flex flex-col gap-3">
-            {([
-              ["weekdays", "Lunes a Viernes", "Lunes a Viernes: 10:00 - 18:00"],
-              ["saturday", "Sábado",          "Sábado: 10:00 - 14:00"],
-              ["sunday",   "Domingo",          "Domingo: cerrado"],
-            ] as [keyof typeof schedForm, string, string][]).map(([key, label, ph]) => (
-              <div key={key}>
-                <label className="block text-xs text-gray-500 font-medium mb-1.5">{label}</label>
-                <input
-                  value={schedForm[key]}
-                  onChange={(e) => setSchedForm((f) => ({ ...f, [key]: e.target.value }))}
-                  placeholder={ph}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A5C7A]/30 focus:border-[#1A5C7A] transition-all"
-                />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {schedRows.map(({ key, label, icon }) => {
-              const val = schedForm[key];
-              if (!val) return null;
-              return (
-                <div key={key} className="flex items-center justify-between py-3 px-4 rounded-xl border border-gray-100 bg-gray-50">
-                  <span className="text-sm text-gray-500 flex items-center gap-2">
-                    <span className="text-base">{icon}</span> {label}
-                  </span>
-                  <span className="text-sm font-medium text-gray-800">{val}</span>
-                </div>
-              );
-            })}
-            {!schedForm.weekdays && !schedForm.saturday && !schedForm.sunday && (
-              <div className="py-8 text-center">
-                <p className="text-sm text-gray-400">Sin horarios configurados.</p>
-                {canEdit && (
-                  <button onClick={() => setSchedEditing(true)} className="mt-2 text-sm font-medium" style={{ color: "#1A5C7A" }}>
-                    Agregar horarios
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </section>
+      <OpeningHoursEditor
+        value={cfg.openingHours}
+        canEdit={canEdit}
+        onSave={saveOpeningHours}
+      />
 
       {/* ── Equipo médico ── */}
       <DoctorsEditor
         doctors={cfg.doctors ?? []}
         boxes={cfg.boxes ?? 1}
         canEdit={canEdit}
+        maxDoctors={clinic.accountType === "solo" ? 1 : undefined}
         onSave={saveDoctors}
       />
+
+      {/* ── Sedes (solo doctor independiente: la clínica con equipo ya tiene
+             una dirección única y usa boxes para separar la agenda) ── */}
+      {clinic.accountType === "solo" && (
+        <SedesEditor
+          sedes={cfg.sedes ?? []}
+          canEdit={canEdit}
+          onSave={saveSedes}
+        />
+      )}
 
       {/* ── Servicios ── */}
       <ServicesEditor

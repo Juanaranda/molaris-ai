@@ -8,7 +8,15 @@ export interface DoctorRow {
   schedule: string;
   days?: string[];
   services?: string[];
+  /** Horario propio. Si va vacío, el profesional hereda el de la clínica. */
+  hours?: { from: string; to: string };
 }
+
+/** Horas seleccionables, en bloques de 30 minutos entre las 07:00 y las 22:00. */
+const HORAS: string[] = Array.from({ length: 31 }, (_, i) => {
+  const m = 7 * 60 + i * 30;
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+});
 
 const DAY_LABELS: Record<string, string> = {
   monday: "Lun", tuesday: "Mar", wednesday: "Mié",
@@ -21,15 +29,21 @@ function formatDays(days: string[]): string {
 }
 
 function displaySchedule(doc: DoctorRow): string {
-  if (doc.schedule?.trim()) return doc.schedule;
-  if (doc.days && doc.days.length > 0) return formatDays(doc.days);
-  return "—";
+  const dias = doc.schedule?.trim()
+    ? doc.schedule
+    : doc.days && doc.days.length > 0 ? formatDays(doc.days) : "";
+  const horas = doc.hours?.from && doc.hours?.to ? `${doc.hours.from}–${doc.hours.to}` : "";
+  if (dias && horas) return `${dias} · ${horas}`;
+  return dias || horas || "—";
 }
 
 interface Props {
   doctors: DoctorRow[];
   boxes: number;
   canEdit: boolean;
+  /** Tope de profesionales (#69): 1 en cuentas "solo". El backend también lo
+   *  valida — esto solo evita ofrecer un botón que terminaría en error. */
+  maxDoctors?: number;
   onSave: (doctors: DoctorRow[], boxes: number) => Promise<void>;
 }
 
@@ -37,7 +51,7 @@ const EMPTY: DoctorRow = { name: "", specialty: "", schedule: "", services: [] }
 
 const SPECIALTIES = ["General", "Ortodoncia", "Endodoncia", "Periodoncia", "Cirugía maxilofacial", "Implantología", "Odontopediatría", "Estética dental"];
 
-export function DoctorsEditor({ doctors, boxes, canEdit, onSave }: Props) {
+export function DoctorsEditor({ doctors, boxes, canEdit, maxDoctors, onSave }: Props) {
   const [rows, setRows] = useState<DoctorRow[]>(doctors);
   const [boxCount, setBoxCount] = useState(boxes);
   const [editing, setEditing] = useState(false);
@@ -61,6 +75,9 @@ export function DoctorsEditor({ doctors, boxes, canEdit, onSave }: Props) {
 
   function saveRow() {
     if (!form.name.trim()) return;
+    // Un horario invertido dejaría al profesional sin ninguna hora disponible
+    // y sin señal de por qué: se bloquea el guardado.
+    if (form.hours?.from && form.hours?.to && form.hours.to <= form.hours.from) return;
     const services = servicesInput
       .split(",")
       .map((s) => s.trim())
@@ -187,12 +204,18 @@ export function DoctorsEditor({ doctors, boxes, canEdit, onSave }: Props) {
       </div>
 
       {editing && (
-        <button
-          onClick={openAdd}
-          className="mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
-        >
-          <span className="text-lg leading-none">+</span> Agregar doctor
-        </button>
+        maxDoctors != null && rows.length >= maxDoctors ? (
+          <p className="mt-4 text-xs text-gray-400">
+            Tu plan incluye {maxDoctors} profesional. Para trabajar con un equipo, cambia al plan Clínica.
+          </p>
+        ) : (
+          <button
+            onClick={openAdd}
+            className="mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+          >
+            <span className="text-lg leading-none">+</span> Agregar doctor
+          </button>
+        )
       )}
 
       {/* Formulario inline */}
@@ -229,6 +252,45 @@ export function DoctorsEditor({ doctors, boxes, canEdit, onSave }: Props) {
                 className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <p className="text-[10px] text-gray-400 mt-1">Usa / para días sueltos o - para rango. Ej: Lun/Mié/Vie o Lun-Vie</p>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Horario de atención</label>
+              <div className="flex items-center gap-2">
+                <select
+                  value={form.hours?.from ?? ""}
+                  onChange={(e) => setForm((f) => {
+                    const from = e.target.value;
+                    // Vaciar cualquiera de los dos borra el horario: el
+                    // profesional vuelve a heredar el de la clínica.
+                    if (!from) return { ...f, hours: undefined };
+                    return { ...f, hours: { from, to: f.hours?.to || "18:00" } };
+                  })}
+                  className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">Igual que la clínica</option>
+                  {HORAS.map((h) => <option key={h} value={h}>{h}</option>)}
+                </select>
+                <span className="text-xs text-gray-400">a</span>
+                <select
+                  value={form.hours?.to ?? ""}
+                  disabled={!form.hours?.from}
+                  onChange={(e) => setForm((f) => {
+                    const to = e.target.value;
+                    if (!to) return { ...f, hours: undefined };
+                    return { ...f, hours: { from: f.hours?.from || "10:00", to } };
+                  })}
+                  className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-gray-50 disabled:text-gray-300"
+                >
+                  <option value="">—</option>
+                  {HORAS.map((h) => <option key={h} value={h}>{h}</option>)}
+                </select>
+              </div>
+              {form.hours?.from && form.hours?.to && form.hours.to <= form.hours.from && (
+                <p className="text-[11px] text-red-500 mt-1">La hora de salida debe ser posterior a la de entrada.</p>
+              )}
+              <p className="text-[10px] text-gray-400 mt-1">
+                Déjalo en &quot;Igual que la clínica&quot; si atiende el horario completo.
+              </p>
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Servicios que realiza</label>

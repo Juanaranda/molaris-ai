@@ -82,6 +82,13 @@ model Clinic {
   agentEnabled        Boolean   @default(true)
   agentDisabledAt     DateTime?
   agentDisabledReason String?
+  // Quién apagó el agente (#58): "auto" = circuit breaker por fallos de IA,
+  // "manual" = alguien usó el kill switch. Solo las auto-pausas se reactivan
+  // solas — reactivar un apagado manual sería desobedecer al dueño de la
+  // clínica y poner al agente a hablar con pacientes sin permiso.
+  // Se guarda aparte de agentDisabledReason porque ese campo es texto libre y
+  // decidir sobre él comparando strings se rompe al cambiar un mensaje.
+  agentDisabledBy     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

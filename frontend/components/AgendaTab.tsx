@@ -96,6 +96,7 @@ function palOf(doctor: string, palMap?: Record<string, { dot: string; bg: string
 
 interface Booking {
   id: string; doctor: string; time: string; date: string; box: string | null;
+  sede: string | null;
   patientName: string | null; patientRut: string | null;
   patientPhone: string | null; patientEmail: string | null;
   service: string | null; status: string; notes: string | null;
@@ -282,6 +283,9 @@ function BookingModal({ booking, onClose, onSave, onCancel, onNewQuote }: {
                   ["Hora",     booking.time],
                   ["Fecha",    formatDate(booking.date)],
                   ["Box",      booking.box ? `Box ${booking.box}` : "—"],
+                  // Solo se lista si la cita trae sede — en clínica de una sola
+                  // sede la fila vacía sería ruido.
+                  ...(booking.sede ? [["Sede", booking.sede]] : []),
                   ["RUT",      booking.patientRut ?? "—"],
                   ["Teléfono", booking.patientPhone ?? "—"],
                   ["Email",    booking.patientEmail ?? "—"],
@@ -399,14 +403,17 @@ const TIME_OPTIONS = Array.from({ length: 20 }, (_, i) => {
   return `${String(h).padStart(2, "0")}:${m}`;
 });
 
-function NewBookingModal({ doctors, initialDate, boxes, onClose, onCreate }: {
+function NewBookingModal({ doctors, initialDate, boxes, sedes = [], onClose, onCreate }: {
   doctors: string[];
   initialDate: string;
   boxes: number;
+  /** Sedes del doctor independiente (#69). Vacío = no se muestra el selector. */
+  sedes?: string[];
   onClose: () => void;
-  onCreate: (data: { doctor: string; date: string; time: string; box?: string; patientName: string; patientRut?: string; patientPhone?: string; patientEmail?: string; service?: string }) => Promise<void>;
+  onCreate: (data: { doctor: string; date: string; time: string; box?: string; sede?: string; patientName: string; patientRut?: string; patientPhone?: string; patientEmail?: string; service?: string }) => Promise<void>;
 }) {
   const [form, setForm] = useState({ doctor: doctors[0] ?? "", date: initialDate, time: "10:00", box: "1",
+    sede: sedes[0] ?? "",
     patientName: "", patientRut: "", patientPhone: "", patientEmail: "", service: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -421,6 +428,7 @@ function NewBookingModal({ doctors, initialDate, boxes, onClose, onCreate }: {
     try {
       await onCreate({ doctor: form.doctor, date: form.date, time: form.time,
         box: form.box || undefined,
+        sede: form.sede || undefined,
         patientName: form.patientName,
         patientRut:   form.patientRut   || undefined,
         patientPhone: form.patientPhone || undefined,
@@ -473,6 +481,15 @@ function NewBookingModal({ doctors, initialDate, boxes, onClose, onCreate }: {
               </select>
             </div>
           </div>
+          {/* Sede — solo si el doctor configuró más de un lugar de atención */}
+          {sedes.length > 0 && (
+            <div>
+              <label className={lbl}>Sede</label>
+              <select value={form.sede} onChange={set("sede")} className={inp}>
+                {sedes.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          )}
           {/* Patient */}
           <div>
             <label className={lbl}>Nombre paciente *</label>
@@ -514,11 +531,13 @@ function NewBookingModal({ doctors, initialDate, boxes, onClose, onCreate }: {
 function AdminAgenda({
   boxes,
   doctors: doctorNames = [],
+  sedes = [],
   scheduleConfig,
   openNewBookingOnMount = false,
 }: {
   boxes: number;
   doctors?: string[];
+  sedes?: string[];
   scheduleConfig?: Record<string, string>;
   openNewBookingOnMount?: boolean;
 }) {
@@ -529,6 +548,9 @@ function AdminAgenda({
   const [loading, setLoading]         = useState(false);
   const [selectedDate, setSelectedDate] = useState(toDateStr(new Date()));
   const [doctorFilter, setDoctorFilter] = useState<string | null>(null);
+  // Filtro por sede (#69): la agenda es una sola aunque el doctor atienda en
+  // varios lugares; esto la acota al lugar donde está hoy.
+  const [sedeFilter, setSedeFilter] = useState<string | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showNew, setShowNew]         = useState(openNewBookingOnMount);
   const [quotePatient, setQuotePatient] = useState<{ name: string; rut: string | null } | null>(null);
@@ -569,10 +591,15 @@ function AdminAgenda({
   const selectedDay = days.find((d) => safeDateStr(d.date) === selectedDate);
   let dayBookings = [...(selectedDay?.bookings ?? [])];
   if (doctorFilter) dayBookings = dayBookings.filter((b) => b.doctor === doctorFilter);
+  if (sedeFilter)   dayBookings = dayBookings.filter((b) => b.sede === sedeFilter);
   dayBookings.sort((a, b) => a.time.localeCompare(b.time));
 
+  // Un booking pasa los filtros activos (doctor y/o sede).
+  const matchesFilters = (b: Booking) =>
+    (!doctorFilter || b.doctor === doctorFilter) && (!sedeFilter || b.sede === sedeFilter);
+
   function activeCnt(day: DayData) {
-    return day.bookings.filter((b) => b.status !== "cancelled" && (!doctorFilter || b.doctor === doctorFilter)).length;
+    return day.bookings.filter((b) => b.status !== "cancelled" && matchesFilters(b)).length;
   }
 
   async function handleSave(id: string, patch: {
@@ -733,6 +760,30 @@ function AdminAgenda({
         })}
       </div>
 
+      {/* Filtro por sede — solo si el doctor configuró más de un lugar */}
+      {sedes.length > 1 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-none"
+          style={{ scrollbarWidth: "none" }}>
+          <span className="text-xs font-semibold text-gray-400">Sede:</span>
+          <button onClick={() => setSedeFilter(null)}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition whitespace-nowrap ${
+              !sedeFilter ? "bg-gray-800 text-white border-gray-800" : "border-gray-200 text-gray-500 hover:border-gray-300 bg-white"
+            }`}>
+            Todas
+          </button>
+          {sedes.map((s) => (
+            <button key={s} onClick={() => setSedeFilter(sedeFilter === s ? null : s)}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition whitespace-nowrap ${
+                sedeFilter === s
+                  ? "bg-[#1A5C7A] text-white border-[#1A5C7A]"
+                  : "border-gray-200 text-gray-500 hover:border-gray-300 bg-white"
+              }`}>
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* ── Week grid ─────────────────────────────────────────────────── */}
       {viewMode === "week" && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -749,7 +800,7 @@ function AdminAgenda({
                   {days.map((day) => {
                     const d = new Date(safeDateStr(day.date) + "T12:00:00");
                     const isToday = safeDateStr(day.date) === todayStr;
-                    const cnt = day.bookings.filter((b) => b.status !== "cancelled" && (!doctorFilter || b.doctor === doctorFilter)).length;
+                    const cnt = day.bookings.filter((b) => b.status !== "cancelled" && matchesFilters(b)).length;
                     return (
                       <div key={day.date}
                         style={{ padding: "8px 4px", textAlign: "center", borderLeft: "1px solid #F1F5F9", background: isToday ? "#EFF6FF" : "transparent", cursor: "pointer" }}
@@ -780,7 +831,7 @@ function AdminAgenda({
                       {days.map((day) => {
                         const isToday = safeDateStr(day.date) === todayStr;
                         const cell = day.bookings.filter((b) => {
-                          if (doctorFilter && b.doctor !== doctorFilter) return false;
+                          if (!matchesFilters(b)) return false;
                           const [h, m] = b.time.split(":").map(Number);
                           return `${String(h).padStart(2,"0")}:${m < 30 ? "00" : "30"}` === slot;
                         });
@@ -947,6 +998,7 @@ function AdminAgenda({
           doctors={doctorNames}
           initialDate={selectedDate}
           boxes={boxes}
+          sedes={sedes}
           onClose={() => setShowNew(false)}
           onCreate={handleCreate}
         />
@@ -1016,17 +1068,19 @@ export function AgendaTab({
   user,
   boxes = 2,
   doctors,
+  sedes,
   scheduleConfig,
   openNewBookingOnMount = false,
 }: {
   user: AuthUser;
   boxes?: number;
   doctors?: string[];
+  sedes?: string[];
   scheduleConfig?: Record<string, string>;
   openNewBookingOnMount?: boolean;
 }) {
   const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
   return isAdmin
-    ? <AdminAgenda boxes={boxes} doctors={doctors} scheduleConfig={scheduleConfig} openNewBookingOnMount={openNewBookingOnMount} />
+    ? <AdminAgenda boxes={boxes} doctors={doctors} sedes={sedes} scheduleConfig={scheduleConfig} openNewBookingOnMount={openNewBookingOnMount} />
     : <DoctorAgenda user={user} />;
 }

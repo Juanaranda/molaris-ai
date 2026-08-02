@@ -17,7 +17,42 @@ interface Props {
 
 type Tab = "resumen" | "anamnesis" | "odontograma" | "sesiones" | "imagenes" | "consentimientos";
 
-export function PatientRecordModal({ patientId, onClose }: Props) {
+const TAB_LABELS: Record<Tab, string> = {
+  resumen: "Resumen", anamnesis: "Anamnesis", odontograma: "Odontograma",
+  sesiones: "Evoluciones", imagenes: "Imágenes", consentimientos: "Consentimientos",
+};
+
+/** Edad en años a partir de la fecha de nacimiento ISO; null si no hay dato. */
+function edadDe(birthDate?: string | null): number | null {
+  if (!birthDate) return null;
+  const b = new Date(birthDate);
+  if (isNaN(b.getTime())) return null;
+  const hoy = new Date();
+  let años = hoy.getFullYear() - b.getFullYear();
+  const m = hoy.getMonth() - b.getMonth();
+  if (m < 0 || (m === 0 && hoy.getDate() < b.getDate())) años--;
+  return años;
+}
+
+function inicialesDe(nombre: string): string {
+  return nombre.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("") || "?";
+}
+
+/**
+ * Ficha clínica embebible — el mismo contenido sirve para la página completa
+ * (/partners/pacientes/[id]) y para el modal legado.
+ *
+ * variant "page": header grande con avatar, edad, contacto y alertas siempre
+ * visibles (lo crítico —una alergia— no puede depender de abrir un tab).
+ * variant "modal": header compacto con ✕.
+ */
+export function PatientRecordView({
+  patientId, variant = "page", onClose,
+}: {
+  patientId: string;
+  variant?: "page" | "modal";
+  onClose?: () => void;
+}) {
   const [record, setRecord] = useState<ClinicalRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState("");
@@ -32,63 +67,106 @@ export function PatientRecordModal({ patientId, onClose }: Props) {
 
   useEffect(() => { fetchRecord(); }, [fetchRecord]);
 
-  return (
-    <div className="fixed inset-0 z-[60] bg-black/40 flex items-stretch sm:items-center justify-center sm:p-2">
-      <div className="bg-white rounded-none sm:rounded-2xl shadow-2xl w-full sm:w-[98vw] sm:max-w-[1600px] flex flex-col h-screen sm:h-[98vh] overflow-hidden">
+  const nombre = record?.identity
+    ? `${record.identity.firstName} ${record.identity.lastName}`
+    : (record?.patient.name ?? "Ficha clínica");
+  const edad = edadDe(record?.identity?.birthDate);
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
-          <div className="min-w-0">
-            <h2 className="text-base font-bold text-gray-900 truncate">
-              {record?.identity ? `${record.identity.firstName} ${record.identity.lastName}` : (record?.patient.name ?? "Ficha clínica")}
-            </h2>
-            {record?.identity?.rut && (
-              <p className="text-[11px] text-gray-400">RUT {record.identity.rut}</p>
+  return (
+    <div className={variant === "modal" ? "flex flex-col h-full overflow-hidden" : "flex flex-col"}>
+
+      {/* ── Header ── */}
+      {variant === "page" ? (
+        <div className="rounded-2xl overflow-hidden border border-gray-100 shrink-0">
+          <div className="px-6 py-5 flex flex-wrap items-center gap-4" style={{ background: "linear-gradient(120deg, #0B2F42 0%, #1A5C7A 70%, #2E7D9E 100%)" }}>
+            <div className="w-14 h-14 rounded-full bg-white/15 text-white flex items-center justify-center text-xl font-black shrink-0">
+              {inicialesDe(nombre)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg sm:text-xl font-black text-white truncate">{nombre}</h1>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-white/70 mt-0.5">
+                {record?.identity?.rut && <span>RUT {record.identity.rut}</span>}
+                {edad != null && <span>{edad} años</span>}
+                {record?.identity?.gender && <span>{record.identity.gender}</span>}
+                {record?.identity?.phone && <span>📞 {record.identity.phone}</span>}
+                {record?.identity?.email && <span className="truncate">✉ {record.identity.email}</span>}
+              </div>
+            </div>
+            {/* Lo clínicamente crítico, visible sin abrir nada */}
+            {record && record.alerts.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 max-w-sm">
+                {record.alerts.map((a, i) => (
+                  <span key={i} className="text-[11px] font-bold text-amber-950 bg-amber-300 px-2.5 py-1 rounded-full">⚠ {a}</span>
+                ))}
+              </div>
             )}
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-700 text-lg leading-none">✕</button>
         </div>
-
-        {/* Alerts banner */}
-        {record && record.alerts.length > 0 && (
-          <div className="px-5 py-2 bg-amber-50 border-b border-amber-100 flex flex-wrap gap-2">
-            {record.alerts.map((a, i) => (
-              <span key={i} className="text-[11px] font-semibold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full">{a}</span>
-            ))}
+      ) : (
+        <>
+          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-gray-900 truncate">{nombre}</h2>
+              {record?.identity?.rut && (
+                <p className="text-[11px] text-gray-400">RUT {record.identity.rut}</p>
+              )}
+            </div>
+            {onClose && (
+              <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-700 text-lg leading-none">✕</button>
+            )}
           </div>
-        )}
-
-        {/* Tabs */}
-        <div className="border-b border-gray-100 shrink-0 overflow-x-auto">
-          <div className="flex gap-1 px-5">
-            {(["resumen","anamnesis","odontograma","sesiones","imagenes","consentimientos"] as Tab[]).map((t) => (
-              <button key={t} onClick={() => setTab(t)}
-                className={`px-3 py-2.5 text-xs sm:text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap capitalize ${
-                  tab === t
-                    ? "border-[#1A5C7A] text-[#1A5C7A]"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
-                }`}>
-                {t === "odontograma" ? "Odontograma" : t === "imagenes" ? "Imágenes" : t === "consentimientos" ? "Consentimientos" : t.charAt(0).toUpperCase() + t.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-5">
-          {loading && <div className="text-center text-sm text-gray-400 py-10">Cargando ficha…</div>}
-          {error   && <div className="text-center text-sm text-red-500 py-10">{error}</div>}
-          {record && !loading && (
-            <>
-              {tab === "resumen"     && <ResumenTab record={record} patientId={patientId} onRefresh={fetchRecord} />}
-              {tab === "anamnesis"   && <AnamnesisPanel patientId={patientId} />}
-              {tab === "odontograma" && <OdontogramPanel patientId={patientId} />}
-              {tab === "sesiones"    && <SesionesTab record={record} patientId={patientId} onCreated={fetchRecord} />}
-              {tab === "imagenes"    && <ImagenesTab record={record} />}
-              {tab === "consentimientos" && <ConsentsPanel patientId={patientId} />}
-            </>
+          {record && record.alerts.length > 0 && (
+            <div className="px-5 py-2 bg-amber-50 border-b border-amber-100 flex flex-wrap gap-2">
+              {record.alerts.map((a, i) => (
+                <span key={i} className="text-[11px] font-semibold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full">{a}</span>
+              ))}
+            </div>
           )}
+        </>
+      )}
+
+      {/* ── Tabs ── */}
+      <div className={`shrink-0 overflow-x-auto ${variant === "page" ? "mt-3 bg-white rounded-t-2xl border border-b-0 border-gray-100" : "border-b border-gray-100"}`}>
+        <div className="flex gap-1 px-5">
+          {(Object.keys(TAB_LABELS) as Tab[]).map((t) => (
+            <button key={t} onClick={() => setTab(t)}
+              className={`px-3 py-2.5 text-xs sm:text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
+                tab === t
+                  ? "border-[#1A5C7A] text-[#1A5C7A] font-bold"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}>
+              {TAB_LABELS[t]}
+            </button>
+          ))}
         </div>
+      </div>
+
+      {/* ── Body ── */}
+      <div className={variant === "page"
+        ? "bg-white rounded-b-2xl border border-t-0 border-gray-100 p-5"
+        : "flex-1 overflow-y-auto p-5"}>
+        {loading && <div className="text-center text-sm text-gray-400 py-10">Cargando ficha…</div>}
+        {error   && <div className="text-center text-sm text-red-500 py-10">{error}</div>}
+        {record && !loading && (
+          <>
+            {tab === "resumen"     && <ResumenTab record={record} patientId={patientId} onRefresh={fetchRecord} />}
+            {tab === "anamnesis"   && <AnamnesisPanel patientId={patientId} />}
+            {tab === "odontograma" && <OdontogramPanel patientId={patientId} />}
+            {tab === "sesiones"    && <SesionesTab record={record} patientId={patientId} onCreated={fetchRecord} />}
+            {tab === "imagenes"    && <ImagenesTab record={record} />}
+            {tab === "consentimientos" && <ConsentsPanel patientId={patientId} />}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function PatientRecordModal({ patientId, onClose }: Props) {
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/40 flex items-stretch sm:items-center justify-center sm:p-2">
+      <div className="bg-white rounded-none sm:rounded-2xl shadow-2xl w-full sm:w-[98vw] sm:max-w-[1600px] h-screen sm:h-[98vh] overflow-hidden">
+        <PatientRecordView patientId={patientId} variant="modal" onClose={onClose} />
       </div>
     </div>
   );

@@ -24,7 +24,15 @@ export const ALLOWED_CONFIG_KEYS = new Set([
   // completa al guardar, cualquier edición de doctores/servicios/horario moría
   // con 400 en clínicas que tenían assistantName.
   "assistantName", "logoUrl",
+  // Horario estructurado por día (la agenda y la disponibilidad lo usan para
+  // decidir qué horas ofrecer). "schedule" queda como el texto derivado que
+  // lee el asistente.
+  "openingHours",
 ]);
+
+// Tope de profesionales en cuentas "solo" (#69). Protege el pricing: evita que
+// una clínica chica se registre en el plan barato y cargue a todo su equipo.
+export const MAX_SOLO_DOCTORS = 1;
 
 // Versión vigente del DPA Molaris ↔ Clínica (Issue #38, Ley 21.719).
 // BORRADOR — pendiente validación legal. Subir la versión cuando cambie el texto.
@@ -440,6 +448,23 @@ export async function clinicRoutes(app: FastifyInstance) {
       if (unknownKeys.length > 0) {
         return reply.status(400).send({ error: `Claves de config no permitidas: ${unknownKeys.join(", ")}` });
       }
+
+      // Cap de 1 profesional en cuentas "solo" (#69). Es el límite que protege
+      // el pricing: sin esto una clínica de 3 dentistas se registra en el plan
+      // barato y carga a todo el equipo. Se valida en el backend porque
+      // esconder el botón en el front no impide un PATCH directo.
+      if (Array.isArray((config as { doctors?: unknown[] }).doctors)) {
+        const clinic = await prisma.clinic.findUnique({
+          where: { id: req.params.id },
+          select: { accountType: true },
+        });
+        const doctors = (config as { doctors: unknown[] }).doctors;
+        if (clinic?.accountType === "solo" && doctors.length > MAX_SOLO_DOCTORS) {
+          return reply.status(400).send({
+            error: `El plan Solo permite ${MAX_SOLO_DOCTORS} profesional. Para trabajar con un equipo, cambia al plan Clínica.`,
+          });
+        }
+      }
     }
 
     const updated = await prisma.clinic.update({
@@ -578,9 +603,11 @@ export async function clinicRoutes(app: FastifyInstance) {
     const updated = await prisma.clinic.update({
       where: { id: req.params.id },
       data: enabled
-        ? { agentEnabled: true, agentDisabledAt: null, agentDisabledReason: null }
-        : { agentEnabled: false, agentDisabledAt: new Date(), agentDisabledReason: reason?.trim() || null },
-      select: { agentEnabled: true, agentDisabledAt: true, agentDisabledReason: true },
+        ? { agentEnabled: true, agentDisabledAt: null, agentDisabledReason: null, agentDisabledBy: null }
+        // "manual" bloquea la auto-recuperación (#58): si alguien apagó el
+        // agente a propósito, el sistema no puede volver a encenderlo solo.
+        : { agentEnabled: false, agentDisabledAt: new Date(), agentDisabledReason: reason?.trim() || null, agentDisabledBy: "manual" },
+      select: { agentEnabled: true, agentDisabledAt: true, agentDisabledReason: true, agentDisabledBy: true },
     });
 
     // Auditoría

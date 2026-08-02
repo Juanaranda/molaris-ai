@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getToken, getMe } from "@/lib/auth";
 import { ensurePatientId } from "@/lib/clinicalRecord";
-import { PatientRecordModal } from "@/components/PatientRecordModal";
 import { DentalQuoteTab } from "./DentalQuoteTab";
 import { Odontogram, type DentitionType } from "./Odontogram";
 
@@ -338,12 +338,14 @@ function NewBookingFromPatientModal({
 }
 
 function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient; onClose: () => void }) {
+  const router = useRouter();
   const [patient, setPatient] = useState(initialPatient);
   const [tab, setTab] = useState<"history" | "odontogram" | "plans" | "quotes">("history");
-  const [recordModalId, setRecordModalId] = useState<string | null>(null);
   const [openingRecord, setOpeningRecord] = useState(false);
   const [recordError, setRecordError]     = useState("");
 
+  // La ficha ahora es una página con URL propia (abrible en otra pestaña,
+  // compartible con el equipo), no un modal sobre un modal.
   async function openClinicalRecord() {
     setOpeningRecord(true); setRecordError("");
     try {
@@ -353,9 +355,11 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
         rut: patient.rut ?? undefined,
         phone: patient.phone ?? undefined,
       });
-      setRecordModalId(patientId);
-    } catch (e) { setRecordError(e instanceof Error ? e.message : "Error"); }
-    finally    { setOpeningRecord(false); }
+      router.push(`/partners/pacientes/${patientId}`);
+    } catch (e) {
+      setRecordError(e instanceof Error ? e.message : "Error");
+      setOpeningRecord(false);
+    }
   }
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -494,8 +498,19 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
                 </>
               ) : (
                 <>
+                  {/* Agendar es la acción más frecuente sobre un paciente, así
+                      que va sólida y primera. Antes vivía dentro del tab
+                      Historial, invisible desde cualquier otra pestaña. */}
+                  <button onClick={() => setShowNewBooking(true)}
+                    className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl bg-white text-slate-800 hover:bg-white/90 shadow-sm transition"
+                    title="Agendar una hora para este paciente">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                    Agendar
+                  </button>
                   <button onClick={openClinicalRecord} disabled={openingRecord}
-                    className="text-xs font-bold px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white transition disabled:opacity-50"
+                    className="text-xs font-bold px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white transition disabled:opacity-50"
                     title="Abrir ficha clínica completa con odontograma">
                     🩺 {openingRecord ? "Abriendo…" : "Ficha clínica"}
                   </button>
@@ -511,7 +526,6 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
             </div>
           </div>
           {recordError && <p className="mt-2 text-xs text-red-300">{recordError}</p>}
-          {recordModalId && <PatientRecordModal patientId={recordModalId} onClose={() => setRecordModalId(null)} />}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5">
             <div>
               <p className="text-[10px] text-white/40 font-bold uppercase tracking-wide">Teléfono</p>
@@ -591,21 +605,15 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
         {/* Tab: History */}
         {tab === "history" && (
           <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-            <div className="px-5 py-2 border-b border-gray-50 flex items-center justify-between gap-3">
-              <button
-                onClick={() => setShowNewBooking(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-                Nueva cita
-              </button>
-              {patient.pendingCount > 0 && (
+            {/* "Agendar" subió al header del paciente, donde está disponible
+                desde cualquier pestaña. Acá queda solo el aviso de pagos. */}
+            {patient.pendingCount > 0 && (
+              <div className="px-5 py-2 border-b border-gray-50 flex items-center justify-end">
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                   {patient.pendingCount} sin registrar pago
                 </span>
-              )}
-            </div>
+              </div>
+            )}
             <div className="overflow-y-auto">
               {loadingHistory ? (
                 <div className="p-5 space-y-3">
@@ -1129,6 +1137,65 @@ function NewPatientModal({ onClose, onCreated }: { onClose: () => void; onCreate
   );
 }
 
+/* ── Búsqueda de pacientes ─────────────────────────────────────────────────
+ * Dos cosas que fallaban y son el 90% de las búsquedas reales en una clínica
+ * chilena: nadie escribe las tildes ("garces" no encontraba a "Garcés"), y el
+ * RUT se escribe con puntos y guion mientras que en la base va sin nada
+ * ("20.283.625-9" no encontraba a "202836259").
+ */
+function normalizar(s: string): string {
+  // \u0300-\u036f = marcas diacriticas combinantes (NFD las separa de la letra).
+  // Escapadas a proposito: como caracteres literales serian invisibles en el editor.
+  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+/** Deja el RUT comparable: sin puntos, guion ni espacios, en minúscula (por la K). */
+function soloRut(s: string): string {
+  return s.replace(/[.\-\s]/g, "").toLowerCase();
+}
+
+function coincide(p: Patient, query: string): boolean {
+  const q = normalizar(query.trim());
+  if (!q) return true;
+  if (normalizar(p.name).includes(q)) return true;
+  const qRut = soloRut(query);
+  if (qRut && soloRut(p.rut ?? "").includes(qRut)) return true;
+  const qTel = query.replace(/\D/g, "");
+  if (qTel && (p.phone ?? "").replace(/\D/g, "").includes(qTel)) return true;
+  return false;
+}
+
+/**
+ * Resalta el tramo coincidente sin alterar el texto original.
+ *
+ * La comparación es sobre el texto normalizado (sin tildes), pero se recorta
+ * el ORIGINAL usando los índices, porque NFD conserva el largo carácter a
+ * carácter salvo por las marcas que se quitan. Para evitar desalineación se
+ * normaliza sin descomponer: se mapea cada carácter a su versión sin tilde,
+ * manteniendo 1 a 1 la posición.
+ */
+function sinTildes1a1(s: string): string {
+  return s
+    .toLowerCase()
+    .split("")
+    .map((ch) => ch.normalize("NFD").replace(/[\u0300-\u036f]/g, "") || ch)
+    .join("");
+}
+
+function Resaltado({ texto, query }: { texto: string; query: string }) {
+  const q = sinTildes1a1(query.trim());
+  if (!q) return <>{texto}</>;
+  const idx = sinTildes1a1(texto).indexOf(q);
+  if (idx < 0) return <>{texto}</>;
+  return (
+    <>
+      {texto.slice(0, idx)}
+      <mark className="bg-amber-200 text-inherit rounded-[2px] px-0">{texto.slice(idx, idx + q.length)}</mark>
+      {texto.slice(idx + q.length)}
+    </>
+  );
+}
+
 /* ── Main PatientsTab ─────────────────────────────────────────────────── */
 export function PatientsTab() {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -1137,6 +1204,8 @@ export function PatientsTab() {
   const [showImport, setShowImport] = useState(false);
   const [showNewPatient, setShowNewPatient] = useState(false);
   const [selected, setSelected] = useState<Patient | null>(null);
+  const [cursor, setCursor]     = useState(0);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const loadPatients = useCallback(() => {
     const token = getToken(); if (!token) return;
@@ -1153,10 +1222,31 @@ export function PatientsTab() {
 
   useEffect(() => { loadPatients(); }, [loadPatients]);
 
-  const filtered = patients.filter((p) => {
-    const q = search.toLowerCase();
-    return !q || p.name.toLowerCase().includes(q) || (p.rut ?? "").includes(q) || (p.phone ?? "").includes(q);
-  });
+  const filtered = patients.filter((p) => coincide(p, search));
+
+  // "/" enfoca el buscador desde cualquier parte, como en Gmail o GitHub: el
+  // doctor llega con el paciente al lado y no quiere ir al mouse.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null;
+      const escribiendo = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+      if (e.key === "/" && !escribiendo) { e.preventDefault(); searchRef.current?.focus(); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Al cambiar el filtro, el cursor vuelve al primer resultado para que Enter
+  // siempre abra lo que se está viendo arriba.
+  useEffect(() => { setCursor(0); }, [search]);
+
+  function onSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (filtered.length === 0) return;
+    if (e.key === "ArrowDown")      { e.preventDefault(); setCursor((c) => Math.min(c + 1, filtered.length - 1)); }
+    else if (e.key === "ArrowUp")   { e.preventDefault(); setCursor((c) => Math.max(c - 1, 0)); }
+    else if (e.key === "Enter")     { e.preventDefault(); setSelected(filtered[cursor] ?? filtered[0]); }
+    else if (e.key === "Escape")    { setSearch(""); searchRef.current?.blur(); }
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -1164,15 +1254,25 @@ export function PatientsTab() {
       <div className="flex items-center gap-3">
         <div className="flex-1 relative">
           <input
+            ref={searchRef}
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={onSearchKeyDown}
             placeholder="Buscar por nombre, RUT o teléfono..."
-            className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-9 pr-20 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
             <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
           </svg>
+          {search ? (
+            <button onClick={() => { setSearch(""); searchRef.current?.focus(); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 text-xs flex items-center justify-center transition"
+              title="Limpiar búsqueda">✕</button>
+          ) : (
+            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded border border-gray-200 bg-gray-50 text-[10px] font-bold text-gray-400 hidden sm:block"
+              title="Presiona / para buscar">/</kbd>
+          )}
         </div>
         <span className="text-xs font-semibold text-gray-400 shrink-0 hidden sm:block">
           {filtered.length} paciente{filtered.length !== 1 ? "s" : ""}
@@ -1217,19 +1317,24 @@ export function PatientsTab() {
               ))}
             </div>
             <div className="divide-y divide-gray-50">
-              {filtered.map((p) => {
+              {filtered.map((p, idx) => {
+                const isCursor = idx === cursor && search.length > 0;
                 const balance = p.totalCharged - p.totalPaid;
                 const hasPending = p.pendingCount > 0;
                 return (
                   <button key={p.key} onClick={() => setSelected(p)}
-                    className="w-full text-left px-5 py-3.5 hover:bg-gray-50 transition group flex sm:grid sm:grid-cols-[1fr_110px_120px_110px_140px_100px_40px] sm:gap-4 items-center gap-3">
+                    className={`w-full text-left px-5 py-3.5 transition group flex sm:grid sm:grid-cols-[1fr_110px_120px_110px_140px_100px_40px] sm:gap-4 items-center gap-3 ${
+                      isCursor ? "bg-blue-50 ring-1 ring-inset ring-blue-200" : "hover:bg-gray-50"
+                    }`}>
                     {/* Name + initials */}
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-black text-slate-500 shrink-0">
                         {p.name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-800 truncate">{p.name}</p>
+                        <p className="text-sm font-semibold text-gray-800 truncate">
+                          <Resaltado texto={p.name} query={search} />
+                        </p>
                         {p.email ? (
                           <p className="text-[11px] text-gray-400 truncate">{p.email}</p>
                         ) : p.services.length > 0 ? (
@@ -1237,8 +1342,12 @@ export function PatientsTab() {
                         ) : null}
                       </div>
                     </div>
-                    <span className="text-xs text-gray-500 hidden sm:block">{p.rut ?? "—"}</span>
-                    <span className="text-xs text-gray-500 hidden sm:block">{p.phone ?? "—"}</span>
+                    <span className="text-xs text-gray-500 hidden sm:block">
+                      {p.rut ? <Resaltado texto={p.rut} query={soloRut(search)} /> : "—"}
+                    </span>
+                    <span className="text-xs text-gray-500 hidden sm:block">
+                      {p.phone ? <Resaltado texto={p.phone} query={search.replace(/\D/g, "")} /> : "—"}
+                    </span>
                     <span className="text-xs text-gray-500 hidden sm:block">{fmtDate(p.lastVisit)}</span>
                     <span className="text-xs text-gray-500 hidden sm:block truncate">{p.lastDoctor && p.lastDoctor !== "Sin asignar" ? p.lastDoctor : "—"}</span>
                     {/* Estado pago */}

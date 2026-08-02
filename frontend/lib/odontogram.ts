@@ -17,7 +17,9 @@ export interface DentalEvent {
   sessionId:      string | null;
   professionalId: string;
   surfaces:       { surface: DentalSurface }[];
-  professional:   { id: string; name: string; occupation: string | null };
+  // Nulo cuando el evento lo registró un usuario sin registro de profesional
+  // (ej: el admin de la clínica). El render debe tolerar la ausencia.
+  professional:   { id: string; name: string; occupation: string | null } | null;
 }
 
 export interface ToothProjection {

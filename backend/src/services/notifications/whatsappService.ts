@@ -58,13 +58,12 @@ export async function sendWhatsAppMessage(
     console.info("[WhatsApp] Sin canal configurado. Mensaje simulado:", { to: digits, body });
     return;
   }
-  try {
-    const twilio = (await import("twilio")).default;
-    const client = twilio(accountSid, authToken);
-    await client.messages.create({ from, to: `whatsapp:+${digits}`, body });
-  } catch (err: unknown) {
-    console.error("[WhatsApp] Error al enviar:", err instanceof Error ? err.message : err);
-  }
+  const twilio = (await import("twilio")).default;
+  const client = twilio(accountSid, authToken);
+  // El error se propaga a propósito: antes se atrapaba acá y el llamador
+  // igual logueaba "notificación enviada", así que un envío fallido pasaba
+  // por exitoso y no había forma de notarlo.
+  await client.messages.create({ from, to: `whatsapp:+${digits}`, body });
 }
 
 export async function sendBookingNotification(data: BookingNotification): Promise<void> {
@@ -73,6 +72,13 @@ export async function sendBookingNotification(data: BookingNotification): Promis
     console.info("[WhatsApp] Clínica sin número configurado, notificación omitida");
     return;
   }
-  await sendWhatsAppMessage(data.clinicWhatsapp, msg, data.clinicMeta);
-  console.info(`[WhatsApp] Notificación de booking enviada a ${data.clinicWhatsapp}`);
+  try {
+    await sendWhatsAppMessage(data.clinicWhatsapp, msg, data.clinicMeta);
+    console.info(`[WhatsApp] Notificación de booking enviada a ${data.clinicWhatsapp}`);
+  } catch (err: unknown) {
+    // Una notificación fallida no debe voltear el agendamiento: la cita ya se
+    // creó. Pero sí queda registrada como fallida, no como enviada.
+    const detalle = err instanceof Error ? err.message : String(err);
+    console.error(`[WhatsApp] FALLÓ la notificación de booking a ${data.clinicWhatsapp}:`, detalle);
+  }
 }

@@ -23,6 +23,7 @@ interface CreateQuoteBody {
 
 interface UpdateQuoteBody {
   status?: "draft" | "sent" | "accepted" | "rejected";
+  doctor?: string;
   discount?: number;
   notes?: string;
   paymentInfo?: string;
@@ -126,13 +127,14 @@ export async function dentalQuotesRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: "Presupuesto no encontrado" });
     }
 
-    const { status, discount, notes, paymentInfo, accepted, items } = req.body ?? {};
+    const { status, doctor, discount, notes, paymentInfo, accepted, items } = req.body ?? {};
 
     const effectiveDiscount = discount ?? existing.discount;
 
     // If items are provided, replace them
     let updateData: Record<string, unknown> = {
       ...(status !== undefined ? { status, ...(status === "sent" ? { sentAt: new Date() } : {}) } : {}),
+      ...(doctor !== undefined ? { doctor: doctor || null } : {}),
       ...(discount !== undefined ? { discount } : {}),
       ...(notes !== undefined ? { notes } : {}),
       ...(paymentInfo !== undefined ? { paymentInfo } : {}),

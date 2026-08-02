@@ -9,7 +9,13 @@ export interface ServiceRow {
   priceMin?: string;
   priceMax?: string;
   priceNote?: string;
+  /** Minutos de sillón que ocupa, incluyendo preparación y limpieza del box.
+      Define el largo del bloque en la agenda. */
+  durationMin?: number;
 }
+
+/** Opciones de duración; cubren desde un control corto hasta una cirugía. */
+const DURACIONES = [15, 20, 30, 45, 60, 90, 120];
 
 interface Props {
   services: ServiceRow[];
@@ -17,24 +23,27 @@ interface Props {
   onSave: (services: ServiceRow[]) => Promise<void>;
 }
 
-const EMPTY: ServiceRow = { name: "", pricingType: "fixed", price: "", priceMin: "", priceMax: "", priceNote: "" };
+const EMPTY: ServiceRow = { name: "", pricingType: "fixed", price: "", priceMin: "", priceMax: "", priceNote: "", durationMin: 45 };
 
+/* Las duraciones son un punto de partida razonable, NO el dato de la clínica:
+   cada equipo trabaja a su ritmo y debe ajustarlas. La agenda las usa para
+   decidir el largo del bloque, así que conviene revisarlas al configurar. */
 const SUGGESTED_SERVICES: ServiceRow[] = [
-  { name: "Limpieza dental",                    pricingType: "range",    priceMin: "$25.000", priceMax: "$40.000" },
-  { name: "Blanqueamiento dental",               pricingType: "variable", priceNote: "Varía según tipo y caso del paciente." },
-  { name: "Consulta general",                    pricingType: "fixed",    price: "$20.000" },
-  { name: "Urgencias dentales",                  pricingType: "fixed",    price: "$35.000" },
-  { name: "Ortodoncia (brackets / alineadores)", pricingType: "variable", priceNote: "Se evalúa en consulta." },
-  { name: "Carillas dentales",                   pricingType: "variable", priceNote: "Varía según número de piezas y material." },
-  { name: "Implantes dentales",                  pricingType: "variable", priceNote: "Depende del número de implantes." },
-  { name: "Endodoncia (tratamiento de conducto)",pricingType: "variable", priceNote: "Varía según número de conductos." },
-  { name: "Extracción dental simple",            pricingType: "range",    priceMin: "$20.000", priceMax: "$45.000" },
-  { name: "Extracción de muela del juicio",      pricingType: "variable", priceNote: "Varía según posición e impactación." },
-  { name: "Radiografía dental",                  pricingType: "range",    priceMin: "$8.000",  priceMax: "$20.000" },
-  { name: "Blanqueamiento en consulta",          pricingType: "range",    priceMin: "$80.000", priceMax: "$150.000" },
-  { name: "Resina / obturación",                 pricingType: "range",    priceMin: "$25.000", priceMax: "$60.000" },
-  { name: "Prótesis removible",                  pricingType: "variable", priceNote: "Depende del número de piezas." },
-  { name: "Corona dental",                       pricingType: "variable", priceNote: "Depende del material y la pieza." },
+  { name: "Limpieza dental",                    pricingType: "range",    priceMin: "$25.000", priceMax: "$40.000", durationMin: 45 },
+  { name: "Blanqueamiento dental",               pricingType: "variable", priceNote: "Varía según tipo y caso del paciente.", durationMin: 60 },
+  { name: "Consulta general",                    pricingType: "fixed",    price: "$20.000", durationMin: 30 },
+  { name: "Urgencias dentales",                  pricingType: "fixed",    price: "$35.000", durationMin: 30 },
+  { name: "Ortodoncia (brackets / alineadores)", pricingType: "variable", priceNote: "Se evalúa en consulta.", durationMin: 45 },
+  { name: "Carillas dentales",                   pricingType: "variable", priceNote: "Varía según número de piezas y material.", durationMin: 90 },
+  { name: "Implantes dentales",                  pricingType: "variable", priceNote: "Depende del número de implantes.", durationMin: 90 },
+  { name: "Endodoncia (tratamiento de conducto)",pricingType: "variable", priceNote: "Varía según número de conductos.", durationMin: 90 },
+  { name: "Extracción dental simple",            pricingType: "range",    priceMin: "$20.000", priceMax: "$45.000", durationMin: 30 },
+  { name: "Extracción de muela del juicio",      pricingType: "variable", priceNote: "Varía según posición e impactación.", durationMin: 60 },
+  { name: "Radiografía dental",                  pricingType: "range",    priceMin: "$8.000",  priceMax: "$20.000", durationMin: 15 },
+  { name: "Blanqueamiento en consulta",          pricingType: "range",    priceMin: "$80.000", priceMax: "$150.000", durationMin: 90 },
+  { name: "Resina / obturación",                 pricingType: "range",    priceMin: "$25.000", priceMax: "$60.000", durationMin: 45 },
+  { name: "Prótesis removible",                  pricingType: "variable", priceNote: "Depende del número de piezas.", durationMin: 60 },
+  { name: "Corona dental",                       pricingType: "variable", priceNote: "Depende del material y la pieza.", durationMin: 60 },
 ];
 
 function priceDisplay(svc: ServiceRow): string {
@@ -145,6 +154,7 @@ export function ServicesEditor({ services, canEdit, onSave }: Props) {
           <thead>
             <tr className="border-b border-gray-100">
               <th className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider pb-3">Servicio</th>
+              <th className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider pb-3">Duración</th>
               <th className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider pb-3">Precio / nota</th>
               {editing && <th className="pb-3" />}
             </tr>
@@ -153,6 +163,9 @@ export function ServicesEditor({ services, canEdit, onSave }: Props) {
             {rows.map((svc, i) => (
               <tr key={i}>
                 <td className="py-3 text-gray-800">{svc.name}</td>
+                <td className="py-3 text-gray-600 whitespace-nowrap">
+                  {svc.durationMin ? `${svc.durationMin} min` : <span className="text-gray-300">—</span>}
+                </td>
                 <td className="py-3 text-gray-600">{priceDisplay(svc)}</td>
                 {editing && (
                   <td className="py-3 text-right whitespace-nowrap">
@@ -224,6 +237,21 @@ export function ServicesEditor({ services, canEdit, onSave }: Props) {
                 placeholder="Ej: Limpieza dental"
                 className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Duración en sillón</label>
+              <select
+                value={form.durationMin ?? 45}
+                onChange={(e) => setForm((f) => ({ ...f, durationMin: Number(e.target.value) }))}
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                {DURACIONES.map((d) => (
+                  <option key={d} value={d}>{d < 60 ? `${d} minutos` : d === 60 ? "1 hora" : `${d / 60} horas`}</option>
+                ))}
+              </select>
+              <p className="text-[11px] text-gray-400 mt-1">
+                Define el largo del bloque en la agenda. Incluye la preparación y la limpieza del box.
+              </p>
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Tipo de precio</label>

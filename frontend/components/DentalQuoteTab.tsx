@@ -364,25 +364,42 @@ function AddItemForm({
 
 /* ─── Quote builder modal ────────────────────────────────────────────────── */
 function QuoteBuilderModal({
-  patient, clinicServices, onClose, onSaved,
+  patient, clinicServices, existing, onClose, onSaved,
 }: {
   patient: { name: string; rut: string | null };
   clinicServices?: ClinicService[];
+  /** Presupuesto a editar. Si no viene, el modal crea uno nuevo. */
+  existing?: DentalQuote;
   onClose: () => void;
   onSaved: (q: DentalQuote) => void;
 }) {
-  const [selectedTeeth, setSelectedTeeth] = useState<Set<string>>(new Set());
+  const isEdit = existing !== undefined;
+
+  // Al editar se reconstruyen los dientes seleccionados y sus caras desde los
+  // ítems guardados, para que el odontograma muestre el mismo contexto con el
+  // que se armó el presupuesto y no aparezca vacío.
+  const [selectedTeeth, setSelectedTeeth] = useState<Set<string>>(
+    () => new Set((existing?.items ?? []).map((i) => i.toothFDI).filter((t): t is string => !!t)),
+  );
   const [activeToothFdi, setActiveToothFdi] = useState<string | null>(null);
-  const [surfacesByTooth, setSurfacesByTooth] = useState<Map<string, string[]>>(new Map());
+  const [surfacesByTooth, setSurfacesByTooth] = useState<Map<string, string[]>>(() => {
+    const m = new Map<string, string[]>();
+    for (const i of existing?.items ?? []) {
+      if (i.toothFDI && i.surfaces) m.set(i.toothFDI, i.surfaces.split(","));
+    }
+    return m;
+  });
   const [missingTeeth, setMissingTeeth]   = useState<Set<string>>(new Set());
   const [dentitionType, setDentitionType] = useState<DentitionType>("definitiva");
-  const [items, setItems]                 = useState<Omit<QuoteItem, "id">[]>([]);
-  const [generalDiscount, setGeneralDiscount] = useState(0);
-  const [notes, setNotes]                 = useState("");
-  const [paymentInfo, setPaymentInfo]     = useState("");
+  const [items, setItems]                 = useState<Omit<QuoteItem, "id">[]>(
+    () => (existing?.items ?? []).map(({ id: _id, ...rest }) => rest),
+  );
+  const [generalDiscount, setGeneralDiscount] = useState(existing?.discount ?? 0);
+  const [notes, setNotes]                 = useState(existing?.notes ?? "");
+  const [paymentInfo, setPaymentInfo]     = useState(existing?.paymentInfo ?? "");
   const [saving, setSaving]               = useState(false);
   const [error, setError]                 = useState("");
-  const [doctor, setDoctor]               = useState("");
+  const [doctor, setDoctor]               = useState(existing?.doctor ?? "");
   const [DOCTORS, setDoctors]             = useState<string[]>([]);
 
   useEffect(() => {
@@ -484,26 +501,43 @@ function QuoteBuilderModal({
     setSaving(true); setError("");
     try {
       const token = getToken();
-      const res = await fetch(`${API}/api/dental-quotes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          patientRut:  patient.rut ?? undefined,
-          patientName: patient.name,
-          doctor:      doctor || undefined,
-          discount:    generalDiscount,
-          notes:       notes || undefined,
-          paymentInfo: paymentInfo || undefined,
-          items: items.map((i) => ({
-            toothFDI:   i.toothFDI ?? undefined,
-            surfaces:   i.surfaces ?? undefined,
-            prestacion: i.prestacion,
-            unitPrice:  i.unitPrice,
-            quantity:   i.quantity,
-            discount:   i.discount,
-          })),
-        }),
-      });
+      const payloadItems = items.map((i) => ({
+        toothFDI:   i.toothFDI ?? undefined,
+        surfaces:   i.surfaces ?? undefined,
+        prestacion: i.prestacion,
+        unitPrice:  i.unitPrice,
+        quantity:   i.quantity,
+        discount:   i.discount,
+      }));
+      // Al editar se manda solo lo modificable: el paciente del presupuesto no
+      // cambia. Las cadenas vacías van como "" y no undefined, para poder
+      // borrar una nota o una forma de pago que ya estaba escrita.
+      const res = await fetch(
+        isEdit ? `${API}/api/dental-quotes/${existing.id}` : `${API}/api/dental-quotes`,
+        {
+          method: isEdit ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify(
+            isEdit
+              ? {
+                  doctor,
+                  discount:    generalDiscount,
+                  notes,
+                  paymentInfo,
+                  items: payloadItems,
+                }
+              : {
+                  patientRut:  patient.rut ?? undefined,
+                  patientName: patient.name,
+                  doctor:      doctor || undefined,
+                  discount:    generalDiscount,
+                  notes:       notes || undefined,
+                  paymentInfo: paymentInfo || undefined,
+                  items: payloadItems,
+                },
+          ),
+        },
+      );
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Error al guardar"); return; }
       onSaved(data);
@@ -520,7 +554,9 @@ function QuoteBuilderModal({
       <div className="bg-gray-50 rounded-2xl border border-gray-200 shadow-2xl w-full max-w-5xl my-4 overflow-hidden">
         <div className="px-6 py-4 bg-white border-b border-gray-100 flex items-center justify-between">
           <div>
-            <h2 className="text-base font-black text-gray-900">Nuevo presupuesto dental</h2>
+            <h2 className="text-base font-black text-gray-900">
+              {isEdit ? "Editar presupuesto dental" : "Nuevo presupuesto dental"}
+            </h2>
             <p className="text-xs text-gray-400 mt-0.5">{patient.name}{patient.rut ? ` · ${patient.rut}` : ""}</p>
           </div>
           <button onClick={onClose}
@@ -641,7 +677,7 @@ function QuoteBuilderModal({
               <button onClick={handleSave} disabled={saving || items.length === 0}
                 className="w-full py-3 rounded-2xl text-sm font-black text-white transition disabled:opacity-40"
                 style={{ background: "#1A5C7A", boxShadow: "0 4px 16px rgba(26,92,122,0.25)" }}>
-                {saving ? "Guardando…" : `Guardar presupuesto · ${fmtCLP(totalFinal)}`}
+                {saving ? "Guardando…" : `${isEdit ? "Guardar cambios" : "Guardar presupuesto"} · ${fmtCLP(totalFinal)}`}
               </button>
             </div>
           </div>
@@ -702,9 +738,10 @@ function printQuote(quote: DentalQuote) {
 }
 
 /* ─── Quote card ─────────────────────────────────────────────────────────── */
-function QuoteCard({ quote, onStatusChange }: {
+function QuoteCard({ quote, onStatusChange, onEdit }: {
   quote: DentalQuote;
   onStatusChange: (id: string, status: string) => void;
+  onEdit: (q: DentalQuote) => void;
 }) {
   const [expanded, setExpanded]         = useState(false);
   const [showEmail, setShowEmail]       = useState(false);
@@ -810,6 +847,15 @@ function QuoteCard({ quote, onStatusChange }: {
               </>
             )}
             <div className="ml-auto flex items-center gap-2">
+              {/* Un presupuesto aceptado ya no se edita: cambiarle el monto
+                  después de que el paciente lo aprobó rompe el acuerdo. Para
+                  modificarlo hay que emitir uno nuevo. */}
+              {!quote.accepted && (
+                <button onClick={() => onEdit(quote)}
+                  className="text-xs font-semibold text-gray-500 hover:text-gray-700">
+                  ✏️ Editar
+                </button>
+              )}
               <button onClick={() => printQuote(quote)}
                 className="text-xs font-semibold text-gray-500 hover:text-gray-700">
                 🖨 Imprimir
@@ -851,6 +897,7 @@ export function DentalQuoteTab({
   const [quotes, setQuotes]           = useState<DentalQuote[]>([]);
   const [loading, setLoading]         = useState(false);
   const [showBuilder, setShowBuilder] = useState(false);
+  const [editing, setEditing]         = useState<DentalQuote | null>(null);
 
   useEffect(() => {
     const token = getToken();
@@ -923,7 +970,9 @@ export function DentalQuoteTab({
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          {quotes.map((q) => <QuoteCard key={q.id} quote={q} onStatusChange={handleStatusChange} />)}
+          {quotes.map((q) => (
+            <QuoteCard key={q.id} quote={q} onStatusChange={handleStatusChange} onEdit={setEditing} />
+          ))}
         </div>
       )}
 
@@ -932,6 +981,21 @@ export function DentalQuoteTab({
           patient={patient} clinicServices={clinicServices}
           onClose={() => setShowBuilder(false)}
           onSaved={(q) => { setQuotes((prev) => [q, ...prev]); setShowBuilder(false); }}
+        />
+      )}
+
+      {editing && (
+        // key fuerza un remontaje al cambiar de presupuesto: el estado inicial
+        // del modal se calcula una sola vez, así que sin esto reabrirlo con
+        // otro presupuesto mostraría los ítems del anterior.
+        <QuoteBuilderModal
+          key={editing.id}
+          patient={patient} clinicServices={clinicServices} existing={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(q) => {
+            setQuotes((prev) => prev.map((old) => (old.id === q.id ? q : old)));
+            setEditing(null);
+          }}
         />
       )}
     </div>
