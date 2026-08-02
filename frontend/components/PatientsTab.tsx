@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getToken, getMe } from "@/lib/auth";
 import { ensurePatientId } from "@/lib/clinicalRecord";
 import { DentalQuoteTab } from "./DentalQuoteTab";
-import { Odontogram, type DentitionType } from "./Odontogram";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -340,7 +339,7 @@ function NewBookingFromPatientModal({
 function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient; onClose: () => void }) {
   const router = useRouter();
   const [patient, setPatient] = useState(initialPatient);
-  const [tab, setTab] = useState<"history" | "odontogram" | "plans" | "quotes">("history");
+  const [tab, setTab] = useState<"history" | "plans" | "quotes">("history");
   const [openingRecord, setOpeningRecord] = useState(false);
   const [recordError, setRecordError]     = useState("");
 
@@ -373,9 +372,6 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({ name: patient.name, phone: patient.phone ?? "", email: patient.email ?? "" });
   const [savingEdit, setSavingEdit] = useState(false);
-  const [dentitionType, setDentitionType] = useState<DentitionType>("definitiva");
-  const [odontoItems, setOdontoItems] = useState<Record<string, number>>({});
-  const [loadingOdonto, setLoadingOdonto] = useState(false);
 
   async function savePatientEdit() {
     setSavingEdit(true);
@@ -430,30 +426,6 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
       })
       .catch(() => {})
       .finally(() => setLoadingPlans(false));
-  }, [tab, patient.rut, patient.name]);
-
-  // Odontograma de la ficha: piezas con prestaciones según presupuestos del paciente
-  useEffect(() => {
-    if (tab !== "odontogram") return;
-    const token = getToken(); if (!token) return;
-    setLoadingOdonto(true);
-    const url = patient.rut
-      ? `${API}/api/dental-quotes?patientRut=${encodeURIComponent(patient.rut)}`
-      : `${API}/api/dental-quotes`;
-    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then((data: { patientName: string; status: string; items: { toothFDI: string | null }[] }[]) => {
-        const quotes = patient.rut ? data : data.filter((q) => q.patientName === patient.name);
-        const counts: Record<string, number> = {};
-        for (const q of quotes) {
-          if (q.status === "rejected") continue;
-          for (const item of q.items) {
-            if (item.toothFDI) counts[item.toothFDI] = (counts[item.toothFDI] ?? 0) + 1;
-          }
-        }
-        setOdontoItems(counts);
-      })
-      .finally(() => setLoadingOdonto(false));
   }, [tab, patient.rut, patient.name]);
 
   const balance = patient.totalCharged - patient.totalPaid;
@@ -594,10 +566,10 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
 
         {/* Tab bar */}
         <div className="flex border-b border-gray-100 overflow-x-auto">
-          {(["history", "odontogram", "plans", "quotes"] as const).map((t) => (
+          {(["history", "plans", "quotes"] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className={`flex-1 py-3 text-xs font-bold transition whitespace-nowrap px-2 ${tab === t ? "text-blue-600 border-b-2 border-blue-500" : "text-gray-400 hover:text-gray-600"}`}>
-              {t === "history" ? "Historial" : t === "odontogram" ? "Odontograma" : t === "plans" ? `Planes${plans.length > 0 ? ` (${plans.length})` : ""}` : "Presupuesto"}
+              {t === "history" ? "Historial" : t === "plans" ? `Planes${plans.length > 0 ? ` (${plans.length})` : ""}` : "Presupuesto"}
             </button>
           ))}
         </div>
@@ -711,32 +683,6 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
                 </div>
               )}
             </div>
-          </div>
-        )}
-
-        {/* Tab: Odontograma */}
-        {tab === "odontogram" && (
-          <div className="overflow-y-auto p-4" style={{ maxHeight: 520 }}>
-            {loadingOdonto ? (
-              <div className="h-64 bg-gray-100 rounded-2xl animate-pulse" />
-            ) : (
-              <div className="flex flex-col gap-2">
-                <Odontogram
-                  dentitionType={dentitionType} setDentitionType={setDentitionType}
-                  itemsByTooth={odontoItems} readOnly
-                />
-                <p className="text-[10px] text-gray-400 text-center">
-                  Vista de solo lectura. Las piezas en azul tienen prestaciones en presupuestos del paciente.
-                </p>
-                <div className="flex justify-center mt-1">
-                  <button onClick={openClinicalRecord} disabled={openingRecord}
-                    className="text-xs font-bold px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white transition disabled:opacity-50"
-                    title="Editar el odontograma clínico (hallazgos y condiciones) en la ficha">
-                    🩺 {openingRecord ? "Abriendo…" : "Editar en la ficha clínica"}
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -1205,7 +1151,37 @@ export function PatientsTab() {
   const [showNewPatient, setShowNewPatient] = useState(false);
   const [selected, setSelected] = useState<Patient | null>(null);
   const [cursor, setCursor]     = useState(0);
+  const [exporting, setExporting] = useState(false);
+  const [doctorFilter, setDoctorFilter] = useState<string>("");
+  const [payFilter, setPayFilter]   = useState<"todos" | "deuda" | "aldia">("todos");
+  const [dateFilter, setDateFilter] = useState<"todos" | "30" | "90" | "180+">("todos");
   const searchRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * Descarga el CSV. Va por fetch y no por un <a href> directo porque el
+   * endpoint pide el token en el header: un link plano llegaría sin auth.
+   */
+  async function exportCsv() {
+    const token = getToken(); if (!token) return;
+    setExporting(true);
+    try {
+      const res = await fetch(`${API}/api/patients/export`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error("No se pudo exportar");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `pacientes-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "No se pudo exportar");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const loadPatients = useCallback(() => {
     const token = getToken(); if (!token) return;
@@ -1222,7 +1198,36 @@ export function PatientsTab() {
 
   useEffect(() => { loadPatients(); }, [loadPatients]);
 
-  const filtered = patients.filter((p) => coincide(p, search));
+  // Profesionales presentes en la base, para el desplegable. Sale de los datos
+  // y no del equipo configurado: hay fichas antiguas con profesionales que ya
+  // no atienden y también se deben poder filtrar.
+  const doctorOptions = useMemo(() => {
+    const s = new Set<string>();
+    for (const p of patients) if (p.lastDoctor && p.lastDoctor !== "Sin asignar") s.add(p.lastDoctor);
+    return [...s].sort((a, b) => a.localeCompare(b, "es"));
+  }, [patients]);
+
+  const filtered = useMemo(() => {
+    const now = Date.now();
+    const DIA = 86_400_000;
+    return patients.filter((p) => {
+      if (!coincide(p, search)) return false;
+      if (doctorFilter && p.lastDoctor !== doctorFilter) return false;
+      if (payFilter === "deuda"  && p.pendingCount === 0) return false;
+      if (payFilter === "aldia"  && p.pendingCount > 0)   return false;
+      if (dateFilter !== "todos") {
+        const dias = (now - new Date(p.lastVisit).getTime()) / DIA;
+        // "Sin venir hace 6+ meses" es el filtro de recall: a quién hay que
+        // llamar de vuelta. Los otros dos acotan a actividad reciente.
+        if (dateFilter === "30"   && dias > 30)  return false;
+        if (dateFilter === "90"   && dias > 90)  return false;
+        if (dateFilter === "180+" && dias < 180) return false;
+      }
+      return true;
+    });
+  }, [patients, search, doctorFilter, payFilter, dateFilter]);
+
+  const hayFiltros = Boolean(doctorFilter) || payFilter !== "todos" || dateFilter !== "todos";
 
   // "/" enfoca el buscador desde cualquier parte, como en Gmail o GitHub: el
   // doctor llega con el paciente al lado y no quiere ir al mouse.
@@ -1291,6 +1296,48 @@ export function PatientsTab() {
           </svg>
           Importar CSV
         </button>
+        <button onClick={exportCsv} disabled={exporting}
+          title="Descargar la base de pacientes en CSV"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-600 hover:border-blue-300 hover:text-blue-600 transition shrink-0 disabled:opacity-50">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 8l5-5 5 5M12 3v12" />
+          </svg>
+          {exporting ? "Exportando…" : "Exportar CSV"}
+        </button>
+      </div>
+
+      {/* Filtros — los mismos ejes que ya muestran las columnas de la tabla */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <select value={doctorFilter} onChange={(e) => setDoctorFilter(e.target.value)}
+          aria-label="Filtrar por profesional"
+          className="px-3 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+          <option value="">Todos los profesionales</option>
+          {doctorOptions.map((d) => <option key={d} value={d}>{d}</option>)}
+        </select>
+
+        <select value={payFilter} onChange={(e) => setPayFilter(e.target.value as typeof payFilter)}
+          aria-label="Filtrar por estado de pago"
+          className="px-3 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+          <option value="todos">Cualquier pago</option>
+          <option value="deuda">Con pagos pendientes</option>
+          <option value="aldia">Al día</option>
+        </select>
+
+        <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value as typeof dateFilter)}
+          aria-label="Filtrar por última visita"
+          className="px-3 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+          <option value="todos">Cualquier fecha</option>
+          <option value="30">Visitó últimos 30 días</option>
+          <option value="90">Visitó últimos 90 días</option>
+          <option value="180+">Sin venir hace 6+ meses</option>
+        </select>
+
+        {hayFiltros && (
+          <button onClick={() => { setDoctorFilter(""); setPayFilter("todos"); setDateFilter("todos"); }}
+            className="text-xs font-semibold text-gray-400 hover:text-gray-600 transition px-2">
+            Limpiar filtros
+          </button>
+        )}
       </div>
 
       {/* Patient list */}

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import type { ToothProjection, DentalSurface } from "@/lib/odontogram";
 import { ToothSurfaceChart } from "@/components/ToothSurfaceChart";
 import { ToothFrontView } from "@/components/ToothFrontView";
-import { toothTypeOf, isUpperFdi } from "@/lib/tooth";
+import { toothTypeOf, isUpperFdi, getArchRows, type DentitionType } from "@/lib/tooth";
 
 /**
  * Odontograma estándar — vista simple y profesional (Issue #43).
@@ -134,12 +134,13 @@ function summarize(proj: ToothProjection | undefined): { state: StateKey; meta: 
 // Vista del dentista: el cuadrante 1 del paciente (su derecha) va en la IZQUIERDA del chart
 // Q1 (1.x): 18-11   |   Q2 (2.x): 21-28
 // Q4 (4.x): 48-41   |   Q3 (3.x): 31-38
-const UPPER_RIGHT = ["18","17","16","15","14","13","12","11"];
-const UPPER_LEFT  = ["21","22","23","24","25","26","27","28"];
-const LOWER_RIGHT = ["48","47","46","45","44","43","42","41"];
-const LOWER_LEFT  = ["31","32","33","34","35","36","37","38"];
-
 type ArchView = "all" | "upper" | "lower";
+
+const DENTITION_LABEL: Record<DentitionType, string> = {
+  definitiva: "Adulto",
+  mixta:      "Mixta",
+  temporal:   "Niño",
+};
 
 interface Props {
   teeth?:           Record<string, ToothProjection>;
@@ -168,17 +169,32 @@ interface Props {
    * necesita la grilla compacta.
    */
   anatomical?:      boolean;
+  /**
+   * Dentición a mostrar. Sin esto la ficha clínica solo tenía piezas
+   * permanentes y un paciente niño no se podía odontografiar.
+   */
+  dentition?:        DentitionType;
+  onDentitionChange?: (d: DentitionType) => void;
 }
 
 export function StandardOdontogram({
   teeth = {}, selectedFdis, mode = "single", missingFdis, highlightFdis,
   onSelectTooth, onToggleMissing, defaultView = "all", view: viewProp, className,
   showLegend = true, cellSize = 52, anatomical = false,
+  dentition: dentitionProp, onDentitionChange,
 }: Props) {
 
   const [viewState, setView] = useState<ArchView>(defaultView);
   const view = viewProp ?? viewState;
   const showInternalToolbar = viewProp === undefined;
+
+  const [dentitionState, setDentitionState] = useState<DentitionType>("definitiva");
+  const dentition = dentitionProp ?? dentitionState;
+  function changeDentition(d: DentitionType) {
+    setDentitionState(d);
+    onDentitionChange?.(d);
+  }
+  const rows = useMemo(() => getArchRows(dentition), [dentition]);
 
   const selectedSet = useMemo(() => {
     if (!selectedFdis) return new Set<string>();
@@ -204,6 +220,19 @@ export function StandardOdontogram({
               </button>
             ))}
           </div>
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mr-1.5">Dentición:</span>
+            {(["definitiva", "mixta", "temporal"] as DentitionType[]).map((d) => (
+              <button key={d} onClick={() => changeDentition(d)}
+                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition ${
+                  dentition === d
+                    ? "bg-[#1A5C7A] text-white border-[#1A5C7A]"
+                    : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                }`}>
+                {DENTITION_LABEL[d]}
+              </button>
+            ))}
+          </div>
           {mode === "multi" && selectedSet.size > 0 && (
             <span className="text-[11px] font-bold text-[#1A5C7A]">{selectedSet.size} seleccionados</span>
           )}
@@ -215,7 +244,7 @@ export function StandardOdontogram({
         {(view === "all" || view === "upper") && (
           <ArchRow
             label="Arcada superior"
-            quadrants={[UPPER_RIGHT, UPPER_LEFT]}
+            quadrants={rows.upper}
             teeth={teeth}
             selectedSet={selectedSet}
             missingFdis={missingFdis}
@@ -238,7 +267,7 @@ export function StandardOdontogram({
         {(view === "all" || view === "lower") && (
           <ArchRow
             label="Arcada inferior"
-            quadrants={[LOWER_RIGHT, LOWER_LEFT]}
+            quadrants={rows.lower}
             teeth={teeth}
             selectedSet={selectedSet}
             missingFdis={missingFdis}

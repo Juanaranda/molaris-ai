@@ -40,3 +40,45 @@ export function isUpperFdi(fdi: string): boolean {
 export function jawOf(fdi: string): "upper" | "lower" {
   return isUpperFdi(fdi) ? "upper" : "lower";
 }
+
+export type DentitionType = "definitiva" | "temporal" | "mixta";
+
+/** FDIs de un cuadrante, del número `from` al `to` (admite orden descendente). */
+function quadRange(quadrant: number, from: number, to: number): string[] {
+  const step = from <= to ? 1 : -1;
+  const out: string[] = [];
+  for (let n = from; step > 0 ? n <= to : n >= to; n += step) out.push(`${quadrant}${n}`);
+  return out;
+}
+
+/**
+ * Filas del odontograma por dentición, en orden anatómico y en la vista del
+ * dentista: el cuadrante derecho del paciente va a la IZQUIERDA del chart, y
+ * cada fila se lee de distal a mesial hacia la línea media.
+ *
+ * En dentición mixta los molares permanentes (6-7-8) NO reemplazan a los
+ * temporales: erupcionan DETRÁS de ellos. Por eso la fila mixta va molares
+ * permanentes por distal + piezas temporales por mesial, que es la boca real
+ * de un niño de 6 a 12 años, y no dos arcadas separadas.
+ */
+export function getArchRows(dentition: DentitionType): {
+  upper: [string[], string[]];
+  lower: [string[], string[]];
+} {
+  if (dentition === "temporal") {
+    return {
+      upper: [quadRange(5, 5, 1), quadRange(6, 1, 5)],
+      lower: [quadRange(8, 5, 1), quadRange(7, 1, 5)],
+    };
+  }
+  if (dentition === "mixta") {
+    return {
+      upper: [[...quadRange(1, 8, 6), ...quadRange(5, 5, 1)], [...quadRange(6, 1, 5), ...quadRange(2, 6, 8)]],
+      lower: [[...quadRange(4, 8, 6), ...quadRange(8, 5, 1)], [...quadRange(7, 1, 5), ...quadRange(3, 6, 8)]],
+    };
+  }
+  return {
+    upper: [quadRange(1, 8, 1), quadRange(2, 1, 8)],
+    lower: [quadRange(4, 8, 1), quadRange(3, 1, 8)],
+  };
+}
