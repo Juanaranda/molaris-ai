@@ -88,9 +88,30 @@ export function PatientRecordView({
                 {record?.identity?.rut && <span>RUT {record.identity.rut}</span>}
                 {edad != null && <span>{edad} años</span>}
                 {record?.identity?.gender && <span>{record.identity.gender}</span>}
-                {record?.identity?.phone && <span>📞 {record.identity.phone}</span>}
-                {record?.identity?.email && <span className="truncate">✉ {record.identity.email}</span>}
+                {/* El teléfono y el correo pueden venir de la identidad o del
+                    paciente: no todos tienen ficha de identidad completa. */}
+                {(record?.identity?.phone ?? record?.patient.phone) && (
+                  <span>📞 {record?.identity?.phone ?? record?.patient.phone}</span>
+                )}
+                {(record?.identity?.email ?? record?.patient.email) && (
+                  <span className="truncate">✉ {record?.identity?.email ?? record?.patient.email}</span>
+                )}
               </div>
+              {/* Quién lo atiende y dónde — sin esto hay que salir a buscarlo */}
+              {record?.lastVisit && (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-white/60 mt-1">
+                  {record.lastVisit.doctor && record.lastVisit.doctor !== "Sin asignar" && (
+                    <span>🩺 {record.lastVisit.doctor}</span>
+                  )}
+                  {record.lastVisit.sede && <span>📍 {record.lastVisit.sede}</span>}
+                  <span>
+                    Última atención {new Date(record.lastVisit.date).toLocaleDateString("es-CL", {
+                      day: "numeric", month: "short", year: "numeric",
+                    })}
+                  </span>
+                  {record.lastVisit.service && <span className="truncate">· {record.lastVisit.service}</span>}
+                </div>
+              )}
             </div>
             {/* Lo clínicamente crítico, visible sin abrir nada */}
             {record && record.alerts.length > 0 && (

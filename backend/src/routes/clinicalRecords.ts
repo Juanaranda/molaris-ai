@@ -96,7 +96,10 @@ export async function clinicalRecordRoutes(app: FastifyInstance) {
         data: {
           clinicId:   req.params.clinicId,
           identityId: identity?.id ?? null,
-          name:       booking.patientName ?? identity ? `${identity?.firstName} ${identity?.lastName}` : null,
+          // Los paréntesis importan: "??" liga más fuerte que "? :", así que
+          // sin ellos la condición era (patientName ?? identity) y un paciente
+          // CON nombre terminaba guardado como "undefined undefined".
+          name:       booking.patientName ?? (identity ? `${identity.firstName} ${identity.lastName}` : null),
           phone:      phone ?? booking.patientPhone,
           email:      booking.patientEmail,
           channel:    "manual",
@@ -208,6 +211,21 @@ export async function clinicalRecordRoutes(app: FastifyInstance) {
       const noteAlerts = extractAlerts(notes, dentalEvents);
       const allAlerts  = Array.from(new Set([...anamnesisAlerts, ...noteAlerts]));
 
+      // Última atención: quién lo trató y dónde. Abrir una ficha sin saber de
+      // quién es ni quién la lleva obliga a salir a buscarlo a otra pantalla.
+      const rutPaciente = patient.identity?.rut ?? null;
+      const ultimaCita = await prisma.booking.findFirst({
+        where: {
+          clinicId: patient.clinicId,
+          status: { not: "cancelled" },
+          ...(rutPaciente
+            ? { patientRut: rutPaciente }
+            : { patientPhone: patient.phone ?? "___sin_match___" }),
+        },
+        orderBy: { date: "desc" },
+        select: { doctor: true, sede: true, date: true, service: true },
+      });
+
       return reply.send({
         patient: {
           id:       patient.id,
@@ -217,6 +235,14 @@ export async function clinicalRecordRoutes(app: FastifyInstance) {
           channel:  patient.channel,
           createdAt: patient.createdAt,
         },
+        lastVisit: ultimaCita
+          ? {
+              doctor:  ultimaCita.doctor,
+              sede:    ultimaCita.sede,
+              date:    ultimaCita.date,
+              service: ultimaCita.service,
+            }
+          : null,
         identity:    patient.identity,
         patientUser,
         odontogram,
