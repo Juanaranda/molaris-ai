@@ -15,6 +15,7 @@ import prisma from "../../config/prisma";
 import { config } from "../../config/env";
 import { triggerAlert } from "../alerts/alertService";
 import { registerScheduler, markSchedulerRun } from "../notifications/schedulerHealth";
+import { getDailySpendUsd } from "../ai/budgetGuard";
 
 const CHECK_INTERVAL_MS = 10 * 60 * 1000; // cada 10 min
 
@@ -100,10 +101,59 @@ export async function runRecoveryCheck(
   return { candidates: paused.length, recovered };
 }
 
+/**
+ * Reactiva los agentes pausados por presupuesto cuya cuota del día ya no está
+ * excedida — en la práctica, a la medianoche, cuando el gasto vuelve a cero.
+ *
+ * Sin esto la pausa por presupuesto era permanente: una clínica que se pasaba
+ * del cap un lunes a las 3pm quedaba sin agente el martes, el miércoles y
+ * hasta que alguien lo notara a mano. El guard existe para acotar el gasto de
+ * un día, no para apagar la clínica indefinidamente.
+ */
+export async function runBudgetRecoveryCheck(): Promise<{ candidates: number; recovered: number }> {
+  const paused = await prisma.clinic.findMany({
+    where: { agentEnabled: false, agentDisabledBy: "budget", active: true },
+    select: { id: true, name: true, config: true },
+  });
+  if (paused.length === 0) return { candidates: 0, recovered: 0 };
+
+  let recovered = 0;
+  for (const clinic of paused) {
+    try {
+      const cfg = clinic.config as { aiDailyBudgetUsd?: number } | null;
+      const capUsd = cfg?.aiDailyBudgetUsd ?? config.ai.dailyBudgetUsd;
+      // Cap 0 o inválido = sin límite → ya no hay motivo para tenerlo pausado.
+      const capped = Number.isFinite(capUsd) && capUsd > 0;
+      const spentUsd = capped ? await getDailySpendUsd(clinic.id) : 0;
+      if (capped && spentUsd >= capUsd) continue; // sigue excedida hoy
+
+      const res = await prisma.clinic.updateMany({
+        where: { id: clinic.id, agentEnabled: false, agentDisabledBy: "budget" },
+        data: { agentEnabled: true, agentDisabledAt: null, agentDisabledReason: null, agentDisabledBy: null },
+      });
+      if (res.count === 0) continue;
+      recovered++;
+
+      await triggerAlert({
+        kind: "agent_enabled",
+        severity: "info",
+        message: `Agente REACTIVADO en ${clinic.name} — se renovó el presupuesto diario de IA`,
+        detail: { clinicId: clinic.id, recoveredBy: "budget", spentUsd, capUsd },
+        cooldownMs: 0,
+      });
+    } catch (e) {
+      console.error(`[agentRecovery] presupuesto ${clinic.id}:`, e instanceof Error ? e.message : e);
+    }
+  }
+  if (recovered > 0) console.info(`[agentRecovery] ${recovered} agente(s) reactivado(s) por renovación de presupuesto`);
+  return { candidates: paused.length, recovered };
+}
+
 export function startRecoveryScheduler(): void {
   registerScheduler("agentRecovery", CHECK_INTERVAL_MS);
   setInterval(() => {
     runRecoveryCheck().catch((e) => console.error("[agentRecovery] error en check:", e));
+    runBudgetRecoveryCheck().catch((e) => console.error("[agentRecovery] error en check de presupuesto:", e));
   }, CHECK_INTERVAL_MS);
-  console.info("[agentRecovery] Scheduler activo — revisa agentes auto-pausados cada 10 min");
+  console.info("[agentRecovery] Scheduler activo — revisa agentes pausados cada 10 min");
 }

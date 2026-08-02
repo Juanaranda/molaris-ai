@@ -77,6 +77,11 @@ async function pauseAgentForBudget(
       agentEnabled: false,
       agentDisabledAt: new Date(),
       agentDisabledReason: `Auto-pausa: presupuesto diario de IA excedido (USD ${spentUsd.toFixed(2)} de ${capUsd.toFixed(2)})`,
+      // "budget" ≠ "auto" (#58): esta pausa NO se levanta porque el proveedor
+      // de IA vuelva, sino cuando el gasto del día baja del cap — es decir, a
+      // la medianoche. Sin distinguirlas, la recuperación por salud del
+      // proveedor reactivaría una clínica que se pasó de presupuesto.
+      agentDisabledBy: "budget",
     },
   });
 

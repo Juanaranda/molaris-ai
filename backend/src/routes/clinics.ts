@@ -28,6 +28,11 @@ export const ALLOWED_CONFIG_KEYS = new Set([
   // decidir qué horas ofrecer). "schedule" queda como el texto derivado que
   // lee el asistente.
   "openingHours",
+  // Cap diario de gasto de IA de esta clínica en USD (#59). El código ya lo
+  // leía (chatController, webhooksTwilio) pero faltaba acá, así que era
+  // imposible configurarlo: intentar setearlo tiraba 400 y, como el PATCH
+  // valida la config entera, se perdía todo el resto del guardado.
+  "aiDailyBudgetUsd",
 ]);
 
 // Tope de profesionales en cuentas "solo" (#69). Protege el pricing: evita que
