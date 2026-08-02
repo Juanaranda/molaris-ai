@@ -603,9 +603,11 @@ export async function clinicRoutes(app: FastifyInstance) {
     const updated = await prisma.clinic.update({
       where: { id: req.params.id },
       data: enabled
-        ? { agentEnabled: true, agentDisabledAt: null, agentDisabledReason: null }
-        : { agentEnabled: false, agentDisabledAt: new Date(), agentDisabledReason: reason?.trim() || null },
-      select: { agentEnabled: true, agentDisabledAt: true, agentDisabledReason: true },
+        ? { agentEnabled: true, agentDisabledAt: null, agentDisabledReason: null, agentDisabledBy: null }
+        // "manual" bloquea la auto-recuperación (#58): si alguien apagó el
+        // agente a propósito, el sistema no puede volver a encenderlo solo.
+        : { agentEnabled: false, agentDisabledAt: new Date(), agentDisabledReason: reason?.trim() || null, agentDisabledBy: "manual" },
+      select: { agentEnabled: true, agentDisabledAt: true, agentDisabledReason: true, agentDisabledBy: true },
     });
 
     // Auditoría

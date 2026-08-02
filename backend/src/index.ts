@@ -38,6 +38,7 @@ import { startRecallScheduler } from "./services/notifications/recallService";
 import prisma from "./config/prisma";
 import { getSchedulerHealth } from "./services/notifications/schedulerHealth";
 import { getOpenRouterCredits } from "./services/ai/creditsService";
+import { startRecoveryScheduler } from "./services/agent/agentRecovery";
 
 const isProd = config.nodeEnv === "production";
 
@@ -147,4 +148,5 @@ app.listen({ port: config.port, host: "0.0.0.0" }, (err) => {
   }
   startReminderScheduler();
   startRecallScheduler();
+  startRecoveryScheduler();
 });
