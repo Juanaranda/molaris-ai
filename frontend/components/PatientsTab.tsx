@@ -21,6 +21,26 @@ interface Patient {
   totalCharged: number; totalPaid: number; pendingCount: number;
 }
 
+type EstadoPago = "sin-datos" | "pagado" | "abonado" | "pendiente";
+
+/**
+ * Estado de pago de un paciente.
+ *
+ * "sin-datos" NO es lo mismo que "debe": las citas importadas de otro sistema
+ * vienen sin montos, y mostrarlas como deuda hacía que los 2.183 pacientes
+ * figuraran debiendo. Un contador que marca todo igual no informa nada.
+ */
+function estadoPago(p: { totalCharged: number; totalPaid: number }): {
+  estado: EstadoPago; saldo: number; porcentaje: number;
+} {
+  const saldo = p.totalCharged - p.totalPaid;
+  if (p.totalCharged <= 0) return { estado: "sin-datos", saldo: 0, porcentaje: 0 };
+  const porcentaje = Math.round((p.totalPaid / p.totalCharged) * 100);
+  if (saldo <= 0)        return { estado: "pagado",    saldo: 0, porcentaje: 100 };
+  if (p.totalPaid > 0)   return { estado: "abonado",   saldo, porcentaje };
+  return { estado: "pendiente", saldo, porcentaje: 0 };
+}
+
 interface HistoryEntry {
   id: string; doctor: string; date: string; time: string;
   service: string | null; status: string; notes: string | null;
@@ -1153,7 +1173,7 @@ export function PatientsTab() {
   const [cursor, setCursor]     = useState(0);
   const [exporting, setExporting] = useState(false);
   const [doctorFilter, setDoctorFilter] = useState<string>("");
-  const [payFilter, setPayFilter]   = useState<"todos" | "deuda" | "aldia">("todos");
+  const [payFilter, setPayFilter]   = useState<"todos" | "deuda" | "aldia" | "sinregistro">("todos");
   const [dateFilter, setDateFilter] = useState<"todos" | "30" | "90" | "180+">("todos");
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -1213,8 +1233,14 @@ export function PatientsTab() {
     return patients.filter((p) => {
       if (!coincide(p, search)) return false;
       if (doctorFilter && p.lastDoctor !== doctorFilter) return false;
-      if (payFilter === "deuda"  && p.pendingCount === 0) return false;
-      if (payFilter === "aldia"  && p.pendingCount > 0)   return false;
+      // Se filtra por deuda real (monto), no por "citas sin registrar pago":
+      // con datos importados sin montos, eso marcaba a todos como deudores.
+      if (payFilter !== "todos") {
+        const e = estadoPago(p).estado;
+        if (payFilter === "deuda"      && e !== "pendiente" && e !== "abonado") return false;
+        if (payFilter === "aldia"      && e !== "pagado")    return false;
+        if (payFilter === "sinregistro" && e !== "sin-datos") return false;
+      }
       if (dateFilter !== "todos") {
         const dias = (now - new Date(p.lastVisit).getTime()) / DIA;
         // "Sin venir hace 6+ meses" es el filtro de recall: a quién hay que
@@ -1319,8 +1345,9 @@ export function PatientsTab() {
           aria-label="Filtrar por estado de pago"
           className="px-3 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
           <option value="todos">Cualquier pago</option>
-          <option value="deuda">Con pagos pendientes</option>
-          <option value="aldia">Al día</option>
+          <option value="deuda">Con saldo pendiente</option>
+          <option value="aldia">Pagado</option>
+          <option value="sinregistro">Sin pago registrado</option>
         </select>
 
         <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value as typeof dateFilter)}
@@ -1366,8 +1393,7 @@ export function PatientsTab() {
             <div className="divide-y divide-gray-50">
               {filtered.map((p, idx) => {
                 const isCursor = idx === cursor && search.length > 0;
-                const balance = p.totalCharged - p.totalPaid;
-                const hasPending = p.pendingCount > 0;
+                const pago = estadoPago(p);
                 return (
                   <button key={p.key} onClick={() => setSelected(p)}
                     className={`w-full text-left px-5 py-3.5 transition group flex sm:grid sm:grid-cols-[1fr_110px_120px_110px_140px_100px_40px] sm:gap-4 items-center gap-3 ${
@@ -1399,19 +1425,23 @@ export function PatientsTab() {
                     <span className="text-xs text-gray-500 hidden sm:block truncate">{p.lastDoctor && p.lastDoctor !== "Sin asignar" ? p.lastDoctor : "—"}</span>
                     {/* Estado pago */}
                     <div className="hidden sm:flex flex-col gap-0.5">
-                      {p.totalCharged > 0 ? (
+                      {pago.estado === "pagado" && (
+                        <span className="text-[10px] font-bold text-emerald-600">Pagado</span>
+                      )}
+                      {pago.estado === "abonado" && (
                         <>
-                          {balance > 0 ? (
-                            <span className="text-[10px] font-bold text-red-600">-{fmtCLP(balance)}</span>
-                          ) : (
-                            <span className="text-[10px] font-bold text-emerald-600">Al día</span>
-                          )}
-                          <span className="text-[9px] text-gray-400">{fmtCLP(p.totalPaid)} pagado</span>
+                          <span className="text-[10px] font-bold text-amber-600">Abonado {pago.porcentaje}%</span>
+                          <span className="text-[9px] text-gray-400">falta {fmtCLP(pago.saldo)}</span>
                         </>
-                      ) : hasPending ? (
-                        <span className="text-[10px] text-amber-600 font-semibold">{p.pendingCount} sin registrar</span>
-                      ) : (
-                        <span className="text-[10px] text-gray-300">—</span>
+                      )}
+                      {pago.estado === "pendiente" && (
+                        <>
+                          <span className="text-[10px] font-bold text-red-600">Pendiente</span>
+                          <span className="text-[9px] text-gray-400">{fmtCLP(pago.saldo)}</span>
+                        </>
+                      )}
+                      {pago.estado === "sin-datos" && (
+                        <span className="text-[10px] text-gray-400">Sin registrar</span>
                       )}
                     </div>
                     <span className="text-gray-300 group-hover:text-gray-400 transition text-sm shrink-0">›</span>
