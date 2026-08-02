@@ -4,6 +4,7 @@ import { config } from "../config/env";
 import { verifyToken } from "./auth";
 import { runReminderCheck } from "../services/notifications/reminderService";
 import { sendMolariEmail, type MolariEmail, type MolariEmailType } from "../services/email/molariEmails";
+import { getOpenRouterCredits } from "../services/ai/creditsService";
 
 export async function adminRoutes(app: FastifyInstance) {
 
@@ -19,6 +20,23 @@ export async function adminRoutes(app: FastifyInstance) {
     }
     return payload;
   }
+
+  // GET /api/admin/credits — saldo de OpenRouter (#58).
+  // Solo SUPERADMIN: es información de facturación de molari, no de la clínica.
+  // Por eso NO va en /health, que es público y lo pollea el monitoreo externo.
+  app.get<{ Querystring: { force?: string } }>("/admin/credits", async (req, reply) => {
+    if (!assertSuperAdmin(req, reply)) return;
+    const credits = await getOpenRouterCredits(req.query.force === "true");
+    if (!credits) {
+      // "No se pudo consultar" ≠ "sin saldo": si OpenRouter no responde o
+      // falta la key, decirlo explícitamente en vez de reportar 0.
+      return reply.status(503).send({
+        error: "No se pudo consultar el saldo de OpenRouter",
+        configured: Boolean(config.openRouter.apiKey),
+      });
+    }
+    return reply.send(credits);
+  });
 
   // GET /api/admin/overview — resumen de todas las clínicas
   app.get("/admin/overview", async (req, reply) => {
