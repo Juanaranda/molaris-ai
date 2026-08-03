@@ -29,6 +29,13 @@ export interface ToothSurfaceChartProps {
   size?: number;
   isMissing?: boolean;
   className?: string;
+  /**
+   * Registrar directo sobre la cara. Sin esto, marcar una caries oclusal es:
+   * click en el diente → "Registrar evento" → elegir condición → marcar la cara
+   * en la rueda. El diagrama YA dibuja cada cara por separado, así que
+   * clickearla es el camino corto natural.
+   */
+  onSurfaceClick?: (surface: DentalSurface) => void;
 }
 
 const ENAMEL = "#FBF6EC";
@@ -71,9 +78,23 @@ export function surfaceLayout(fdi: string, jaw: "upper" | "lower", toothType: To
 
 export function ToothSurfaceChart({
   fdi, toothType, jaw, surfaceColors = {}, wholeToothColor,
-  size = 36, isMissing = false, className,
+  size = 36, isMissing = false, className, onSurfaceClick,
 }: ToothSurfaceChartProps) {
   const layout = surfaceLayout(fdi, jaw, toothType);
+  const clicable = Boolean(onSurfaceClick) && !isMissing;
+
+  // stopPropagation: la celda entera es un botón que selecciona la pieza. Sin
+  // esto, clickear una cara dispararía además la selección del diente.
+  const zonaProps = (s: DentalSurface) =>
+    clicable
+      ? {
+          onClick: (e: React.MouseEvent) => { e.stopPropagation(); onSurfaceClick!(s); },
+          style: { cursor: "pointer" },
+          role: "button" as const,
+          tabIndex: -1,
+          "aria-label": `Cara ${s} de la pieza ${fdi}`,
+        }
+      : {};
 
   // El tinte de diente completo pinta el fondo; una superficie con hallazgo
   // propio lo tapa, para que un sellante en O siga leyéndose sobre una corona.
@@ -83,13 +104,14 @@ export function ToothSurfaceChart({
 
   return (
     <svg viewBox="-1 -1 62 62" width={size} height={size} className={className}
-      style={{ display: "block", opacity: isMissing ? 0.45 : 1 }} aria-hidden>
-      <path d={ZONE_PATHS.top}    fill={fillOf(layout.top)}    stroke={STROKE} strokeWidth={sw} strokeLinejoin="round" />
-      <path d={ZONE_PATHS.right}  fill={fillOf(layout.right)}  stroke={STROKE} strokeWidth={sw} strokeLinejoin="round" />
-      <path d={ZONE_PATHS.bottom} fill={fillOf(layout.bottom)} stroke={STROKE} strokeWidth={sw} strokeLinejoin="round" />
-      <path d={ZONE_PATHS.left}   fill={fillOf(layout.left)}   stroke={STROKE} strokeWidth={sw} strokeLinejoin="round" />
+      style={{ display: "block", opacity: isMissing ? 0.45 : 1 }}
+      aria-hidden={!clicable}>
+      <path d={ZONE_PATHS.top}    fill={fillOf(layout.top)}    stroke={STROKE} strokeWidth={sw} strokeLinejoin="round" {...zonaProps(layout.top)} />
+      <path d={ZONE_PATHS.right}  fill={fillOf(layout.right)}  stroke={STROKE} strokeWidth={sw} strokeLinejoin="round" {...zonaProps(layout.right)} />
+      <path d={ZONE_PATHS.bottom} fill={fillOf(layout.bottom)} stroke={STROKE} strokeWidth={sw} strokeLinejoin="round" {...zonaProps(layout.bottom)} />
+      <path d={ZONE_PATHS.left}   fill={fillOf(layout.left)}   stroke={STROKE} strokeWidth={sw} strokeLinejoin="round" {...zonaProps(layout.left)} />
       <rect x={18} y={18} width={24} height={24}
-        fill={fillOf(layout.center)} stroke={STROKE} strokeWidth={sw} strokeLinejoin="round" />
+        fill={fillOf(layout.center)} stroke={STROKE} strokeWidth={sw} strokeLinejoin="round" {...zonaProps(layout.center)} />
     </svg>
   );
 }

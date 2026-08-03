@@ -57,6 +57,9 @@ export function OdontogramPanel({ patientId }: Props) {
   const [error,   setError]   = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const [showAddFor, setShowAddFor] = useState<string | null>(null);
+  // Cara elegida al clickear directo sobre el diagrama: el modal abre con
+  // ella ya marcada en vez de pedirla de nuevo.
+  const [caraInicial, setCaraInicial] = useState<DentalSurface[]>([]);
   /** El usuario pidió registrar sin tener pieza elegida: el diagrama entra en modo selección. */
   const [pidiendoPieza, setPidiendoPieza] = useState(false);
 
@@ -116,6 +119,12 @@ export function OdontogramPanel({ patientId }: Props) {
           mode="single"
           anatomical
           cellSize={56}
+          onSelectSurface={(fdi, cara) => {
+            setSelected(fdi);
+            setPidiendoPieza(false);
+            setCaraInicial([cara]);
+            setShowAddFor(fdi);
+          }}
           onSelectTooth={(fdi) => {
             setSelected(fdi);
             // Si el usuario pidió registrar antes de elegir pieza, el click en
@@ -214,8 +223,9 @@ export function OdontogramPanel({ patientId }: Props) {
           toothFDI={showAddFor}
           patientId={patientId}
           catalog={catalog}
-          onClose={() => setShowAddFor(null)}
-          onCreated={() => { setShowAddFor(null); fetchAll(); }}
+          initialSurfaces={caraInicial}
+          onClose={() => { setShowAddFor(null); setCaraInicial([]); }}
+          onCreated={() => { setShowAddFor(null); setCaraInicial([]); fetchAll(); }}
         />
       )}
     </div>
@@ -401,14 +411,16 @@ interface AddEventModalProps {
   toothFDI:   string;
   patientId:  string;
   catalog:    { conditions: ConditionMeta[]; surfaces: DentalSurface[] };
+  /** Caras ya marcadas al abrir (viene del click directo sobre el diagrama). */
+  initialSurfaces?: DentalSurface[];
   onClose:    () => void;
   onCreated:  () => void;
 }
 
-function AddEventModal({ toothFDI, patientId, catalog, onClose, onCreated }: AddEventModalProps) {
+function AddEventModal({ toothFDI, patientId, catalog, initialSurfaces = [], onClose, onCreated }: AddEventModalProps) {
   const [eventType, setEventType] = useState<DentalEventType>("DIAGNOSIS");
   const [conditionCode, setCondition] = useState<string>(catalog.conditions[0]?.code ?? "");
-  const [surfaces, setSurfaces] = useState<DentalSurface[]>([]);
+  const [surfaces, setSurfaces] = useState<DentalSurface[]>(initialSurfaces);
   const [severity, setSeverity] = useState<string>("");
   const [notes,    setNotes]    = useState<string>("");
   const [saving,   setSaving]   = useState(false);

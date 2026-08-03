@@ -175,13 +175,15 @@ interface Props {
    */
   dentition?:        DentitionType;
   onDentitionChange?: (d: DentitionType) => void;
+  /** Click directo sobre una cara del diente (registrar hallazgo en 1 paso). */
+  onSelectSurface?:  (fdi: string, surface: DentalSurface) => void;
 }
 
 export function StandardOdontogram({
   teeth = {}, selectedFdis, mode = "single", missingFdis, highlightFdis,
   onSelectTooth, onToggleMissing, defaultView = "all", view: viewProp, className,
   showLegend = true, cellSize = 52, anatomical = false,
-  dentition: dentitionProp, onDentitionChange,
+  dentition: dentitionProp, onDentitionChange, onSelectSurface,
 }: Props) {
 
   const [viewState, setView] = useState<ArchView>(defaultView);
@@ -251,6 +253,7 @@ export function StandardOdontogram({
             highlightFdis={highlightFdis}
             mode={mode}
             onSelectTooth={onSelectTooth}
+            onSelectSurface={onSelectSurface}
             onToggleMissing={onToggleMissing}
             cellSize={cellSize}
             anatomical={anatomical}
@@ -274,6 +277,7 @@ export function StandardOdontogram({
             highlightFdis={highlightFdis}
             mode={mode}
             onSelectTooth={onSelectTooth}
+            onSelectSurface={onSelectSurface}
             onToggleMissing={onToggleMissing}
             cellSize={cellSize}
             anatomical={anatomical}
@@ -304,6 +308,7 @@ interface ArchRowProps {
   highlightFdis?:  Set<string>;
   mode:            Mode;
   onSelectTooth?:  (fdi: string) => void;
+  onSelectSurface?: (fdi: string, surface: DentalSurface) => void;
   onToggleMissing?: (fdi: string) => void;
   cellSize:        number;
   labelPosition:   "top" | "bottom";
@@ -312,7 +317,7 @@ interface ArchRowProps {
 
 function ArchRow({
   label, quadrants, teeth, selectedSet, missingFdis, highlightFdis, mode,
-  onSelectTooth, onToggleMissing, cellSize, labelPosition, anatomical,
+  onSelectTooth, onSelectSurface, onToggleMissing, cellSize, labelPosition, anatomical,
 }: ArchRowProps) {
   const labelEl = (
     <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 text-center">
@@ -333,6 +338,7 @@ function ArchRow({
                 isSelected={selectedSet.has(fdi)}
                 isHighlighted={highlightFdis?.has(fdi) ?? false}
                 onSelect={() => onSelectTooth?.(fdi)}
+                onSelectSurface={onSelectSurface ? (s2: DentalSurface) => onSelectSurface(fdi, s2) : undefined}
                 size={cellSize}
               />
             ) : (
@@ -344,6 +350,7 @@ function ArchRow({
                 isHighlighted={highlightFdis?.has(fdi) ?? false}
                 mode={mode}
                 onSelect={() => onSelectTooth?.(fdi)}
+                onSelectSurface={onSelectSurface ? (s2: DentalSurface) => onSelectSurface(fdi, s2) : undefined}
                 onToggleMissing={onToggleMissing ? () => onToggleMissing(fdi) : undefined}
                 size={cellSize}
               />
@@ -368,11 +375,12 @@ interface ToothCellProps {
   isHighlighted?:  boolean;
   mode:            Mode;
   onSelect:        () => void;
+  onSelectSurface?: (surface: DentalSurface) => void;
   onToggleMissing?: () => void;
   size:            number;
 }
 
-function ToothCell({ fdi, proj, isMissing, isSelected, isHighlighted, onSelect, size }: ToothCellProps) {
+function ToothCell({ fdi, proj, isMissing, isSelected, isHighlighted, onSelect, onSelectSurface, size }: ToothCellProps) {
   const { state, meta } = summarize(proj);
   const paint = surfacePaintFor(proj);
   const style = STATE_STYLE[state];
@@ -419,6 +427,7 @@ function ToothCell({ fdi, proj, isMissing, isSelected, isHighlighted, onSelect, 
           surfaceColors={paint.surfaces}
           wholeToothColor={paint.wholeTooth}
           isMissing={isMissing}
+          onSurfaceClick={onSelectSurface}
         />
         {/* Símbolo overlay (X de extracción, ⌒ corona) */}
         {symbol && (
@@ -463,11 +472,12 @@ interface AnatomicalToothColumnProps {
   isSelected:     boolean;
   isHighlighted?: boolean;
   onSelect:       () => void;
+  onSelectSurface?: (surface: DentalSurface) => void;
   size:           number;
 }
 
 function AnatomicalToothColumn({
-  fdi, proj, isMissing, isSelected, isHighlighted, onSelect, size,
+  fdi, proj, isMissing, isSelected, isHighlighted, onSelect, onSelectSurface, size,
 }: AnatomicalToothColumnProps) {
   const { state, meta } = summarize(proj);
   const paint = surfacePaintFor(proj);
@@ -495,6 +505,7 @@ function AnatomicalToothColumn({
       surfaceColors={paint.surfaces}
       wholeToothColor={paint.wholeTooth}
       isMissing={extracted}
+      onSurfaceClick={onSelectSurface}
     />
   );
 
