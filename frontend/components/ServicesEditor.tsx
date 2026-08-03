@@ -65,9 +65,10 @@ export function ServicesEditor({ services, canEdit, onSave }: Props) {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [formError, setFormError] = useState("");
 
-  function openAdd() { setForm(EMPTY); setEditIdx(null); setFormOpen(true); setShowSuggestions(false); }
-  function openEdit(i: number) { setForm({ ...rows[i] }); setEditIdx(i); setFormOpen(true); setShowSuggestions(false); }
+  function openAdd() { setForm(EMPTY); setEditIdx(null); setFormOpen(true); setShowSuggestions(false); setFormError(""); }
+  function openEdit(i: number) { setForm({ ...rows[i] }); setEditIdx(i); setFormOpen(true); setShowSuggestions(false); setFormError(""); }
 
   function addSuggestion(svc: ServiceRow) {
     if (rows.some((r) => r.name === svc.name)) return;
@@ -76,6 +77,20 @@ export function ServicesEditor({ services, canEdit, onSave }: Props) {
 
   function saveRow() {
     if (!form.name.trim()) return;
+
+    // Un precio fijo es UN valor. Si trae un guion entre cifras es un rango
+    // disfrazado: la ficha mostraría "Precio fijo · $25.000 - $40.000" y el
+    // agente le informaría al paciente un precio que no existe.
+    if (form.pricingType === "fixed" && /\d\s*[-–—a]\s*\$?\s*\d/.test(form.price ?? "")) {
+      setFormError('Eso es un rango. Cambia el tipo a "Rango de precios" y separa el mínimo del máximo.');
+      return;
+    }
+    if (form.pricingType === "range" && (!form.priceMin?.trim() || !form.priceMax?.trim())) {
+      setFormError("Un rango necesita precio mínimo y máximo.");
+      return;
+    }
+    setFormError("");
+
     const clean: ServiceRow = {
       name: form.name,
       pricingType: form.pricingType,
@@ -318,8 +333,11 @@ export function ServicesEditor({ services, canEdit, onSave }: Props) {
               </div>
             )}
           </div>
+          {formError && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{formError}</p>
+          )}
           <div className="flex gap-2 justify-end">
-            <button onClick={() => { setFormOpen(false); setForm(EMPTY); }} className="text-sm text-gray-500 hover:text-gray-700">Cancelar</button>
+            <button onClick={() => { setFormOpen(false); setForm(EMPTY); setFormError(""); }} className="text-sm text-gray-500 hover:text-gray-700">Cancelar</button>
             <button
               onClick={saveRow}
               disabled={!form.name.trim()}
