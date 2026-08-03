@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getToken, getMe } from "@/lib/auth";
 import { ensurePatientId } from "@/lib/clinicalRecord";
+import { getOdontogram, type ToothProjection } from "@/lib/odontogram";
 import { Odontogram, type DentitionType } from "./Odontogram";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -396,6 +397,33 @@ function QuoteBuilderModal({
   const router = useRouter();
   const [abriendoFicha, setAbriendoFicha] = useState(false);
   const [errorFicha, setErrorFicha]       = useState("");
+  const [clinicalTeeth, setClinicalTeeth] = useState<Record<string, ToothProjection>>({});
+
+  /**
+   * Trae los hallazgos de la ficha para pintarlos sobre el odontograma del
+   * presupuesto. El objetivo del odontograma es justamente terminar en un
+   * presupuesto: sin esto, el dentista cotiza mirando dientes en blanco y
+   * tiene que acordarse de lo que acaba de diagnosticar.
+   *
+   * Es información de apoyo, así que si falla no se interrumpe el flujo:
+   * el presupuesto se puede armar igual.
+   */
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      if (!patient.rut) return;
+      try {
+        const me = await getMe();
+        if (!me?.clinic?.id) return;
+        const patientId = await ensurePatientId(me.clinic.id, { rut: patient.rut });
+        const odo = await getOdontogram(patientId);
+        if (vivo) setClinicalTeeth(odo.teeth ?? {});
+      } catch {
+        // sin hallazgos disponibles — el presupuesto sigue funcionando
+      }
+    })();
+    return () => { vivo = false; };
+  }, [patient.rut]);
 
   /**
    * Abre la ficha clínica del paciente. Usa ensurePatientId porque el
@@ -610,6 +638,7 @@ function QuoteBuilderModal({
             missingTeeth={missingTeeth}       setMissingTeeth={setMissingTeeth}
             dentitionType={dentitionType}     setDentitionType={setDentitionType}
             itemsByTooth={itemsByTooth}
+            clinicalTeeth={clinicalTeeth}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

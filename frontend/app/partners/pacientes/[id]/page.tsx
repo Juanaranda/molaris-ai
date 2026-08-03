@@ -39,9 +39,15 @@ export default function PatientPage() {
     <div className="min-h-screen bg-[#F0EDE8]">
       <header className="bg-white/80 backdrop-blur border-b border-[#E5E0D9] sticky top-0 z-40">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
+          {/* Botón de volver, no una flecha suelta: el "←" pegado al texto se
+              leía como parte del nombre de la sección. */}
           <Link href="/partners/dashboard"
-            className="text-sm font-bold text-[#1A5C7A] hover:text-[#0e4560] transition flex items-center gap-1">
-            ← Pacientes
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-600 hover:text-[#1A5C7A] border border-[#E5E0D9] hover:border-[#1A5C7A] bg-white rounded-xl px-3 py-1.5 transition">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2}
+              strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 shrink-0">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+            Volver
           </Link>
           <span className="text-gray-300">/</span>
           <span className="text-sm text-gray-500">Ficha clínica</span>

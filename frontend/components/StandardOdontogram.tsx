@@ -5,6 +5,7 @@ import type { ToothProjection, DentalSurface } from "@/lib/odontogram";
 import { ToothSurfaceChart } from "@/components/ToothSurfaceChart";
 import { ToothFrontView } from "@/components/ToothFrontView";
 import { toothTypeOf, isUpperFdi, getArchRows, type DentitionType } from "@/lib/tooth";
+import { CONDITION_TO_STATE, surfacePaintFor } from "@/lib/odontogramPaint";
 
 /**
  * Odontograma estándar — vista simple y profesional (Issue #43).
@@ -41,61 +42,6 @@ const STATE_STYLE: Record<StateKey, { cellBg: string; accent: string; ring: stri
   prosthetic: { cellBg: "bg-violet-50",    accent: "bg-violet-500",   ring: "border-violet-200", symbol: "⌒" },
   extracted:  { cellBg: "bg-gray-100",     accent: "bg-gray-400",     ring: "border-gray-200", symbol: "✕" },
 };
-
-const CONDITION_TO_STATE: Record<string, StateKey> = {
-  caries: "pending",  fractura: "pending",  movilidad: "pending",  periodontal_bolsa: "pending",
-  obturacion: "treated",  endodoncia: "treated",  sellante: "treated",  limpieza: "treated",  ortodoncia: "treated",
-  corona: "prosthetic",  implante: "prosthetic",  perno: "prosthetic",
-  extraccion: "extracted",  ausente: "extracted",
-  sano: "healthy",
-};
-
-/* Color con que se pinta cada superficie según el estado de su hallazgo. */
-const SURFACE_PAINT: Partial<Record<StateKey, string>> = {
-  pending:    "#DC2626",
-  treated:    "#2563EB",
-  prosthetic: "#6D28D9",
-};
-
-// Si dos hallazgos caen en la misma cara, gana el más grave.
-const SURFACE_PRIORITY: StateKey[] = ["prosthetic", "pending", "treated"];
-
-/**
- * Traduce las condiciones activas a color POR SUPERFICIE.
- *
- * El dato de superficies ya existía en el modelo (DentalEventSurface) pero la
- * grilla lo ignoraba y teñía la pieza entera: una caries oclusal pintaba todo
- * el diente de rojo y no se sabía qué cara tratar. Las condiciones sin
- * superficie (endodoncia, corona, extracción) siguen siendo de diente completo.
- */
-function surfacePaintFor(proj: ToothProjection | undefined): {
-  surfaces: Partial<Record<DentalSurface, string>>;
-  wholeTooth?: string;
-} {
-  if (!proj || proj.isExtracted) return { surfaces: {} };
-
-  const rank = new Map<DentalSurface, number>();
-  const surfaces: Partial<Record<DentalSurface, string>> = {};
-  let wholeRank = Infinity;
-  let wholeTooth: string | undefined;
-
-  for (const c of proj.activeConditions) {
-    const state = CONDITION_TO_STATE[c.conditionCode];
-    const color = state ? SURFACE_PAINT[state] : undefined;
-    if (!color || !state) continue;
-    const prio = SURFACE_PRIORITY.indexOf(state);
-    if (prio < 0) continue;
-
-    if (c.surfaces.length === 0) {
-      if (prio < wholeRank) { wholeRank = prio; wholeTooth = color; }
-      continue;
-    }
-    for (const s of c.surfaces) {
-      if (prio < (rank.get(s) ?? Infinity)) { rank.set(s, prio); surfaces[s] = color; }
-    }
-  }
-  return { surfaces, wholeTooth };
-}
 
 function summarize(proj: ToothProjection | undefined): { state: StateKey; meta: ConditionSummary } {
   if (!proj) {
