@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   DentalSurface, DentalEventType, ToothProjection, ConditionMeta,
-  getCatalog, getOdontogram, createDentalEvent,
+  getCatalog, getOdontogram, createDentalEvent, voidDentalEvent,
 } from "@/lib/odontogram";
 import { StandardOdontogram } from "@/components/StandardOdontogram";
 import { ToothFrontView } from "@/components/ToothFrontView";
@@ -60,6 +60,28 @@ export function OdontogramPanel({ patientId }: Props) {
   // Cara elegida al clickear directo sobre el diagrama: el modal abre con
   // ella ya marcada en vez de pedirla de nuevo.
   const [caraInicial, setCaraInicial] = useState<DentalSurface[]>([]);
+  const [anulando, setAnulando] = useState<string | null>(null);
+
+  /**
+   * Anula un hallazgo mal registrado. Pide motivo porque queda en la ficha:
+   * el evento no se borra, se marca como anulado con quién y por qué.
+   */
+  async function anularEvento(eventId: string) {
+    const motivo = window.prompt(
+      "Motivo de la anulación (queda registrado en la ficha):"
+    );
+    if (motivo === null) return;              // canceló
+    if (!motivo.trim()) { alert("Necesitas indicar un motivo."); return; }
+    setAnulando(eventId);
+    try {
+      await voidDentalEvent(patientId, eventId, motivo.trim());
+      await fetchAll();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "No se pudo anular");
+    } finally {
+      setAnulando(null);
+    }
+  }
   /** El usuario pidió registrar sin tener pieza elegida: el diagrama entra en modo selección. */
   const [pidiendoPieza, setPidiendoPieza] = useState(false);
 
@@ -205,6 +227,13 @@ export function OdontogramPanel({ patientId }: Props) {
                       <span className="text-[10px] text-gray-400">{e.surfaces.map((s) => s.surface).join("·")}</span>
                     )}
                     <span className="ml-auto text-[10px] text-gray-400 truncate">{e.professional?.name?.split(" ")[0] ?? "—"}</span>
+                    <button
+                      onClick={() => anularEvento(e.id)}
+                      disabled={anulando === e.id}
+                      title="Anular este registro (queda en la ficha con el motivo)"
+                      className="text-[10px] font-bold text-gray-300 hover:text-red-600 transition shrink-0 disabled:opacity-50">
+                      {anulando === e.id ? "…" : "Anular"}
+                    </button>
                   </div>
                 ))}
               </div>

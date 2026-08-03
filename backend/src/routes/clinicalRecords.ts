@@ -172,7 +172,7 @@ export async function clinicalRecordRoutes(app: FastifyInstance) {
           },
         }),
         prisma.dentalEvent.findMany({
-          where:   { patientId: req.params.patientId },
+          where:   { patientId: req.params.patientId, voidedAt: null },
           orderBy: { occurredAt: "desc" },
           include: { surfaces: true },
         }),
