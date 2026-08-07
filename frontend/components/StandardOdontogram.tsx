@@ -5,7 +5,7 @@ import type { ToothProjection, DentalSurface } from "@/lib/odontogram";
 import { ToothSurfaceChart } from "@/components/ToothSurfaceChart";
 import { ToothFrontView } from "@/components/ToothFrontView";
 import { toothTypeOf, isUpperFdi, getArchRows, type DentitionType } from "@/lib/tooth";
-import { CONDITION_TO_STATE, surfacePaintFor } from "@/lib/odontogramPaint";
+import { CONDITION_TO_STATE, surfacePaintFor, conditionLabel } from "@/lib/odontogramPaint";
 
 /**
  * Odontograma estándar — vista simple y profesional (Issue #43).
@@ -65,7 +65,7 @@ function summarize(proj: ToothProjection | undefined): { state: StateKey; meta: 
   const style = STATE_STYLE[chosen];
   const tooltipLines = proj.activeConditions.map((c) => {
     const surf = c.surfaces.length > 0 ? ` (${c.surfaces.join("·")})` : "";
-    return `• ${c.conditionCode}${surf}`;
+    return `• ${conditionLabel(c.conditionCode)}${surf}`;
   });
   return {
     state: chosen,
@@ -123,13 +123,20 @@ interface Props {
   onDentitionChange?: (d: DentitionType) => void;
   /** Click directo sobre una cara del diente (registrar hallazgo en 1 paso). */
   onSelectSurface?:  (fdi: string, surface: DentalSurface) => void;
+  /**
+   * Click sobre la silueta del diente (corona + raíz), no sobre el diagrama de
+   * caras. Los dentistas la tocan para lo que es de la pieza completa —
+   * movilidad, bolsa periodontal, endodoncia— porque es lo único que muestra
+   * la raíz. Antes no hacía nada.
+   */
+  onSelectWholeTooth?: (fdi: string) => void;
 }
 
 export function StandardOdontogram({
   teeth = {}, selectedFdis, mode = "single", missingFdis, highlightFdis,
   onSelectTooth, onToggleMissing, defaultView = "all", view: viewProp, className,
   showLegend = true, cellSize = 52, anatomical = false,
-  dentition: dentitionProp, onDentitionChange, onSelectSurface,
+  dentition: dentitionProp, onDentitionChange, onSelectSurface, onSelectWholeTooth,
 }: Props) {
 
   const [viewState, setView] = useState<ArchView>(defaultView);
@@ -200,6 +207,7 @@ export function StandardOdontogram({
             mode={mode}
             onSelectTooth={onSelectTooth}
             onSelectSurface={onSelectSurface}
+            onSelectWholeTooth={onSelectWholeTooth}
             onToggleMissing={onToggleMissing}
             cellSize={cellSize}
             anatomical={anatomical}
@@ -224,6 +232,7 @@ export function StandardOdontogram({
             mode={mode}
             onSelectTooth={onSelectTooth}
             onSelectSurface={onSelectSurface}
+            onSelectWholeTooth={onSelectWholeTooth}
             onToggleMissing={onToggleMissing}
             cellSize={cellSize}
             anatomical={anatomical}
@@ -255,6 +264,7 @@ interface ArchRowProps {
   mode:            Mode;
   onSelectTooth?:  (fdi: string) => void;
   onSelectSurface?: (fdi: string, surface: DentalSurface) => void;
+  onSelectWholeTooth?: (fdi: string) => void;
   onToggleMissing?: (fdi: string) => void;
   cellSize:        number;
   labelPosition:   "top" | "bottom";
@@ -263,7 +273,7 @@ interface ArchRowProps {
 
 function ArchRow({
   label, quadrants, teeth, selectedSet, missingFdis, highlightFdis, mode,
-  onSelectTooth, onSelectSurface, onToggleMissing, cellSize, labelPosition, anatomical,
+  onSelectTooth, onSelectSurface, onSelectWholeTooth, onToggleMissing, cellSize, labelPosition, anatomical,
 }: ArchRowProps) {
   const labelEl = (
     <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 text-center">
@@ -285,6 +295,7 @@ function ArchRow({
                 isHighlighted={highlightFdis?.has(fdi) ?? false}
                 onSelect={() => onSelectTooth?.(fdi)}
                 onSelectSurface={onSelectSurface ? (s2: DentalSurface) => onSelectSurface(fdi, s2) : undefined}
+                onSelectWholeTooth={onSelectWholeTooth ? () => onSelectWholeTooth(fdi) : undefined}
                 size={cellSize}
               />
             ) : (
@@ -419,11 +430,12 @@ interface AnatomicalToothColumnProps {
   isHighlighted?: boolean;
   onSelect:       () => void;
   onSelectSurface?: (surface: DentalSurface) => void;
+  onSelectWholeTooth?: () => void;
   size:           number;
 }
 
 function AnatomicalToothColumn({
-  fdi, proj, isMissing, isSelected, isHighlighted, onSelect, onSelectSurface, size,
+  fdi, proj, isMissing, isSelected, isHighlighted, onSelect, onSelectSurface, onSelectWholeTooth, size,
 }: AnatomicalToothColumnProps) {
   const { state, meta } = summarize(proj);
   const paint = surfacePaintFor(proj);
@@ -456,7 +468,13 @@ function AnatomicalToothColumn({
   );
 
   const toothEl = (
-    <div className="relative">
+    <div className="relative"
+      // La silueta muestra la RAÍZ: es donde el dentista apunta para lo que es
+      // de la pieza completa (movilidad, bolsa periodontal, endodoncia).
+      // stopPropagation porque la celda entera ya es un botón de selección.
+      onClick={onSelectWholeTooth ? (e) => { e.stopPropagation(); onSelectWholeTooth(); } : undefined}
+      style={onSelectWholeTooth ? { cursor: "pointer" } : undefined}
+      title={onSelectWholeTooth ? `Registrar en la pieza completa (raíz, movilidad, periodontal)` : undefined}>
       <div style={{ opacity: extracted ? 0.3 : 1 }}>
         <ToothFrontView
           type={toothTypeOf(fdi)}

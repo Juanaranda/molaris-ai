@@ -3,7 +3,8 @@ import type { DentalSurface } from "@prisma/client";
 import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
 import {
-  isValidFDI, isValidSite, isValidConditionCode, CONDITION_CATALOG, DENTAL_SITES,
+  isValidFDI, isValidSite, isValidConditionCode, conditionAllowsSurfaces,
+  CONDITION_CATALOG, DENTAL_SITES,
   buildPatientOdontogram,
 } from "../services/dental/odontogramService";
 import { audit } from "../services/audit/auditService";
@@ -159,6 +160,13 @@ export async function odontogramRoutes(app: FastifyInstance) {
     }
     if (!conditionCode || !isValidConditionCode(conditionCode)) {
       return reply.status(400).send({ error: "conditionCode no está en el catálogo" });
+    }
+    // Una bolsa periodontal o una movilidad son del diente completo: se miden
+    // en la raíz y su soporte, no en una cara de la corona.
+    if (surfaces && surfaces.length > 0 && !conditionAllowsSurfaces(conditionCode)) {
+      return reply.status(400).send({
+        error: `"${conditionCode}" es una condición de la pieza completa, no de una cara`,
+      });
     }
     if (surfaces && (!Array.isArray(surfaces) || surfaces.some((s) => !VALID_SURFACES.includes(s)))) {
       return reply.status(400).send({ error: "surfaces inválidas — usar V/P/L/M/D/O/I" });

@@ -12,6 +12,20 @@ import type { ToothProjection, DentalSurface } from "@/lib/odontogram";
 
 export type StateKey = "pending" | "treated" | "prosthetic" | "extracted" | "healthy";
 
+/** Nombre legible de cada condición. El código crudo ("periodontal_bolsa")
+ *  no se le muestra a un dentista. */
+export const CONDITION_LABELS: Record<string, string> = {
+  caries: "Caries", obturacion: "Obturación", endodoncia: "Endodoncia",
+  corona: "Corona", implante: "Implante", perno: "Perno",
+  extraccion: "Extracción", ortodoncia: "Ortodoncia", sellante: "Sellante",
+  limpieza: "Limpieza dental", fractura: "Fractura", movilidad: "Movilidad",
+  periodontal_bolsa: "Bolsa periodontal", sano: "Sano", ausente: "Ausente",
+};
+
+export function conditionLabel(code: string): string {
+  return CONDITION_LABELS[code] ?? code.replace(/_/g, " ");
+}
+
 export const CONDITION_TO_STATE: Record<string, StateKey> = {
   caries: "pending",  fractura: "pending",  movilidad: "pending",  periodontal_bolsa: "pending",
   obturacion: "treated",  endodoncia: "treated",  sellante: "treated",  limpieza: "treated",  ortodoncia: "treated",
@@ -71,6 +85,6 @@ export function resumenHallazgos(proj: ToothProjection | undefined): string | nu
   if (proj.isExtracted) return "Extraída";
   if (proj.activeConditions.length === 0) return null;
   return proj.activeConditions
-    .map((c) => c.conditionCode + (c.surfaces.length > 0 ? ` (${c.surfaces.join("·")})` : ""))
+    .map((c) => conditionLabel(c.conditionCode) + (c.surfaces.length > 0 ? ` (${c.surfaces.join("·")})` : ""))
     .join(" · ");
 }
