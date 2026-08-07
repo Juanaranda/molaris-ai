@@ -70,10 +70,18 @@ export function siteLabel(code: string): string {
  *  - Movilidad: grados de Miller 1-3
  *
  * severityLabels permite mostrar tooltips contextuales en la UI.
+ *
+ * `scope` dice DÓNDE ocurre la condición, que no es lo mismo para todas:
+ *  - "surface": una cara de la corona (caries, obturación, sellante).
+ *  - "tooth":   la pieza completa, incluida la raíz y su soporte. Acá caen las
+ *               periodontales: una bolsa se mide en el margen de la encía
+ *               alrededor de la RAÍZ, y la movilidad es del diente entero.
+ *               Pedirle al dentista "¿qué cara de la corona?" para una bolsa
+ *               periodontal no tiene respuesta clínica.
  */
 export const CONDITION_CATALOG = [
   {
-    code: "caries", label: "Caries", allowsSeverity: true,
+    code: "caries", label: "Caries", scope: "surface", allowsSeverity: true,
     severityScale: "ICDAS 0-6", severityMin: 0, severityMax: 6,
     severityLabels: {
       0: "Sano",
@@ -85,17 +93,17 @@ export const CONDITION_CATALOG = [
       6: "Cavidad extensa con dentina expuesta",
     },
   },
-  { code: "obturacion", label: "Obturación", allowsSeverity: false },
-  { code: "endodoncia", label: "Endodoncia", allowsSeverity: false },
-  { code: "corona",     label: "Corona",     allowsSeverity: false },
-  { code: "implante",   label: "Implante",   allowsSeverity: false },
-  { code: "perno",      label: "Perno",      allowsSeverity: false },
-  { code: "extraccion", label: "Extracción", allowsSeverity: false },
-  { code: "ortodoncia", label: "Ortodoncia", allowsSeverity: false },
-  { code: "sellante",   label: "Sellante",   allowsSeverity: false },
-  { code: "limpieza",   label: "Limpieza dental", allowsSeverity: false },
+  { code: "obturacion", label: "Obturación", scope: "surface", allowsSeverity: false },
+  { code: "endodoncia", label: "Endodoncia", scope: "tooth",   allowsSeverity: false },
+  { code: "corona",     label: "Corona",     scope: "tooth",   allowsSeverity: false },
+  { code: "implante",   label: "Implante",   scope: "tooth",   allowsSeverity: false },
+  { code: "perno",      label: "Perno",      scope: "tooth",   allowsSeverity: false },
+  { code: "extraccion", label: "Extracción", scope: "tooth",   allowsSeverity: false },
+  { code: "ortodoncia", label: "Ortodoncia", scope: "tooth",   allowsSeverity: false },
+  { code: "sellante",   label: "Sellante",   scope: "surface", allowsSeverity: false },
+  { code: "limpieza",   label: "Limpieza dental", scope: "tooth", allowsSeverity: false },
   {
-    code: "fractura", label: "Fractura", allowsSeverity: true,
+    code: "fractura", label: "Fractura", scope: "surface", allowsSeverity: true,
     severityScale: "1-5", severityMin: 1, severityMax: 5,
     severityLabels: {
       1: "Línea de fractura sin desplazamiento",
@@ -106,7 +114,7 @@ export const CONDITION_CATALOG = [
     },
   },
   {
-    code: "movilidad", label: "Movilidad", allowsSeverity: true,
+    code: "movilidad", label: "Movilidad", scope: "tooth", allowsSeverity: true,
     severityScale: "Miller 1-3", severityMin: 1, severityMax: 3,
     severityLabels: {
       1: "Grado 1 — movilidad <1mm en sentido horizontal",
@@ -115,7 +123,7 @@ export const CONDITION_CATALOG = [
     },
   },
   {
-    code: "periodontal_bolsa", label: "Bolsa periodontal", allowsSeverity: true,
+    code: "periodontal_bolsa", label: "Bolsa periodontal", scope: "tooth", allowsSeverity: true,
     severityScale: "Profundidad en mm", severityMin: 1, severityMax: 12,
     severityLabels: {
       1: "1 mm — fisiológico",
@@ -128,11 +136,20 @@ export const CONDITION_CATALOG = [
       8: "8+ mm — bolsa severa",
     },
   },
-  { code: "sano",    label: "Sano",               allowsSeverity: false },
-  { code: "ausente", label: "Ausente (sin info)", allowsSeverity: false },
+  { code: "sano",    label: "Sano",               scope: "tooth", allowsSeverity: false },
+  { code: "ausente", label: "Ausente (sin info)", scope: "tooth", allowsSeverity: false },
 ] as const;
 
 const CONDITION_CODES = new Set(CONDITION_CATALOG.map((c) => c.code));
+
+/**
+ * ¿Esta condición se registra en una cara de la corona?
+ * Las de scope "tooth" (periodontales, endodoncia, corona…) son de la pieza
+ * completa: no tiene sentido pedirles una cara.
+ */
+export function conditionAllowsSurfaces(code: string): boolean {
+  return CONDITION_CATALOG.find((c) => c.code === code)?.scope === "surface";
+}
 export function isValidConditionCode(code: string): boolean {
   return CONDITION_CODES.has(code as never);
 }

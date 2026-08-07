@@ -44,6 +44,12 @@ export interface OdontogramResponse {
 export interface ConditionMeta {
   code: string;
   label: string;
+  /**
+   * Dónde ocurre: "surface" = una cara de la corona (caries, obturación);
+   * "tooth" = la pieza completa, incluida raíz y soporte (periodontales,
+   * endodoncia, corona). A las de pieza completa no se les pide cara.
+   */
+  scope?: "surface" | "tooth";
   allowsSeverity: boolean;
   severityScale?: string;
   severityMin?: number;

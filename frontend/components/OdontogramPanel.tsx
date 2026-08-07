@@ -181,6 +181,15 @@ export function OdontogramPanel({ patientId }: Props) {
           mode="single"
           anatomical
           cellSize={56}
+          onSelectWholeTooth={(fdi) => {
+            // Tocar la silueta (que muestra la raíz) abre el registro sin
+            // caras: es el gesto natural para movilidad, bolsa periodontal o
+            // endodoncia, que son de la pieza completa y no de una cara.
+            setSelected(fdi);
+            setPidiendoPieza(false);
+            setCaraInicial([]);
+            setShowAddFor(fdi);
+          }}
           onSelectSurface={(fdi, cara) => {
             setSelected(fdi);
             setPidiendoPieza(false);
@@ -552,6 +561,12 @@ function AddEventModal({ toothFDI, patientId, catalog, initialSurfaces = [], onC
 
   const conditionMeta = catalog.conditions.find((c) => c.code === conditionCode);
 
+  // Si se pasa a una condición de pieza completa, las caras marcadas dejan de
+  // aplicar: enviarlas igual haría que el backend rechace el registro.
+  useEffect(() => {
+    if (conditionMeta?.scope === "tooth" && surfaces.length > 0) setSurfaces([]);
+  }, [conditionMeta?.scope, surfaces.length]);
+
   function toggleSurface(s: DentalSurface) {
     setSurfaces((cur) => cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]);
   }
@@ -607,9 +622,11 @@ function AddEventModal({ toothFDI, patientId, catalog, initialSurfaces = [], onC
             </select>
           </div>
 
-          {/* Un sextante o arcada no tiene caras: la rueda solo aplica a una
-              pieza concreta (el backend además rechaza superficies en sitios). */}
-          {esPieza(toothFDI) && (
+          {/* La rueda aparece solo si hay caras que elegir: una pieza concreta
+              (un sextante no tiene mesial) Y una condición de corona. Una bolsa
+              periodontal se mide alrededor de la raíz — preguntarle al dentista
+              "¿qué cara?" no tiene respuesta clínica. */}
+          {esPieza(toothFDI) && conditionMeta?.scope !== "tooth" && (
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Superficies afectadas</label>
               <div className="flex justify-center bg-gray-50 rounded-xl py-3">
