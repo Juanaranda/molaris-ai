@@ -51,9 +51,17 @@ export interface ConditionMeta {
   severityLabels?: Record<string, string>;
 }
 
+/** Sitio no dental: sextante o arcada. Para prestaciones que no son de una
+ *  pieza (limpieza, destartraje por sector, panorámica). */
+export interface DentalSite {
+  code:  string;
+  label: string;
+}
+
 export interface CatalogResponse {
   conditions: ConditionMeta[];
   surfaces:   DentalSurface[];
+  sites?:     DentalSite[];
 }
 
 /* ── API helpers ───────────────────────────────────────────────────────── */

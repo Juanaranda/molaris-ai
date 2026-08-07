@@ -27,6 +27,40 @@ export function isValidFDI(toothFDI: string): boolean {
   return VALID_FDI.has(toothFDI);
 }
 
+/* ── Sitios no dentales: sextantes y arcadas ───────────────────────────────
+ * No todo hallazgo o prestación es de UNA pieza. Una limpieza es de boca
+ * completa, un destartraje suele ser por sextante y una panorámica no tiene
+ * pieza. Obligar a elegir un diente para esas obliga a inventar el dato o a
+ * no registrarlo — que es lo que pasaba hasta ahora.
+ *
+ * Los sextantes siguen la división estándar: posteriores derechos, anteriores
+ * y posteriores izquierdos, por arcada.
+ */
+export const DENTAL_SITES: Record<string, { label: string; teeth: string[] }> = {
+  S1:   { label: "Sextante 1 (sup. derecho)",  teeth: ["18","17","16","15","14"] },
+  S2:   { label: "Sextante 2 (sup. anterior)", teeth: ["13","12","11","21","22","23"] },
+  S3:   { label: "Sextante 3 (sup. izquierdo)",teeth: ["24","25","26","27","28"] },
+  S4:   { label: "Sextante 4 (inf. izquierdo)",teeth: ["34","35","36","37","38"] },
+  S5:   { label: "Sextante 5 (inf. anterior)", teeth: ["33","32","31","41","42","43"] },
+  S6:   { label: "Sextante 6 (inf. derecho)",  teeth: ["44","45","46","47","48"] },
+  AS:   { label: "Arcada superior",  teeth: [] },
+  AI:   { label: "Arcada inferior",  teeth: [] },
+  BOCA: { label: "Boca completa",    teeth: [] },
+};
+
+export function isValidSiteCode(code: string): boolean {
+  return Object.hasOwn(DENTAL_SITES, code);
+}
+
+/** Sitio válido = una pieza FDI o un sextante/arcada. */
+export function isValidSite(code: string): boolean {
+  return isValidFDI(code) || isValidSiteCode(code);
+}
+
+export function siteLabel(code: string): string {
+  return DENTAL_SITES[code]?.label ?? `Pieza ${code}`;
+}
+
 /* ── Catálogo de condiciones (v1 hardcoded) ─────────────────────────────── */
 /**
  * Cada condición indica si admite severidad estructurada (Issue #33).

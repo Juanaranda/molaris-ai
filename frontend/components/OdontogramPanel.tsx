@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   DentalSurface, DentalEventType, ToothProjection, ConditionMeta,
   getCatalog, getOdontogram, createDentalEvent, voidDentalEvent,
+  type CatalogResponse, type DentalSite,
 } from "@/lib/odontogram";
 import { StandardOdontogram } from "@/components/StandardOdontogram";
 import { ToothFrontView } from "@/components/ToothFrontView";
@@ -25,6 +26,17 @@ interface Props {
  *   - Eventos inmutables vía POST (no edit)
  *   - Superficies multi-select
  */
+
+/** ¿Es una pieza dental o un sitio (sextante/arcada)? */
+function esPieza(code: string | null): boolean {
+  return !!code && /^\d{2}$/.test(code);
+}
+
+/** Etiqueta legible: "Pieza 1.6" o "Arcada superior". */
+function etiquetaSitio(code: string, sites?: DentalSite[]): string {
+  if (esPieza(code)) return `Pieza ${code[0]}.${code[1]}`;
+  return sites?.find((s) => s.code === code)?.label ?? code;
+}
 
 const SURFACE_LABELS: Record<DentalSurface, string> = {
   V: "Vestibular", P: "Palatino", L: "Lingual",
@@ -52,7 +64,7 @@ function conditionChipColor(code: string): string {
 
 export function OdontogramPanel({ patientId }: Props) {
   const [teeth,   setTeeth]   = useState<Record<string, ToothProjection>>({});
-  const [catalog, setCatalog] = useState<{ conditions: ConditionMeta[]; surfaces: DentalSurface[] } | null>(null);
+  const [catalog, setCatalog] = useState<CatalogResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState("");
   const [selected, setSelected] = useState<string | null>(null);
@@ -102,6 +114,15 @@ export function OdontogramPanel({ patientId }: Props) {
     [selected, teeth]
   );
 
+  /** Todos los eventos del paciente, de cualquier pieza o sitio, más recientes primero. */
+  const todosLosEventos = useMemo(() => {
+    const out: { site: string; e: ToothProjection["events"][number] }[] = [];
+    for (const [site, proj] of Object.entries(teeth)) {
+      for (const e of proj.events) out.push({ site, e });
+    }
+    return out.sort((a, b) => new Date(b.e.occurredAt).getTime() - new Date(a.e.occurredAt).getTime());
+  }, [teeth]);
+
   if (loading) return <div className="py-8 text-sm text-gray-400 text-center">Cargando odontograma…</div>;
   if (error)   return <div className="py-8 text-sm text-red-500 text-center">{error}</div>;
   if (!catalog) return null;
@@ -120,7 +141,7 @@ export function OdontogramPanel({ patientId }: Props) {
           onClick={() => selected ? setShowAddFor(selected) : setPidiendoPieza(true)}
           className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl bg-[#1A5C7A] text-white hover:bg-[#0e4560] shadow-sm transition">
           <span className="text-sm leading-none">+</span>
-          {selected ? `Registrar en ${selected[0]}.${selected[1]}` : "Registrar hallazgo"}
+          {selected ? `Registrar en ${etiquetaSitio(selected, catalog?.sites).replace("Pieza ", "")}` : "Registrar hallazgo"}
         </button>
       </div>
 
@@ -133,6 +154,25 @@ export function OdontogramPanel({ patientId }: Props) {
             <span className="text-xs font-bold">Elige la pieza donde registrar el hallazgo</span>
             <button onClick={() => setPidiendoPieza(false)}
               className="ml-auto text-[11px] font-semibold text-gray-400 hover:text-gray-600">Cancelar</button>
+          </div>
+        )}
+
+        {/* Sextantes y arcadas: una limpieza es de boca completa y una
+            panorámica no tiene pieza. Sin esto había que inventar un diente
+            o no registrar la prestación. */}
+        {(catalog?.sites?.length ?? 0) > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap mb-3">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mr-1">
+              Sin pieza puntual:
+            </span>
+            {catalog!.sites!.map((s) => (
+              <button key={s.code}
+                onClick={() => { setSelected(s.code); setPidiendoPieza(false); setCaraInicial([]); setShowAddFor(s.code); }}
+                title={s.label}
+                className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:border-[#1A5C7A] hover:text-[#1A5C7A] transition">
+                {s.label.replace(/\s*\(.*\)/, "")}
+              </button>
+            ))}
           </div>
         )}
         <StandardOdontogram
@@ -165,6 +205,61 @@ export function OdontogramPanel({ patientId }: Props) {
         onSelect={setSelected}
       />
 
+      {/* Tabla de todos los eventos — sin esto había que ir pieza por pieza
+          para saber qué se registró y quién lo hizo. */}
+      {todosLosEventos.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-50">
+            <h4 className="text-sm font-bold text-gray-900">Registro clínico</h4>
+            <p className="text-[11px] text-gray-400">{todosLosEventos.length} evento{todosLosEventos.length !== 1 ? "s" : ""}</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-50">
+                  <th className="px-4 py-2 font-bold">Fecha</th>
+                  <th className="px-3 py-2 font-bold">Sitio</th>
+                  <th className="px-3 py-2 font-bold">Caras</th>
+                  <th className="px-3 py-2 font-bold">Estado</th>
+                  <th className="px-3 py-2 font-bold">Registró</th>
+                  <th className="px-3 py-2 font-bold text-right">Anular</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {todosLosEventos.map(({ site, e }) => (
+                  <tr key={e.id} className="hover:bg-gray-50/60 transition">
+                    <td className="px-4 py-2 text-gray-500 tabular-nums whitespace-nowrap">
+                      {new Date(e.occurredAt).toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                    </td>
+                    <td className="px-3 py-2 font-semibold text-gray-700 whitespace-nowrap">
+                      {etiquetaSitio(site, catalog.sites).replace("Pieza ", "")}
+                    </td>
+                    <td className="px-3 py-2 text-gray-400">
+                      {e.surfaces.length > 0 ? e.surfaces.map((x) => x.surface).join("·") : "—"}
+                    </td>
+                    <td className="px-3 py-2">
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${conditionChipColor(e.conditionCode)}`}>
+                        {catalog.conditions.find((x) => x.code === e.conditionCode)?.label ?? e.conditionCode}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-gray-500 truncate max-w-[160px]">
+                      {e.professional?.name ?? "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <button onClick={() => anularEvento(e.id)} disabled={anulando === e.id}
+                        title="Anular este registro (queda en la ficha con el motivo)"
+                        className="text-[11px] font-bold text-gray-300 hover:text-red-600 transition disabled:opacity-50">
+                        {anulando === e.id ? "…" : "Anular"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Detalle del diente seleccionado */}
       {selected && (
         <div className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-col gap-3">
@@ -179,7 +274,7 @@ export function OdontogramPanel({ patientId }: Props) {
                 tint={selectedProjection?.isExtracted ? "#9CA3AF" : undefined}
               />
               <div>
-                <h4 className="text-sm font-bold text-gray-900">Pieza {selected}</h4>
+                <h4 className="text-sm font-bold text-gray-900">{etiquetaSitio(selected, catalog?.sites)}</h4>
                 {selectedProjection?.isExtracted && (
                   <span className="text-[10px] font-bold uppercase tracking-wider text-red-600">Extraída</span>
                 )}
@@ -439,7 +534,7 @@ const ESTADO_TEXTO: Record<string, { label: string; cls: string }> = {
 interface AddEventModalProps {
   toothFDI:   string;
   patientId:  string;
-  catalog:    { conditions: ConditionMeta[]; surfaces: DentalSurface[] };
+  catalog:    CatalogResponse;
   /** Caras ya marcadas al abrir (viene del click directo sobre el diagrama). */
   initialSurfaces?: DentalSurface[];
   onClose:    () => void;
@@ -481,7 +576,7 @@ function AddEventModal({ toothFDI, patientId, catalog, initialSurfaces = [], onC
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <h3 className="text-sm font-bold text-gray-800">Registrar evento — Pieza {toothFDI}</h3>
+          <h3 className="text-sm font-bold text-gray-800">Registrar evento — {etiquetaSitio(toothFDI, catalog.sites)}</h3>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg leading-none">✕</button>
         </div>
 
@@ -512,20 +607,24 @@ function AddEventModal({ toothFDI, patientId, catalog, initialSurfaces = [], onC
             </select>
           </div>
 
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Superficies afectadas</label>
-            <div className="flex justify-center bg-gray-50 rounded-xl py-3">
-              <ToothSurfaceWheel
-                toothFDI={toothFDI}
-                selected={surfaces}
-                onToggle={toggleSurface}
-                size={170}
-              />
+          {/* Un sextante o arcada no tiene caras: la rueda solo aplica a una
+              pieza concreta (el backend además rechaza superficies en sitios). */}
+          {esPieza(toothFDI) && (
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Superficies afectadas</label>
+              <div className="flex justify-center bg-gray-50 rounded-xl py-3">
+                <ToothSurfaceWheel
+                  toothFDI={toothFDI}
+                  selected={surfaces}
+                  onToggle={toggleSurface}
+                  size={170}
+                />
+              </div>
+              <p className="text-[10px] text-gray-400 mt-2 text-center">
+                Click en cada cara para seleccionar (multi). Una condición puede afectar varias (ej: caries MOD).
+              </p>
             </div>
-            <p className="text-[10px] text-gray-400 mt-2 text-center">
-              Click en cada cara para seleccionar (multi). Una condición puede afectar varias (ej: caries MOD).
-            </p>
-          </div>
+          )}
 
           {conditionMeta?.allowsSeverity && (
             <div>
