@@ -5,7 +5,7 @@ import type { ToothProjection, DentalSurface } from "@/lib/odontogram";
 import { ToothSurfaceChart } from "@/components/ToothSurfaceChart";
 import { ToothFrontView } from "@/components/ToothFrontView";
 import { toothTypeOf, isUpperFdi, getArchRows, type DentitionType } from "@/lib/tooth";
-import { CONDITION_TO_STATE, surfacePaintFor } from "@/lib/odontogramPaint";
+import { CONDITION_TO_STATE, surfacePaintFor, conditionLabel } from "@/lib/odontogramPaint";
 
 /**
  * Odontograma estándar — vista simple y profesional (Issue #43).
@@ -65,7 +65,7 @@ function summarize(proj: ToothProjection | undefined): { state: StateKey; meta: 
   const style = STATE_STYLE[chosen];
   const tooltipLines = proj.activeConditions.map((c) => {
     const surf = c.surfaces.length > 0 ? ` (${c.surfaces.join("·")})` : "";
-    return `• ${c.conditionCode}${surf}`;
+    return `• ${conditionLabel(c.conditionCode)}${surf}`;
   });
   return {
     state: chosen,
