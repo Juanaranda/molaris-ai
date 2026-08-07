@@ -27,7 +27,7 @@ const galanaConfig = {
       services: ["Endodoncia (tratamiento de conducto)"],
     },
     {
-      name: "Dr. Javiera Palmilla",
+      name: "Dr. Javiera Paimilla",
       specialty: "General",
       schedule: "Lun-Vie",
       services: ["Limpieza dental", "Blanqueamiento dental", "Carillas dentales", "Urgencias dentales"],
