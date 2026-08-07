@@ -108,7 +108,7 @@ export const galanaConfig = {
       ],
     },
     {
-      name: "Dr. Javiera Palmilla",
+      name: "Dr. Javiera Paimilla",
       specialty: "Odontología General",
       workDays: [1, 2, 3, 4, 5], // Lun-Vie
       box: null,

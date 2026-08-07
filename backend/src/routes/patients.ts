@@ -111,16 +111,27 @@ function parseTime(str: string): string | null {
 
 interface ImportBody { csv: string; }
 
-export async function patientsRoutes(app: FastifyInstance) {
-  // GET /api/patients — lista de pacientes únicos derivada de bookings
-  app.get("/patients", async (req, reply) => {
-    let payload;
-    try { payload = verifyToken(req.headers.authorization); }
-    catch { return reply.status(401).send({ error: "No autorizado" }); }
-    if (!payload.clinicId) return reply.status(403).send({ error: "Sin clínica asignada" });
+interface PatientRow {
+  key: string; name: string; rut: string | null; phone: string | null; email: string | null;
+  visits: number; lastVisit: string; lastDoctor: string; services: string[];
+  totalCharged: number; totalPaid: number; pendingCount: number;
+}
 
+/**
+ * Escapa un campo para CSV: entrecomilla si trae el separador, comillas o
+ * saltos de línea, y duplica las comillas internas. Sin esto, un nombre con
+ * coma parte la fila en dos y el archivo queda corrido.
+ */
+function csvField(value: unknown, sep: string): string {
+  const s = value == null ? "" : String(value);
+  return new RegExp(`["${sep}\\n\\r]`).test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+export async function patientsRoutes(app: FastifyInstance) {
+  /** Pacientes únicos derivados de bookings (colapsados por RUT o nombre). */
+  async function buildPatientList(clinicId: string): Promise<PatientRow[]> {
     const bookings = await prisma.booking.findMany({
-      where: { clinicId: payload.clinicId },
+      where: { clinicId },
       select: {
         id: true, patientName: true, patientRut: true, patientPhone: true, patientEmail: true,
         service: true, doctor: true, date: true, time: true, status: true, createdAt: true,
@@ -130,11 +141,7 @@ export async function patientsRoutes(app: FastifyInstance) {
     });
 
     // Collapse into unique patients by RUT (or name if no RUT)
-    const map = new Map<string, {
-      key: string; name: string; rut: string | null; phone: string | null; email: string | null;
-      visits: number; lastVisit: string; lastDoctor: string; services: string[];
-      totalCharged: number; totalPaid: number; pendingCount: number;
-    }>();
+    const map = new Map<string, PatientRow>();
 
     for (const b of bookings) {
       if (b.status === "cancelled" || !b.patientName) continue;
@@ -161,7 +168,7 @@ export async function patientsRoutes(app: FastifyInstance) {
     // Sumar abonos manuales (cuenta corriente, #43) al total pagado por paciente
     const manualPayments = await prisma.accountEntry.groupBy({
       by: ["patientRut"],
-      where: { clinicId: payload.clinicId, kind: "payment" },
+      where: { clinicId, kind: "payment" },
       _sum: { amount: true },
     });
     for (const mp of manualPayments) {
@@ -169,11 +176,59 @@ export async function patientsRoutes(app: FastifyInstance) {
       if (p) p.totalPaid += mp._sum.amount ?? 0;
     }
 
-    const patients = Array.from(map.values()).sort((a, b) =>
+    return Array.from(map.values()).sort((a, b) =>
       new Date(b.lastVisit).getTime() - new Date(a.lastVisit).getTime()
     );
+  }
 
-    return reply.send(patients);
+  // GET /api/patients — lista de pacientes únicos derivada de bookings
+  app.get("/patients", async (req, reply) => {
+    let payload;
+    try { payload = verifyToken(req.headers.authorization); }
+    catch { return reply.status(401).send({ error: "No autorizado" }); }
+    if (!payload.clinicId) return reply.status(403).send({ error: "Sin clínica asignada" });
+
+    return reply.send(await buildPatientList(payload.clinicId));
+  });
+
+  /**
+   * GET /api/patients/export — descarga la base de pacientes en CSV.
+   *
+   * La clínica tiene que poder sacar sus datos: la ficha es del paciente y de
+   * la clínica, no de molari (Ley 21.719, portabilidad). Además importábamos
+   * desde otros sistemas sin ofrecer salida, que es justo lo que las clínicas
+   * critican de la competencia.
+   */
+  app.get<{ Querystring: { sep?: string } }>("/patients/export", async (req, reply) => {
+    let payload;
+    try { payload = verifyToken(req.headers.authorization); }
+    catch { return reply.status(401).send({ error: "No autorizado" }); }
+    if (!payload.clinicId) return reply.status(403).send({ error: "Sin clínica asignada" });
+
+    // Excel en español usa ";" por defecto; con "," abre todo en una columna.
+    const sep = req.query.sep === "," ? "," : ";";
+    const patients = await buildPatientList(payload.clinicId);
+
+    const headers = [
+      "Nombre", "RUT", "Teléfono", "Email", "Visitas", "Última visita",
+      "Último profesional", "Servicios", "Total cobrado", "Total pagado", "Citas sin pago",
+    ];
+    const lines = [headers.join(sep)];
+    for (const p of patients) {
+      lines.push([
+        p.name, p.rut ?? "", p.phone ?? "", p.email ?? "", p.visits,
+        p.lastVisit.slice(0, 10), p.lastDoctor ?? "", p.services.join(" | "),
+        Math.round(p.totalCharged), Math.round(p.totalPaid), p.pendingCount,
+      ].map((f) => csvField(f, sep)).join(sep));
+    }
+
+    const stamp = new Date().toISOString().slice(0, 10);
+    // El BOM hace que Excel lea el archivo como UTF-8; sin él los nombres con
+    // tildes y ñ salen corruptos, que con datos chilenos es casi todos.
+    return reply
+      .header("Content-Type", "text/csv; charset=utf-8")
+      .header("Content-Disposition", `attachment; filename="pacientes-${stamp}.csv"`)
+      .send("﻿" + lines.join("\r\n"));
   });
 
   // GET /api/patients/:rut/history — historial de citas de un paciente

@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import type { ToothProjection, DentalSurface } from "@/lib/odontogram";
 import { ToothSurfaceChart } from "@/components/ToothSurfaceChart";
 import { ToothFrontView } from "@/components/ToothFrontView";
-import { toothTypeOf, isUpperFdi } from "@/lib/tooth";
+import { toothTypeOf, isUpperFdi, getArchRows, type DentitionType } from "@/lib/tooth";
+import { CONDITION_TO_STATE, surfacePaintFor } from "@/lib/odontogramPaint";
 
 /**
  * Odontograma estándar — vista simple y profesional (Issue #43).
@@ -41,61 +42,6 @@ const STATE_STYLE: Record<StateKey, { cellBg: string; accent: string; ring: stri
   prosthetic: { cellBg: "bg-violet-50",    accent: "bg-violet-500",   ring: "border-violet-200", symbol: "⌒" },
   extracted:  { cellBg: "bg-gray-100",     accent: "bg-gray-400",     ring: "border-gray-200", symbol: "✕" },
 };
-
-const CONDITION_TO_STATE: Record<string, StateKey> = {
-  caries: "pending",  fractura: "pending",  movilidad: "pending",  periodontal_bolsa: "pending",
-  obturacion: "treated",  endodoncia: "treated",  sellante: "treated",  limpieza: "treated",  ortodoncia: "treated",
-  corona: "prosthetic",  implante: "prosthetic",  perno: "prosthetic",
-  extraccion: "extracted",  ausente: "extracted",
-  sano: "healthy",
-};
-
-/* Color con que se pinta cada superficie según el estado de su hallazgo. */
-const SURFACE_PAINT: Partial<Record<StateKey, string>> = {
-  pending:    "#DC2626",
-  treated:    "#2563EB",
-  prosthetic: "#6D28D9",
-};
-
-// Si dos hallazgos caen en la misma cara, gana el más grave.
-const SURFACE_PRIORITY: StateKey[] = ["prosthetic", "pending", "treated"];
-
-/**
- * Traduce las condiciones activas a color POR SUPERFICIE.
- *
- * El dato de superficies ya existía en el modelo (DentalEventSurface) pero la
- * grilla lo ignoraba y teñía la pieza entera: una caries oclusal pintaba todo
- * el diente de rojo y no se sabía qué cara tratar. Las condiciones sin
- * superficie (endodoncia, corona, extracción) siguen siendo de diente completo.
- */
-function surfacePaintFor(proj: ToothProjection | undefined): {
-  surfaces: Partial<Record<DentalSurface, string>>;
-  wholeTooth?: string;
-} {
-  if (!proj || proj.isExtracted) return { surfaces: {} };
-
-  const rank = new Map<DentalSurface, number>();
-  const surfaces: Partial<Record<DentalSurface, string>> = {};
-  let wholeRank = Infinity;
-  let wholeTooth: string | undefined;
-
-  for (const c of proj.activeConditions) {
-    const state = CONDITION_TO_STATE[c.conditionCode];
-    const color = state ? SURFACE_PAINT[state] : undefined;
-    if (!color || !state) continue;
-    const prio = SURFACE_PRIORITY.indexOf(state);
-    if (prio < 0) continue;
-
-    if (c.surfaces.length === 0) {
-      if (prio < wholeRank) { wholeRank = prio; wholeTooth = color; }
-      continue;
-    }
-    for (const s of c.surfaces) {
-      if (prio < (rank.get(s) ?? Infinity)) { rank.set(s, prio); surfaces[s] = color; }
-    }
-  }
-  return { surfaces, wholeTooth };
-}
 
 function summarize(proj: ToothProjection | undefined): { state: StateKey; meta: ConditionSummary } {
   if (!proj) {
@@ -134,12 +80,13 @@ function summarize(proj: ToothProjection | undefined): { state: StateKey; meta: 
 // Vista del dentista: el cuadrante 1 del paciente (su derecha) va en la IZQUIERDA del chart
 // Q1 (1.x): 18-11   |   Q2 (2.x): 21-28
 // Q4 (4.x): 48-41   |   Q3 (3.x): 31-38
-const UPPER_RIGHT = ["18","17","16","15","14","13","12","11"];
-const UPPER_LEFT  = ["21","22","23","24","25","26","27","28"];
-const LOWER_RIGHT = ["48","47","46","45","44","43","42","41"];
-const LOWER_LEFT  = ["31","32","33","34","35","36","37","38"];
-
 type ArchView = "all" | "upper" | "lower";
+
+const DENTITION_LABEL: Record<DentitionType, string> = {
+  definitiva: "Adulto",
+  mixta:      "Mixta",
+  temporal:   "Niño",
+};
 
 interface Props {
   teeth?:           Record<string, ToothProjection>;
@@ -168,17 +115,34 @@ interface Props {
    * necesita la grilla compacta.
    */
   anatomical?:      boolean;
+  /**
+   * Dentición a mostrar. Sin esto la ficha clínica solo tenía piezas
+   * permanentes y un paciente niño no se podía odontografiar.
+   */
+  dentition?:        DentitionType;
+  onDentitionChange?: (d: DentitionType) => void;
+  /** Click directo sobre una cara del diente (registrar hallazgo en 1 paso). */
+  onSelectSurface?:  (fdi: string, surface: DentalSurface) => void;
 }
 
 export function StandardOdontogram({
   teeth = {}, selectedFdis, mode = "single", missingFdis, highlightFdis,
   onSelectTooth, onToggleMissing, defaultView = "all", view: viewProp, className,
   showLegend = true, cellSize = 52, anatomical = false,
+  dentition: dentitionProp, onDentitionChange, onSelectSurface,
 }: Props) {
 
   const [viewState, setView] = useState<ArchView>(defaultView);
   const view = viewProp ?? viewState;
   const showInternalToolbar = viewProp === undefined;
+
+  const [dentitionState, setDentitionState] = useState<DentitionType>("definitiva");
+  const dentition = dentitionProp ?? dentitionState;
+  function changeDentition(d: DentitionType) {
+    setDentitionState(d);
+    onDentitionChange?.(d);
+  }
+  const rows = useMemo(() => getArchRows(dentition), [dentition]);
 
   const selectedSet = useMemo(() => {
     if (!selectedFdis) return new Set<string>();
@@ -204,6 +168,19 @@ export function StandardOdontogram({
               </button>
             ))}
           </div>
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mr-1.5">Dentición:</span>
+            {(["definitiva", "mixta", "temporal"] as DentitionType[]).map((d) => (
+              <button key={d} onClick={() => changeDentition(d)}
+                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition ${
+                  dentition === d
+                    ? "bg-[#1A5C7A] text-white border-[#1A5C7A]"
+                    : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                }`}>
+                {DENTITION_LABEL[d]}
+              </button>
+            ))}
+          </div>
           {mode === "multi" && selectedSet.size > 0 && (
             <span className="text-[11px] font-bold text-[#1A5C7A]">{selectedSet.size} seleccionados</span>
           )}
@@ -215,13 +192,14 @@ export function StandardOdontogram({
         {(view === "all" || view === "upper") && (
           <ArchRow
             label="Arcada superior"
-            quadrants={[UPPER_RIGHT, UPPER_LEFT]}
+            quadrants={rows.upper}
             teeth={teeth}
             selectedSet={selectedSet}
             missingFdis={missingFdis}
             highlightFdis={highlightFdis}
             mode={mode}
             onSelectTooth={onSelectTooth}
+            onSelectSurface={onSelectSurface}
             onToggleMissing={onToggleMissing}
             cellSize={cellSize}
             anatomical={anatomical}
@@ -238,13 +216,14 @@ export function StandardOdontogram({
         {(view === "all" || view === "lower") && (
           <ArchRow
             label="Arcada inferior"
-            quadrants={[LOWER_RIGHT, LOWER_LEFT]}
+            quadrants={rows.lower}
             teeth={teeth}
             selectedSet={selectedSet}
             missingFdis={missingFdis}
             highlightFdis={highlightFdis}
             mode={mode}
             onSelectTooth={onSelectTooth}
+            onSelectSurface={onSelectSurface}
             onToggleMissing={onToggleMissing}
             cellSize={cellSize}
             anatomical={anatomical}
@@ -275,6 +254,7 @@ interface ArchRowProps {
   highlightFdis?:  Set<string>;
   mode:            Mode;
   onSelectTooth?:  (fdi: string) => void;
+  onSelectSurface?: (fdi: string, surface: DentalSurface) => void;
   onToggleMissing?: (fdi: string) => void;
   cellSize:        number;
   labelPosition:   "top" | "bottom";
@@ -283,7 +263,7 @@ interface ArchRowProps {
 
 function ArchRow({
   label, quadrants, teeth, selectedSet, missingFdis, highlightFdis, mode,
-  onSelectTooth, onToggleMissing, cellSize, labelPosition, anatomical,
+  onSelectTooth, onSelectSurface, onToggleMissing, cellSize, labelPosition, anatomical,
 }: ArchRowProps) {
   const labelEl = (
     <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 text-center">
@@ -304,6 +284,7 @@ function ArchRow({
                 isSelected={selectedSet.has(fdi)}
                 isHighlighted={highlightFdis?.has(fdi) ?? false}
                 onSelect={() => onSelectTooth?.(fdi)}
+                onSelectSurface={onSelectSurface ? (s2: DentalSurface) => onSelectSurface(fdi, s2) : undefined}
                 size={cellSize}
               />
             ) : (
@@ -315,6 +296,7 @@ function ArchRow({
                 isHighlighted={highlightFdis?.has(fdi) ?? false}
                 mode={mode}
                 onSelect={() => onSelectTooth?.(fdi)}
+                onSelectSurface={onSelectSurface ? (s2: DentalSurface) => onSelectSurface(fdi, s2) : undefined}
                 onToggleMissing={onToggleMissing ? () => onToggleMissing(fdi) : undefined}
                 size={cellSize}
               />
@@ -339,11 +321,12 @@ interface ToothCellProps {
   isHighlighted?:  boolean;
   mode:            Mode;
   onSelect:        () => void;
+  onSelectSurface?: (surface: DentalSurface) => void;
   onToggleMissing?: () => void;
   size:            number;
 }
 
-function ToothCell({ fdi, proj, isMissing, isSelected, isHighlighted, onSelect, size }: ToothCellProps) {
+function ToothCell({ fdi, proj, isMissing, isSelected, isHighlighted, onSelect, onSelectSurface, size }: ToothCellProps) {
   const { state, meta } = summarize(proj);
   const paint = surfacePaintFor(proj);
   const style = STATE_STYLE[state];
@@ -390,6 +373,7 @@ function ToothCell({ fdi, proj, isMissing, isSelected, isHighlighted, onSelect, 
           surfaceColors={paint.surfaces}
           wholeToothColor={paint.wholeTooth}
           isMissing={isMissing}
+          onSurfaceClick={onSelectSurface}
         />
         {/* Símbolo overlay (X de extracción, ⌒ corona) */}
         {symbol && (
@@ -434,11 +418,12 @@ interface AnatomicalToothColumnProps {
   isSelected:     boolean;
   isHighlighted?: boolean;
   onSelect:       () => void;
+  onSelectSurface?: (surface: DentalSurface) => void;
   size:           number;
 }
 
 function AnatomicalToothColumn({
-  fdi, proj, isMissing, isSelected, isHighlighted, onSelect, size,
+  fdi, proj, isMissing, isSelected, isHighlighted, onSelect, onSelectSurface, size,
 }: AnatomicalToothColumnProps) {
   const { state, meta } = summarize(proj);
   const paint = surfacePaintFor(proj);
@@ -466,6 +451,7 @@ function AnatomicalToothColumn({
       surfaceColors={paint.surfaces}
       wholeToothColor={paint.wholeTooth}
       isMissing={extracted}
+      onSurfaceClick={onSelectSurface}
     />
   );
 

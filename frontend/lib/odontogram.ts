@@ -51,9 +51,17 @@ export interface ConditionMeta {
   severityLabels?: Record<string, string>;
 }
 
+/** Sitio no dental: sextante o arcada. Para prestaciones que no son de una
+ *  pieza (limpieza, destartraje por sector, panorámica). */
+export interface DentalSite {
+  code:  string;
+  label: string;
+}
+
 export interface CatalogResponse {
   conditions: ConditionMeta[];
   surfaces:   DentalSurface[];
+  sites?:     DentalSite[];
 }
 
 /* ── API helpers ───────────────────────────────────────────────────────── */
@@ -112,6 +120,28 @@ export async function createDentalEvent(
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error((json as { error?: string }).error ?? "Error creando evento");
+  }
+  return (json as { event: DentalEvent }).event;
+}
+
+/**
+ * Anula un evento registrado por error. No lo borra: la ficha es un documento
+ * médico-legal, así que el evento sale del odontograma pero queda en el
+ * historial con quién lo anuló y por qué.
+ */
+export async function voidDentalEvent(
+  patientId: string,
+  eventId: string,
+  reason: string,
+): Promise<DentalEvent> {
+  const res = await fetch(`${API}/api/patients/${patientId}/dental-events/${eventId}/void`, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+    body:    JSON.stringify({ reason }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error((json as { error?: string }).error ?? "No se pudo anular el evento");
   }
   return (json as { event: DentalEvent }).event;
 }

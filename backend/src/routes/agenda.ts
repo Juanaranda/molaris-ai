@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
 import { sendBookingNotification } from "../services/notifications/whatsappService";
+import { canonicalDoctorName } from "../lib/doctorName";
 
 interface AgendaQueryDay {
   date?: string;
@@ -153,14 +154,24 @@ export async function agendaRoutes(app: FastifyInstance) {
       return reply.status(403).send({ error: "Sin clínica asignada" });
     }
 
-    const { doctor, date, time, box, sede, patientName, patientRut, patientPhone, patientEmail, service, notes } = req.body ?? {};
+    const { doctor: doctorRaw, date, time, box, sede, patientName, patientRut, patientPhone, patientEmail, service, notes } = req.body ?? {};
 
-    if (!doctor || !date || !time || !patientName) {
+    if (!doctorRaw || !date || !time || !patientName) {
       return reply.status(400).send({ error: "Campos requeridos: doctor, date, time, patientName" });
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return reply.status(400).send({ error: "date debe ser YYYY-MM-DD" });
     }
+
+    // Se guarda el nombre tal cual lo tiene el equipo de la clínica. Va ANTES
+    // del chequeo de choque: ese compara por igualdad exacta, así que sin
+    // canonizar "Nicolas Rojas" no chocaría con "Dr. Nicolás Rojas" y se podría
+    // sobre-agendar a la misma persona en el mismo horario.
+    const equipo = ((await prisma.clinic.findUnique({
+      where: { id: payload.clinicId },
+      select: { config: true },
+    }))?.config as { doctors?: { name: string }[] } | null)?.doctors?.map((d) => d.name) ?? [];
+    const doctor = canonicalDoctorName(doctorRaw, equipo);
 
     // Check slot conflict
     const dayStart = new Date(`${date}T00:00:00`);

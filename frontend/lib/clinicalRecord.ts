@@ -61,6 +61,13 @@ export interface ClinicalRecord {
     channel: string | null;
     createdAt: string;
   };
+  /** Última atención: quién lo trató, dónde y cuándo. */
+  lastVisit: {
+    doctor: string | null;
+    sede: string | null;
+    date: string;
+    service: string | null;
+  } | null;
   identity: IdentityFull | null;
   patientUser: PatientUserInfo | null;
   odontogram: Record<string, ToothProjection>;

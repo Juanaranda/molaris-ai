@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getToken } from "@/lib/auth";
+import { useRouter } from "next/navigation";
+import { getToken, getMe } from "@/lib/auth";
+import { ensurePatientId } from "@/lib/clinicalRecord";
+import { getOdontogram, type ToothProjection } from "@/lib/odontogram";
 import { Odontogram, type DentitionType } from "./Odontogram";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -391,6 +394,57 @@ function QuoteBuilderModal({
   });
   const [missingTeeth, setMissingTeeth]   = useState<Set<string>>(new Set());
   const [dentitionType, setDentitionType] = useState<DentitionType>("definitiva");
+  const router = useRouter();
+  const [abriendoFicha, setAbriendoFicha] = useState(false);
+  const [errorFicha, setErrorFicha]       = useState("");
+  const [clinicalTeeth, setClinicalTeeth] = useState<Record<string, ToothProjection>>({});
+
+  /**
+   * Trae los hallazgos de la ficha para pintarlos sobre el odontograma del
+   * presupuesto. El objetivo del odontograma es justamente terminar en un
+   * presupuesto: sin esto, el dentista cotiza mirando dientes en blanco y
+   * tiene que acordarse de lo que acaba de diagnosticar.
+   *
+   * Es información de apoyo, así que si falla no se interrumpe el flujo:
+   * el presupuesto se puede armar igual.
+   */
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      if (!patient.rut) return;
+      try {
+        const me = await getMe();
+        if (!me?.clinic?.id) return;
+        const patientId = await ensurePatientId(me.clinic.id, { rut: patient.rut });
+        const odo = await getOdontogram(patientId);
+        if (vivo) setClinicalTeeth(odo.teeth ?? {});
+      } catch {
+        // sin hallazgos disponibles — el presupuesto sigue funcionando
+      }
+    })();
+    return () => { vivo = false; };
+  }, [patient.rut]);
+
+  /**
+   * Abre la ficha clínica del paciente. Usa ensurePatientId porque el
+   * presupuesto trabaja con RUT/nombre y la ficha con el id de Patient: si el
+   * paciente todavía no tiene ficha, se crea al vuelo en vez de fallar.
+   */
+  async function abrirFichaClinica() {
+    setAbriendoFicha(true); setErrorFicha("");
+    try {
+      const me = await getMe();
+      if (!me?.clinic?.id) throw new Error("Sin clínica activa");
+      // El presupuesto solo conoce nombre y RUT; sin RUT no hay forma de
+      // identificar la ficha con certeza y es mejor decirlo que abrir la de otro.
+      if (!patient.rut) throw new Error("El paciente necesita RUT para abrir su ficha clínica");
+      const patientId = await ensurePatientId(me.clinic.id, { rut: patient.rut });
+      router.push(`/partners/pacientes/${patientId}`);
+    } catch (e) {
+      setErrorFicha(e instanceof Error ? e.message : "No se pudo abrir la ficha");
+      setAbriendoFicha(false);
+    }
+  }
   const [items, setItems]                 = useState<Omit<QuoteItem, "id">[]>(
     () => (existing?.items ?? []).map(({ id: _id, ...rest }) => rest),
   );
@@ -559,11 +613,23 @@ function QuoteBuilderModal({
             </h2>
             <p className="text-xs text-gray-400 mt-0.5">{patient.name}{patient.rut ? ` · ${patient.rut}` : ""}</p>
           </div>
-          <button onClick={onClose}
-            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500">
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Para presupuestar hay que saber qué tiene el paciente: este es el
+                camino a los hallazgos clínicos sin perder el presupuesto. */}
+            <button onClick={abrirFichaClinica} disabled={abriendoFicha}
+              title="Ver hallazgos y odontograma clínico del paciente"
+              className="text-xs font-bold px-3 py-1.5 rounded-xl border border-gray-200 text-gray-600 hover:border-[#1A5C7A] hover:text-[#1A5C7A] transition disabled:opacity-50">
+              🩺 {abriendoFicha ? "Abriendo…" : "Ver ficha clínica"}
+            </button>
+            <button onClick={onClose}
+              className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500">
+              ✕
+            </button>
+          </div>
         </div>
+        {errorFicha && (
+          <p className="px-6 py-2 text-xs text-red-600 bg-red-50 border-b border-red-100">{errorFicha}</p>
+        )}
 
         <div className="p-4 flex flex-col gap-4">
           <Odontogram
@@ -572,6 +638,7 @@ function QuoteBuilderModal({
             missingTeeth={missingTeeth}       setMissingTeeth={setMissingTeeth}
             dentitionType={dentitionType}     setDentitionType={setDentitionType}
             itemsByTooth={itemsByTooth}
+            clinicalTeeth={clinicalTeeth}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

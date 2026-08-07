@@ -3,7 +3,7 @@ import type { DentalSurface } from "@prisma/client";
 import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
 import {
-  isValidFDI, isValidConditionCode, CONDITION_CATALOG,
+  isValidFDI, isValidSite, isValidConditionCode, CONDITION_CATALOG, DENTAL_SITES,
   buildPatientOdontogram,
 } from "../services/dental/odontogramService";
 import { audit } from "../services/audit/auditService";
@@ -48,7 +48,13 @@ export async function odontogramRoutes(app: FastifyInstance) {
 
   // ── Catálogo de condiciones ────────────────────────────────────────────────
   app.get("/dental/catalog", async (_req, reply) => {
-    return reply.send({ conditions: CONDITION_CATALOG, surfaces: VALID_SURFACES });
+    // Los sitios van en el catálogo para que el front no duplique la lista:
+    // si se agrega uno nuevo, aparece solo.
+    return reply.send({
+      conditions: CONDITION_CATALOG,
+      surfaces: VALID_SURFACES,
+      sites: Object.entries(DENTAL_SITES).map(([code, s]) => ({ code, label: s.label })),
+    });
   });
 
   // ── Historial completo de eventos por paciente ─────────────────────────────
@@ -94,9 +100,15 @@ export async function odontogramRoutes(app: FastifyInstance) {
       if (!g.ok) return reply.status(g.status).send({ error: g.error });
 
       const events = await prisma.dentalEvent.findMany({
-        where:   { patientId: req.params.patientId },
+        // Los anulados no forman parte del estado actual del diente.
+        where:   { patientId: req.params.patientId, voidedAt: null },
         orderBy: { occurredAt: "desc" },
-        include: { surfaces: true },
+        // El profesional va incluido: el registro clínico tiene que decir
+        // quién anotó cada hallazgo — es trazabilidad, no un adorno.
+        include: {
+          surfaces: true,
+          professional: { select: { id: true, name: true, occupation: true } },
+        },
       });
 
       const projection = buildPatientOdontogram(events);
@@ -130,8 +142,17 @@ export async function odontogramRoutes(app: FastifyInstance) {
       });
     }
 
-    if (!toothFDI || !isValidFDI(toothFDI)) {
-      return reply.status(400).send({ error: "toothFDI inválido — usar notación FDI (11-48)" });
+    // Acepta una pieza FDI o un sitio (sextante/arcada): una limpieza es de
+    // boca completa y una panorámica no tiene pieza — obligar a elegir diente
+    // llevaba a inventar el dato o a no registrar la prestación.
+    if (!toothFDI || !isValidSite(toothFDI)) {
+      return reply.status(400).send({
+        error: "toothFDI inválido — usar notación FDI (11-48, 51-85) o un sitio (S1-S6, AS, AI, BOCA)",
+      });
+    }
+    // Las caras son de una pieza concreta: un sextante no tiene mesial.
+    if (!isValidFDI(toothFDI) && surfaces && surfaces.length > 0) {
+      return reply.status(400).send({ error: "Un sextante o arcada no lleva superficies" });
     }
     if (!eventType || !VALID_EVENT_TYPES.includes(eventType)) {
       return reply.status(400).send({ error: "eventType inválido" });
@@ -178,6 +199,58 @@ export async function odontogramRoutes(app: FastifyInstance) {
     });
 
     return reply.status(201).send({ event });
+  });
+
+  // ── Anular un evento registrado por error ─────────────────────────────────
+  //
+  // No es DELETE a propósito: la ficha clínica es un documento médico-legal
+  // (Ley 20.584) y el odontograma es event sourcing. Borrar la fila haría
+  // imposible demostrar qué se registró y que se corrigió. El evento anulado
+  // sale del odontograma actual pero queda en el historial con quién lo anuló,
+  // cuándo y por qué.
+  app.post<{
+    Params: { patientId: string; eventId: string };
+    Body:   { reason?: string };
+  }>("/patients/:patientId/dental-events/:eventId/void", async (req, reply) => {
+    const g = await guardPatientAccess(req, "limpieza_only");
+    if (!g.ok) return reply.status(g.status).send({ error: g.error });
+
+    const reason = req.body?.reason?.trim();
+    if (!reason) {
+      // El motivo no es burocracia: sin él, el historial muestra que alguien
+      // borró un hallazgo y nadie puede saber si fue un error de tipeo o algo
+      // clínicamente relevante.
+      return reply.status(400).send({ error: "Indica el motivo de la anulación" });
+    }
+
+    const event = await prisma.dentalEvent.findUnique({
+      where:  { id: req.params.eventId },
+      select: { id: true, patientId: true, voidedAt: true, toothFDI: true, conditionCode: true },
+    });
+    if (!event || event.patientId !== req.params.patientId) {
+      return reply.status(404).send({ error: "Evento no encontrado" });
+    }
+    if (event.voidedAt) {
+      return reply.status(409).send({ error: "El evento ya estaba anulado" });
+    }
+
+    const updated = await prisma.dentalEvent.update({
+      where: { id: event.id },
+      data:  { voidedAt: new Date(), voidedById: g.payload.userId, voidReason: reason },
+      include: {
+        surfaces:     true,
+        professional: { select: { id: true, name: true, occupation: true } },
+        voidedBy:     { select: { id: true, name: true } },
+      },
+    });
+
+    audit({
+      req, actorId: g.payload.userId, clinicId: g.patient.clinicId,
+      action: "update", resourceType: "DentalEvent", resourceId: event.id,
+      snapshotAfter: { voided: true, reason, toothFDI: event.toothFDI, conditionCode: event.conditionCode },
+    });
+
+    return reply.send({ event: updated });
   });
 
   // ── Imágenes (radiografías / fotos) ────────────────────────────────────────

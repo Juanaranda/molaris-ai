@@ -140,6 +140,7 @@ model PartnerUser {
   updatedAt        DateTime    @updatedAt
 
   dentalEvents     DentalEvent[]
+  dentalEventsVoided DentalEvent[] @relation("DentalEventVoidedBy")
   toothImages      ToothImage[]
   clinicalNotes    ClinicalNote[]
   auditLogs        AuditLog[]
@@ -665,6 +666,15 @@ model DentalEvent {
   occurredAt      DateTime @default(now())   // cuándo ocurrió clínicamente
   createdAt       DateTime @default(now())   // cuándo se registró
   // NO updatedAt — eventos son inmutables (event sourcing)
+
+  // Anulación de un registro equivocado. NO se borra la fila: la ficha es un
+  // documento médico-legal (Ley 20.584) y debe poder mostrarse qué se registró,
+  // que se corrigió, quién lo corrigió y por qué. Un evento anulado desaparece
+  // del odontograma actual pero sigue en el historial.
+  voidedAt        DateTime?
+  voidedById      String?
+  voidedBy        PartnerUser? @relation("DentalEventVoidedBy", fields: [voidedById], references: [id])
+  voidReason      String?
 
   surfaces        DentalEventSurface[]
 

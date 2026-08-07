@@ -24,7 +24,7 @@ const PALETTE = [
 ];
 
 const FALLBACK_DOCTORS = [
-  "Dr. Ivonne Poblete", "Dr. Juan Garcés", "Dr. Javiera Palmilla",
+  "Dr. Ivonne Poblete", "Dr. Juan Garcés", "Dr. Javiera Paimilla",
   "Dr. Nicolás Rojas", "Dr. Yamileth Zerpa",
 ];
 

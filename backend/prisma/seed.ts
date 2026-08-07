@@ -27,7 +27,7 @@ const galanaConfig = {
       services: ["Endodoncia (tratamiento de conducto)"],
     },
     {
-      name: "Dr. Javiera Palmilla",
+      name: "Dr. Javiera Paimilla",
       specialty: "General",
       schedule: "Lun-Vie",
       services: ["Limpieza dental", "Blanqueamiento dental", "Carillas dentales", "Urgencias dentales"],
@@ -47,7 +47,10 @@ const galanaConfig = {
   ],
   boxes: 2,
   services: [
-    { name: "Limpieza dental",                    pricingType: "fixed",    price: "$25.000 - $40.000" },
+    // "fixed" es UN valor. Un rango va como pricingType "range" con mínimo y
+    // máximo — si no, la UI muestra "Precio fijo" junto a un rango y el agente
+    // le informa al paciente un precio que no existe.
+    { name: "Limpieza dental",                    pricingType: "range",    priceMin: "$25.000", priceMax: "$40.000" },
     { name: "Blanqueamiento dental",               pricingType: "variable", priceNote: "Varía según tipo y caso del paciente." },
     { name: "Ortodoncia (brackets / alineadores)", pricingType: "variable", priceNote: "Depende de la complejidad. Se evalúa en consulta." },
     { name: "Carillas dentales",                   pricingType: "variable", priceNote: "Varía según número de piezas y material." },

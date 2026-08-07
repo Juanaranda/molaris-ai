@@ -29,7 +29,7 @@ El prefijo va "Dr." parejo para no deducir el género desde el nombre; cuando
 la clínica confirme quién lleva "Dra.", se corrige.
 
 Dr. Ivonne Poblete (Cirujano Dentista) · Dr. Juan Garcés (Endodoncia)
-Dr. Javiera Palmilla (Cirujano Dentista) · Dr. Nicolás Rojas (Cirujano Dentista)
+Dr. Javiera Paimilla (Cirujano Dentista) · Dr. Nicolás Rojas (Cirujano Dentista)
 Dr. Yamileth Zerpa (Ortodoncia) · 2 boxes, rotación libre
 
 ---

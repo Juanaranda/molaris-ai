@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { ToothSurfaceChart } from "@/components/ToothSurfaceChart";
 import { toothTypeOf, type ToothType } from "@/lib/tooth";
+import type { ToothProjection } from "@/lib/odontogram";
+import { surfacePaintFor, resumenHallazgos } from "@/lib/odontogramPaint";
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 export type DentitionType = "definitiva" | "temporal" | "mixta";
@@ -73,9 +75,16 @@ const STATE_TINT: Record<ToothState, string | undefined> = {
   missing:   undefined,
 };
 
-function ToothGlyph({ fdi, type, jaw, state, scale = 1 }: {
-  fdi: string; type: ToothType; jaw: "upper" | "lower"; state: ToothState; scale?: number;
+function ToothGlyph({ fdi, type, jaw, state, scale = 1, clinical }: {
+  fdi: string; type: ToothType; jaw: "upper" | "lower"; state: ToothState;
+  scale?: number; clinical?: ToothProjection;
 }) {
+  // Los hallazgos clínicos mandan sobre el tinte de selección: presupuestar
+  // mirando un diente que parece sano obliga a recordar de memoria lo que se
+  // acaba de diagnosticar. La selección se sigue viendo en el borde de la card.
+  const paint = surfacePaintFor(clinical);
+  const hayHallazgos = Object.keys(paint.surfaces).length > 0 || paint.wholeTooth;
+
   return (
     <div style={{ position: "relative", display: "block" }}>
       <ToothSurfaceChart
@@ -83,8 +92,9 @@ function ToothGlyph({ fdi, type, jaw, state, scale = 1 }: {
         toothType={type}
         jaw={jaw}
         size={34 * scale}
-        wholeToothColor={STATE_TINT[state]}
-        isMissing={state === "missing"}
+        surfaceColors={paint.surfaces}
+        wholeToothColor={hayHallazgos ? paint.wholeTooth : STATE_TINT[state]}
+        isMissing={state === "missing" || Boolean(clinical?.isExtracted)}
       />
       {state === "missing" && (
         <svg viewBox="0 0 40 40" width={34 * scale} height={34 * scale} aria-hidden
@@ -100,9 +110,10 @@ function ToothGlyph({ fdi, type, jaw, state, scale = 1 }: {
 }
 
 /* ─── Card de pieza ──────────────────────────────────────────────────────── */
-function ToothCard({ t, state, count, onClick, disabled, missingMode }: {
+function ToothCard({ t, state, count, onClick, disabled, missingMode, clinical }: {
   t: ToothMeta; state: ToothState; count: number;
   onClick?: () => void; disabled?: boolean; missingMode?: boolean;
+  clinical?: ToothProjection;
 }) {
   const displayFdi = t.fdi.replace(".", "");
   const border =
@@ -130,6 +141,7 @@ function ToothCard({ t, state, count, onClick, disabled, missingMode }: {
   return (
     <button type="button" onClick={onClick} disabled={disabled}
       aria-label={`Pieza ${displayFdi}${state === "missing" ? " (ausente)" : ""}`}
+      title={[`Pieza ${displayFdi}`, resumenHallazgos(clinical)].filter(Boolean).join(" — ")}
       style={{
         display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
         padding: "7px 4px", borderRadius: 10, border, background: bg,
@@ -143,8 +155,9 @@ function ToothCard({ t, state, count, onClick, disabled, missingMode }: {
           display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px",
         }}>{count}</span>
       )}
-      {t.jaw === "upper" ? (<>{num}<ToothGlyph fdi={t.fdi} type={t.type} jaw="upper" state={state} scale={0.72} /></>)
-                         : (<><ToothGlyph fdi={t.fdi} type={t.type} jaw="lower" state={state} scale={0.72} />{num}</>)}
+      {t.jaw === "upper"
+        ? (<>{num}<ToothGlyph fdi={t.fdi} type={t.type} jaw="upper" state={state} scale={0.72} clinical={clinical} /></>)
+        : (<><ToothGlyph fdi={t.fdi} type={t.type} jaw="lower" state={state} scale={0.72} clinical={clinical} />{num}</>)}
     </button>
   );
 }
@@ -163,6 +176,12 @@ export interface OdontogramProps {
   missingTeeth?: Set<string>;
   setMissingTeeth?: (t: Set<string>) => void;
   itemsByTooth?: Record<string, number>;
+  /**
+   * Hallazgos clínicos del paciente (proyección del odontograma de la ficha),
+   * indexados por FDI sin punto. Se pintan sobre las piezas para poder
+   * presupuestar viendo lo que se diagnosticó, en vez de recordarlo.
+   */
+  clinicalTeeth?: Record<string, ToothProjection>;
   readOnly?: boolean;
 }
 
@@ -171,7 +190,7 @@ export function Odontogram({
   selectedTeeth = new Set(), activeToothFdi = null,
   onToggleTooth, onSetTeeth,
   missingTeeth = new Set(), setMissingTeeth,
-  itemsByTooth = {}, readOnly = false,
+  itemsByTooth = {}, clinicalTeeth = {}, readOnly = false,
 }: OdontogramProps) {
   const [view, setView] = useState<ArchView>("all");
   const [mode, setMode] = useState<OdontMode>("select");
@@ -305,7 +324,8 @@ export function Odontogram({
               <div style={{ display: "flex", gap: 4 }}>
                 {rows.upper.map((t) => (
                   <ToothCard key={t.fdi} t={t} state={stateOf(t)} count={itemsByTooth[t.fdi] ?? 0}
-                    onClick={() => handleClick(t)} disabled={readOnly} missingMode={mode === "missing"} />
+                    onClick={() => handleClick(t)} disabled={readOnly} missingMode={mode === "missing"}
+                    clinical={clinicalTeeth[t.fdi.replace(".", "")]} />
                 ))}
               </div>
               {rowLabel("Arcada superior")}
@@ -326,7 +346,8 @@ export function Odontogram({
               <div style={{ display: "flex", gap: 4 }}>
                 {rows.lower.map((t) => (
                   <ToothCard key={t.fdi} t={t} state={stateOf(t)} count={itemsByTooth[t.fdi] ?? 0}
-                    onClick={() => handleClick(t)} disabled={readOnly} missingMode={mode === "missing"} />
+                    onClick={() => handleClick(t)} disabled={readOnly} missingMode={mode === "missing"}
+                    clinical={clinicalTeeth[t.fdi.replace(".", "")]} />
                 ))}
               </div>
             </>
