@@ -3,7 +3,7 @@
 /**
  * Diagrama clínico de superficies — la notación estándar del odontograma.
  *
- * Cada pieza es un cuadrado dividido en 5 zonas: 4 trapecios perimetrales
+ * Cada pieza es un círculo dividido en 5 zonas: 4 sectores perimetrales
  * (vestibular, palatino/lingual, mesial, distal) + el centro (oclusal en
  * posteriores, incisal en anteriores). Es lo que las clínicas ya leen en
  * Dentalink / Open Dental, y permite pintar la cara exacta de cada hallazgo
@@ -41,17 +41,22 @@ export interface ToothSurfaceChartProps {
 const ENAMEL = "#FBF6EC";
 const STROKE = "#94A3B8";
 
-/* Geometría sobre viewBox 60×60: cuadrado exterior + cuadrado central a 18px,
-   unidos por las diagonales. Da los 4 trapecios perimetrales + el centro. */
+/* Geometría sobre viewBox 60×60: anillo dividido en cruz por las diagonales,
+   con un círculo central. Es la forma que usan Dentalink y la mayoría de las
+   fichas en papel — el ojo del dentista la reconoce de inmediato, y las caras
+   quedan más parejas que en la versión cuadrada.
+   Radios: 29 exterior, 11 el centro. Los cortes van en las diagonales (45°). */
 const ZONE_PATHS = {
-  top:    "M0,0 L60,0 L42,18 L18,18 Z",
-  right:  "M60,0 L60,60 L42,42 L42,18 Z",
-  bottom: "M60,60 L0,60 L18,42 L42,42 Z",
-  left:   "M0,60 L0,0 L18,18 L18,42 Z",
+  // Cada sector: arco exterior en sentido horario, corte al centro, arco
+  // interior de vuelta. Los extremos caen en las diagonales.
+  top:    "M9.49,9.49 A29,29 0 0 1 50.51,9.49 L37.78,22.22 A11,11 0 0 0 22.22,22.22 Z",
+  right:  "M50.51,9.49 A29,29 0 0 1 50.51,50.51 L37.78,37.78 A11,11 0 0 0 37.78,22.22 Z",
+  bottom: "M50.51,50.51 A29,29 0 0 1 9.49,50.51 L22.22,37.78 A11,11 0 0 0 37.78,37.78 Z",
+  left:   "M9.49,50.51 A29,29 0 0 1 9.49,9.49 L22.22,22.22 A11,11 0 0 0 22.22,37.78 Z",
 } as const;
 
 /**
- * Qué superficie anatómica cae en cada lado del cuadrado.
+ * Qué superficie anatómica cae en cada sector del círculo.
  *
  * - Vestibular siempre hacia AFUERA de la arcada: arriba en el maxilar,
  *   abajo en la mandíbula. Palatino/lingual queda del lado interno.
@@ -110,8 +115,8 @@ export function ToothSurfaceChart({
       <path d={ZONE_PATHS.right}  fill={fillOf(layout.right)}  stroke={STROKE} strokeWidth={sw} strokeLinejoin="round" {...zonaProps(layout.right)} />
       <path d={ZONE_PATHS.bottom} fill={fillOf(layout.bottom)} stroke={STROKE} strokeWidth={sw} strokeLinejoin="round" {...zonaProps(layout.bottom)} />
       <path d={ZONE_PATHS.left}   fill={fillOf(layout.left)}   stroke={STROKE} strokeWidth={sw} strokeLinejoin="round" {...zonaProps(layout.left)} />
-      <rect x={18} y={18} width={24} height={24}
-        fill={fillOf(layout.center)} stroke={STROKE} strokeWidth={sw} strokeLinejoin="round" {...zonaProps(layout.center)} />
+      <circle cx={30} cy={30} r={11}
+        fill={fillOf(layout.center)} stroke={STROKE} strokeWidth={sw} {...zonaProps(layout.center)} />
     </svg>
   );
 }
