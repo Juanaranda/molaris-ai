@@ -157,12 +157,22 @@ export function OdontogramPanel({ patientId }: Props) {
           </div>
         )}
 
+        {/* Cómo se usa. Los dos gestos son descubribles solo por accidente:
+            nadie adivina que la cara del diente es clickeable, ni que tocar la
+            raíz sirve para lo periodontal. Una línea evita esa fricción. */}
+        <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
+          Toca una <b className="font-semibold text-gray-500">cara</b> del diagrama para registrar en esa
+          superficie (caries, obturación) · toca la <b className="font-semibold text-gray-500">silueta del diente</b> para
+          lo que es de la pieza completa (movilidad, bolsa periodontal, endodoncia).
+        </p>
+
         {/* Sextantes y arcadas: una limpieza es de boca completa y una
             panorámica no tiene pieza. Sin esto había que inventar un diente
             o no registrar la prestación. */}
         {(catalog?.sites?.length ?? 0) > 0 && (
           <div className="flex items-center gap-1.5 flex-wrap mb-3">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mr-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mr-1"
+              title="Para prestaciones que no son de un diente: limpieza, destartraje por sector, radiografía panorámica">
               Sin pieza puntual:
             </span>
             {catalog!.sites!.map((s) => (
@@ -220,7 +230,10 @@ export function OdontogramPanel({ patientId }: Props) {
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-50">
             <h4 className="text-sm font-bold text-gray-900">Registro clínico</h4>
-            <p className="text-[11px] text-gray-400">{todosLosEventos.length} evento{todosLosEventos.length !== 1 ? "s" : ""}</p>
+            <p className="text-[11px] text-gray-400">
+              {todosLosEventos.length} evento{todosLosEventos.length !== 1 ? "s" : ""} · anular un registro no lo borra:
+              queda en la ficha con el motivo y quién lo anuló
+            </p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">

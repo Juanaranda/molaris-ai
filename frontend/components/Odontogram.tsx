@@ -374,6 +374,27 @@ export function Odontogram({
             Toca una pieza en el diagrama · usa los grupos rápidos · o agrega prestaciones sin pieza específica
           </p>
         )}
+
+        {/* Leyenda de los colores clínicos. Sin ella el rojo/azul se lee como
+            "seleccionado" y no como diagnóstico traído de la ficha. */}
+        {Object.keys(clinicalTeeth).length > 0 && (
+          <p style={{ fontSize: 10, color: "#94a3b8", margin: "4px 0 0", display: "flex",
+            alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+            <span>Los colores vienen de la ficha clínica:</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <span style={{ width: 9, height: 9, borderRadius: 2, background: "#DC2626", display: "inline-block" }} />
+              por tratar
+            </span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <span style={{ width: 9, height: 9, borderRadius: 2, background: "#2563EB", display: "inline-block" }} />
+              ya tratado
+            </span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <span style={{ width: 9, height: 9, borderRadius: 2, background: "#6D28D9", display: "inline-block" }} />
+              prótesis
+            </span>
+          </p>
+        )}
       </div>
     </div>
   );
