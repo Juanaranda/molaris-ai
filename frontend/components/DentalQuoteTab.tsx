@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getToken, getMe } from "@/lib/auth";
+import { getToken, getMe, updateClinic } from "@/lib/auth";
 import { ensurePatientId } from "@/lib/clinicalRecord";
 import { getOdontogram, type ToothProjection } from "@/lib/odontogram";
 import { Odontogram, type DentitionType } from "./Odontogram";
@@ -130,6 +130,7 @@ function AddItemForm({
   onAdd,
   onAddAll,
   onAddOnce,
+  onSavePriceToClinic,
 }: {
   selectedTeeth: Set<string>;
   activeToothFdi: string | null;
@@ -140,6 +141,8 @@ function AddItemForm({
   onAdd: (item: AddItemBase) => void;
   onAddAll: (item: AddItemBase) => void;
   onAddOnce: (item: AddItemBase) => void;
+  /** Guardar el precio en el catálogo de la clínica (acción explícita). */
+  onSavePriceToClinic?: (nombre: string, precio: number) => Promise<void>;
 }) {
   const [prestacion, setPrestacion]             = useState("");
   const [customPrestacion, setCustomPrestacion] = useState("");
@@ -147,6 +150,8 @@ function AddItemForm({
   const [quantity, setQuantity]                 = useState("1");
   const [discount, setDiscount]                 = useState("0");
   const [category, setCategory]                 = useState<PrestacionCategory>("Todas");
+  const [guardandoPrecio, setGuardandoPrecio]   = useState(false);
+  const [precioGuardado, setPrecioGuardado]     = useState(false);
 
   const hasCategories = prestaciones.some((p) => p.category !== "Restauración");
   const filtered = hasCategories && category !== "Todas"
@@ -154,6 +159,21 @@ function AddItemForm({
     : prestaciones;
 
   const selectedPreset = prestaciones.find((p) => p.name === prestacion);
+
+  /* Al elegir una prestación se precarga su precio en el campo, para que el
+     dentista lo VEA y pueda ajustarlo en esta cotización. Antes el precio del
+     catálogo pisaba lo que se escribía, así que un caso puntual no se podía
+     cotizar distinto. */
+  useEffect(() => {
+    if (selectedPreset) setUnitPrice(selectedPreset.price ? String(selectedPreset.price) : "");
+  }, [prestacion]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  const precioEscrito = parseFloat(unitPrice) || 0;
+  /* El precio de esta cotización difiere del catálogo (o la prestación no
+     tenía precio): recién ahí ofrecemos guardarlo como precio de la clínica. */
+  const precioDifiere = Boolean(
+    selectedPreset && precioEscrito > 0 && precioEscrito !== selectedPreset.price
+  );
   const teethArr = Array.from(selectedTeeth);
   const teethCount = teethArr.length;
 
@@ -166,7 +186,9 @@ function AddItemForm({
 
   function buildBase(): AddItemBase | null {
     const name  = prestacion === "__custom__" ? customPrestacion : prestacion;
-    const price = selectedPreset?.price ?? parseFloat(unitPrice);
+    // Gana lo escrito: es el precio de ESTA cotización. El del catálogo solo
+    // sirve como valor inicial.
+    const price = parseFloat(unitPrice) || selectedPreset?.price || 0;
     if (!name || !price) return null;
     return { prestacion: name, unitPrice: price, quantity: parseInt(quantity) || 1, discount: parseFloat(discount) || 0 };
   }
@@ -303,7 +325,8 @@ function AddItemForm({
       <div className="grid grid-cols-3 gap-2">
         <div>
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Precio CLP</p>
-          <input type="number" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} placeholder="0"
+          <input type="number" value={unitPrice}
+            onChange={(e) => { setUnitPrice(e.target.value); setPrecioGuardado(false); }} placeholder="0"
             className="w-full px-2 py-1.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400" />
         </div>
         <div>
@@ -317,6 +340,35 @@ function AddItemForm({
             className="w-full px-2 py-1.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400" />
         </div>
       </div>
+
+      {/* Guardar el precio en el catálogo — acción SEPARADA y explícita.
+          El catálogo es lo que el agente le informa a los pacientes por
+          WhatsApp: ajustar un caso puntual no debe cambiarlo sin querer. */}
+      {onSavePriceToClinic && precioDifiere && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-100">
+          <span className="text-[11px] text-amber-900 flex-1">
+            Este precio difiere del catálogo ({fmtCLP(selectedPreset!.price)}). Se usará solo en esta cotización.
+          </span>
+          {precioGuardado ? (
+            <span className="text-[11px] font-bold text-emerald-700 shrink-0">Catálogo actualizado</span>
+          ) : (
+            <button
+              onClick={async () => {
+                setGuardandoPrecio(true);
+                try {
+                  await onSavePriceToClinic(selectedPreset!.name, precioEscrito);
+                  setPrecioGuardado(true);
+                } catch (e) {
+                  alert(e instanceof Error ? e.message : "No se pudo actualizar el catálogo");
+                } finally { setGuardandoPrecio(false); }
+              }}
+              disabled={guardandoPrecio}
+              className="text-[11px] font-bold px-2.5 py-1 rounded-lg border border-amber-300 text-amber-900 hover:bg-amber-100 transition disabled:opacity-50 shrink-0">
+              {guardandoPrecio ? "Guardando…" : "Actualizar en la clínica"}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Aviso per_arch cuando hay múltiples piezas seleccionadas */}
       {showArchWarning && (
@@ -424,6 +476,32 @@ function QuoteBuilderModal({
     })();
     return () => { vivo = false; };
   }, [patient.rut]);
+
+  /**
+   * Guarda el precio en el catálogo de la clínica (config.services).
+   *
+   * Es una acción aparte y explícita: ese catálogo es el que el agente usa
+   * para informarle precios a los pacientes por WhatsApp. Ajustar un caso
+   * puntual en una cotización NO debe cambiar lo que se le dice a todos.
+   */
+  async function guardarPrecioEnClinica(nombre: string, precio: number) {
+    const me = await getMe();
+    const clinic = me?.clinic;
+    if (!clinic?.id) throw new Error("Sin clínica activa");
+
+    const cfg = (clinic.config ?? {}) as { services?: ClinicService[] };
+    const actuales = cfg.services ?? [];
+    const fmt = `$${precio.toLocaleString("es-CL")}`;
+
+    const existe = actuales.some((sv) => sv.name === nombre);
+    const services: ClinicService[] = existe
+      ? actuales.map((sv) => sv.name === nombre ? { ...sv, pricingType: "fixed" as const, price: fmt, priceMin: undefined, priceMax: undefined } : sv)
+      // Si la prestación no estaba en el catálogo, se agrega: así el precio
+      // queda disponible la próxima vez en vez de perderse.
+      : [...actuales, { name: nombre, pricingType: "fixed" as const, price: fmt }];
+
+    await updateClinic(clinic.id, { config: { ...cfg, services } as Record<string, unknown> });
+  }
 
   /**
    * Abre la ficha clínica del paciente. Usa ensurePatientId porque el
@@ -662,6 +740,7 @@ function QuoteBuilderModal({
                 onAdd={addItemToActive}
                 onAddAll={addItemsToAll}
                 onAddOnce={addArchItem}
+                onSavePriceToClinic={guardarPrecioEnClinica}
               />
             </div>
 
