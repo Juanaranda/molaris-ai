@@ -5,7 +5,17 @@ import { useRouter } from "next/navigation";
 import { getToken, getMe, updateClinic } from "@/lib/auth";
 import { ensurePatientId } from "@/lib/clinicalRecord";
 import { getOdontogram, type ToothProjection } from "@/lib/odontogram";
-import { Odontogram, type DentitionType } from "./Odontogram";
+import { StandardOdontogram } from "@/components/StandardOdontogram";
+import type { DentitionType } from "@/lib/tooth";
+
+/* El presupuesto guarda el FDI con punto ("1.6") desde siempre y hay
+   cotizaciones así en la BBDD; la ficha clínica lo usa sin punto ("16").
+   Se traduce en el borde en vez de migrar datos guardados. */
+const sinPunto = (fdi: string) => fdi.replace(".", "");
+const conPunto = (fdi: string) => fdi.length === 2 ? `${fdi[0]}.${fdi[1]}` : fdi;
+const setSinPunto = (s: Set<string>) => new Set([...s].map(sinPunto));
+const mapSinPunto = (m: Record<string, number>) =>
+  Object.fromEntries(Object.entries(m).map(([k, v]) => [sinPunto(k), v]));
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -710,13 +720,32 @@ function QuoteBuilderModal({
         )}
 
         <div className="p-4 flex flex-col gap-4">
-          <Odontogram
-            selectedTeeth={selectedTeeth} activeToothFdi={activeToothFdi}
-            onToggleTooth={handleToggleTooth} onSetTeeth={handleSetTeeth}
-            missingTeeth={missingTeeth}       setMissingTeeth={setMissingTeeth}
-            dentitionType={dentitionType}     setDentitionType={setDentitionType}
-            itemsByTooth={itemsByTooth}
-            clinicalTeeth={clinicalTeeth}
+          {/* Mismo odontograma que la ficha clínica: los hallazgos se ven
+              igual en los dos lados y una mejora en uno llega al otro. */}
+          <StandardOdontogram
+            teeth={clinicalTeeth}
+            mode="multi"
+            anatomical
+            cellSize={52}
+            selectedFdis={setSinPunto(selectedTeeth)}
+            missingFdis={setSinPunto(missingTeeth)}
+            onToggleMissing={(fdi) => {
+              // Marcar una pieza como ausente: no se presupuesta sobre un
+              // diente que ya no está. Se guarda con punto, como el resto.
+              const conP = conPunto(fdi);
+              setMissingTeeth((prev) => {
+                const next = new Set(prev);
+                if (next.has(conP)) next.delete(conP); else next.add(conP);
+                return next;
+              });
+            }}
+            itemCounts={mapSinPunto(itemsByTooth)}
+            dentition={dentitionType}
+            onDentitionChange={setDentitionType}
+            quickGroups
+            onSelectTooth={(fdi) => handleToggleTooth(conPunto(fdi))}
+            onSetTeeth={(fdis) => handleSetTeeth(new Set([...fdis].map(conPunto)))}
+            showLegend={false}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

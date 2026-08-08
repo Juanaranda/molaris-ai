@@ -130,6 +130,14 @@ interface Props {
    * la raíz. Antes no hacía nada.
    */
   onSelectWholeTooth?: (fdi: string) => void;
+  /**
+   * Atajos de selección (boca completa, maxilar, anteriores…). Solo tienen
+   * sentido en modo "multi": presupuestar 16 piezas de a una es inviable.
+   */
+  quickGroups?:     boolean;
+  onSetTeeth?:      (fdis: Set<string>) => void;
+  /** Prestaciones ya agregadas por pieza — badge numérico sobre la celda. */
+  itemCounts?:      Record<string, number>;
 }
 
 export function StandardOdontogram({
@@ -137,6 +145,7 @@ export function StandardOdontogram({
   onSelectTooth, onToggleMissing, defaultView = "all", view: viewProp, className,
   showLegend = true, cellSize = 52, anatomical = false,
   dentition: dentitionProp, onDentitionChange, onSelectSurface, onSelectWholeTooth,
+  quickGroups = false, onSetTeeth, itemCounts,
 }: Props) {
 
   const [viewState, setView] = useState<ArchView>(defaultView);
@@ -150,6 +159,19 @@ export function StandardOdontogram({
     onDentitionChange?.(d);
   }
   const rows = useMemo(() => getArchRows(dentition), [dentition]);
+
+  /** Atajos de selección, derivados de la dentición visible. */
+  const grupos = useMemo(() => {
+    const todas = [...rows.upper[0], ...rows.upper[1], ...rows.lower[0], ...rows.lower[1]];
+    const esAnterior = (f: string) => Number(f[1]) <= 3;
+    return [
+      { key: "todos",       label: "Boca completa", fdis: todas },
+      { key: "maxilar",     label: "Maxilar",       fdis: todas.filter(isUpperFdi) },
+      { key: "mandibula",   label: "Mandíbula",     fdis: todas.filter((f) => !isUpperFdi(f)) },
+      { key: "anteriores",  label: "Anteriores",    fdis: todas.filter(esAnterior) },
+      { key: "posteriores", label: "Posteriores",   fdis: todas.filter((f) => !esAnterior(f)) },
+    ];
+  }, [rows]);
 
   const selectedSet = useMemo(() => {
     if (!selectedFdis) return new Set<string>();
@@ -194,6 +216,25 @@ export function StandardOdontogram({
         </div>
       )}
 
+      {/* Atajos de selección — presupuestar 16 piezas de a una es inviable */}
+      {quickGroups && onSetTeeth && (
+        <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mr-1">Selección rápida:</span>
+          {grupos.map((g) => (
+            <button key={g.key} onClick={() => onSetTeeth(new Set(g.fdis))}
+              className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-[#1A5C7A] hover:text-[#1A5C7A] transition">
+              {g.label}
+            </button>
+          ))}
+          {selectedSet.size > 0 && (
+            <button onClick={() => onSetTeeth(new Set())}
+              className="text-[11px] font-semibold text-gray-400 hover:text-gray-600 transition px-1.5">
+              Limpiar
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Grid */}
       <div className="bg-gray-50 rounded-2xl border border-gray-100 p-4">
         {(view === "all" || view === "upper") && (
@@ -208,6 +249,7 @@ export function StandardOdontogram({
             onSelectTooth={onSelectTooth}
             onSelectSurface={onSelectSurface}
             onSelectWholeTooth={onSelectWholeTooth}
+            itemCounts={itemCounts}
             onToggleMissing={onToggleMissing}
             cellSize={cellSize}
             anatomical={anatomical}
@@ -233,6 +275,7 @@ export function StandardOdontogram({
             onSelectTooth={onSelectTooth}
             onSelectSurface={onSelectSurface}
             onSelectWholeTooth={onSelectWholeTooth}
+            itemCounts={itemCounts}
             onToggleMissing={onToggleMissing}
             cellSize={cellSize}
             anatomical={anatomical}
@@ -265,6 +308,7 @@ interface ArchRowProps {
   onSelectTooth?:  (fdi: string) => void;
   onSelectSurface?: (fdi: string, surface: DentalSurface) => void;
   onSelectWholeTooth?: (fdi: string) => void;
+  itemCounts?:      Record<string, number>;
   onToggleMissing?: (fdi: string) => void;
   cellSize:        number;
   labelPosition:   "top" | "bottom";
@@ -273,7 +317,7 @@ interface ArchRowProps {
 
 function ArchRow({
   label, quadrants, teeth, selectedSet, missingFdis, highlightFdis, mode,
-  onSelectTooth, onSelectSurface, onSelectWholeTooth, onToggleMissing, cellSize, labelPosition, anatomical,
+  onSelectTooth, onSelectSurface, onSelectWholeTooth, itemCounts, onToggleMissing, cellSize, labelPosition, anatomical,
 }: ArchRowProps) {
   const labelEl = (
     <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 text-center">
@@ -296,6 +340,7 @@ function ArchRow({
                 onSelect={() => onSelectTooth?.(fdi)}
                 onSelectSurface={onSelectSurface ? (s2: DentalSurface) => onSelectSurface(fdi, s2) : undefined}
                 onSelectWholeTooth={onSelectWholeTooth ? () => onSelectWholeTooth(fdi) : undefined}
+                itemCount={itemCounts?.[fdi] ?? 0}
                 size={cellSize}
               />
             ) : (
@@ -431,11 +476,12 @@ interface AnatomicalToothColumnProps {
   onSelect:       () => void;
   onSelectSurface?: (surface: DentalSurface) => void;
   onSelectWholeTooth?: () => void;
+  itemCount?:     number;
   size:           number;
 }
 
 function AnatomicalToothColumn({
-  fdi, proj, isMissing, isSelected, isHighlighted, onSelect, onSelectSurface, onSelectWholeTooth, size,
+  fdi, proj, isMissing, isSelected, isHighlighted, onSelect, onSelectSurface, onSelectWholeTooth, itemCount = 0, size,
 }: AnatomicalToothColumnProps) {
   const { state, meta } = summarize(proj);
   const paint = surfacePaintFor(proj);
@@ -512,7 +558,12 @@ function AnatomicalToothColumn({
       {!extracted && state !== "healthy" && (proj?.activeConditions.length ?? 0) > 0 && (
         <span className={`absolute top-1 right-1 w-2 h-2 rounded-full ${meta.accent} ring-1 ring-white`} />
       )}
-      {showHighlight && (
+      {/* Prestaciones ya agregadas a esta pieza en el presupuesto */}
+      {itemCount > 0 ? (
+        <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-[#2563EB] text-white text-[9px] font-black ring-2 ring-white pointer-events-none">
+          {itemCount}
+        </span>
+      ) : showHighlight && (
         <span className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500 text-white text-[9px] font-black ring-2 ring-white pointer-events-none">✓</span>
       )}
     </button>
