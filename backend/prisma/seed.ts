@@ -11,8 +11,8 @@ const galanaConfig = {
     saturday: "Sábado: 10:00 - 14:00",
     sunday: "Domingo: cerrado",
   },
-  // Equipo real de Galana, confirmado por la clínica (jul 2026). Los horarios
-  // son un supuesto inicial — la clínica los ajusta desde el editor de equipo.
+  // Equipo real de Galana con sus días de atención, todo confirmado por la
+  // clínica (ago 2026). Se ajusta desde el editor de equipo cuando cambie.
   doctors: [
     {
       name: "Dr. Ivonne Poblete",

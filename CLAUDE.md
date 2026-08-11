@@ -22,8 +22,8 @@ AI Growth System para clínicas dentales chilenas. Monorepo:
 - Nunca commitear `.env`, `node_modules/`, `backend/src/generated/`
 
 ## Doctores Galana
-Equipo real confirmado por la clínica (jul 2026). Los horarios son un supuesto
-inicial del seed — la clínica los ajusta desde el editor de equipo.
+Equipo y horarios confirmados por la clínica (ago 2026). Se ajustan desde el
+editor de equipo cuando cambien.
 
 El prefijo va "Dr." parejo para no deducir el género desde el nombre; cuando
 la clínica confirme quién lleva "Dra.", se corrige.
