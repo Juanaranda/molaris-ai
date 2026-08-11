@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import prisma from "../config/prisma";
 import { config } from "../config/env";
 import { sendEmail } from "../services/email/emailService";
+import { issueVerificationCode, verifyEmailCode } from "../services/auth/emailVerification";
 
 interface JwtPayload {
   userId: string;
@@ -61,6 +62,7 @@ export async function authRoutes(app: FastifyInstance) {
         role: user.role,
         clinicId: user.clinicId,
         mustChangePassword: user.mustChangePassword,
+        emailVerified: user.emailVerifiedAt !== null,
       },
       clinic: user.clinic ? {
         id:       user.clinic.id,
@@ -174,6 +176,63 @@ export async function authRoutes(app: FastifyInstance) {
     }
   );
 
+  // POST /api/auth/send-verification — (re)envía el código de 6 dígitos al correo
+  app.post("/auth/send-verification", async (req, reply) => {
+    let payload: JwtPayload;
+    try { payload = verifyToken(req.headers.authorization); }
+    catch { return reply.status(401).send({ error: "No autorizado" }); }
+
+    const result = await issueVerificationCode(payload.userId);
+    if (result.ok) return reply.send({ ok: true, expiresAt: result.expiresAt });
+
+    switch (result.reason) {
+      case "already_verified":
+        return reply.send({ ok: true, alreadyVerified: true });
+      case "cooldown":
+        return reply.status(429).send({
+          error: `Espera ${result.retryInSec} segundos antes de pedir otro código.`,
+          retryInSec: result.retryInSec,
+        });
+      case "send_failed":
+        return reply.status(502).send({
+          error: "No pudimos enviar el correo. Reintenta en un momento o escríbenos si sigue fallando.",
+        });
+      case "not_found":
+        return reply.status(401).send({ error: "No autorizado" });
+    }
+  });
+
+  // POST /api/auth/verify-email — confirma el código
+  app.post<{ Body: { code: string } }>("/auth/verify-email", async (req, reply) => {
+    let payload: JwtPayload;
+    try { payload = verifyToken(req.headers.authorization); }
+    catch { return reply.status(401).send({ error: "No autorizado" }); }
+
+    const code = req.body?.code?.trim();
+    if (!code || !/^\d{6}$/.test(code)) {
+      return reply.status(400).send({ error: "Ingresa el código de 6 dígitos que te enviamos." });
+    }
+
+    const result = await verifyEmailCode(payload.userId, code);
+    if (result.ok) return reply.send({ ok: true });
+
+    switch (result.reason) {
+      case "invalid":
+        return reply.status(400).send({
+          error: `Código incorrecto. Te quedan ${result.attemptsLeft} ${result.attemptsLeft === 1 ? "intento" : "intentos"}.`,
+          attemptsLeft: result.attemptsLeft,
+        });
+      case "expired":
+        return reply.status(400).send({ error: "El código expiró. Pide uno nuevo.", needsNewCode: true });
+      case "too_many_attempts":
+        return reply.status(429).send({ error: "Demasiados intentos fallidos. Pide un código nuevo.", needsNewCode: true });
+      case "no_code":
+        return reply.status(400).send({ error: "No hay un código pendiente. Pide uno nuevo.", needsNewCode: true });
+      case "not_found":
+        return reply.status(401).send({ error: "No autorizado" });
+    }
+  });
+
   // GET /api/auth/me
   app.get("/auth/me", async (req, reply) => {
     let payload: JwtPayload;
@@ -201,6 +260,7 @@ export async function authRoutes(app: FastifyInstance) {
         clinicalRole: user.clinicalRole,
         clinicId: user.clinicId,
         mustChangePassword: user.mustChangePassword,
+        emailVerified: user.emailVerifiedAt !== null,
         photoUrl:   user.photoUrl,
         occupation: user.occupation,
         phone:      user.phone,

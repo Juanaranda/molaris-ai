@@ -131,6 +131,14 @@ model PartnerUser {
   clinicalRole     ClinicalRole?  // null = sin permisos clínicos granulares — usa role base
   active           Boolean     @default(true)
   acceptedTermsAt  DateTime?
+  // Verificación de email (#66): el código se guarda hasheado, nunca en claro.
+  // Las cuentas creadas antes de esto quedan con emailVerifiedAt null; el backfill
+  // las da por verificadas para no dejar a nadie afuera de golpe.
+  emailVerifiedAt      DateTime?
+  emailVerifyCodeHash  String?
+  emailVerifyExpiresAt DateTime?
+  emailVerifyAttempts  Int       @default(0)
+  emailVerifySentAt    DateTime?
   // Perfil personal
   photoUrl         String?     // Data URL o URL externa (limitado a 600KB en backend)
   occupation       String?     // Ej: "Odontóloga General", "Recepcionista"

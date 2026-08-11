@@ -13,16 +13,23 @@ interface SendEmailOpts {
   text?: string;
 }
 
-export async function sendEmail({ to, subject, html, text }: SendEmailOpts): Promise<void> {
+/**
+ * Devuelve si el correo salió. Los llamadores que no les importa pueden ignorar
+ * el resultado (bienvenida, cumpleaños); los que sí — el código de verificación,
+ * donde un envío fallido deja al usuario esperando algo que nunca llega —
+ * tienen que mirarlo. Sigue sin lanzar: un correo caído no debe tumbar la request.
+ */
+export async function sendEmail({ to, subject, html, text }: SendEmailOpts): Promise<{ ok: boolean; error?: string }> {
   const apiKey = config.email.resendApiKey;
   const from = config.email.from;
 
   if (!apiKey) {
-    // Modo dev: no hay proveedor → log para no bloquear el flujo
+    // Modo dev: no hay proveedor → log para no bloquear el flujo. Cuenta como
+    // entregado a propósito, si no el flujo local quedaría intransitable.
     console.warn(
       `[Email:DEV] (sin RESEND_API_KEY — no se envió)\n  To: ${to}\n  Subject: ${subject}\n  ${text ?? html.replace(/<[^>]+>/g, " ").slice(0, 300)}`
     );
-    return;
+    return { ok: true };
   }
 
   try {
@@ -34,8 +41,11 @@ export async function sendEmail({ to, subject, html, text }: SendEmailOpts): Pro
     if (!res.ok) {
       const body = await res.text().catch(() => res.statusText);
       console.error(`[Email] Resend rechazó el envío (${res.status}): ${body.slice(0, 200)}`);
+      return { ok: false, error: `resend_${res.status}` };
     }
+    return { ok: true };
   } catch (err) {
     console.error("[Email] Falló el envío:", err instanceof Error ? err.message : err);
+    return { ok: false, error: "network" };
   }
 }

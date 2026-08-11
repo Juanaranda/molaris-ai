@@ -19,6 +19,7 @@ export interface AuthUser {
   clinicalRole?: ClinicalRole | null;
   clinicId: string | null;
   mustChangePassword?: boolean;
+  emailVerified?: boolean;
   photoUrl?: string | null;
   occupation?: string | null;
   phone?: string | null;
@@ -124,6 +125,38 @@ export async function resetPassword(token: string, newPassword: string): Promise
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error ?? "Error al cambiar la contraseña");
+  }
+}
+
+/* ─── Verificación de correo (#66) ────────────────────────────────────────── */
+
+/** Pide (o reenvía) el código de 6 dígitos. Lanza si está en cooldown. */
+export async function sendVerificationCode(): Promise<void> {
+  const res = await fetch(`${API}/api/auth/send-verification`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error ?? "No pudimos enviar el código");
+  }
+}
+
+/**
+ * Confirma el código. Devuelve `needsNewCode` para que la UI sepa cuándo el
+ * problema no se arregla reintentando (expiró / se agotaron los intentos).
+ */
+export async function verifyEmailCode(code: string): Promise<void> {
+  const res = await fetch(`${API}/api/auth/verify-email`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+    body: JSON.stringify({ code }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const e = new Error(err.error ?? "Código incorrecto") as Error & { needsNewCode?: boolean };
+    e.needsNewCode = Boolean(err.needsNewCode);
+    throw e;
   }
 }
 

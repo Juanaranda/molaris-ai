@@ -20,6 +20,7 @@ import { ChangePasswordGate } from "@/components/ChangePasswordGate";
 import { RecallSection } from "@/components/RecallSection";
 import { AuditLogSection } from "@/components/AuditLogSection";
 import { InventoryManager } from "@/components/InventoryManager";
+import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -1145,6 +1146,8 @@ export default function PartnersDashboard() {
             </Link>
           )}
         </div>
+
+        <EmailVerificationBanner user={user} />
 
         {!clinic && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6 text-sm text-yellow-800">
