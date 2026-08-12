@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import {
   getWeekAvailability,
   ventanaAtencion,
@@ -6,9 +6,16 @@ import {
   type ClinicAvailabilityConfig,
 } from "../services/availability/availabilityService";
 
-/* Lunes 3 de agosto de 2026. Se usa una semana futura para que ningún slot
-   quede filtrado por "ya pasó". */
+/* Lunes 3 de agosto de 2026, con el reloj congelado el viernes anterior.
+   Antes esta fecha estaba fija sin congelar el reloj: getWeekAvailability
+   descarta los slots que ya pasaron, así que el día que llegó el 3 de agosto
+   los tests empezaron a recibir [] y CI quedó roja en cada push. Congelando el
+   reloj el resultado no depende de cuándo se corran. */
 const LUNES = "2026-08-03";
+const ANTES_DEL_LUNES = new Date("2026-07-31T09:00:00-04:00");
+
+beforeAll(() => { vi.useFakeTimers(); vi.setSystemTime(ANTES_DEL_LUNES); });
+afterAll(() => { vi.useRealTimers(); });
 
 const base: ClinicAvailabilityConfig = {
   boxes: 2,
