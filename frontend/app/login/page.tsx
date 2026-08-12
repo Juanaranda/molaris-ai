@@ -23,7 +23,7 @@ export default function LoginPage() {
     try {
       if (mode === "forgot") {
         await forgotPassword(email);
-        setNotice("Si el correo está registrado, te enviamos un enlace para recuperar tu contraseña. Revisá tu bandeja (y spam).");
+        setNotice("Si el correo está registrado, te enviamos un enlace para recuperar tu contraseña. Revisa tu bandeja (y spam).");
       } else {
         await login(email, password);
         router.push("/partners/dashboard");

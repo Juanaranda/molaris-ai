@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { getToken, getMe } from "@/lib/auth";
 import { ensurePatientId } from "@/lib/clinicalRecord";
 import { DentalQuoteTab } from "./DentalQuoteTab";
+import { PatientAutocomplete } from "./PatientAutocomplete";
+import { invalidatePatientsCache, haceCuanto, type PatientSuggestion } from "@/lib/patients";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -1028,6 +1030,10 @@ function NewPatientModal({ onClose, onCreated }: { onClose: () => void; onCreate
   const [form, setForm] = useState({ name: "", rut: "", phone: "", email: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // Acá el autocompletar no sirve para rellenar sino para frenar: si el nombre
+  // que están escribiendo ya está en la base, registrarlo de nuevo parte la
+  // historia clínica en dos fichas.
+  const [duplicado, setDuplicado] = useState<PatientSuggestion | null>(null);
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -1035,6 +1041,7 @@ function NewPatientModal({ onClose, onCreated }: { onClose: () => void; onCreate
   async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault();
     if (!form.name.trim()) { setError("El nombre es obligatorio"); return; }
+    if (duplicado) { setError("Ese paciente ya existe. Búscalo en la lista."); return; }
     setSaving(true); setError("");
     try {
       const token = getToken();
@@ -1050,6 +1057,7 @@ function NewPatientModal({ onClose, onCreated }: { onClose: () => void; onCreate
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Error al registrar"); return; }
+      invalidatePatientsCache();
       onCreated();
     } catch { setError("Error de conexión"); }
     finally { setSaving(false); }
@@ -1070,8 +1078,33 @@ function NewPatientModal({ onClose, onCreated }: { onClose: () => void; onCreate
         <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-4">
           <div>
             <label className={lbl}>Nombre completo *</label>
-            <input value={form.name} onChange={set("name")} placeholder="Juan Pérez" autoFocus className={inp} />
+            <PatientAutocomplete
+              value={form.name}
+              seleccionado={false}
+              inputClassName={inp}
+              autoFocus
+              onChange={(nombre) => { setForm((f) => ({ ...f, name: nombre })); setDuplicado(null); }}
+              onSelect={(p) => { setForm((f) => ({ ...f, name: p.name })); setDuplicado(p); }}
+              onClear={() => { setForm((f) => ({ ...f, name: "" })); setDuplicado(null); }}
+            />
           </div>
+
+          {duplicado && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3">
+              <p className="text-sm font-bold text-amber-900">Ese paciente ya está registrado</p>
+              <p className="text-xs text-amber-800 mt-0.5">
+                {[duplicado.rut, `${duplicado.visits} ${duplicado.visits === 1 ? "visita" : "visitas"}`,
+                  `última ${haceCuanto(duplicado.lastVisit)}`].filter(Boolean).join(" · ")}
+              </p>
+              <p className="text-xs text-amber-800 mt-1.5">
+                Búscalo en la lista en vez de crearlo de nuevo: registrarlo dos veces parte su historial.
+              </p>
+              <button type="button" onClick={() => { setDuplicado(null); setForm((f) => ({ ...f, name: "" })); }}
+                className="mt-2 text-xs font-bold text-amber-900 underline underline-offset-2">
+                Escribir otro nombre
+              </button>
+            </div>
+          )}
           <div>
             <label className={lbl}>RUT</label>
             <input value={form.rut} onChange={set("rut")} placeholder="12.345.678-9" className={inp} />
@@ -1281,9 +1314,11 @@ export function PatientsTab() {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Search + import */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1 relative">
+      {/* Search + import — en móvil el buscador toma una fila entera y los
+          botones de CSV quedan solo con el ícono: con las tres etiquetas la
+          fila medía 630px en una pantalla de 375 y la página se corría de lado. */}
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div className="relative w-full sm:flex-1 sm:w-auto">
           <input
             ref={searchRef}
             type="text"
@@ -1309,26 +1344,27 @@ export function PatientsTab() {
           {filtered.length} paciente{filtered.length !== 1 ? "s" : ""}
         </span>
         <button onClick={() => setShowNewPatient(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700 transition shrink-0">
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700 transition shrink-0 flex-1 sm:flex-none justify-center">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
             <path d="M12 5v14M5 12h14" />
           </svg>
           Nuevo paciente
         </button>
-        <button onClick={() => setShowImport(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-600 hover:border-blue-300 hover:text-blue-600 transition shrink-0">
+        <button onClick={() => setShowImport(true)} aria-label="Importar pacientes desde CSV"
+          title="Importar CSV"
+          className="flex items-center gap-2 px-3.5 sm:px-4 py-3 sm:py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-600 hover:border-blue-300 hover:text-blue-600 transition shrink-0">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
           </svg>
-          Importar CSV
+          <span className="hidden sm:inline">Importar CSV</span>
         </button>
         <button onClick={exportCsv} disabled={exporting}
-          title="Descargar la base de pacientes en CSV"
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-600 hover:border-blue-300 hover:text-blue-600 transition shrink-0 disabled:opacity-50">
+          title="Descargar la base de pacientes en CSV" aria-label="Exportar pacientes a CSV"
+          className="flex items-center gap-2 px-3.5 sm:px-4 py-3 sm:py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-600 hover:border-blue-300 hover:text-blue-600 transition shrink-0 disabled:opacity-50">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 8l5-5 5 5M12 3v12" />
           </svg>
-          {exporting ? "Exportando…" : "Exportar CSV"}
+          <span className="hidden sm:inline">{exporting ? "Exportando…" : "Exportar CSV"}</span>
         </button>
       </div>
 
@@ -1336,14 +1372,14 @@ export function PatientsTab() {
       <div className="flex items-center gap-2 flex-wrap">
         <select value={doctorFilter} onChange={(e) => setDoctorFilter(e.target.value)}
           aria-label="Filtrar por profesional"
-          className="px-3 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+          className="px-3 py-2.5 sm:py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
           <option value="">Todos los profesionales</option>
           {doctorOptions.map((d) => <option key={d} value={d}>{d}</option>)}
         </select>
 
         <select value={payFilter} onChange={(e) => setPayFilter(e.target.value as typeof payFilter)}
           aria-label="Filtrar por estado de pago"
-          className="px-3 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+          className="px-3 py-2.5 sm:py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
           <option value="todos">Cualquier pago</option>
           <option value="deuda">Con saldo pendiente</option>
           <option value="aldia">Pagado</option>
@@ -1352,7 +1388,7 @@ export function PatientsTab() {
 
         <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value as typeof dateFilter)}
           aria-label="Filtrar por última visita"
-          className="px-3 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+          className="px-3 py-2.5 sm:py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
           <option value="todos">Cualquier fecha</option>
           <option value="30">Visitó últimos 30 días</option>
           <option value="90">Visitó últimos 90 días</option>

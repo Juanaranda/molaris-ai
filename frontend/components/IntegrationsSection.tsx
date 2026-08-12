@@ -39,7 +39,7 @@ export function IntegrationsSection({ clinicId }: Props) {
     <div className="flex flex-col gap-5">
       <div>
         <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Integraciones externas</h3>
-        <p className="text-[11px] text-gray-400">Configurá pagos online y facturación electrónica desde acá.</p>
+        <p className="text-[11px] text-gray-400">Configura pagos online y facturación electrónica desde acá.</p>
       </div>
 
       <WhatsappCard clinicId={clinicId} configured={status.whatsapp.configured} verified={status.whatsapp.verified} onChange={fetchStatus} />
@@ -81,7 +81,7 @@ function MercadoPagoCard({ clinicId, verified, oauthAvailable, onChange }: { cli
     setSaving(true); setError(""); setMsg("");
     try {
       await updateMercadoPagoConfig(clinicId, { accessToken: accessToken.trim() });
-      setMsg("Guardado. Ahora verificá la conexión.");
+      setMsg("Guardado. Ahora verifica la conexión.");
       setAccessToken("");
       onChange();
     } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
@@ -109,7 +109,7 @@ function MercadoPagoCard({ clinicId, verified, oauthAvailable, onChange }: { cli
       </div>
       <div className="p-5 flex flex-col gap-3">
         <p className="text-[11px] text-gray-500">
-          Permite a tus pacientes pagar por web. Conectá tu cuenta en un paso, sin copiar nada.
+          Permite a tus pacientes pagar por web. Conecta tu cuenta en un paso, sin copiar nada.
         </p>
 
         {oauthAvailable ? (
@@ -129,7 +129,7 @@ function MercadoPagoCard({ clinicId, verified, oauthAvailable, onChange }: { cli
           <div className="flex flex-col gap-3 border-t border-gray-50 pt-3">
             {!oauthAvailable && (
               <p className="text-[11px] text-gray-500">
-                Pegá el Access Token de{" "}
+                Pega el Access Token de{" "}
                 <a href="https://www.mercadopago.cl/developers/panel/credentials" target="_blank" rel="noopener noreferrer"
                    className="text-[#1A5C7A] underline hover:text-[#0e4560]">developers.mercadopago.cl</a>.
               </p>
@@ -137,7 +137,7 @@ function MercadoPagoCard({ clinicId, verified, oauthAvailable, onChange }: { cli
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Access Token</label>
               <input type="password" value={accessToken} onChange={(e) => setAccessToken(e.target.value)}
-                placeholder={verified ? "Ya configurado — ingresá uno nuevo para reemplazar" : "APP_USR-... o TEST-..."}
+                placeholder={verified ? "Ya configurado — ingresa uno nuevo para reemplazar" : "APP_USR-... o TEST-..."}
                 className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5C7A]/30 focus:border-[#1A5C7A]" />
             </div>
             <div className="flex gap-2 flex-wrap">
@@ -186,7 +186,7 @@ function SiiCard({
       };
       if (apiKey.trim()) data.apiKey = apiKey.trim();
       await updateSiiConfig(clinicId, data);
-      setMsg("Guardado. Ahora verificá la configuración.");
+      setMsg("Guardado. Ahora verifica la configuración.");
       setApiKey("");
       onChange();
     } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
@@ -223,7 +223,7 @@ function SiiCard({
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">API Key</label>
             <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
-              placeholder={sii.verified ? "Ya configurado — ingresá uno nuevo para reemplazar" : "Pegá tu API key"}
+              placeholder={sii.verified ? "Ya configurado — ingresa uno nuevo para reemplazar" : "Pega tu API key"}
               className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5C7A]/30 focus:border-[#1A5C7A]" />
           </div>
           <div>
@@ -303,7 +303,7 @@ function WhatsappCard({
     setSaving(true); setError(""); setMsg("");
     try {
       await updateWhatsappConfig(clinicId, { phoneId: phoneId.trim(), token: token.trim() });
-      setMsg("Guardado. Ahora verificá la conexión.");
+      setMsg("Guardado. Ahora verifica la conexión.");
       setTokenV("");
       onChange();
     } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
@@ -331,7 +331,7 @@ function WhatsappCard({
       </div>
       <div className="p-5 flex flex-col gap-3">
         <p className="text-[11px] text-gray-500">
-          Recordatorios, recall y chat por WhatsApp. Obtené el Phone Number ID y el System User Access Token en{" "}
+          Recordatorios, recall y chat por WhatsApp. Obtén el Phone Number ID y el System User Access Token en{" "}
           <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer"
              className="text-[#1A5C7A] underline hover:text-[#0e4560]">developers.facebook.com</a>{" "}
           (WhatsApp → Configuración de la API).
@@ -340,13 +340,13 @@ function WhatsappCard({
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Phone Number ID</label>
             <input value={phoneId} onChange={(e) => setPhoneId(e.target.value)}
-              placeholder={configured ? "Ya configurado — ingresá uno nuevo para reemplazar" : "123456789012345"}
+              placeholder={configured ? "Ya configurado — ingresa uno nuevo para reemplazar" : "123456789012345"}
               className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5C7A]/30 focus:border-[#1A5C7A]" />
           </div>
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">System User Access Token</label>
             <input type="password" value={token} onChange={(e) => setTokenV(e.target.value)}
-              placeholder={verified ? "Ya configurado — ingresá uno nuevo para reemplazar" : "EAAG... (token permanente)"}
+              placeholder={verified ? "Ya configurado — ingresa uno nuevo para reemplazar" : "EAAG... (token permanente)"}
               className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5C7A]/30 focus:border-[#1A5C7A]" />
           </div>
         </div>

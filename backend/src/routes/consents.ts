@@ -138,7 +138,7 @@ export async function consentRoutes(app: FastifyInstance) {
     if (signatureMethod === "zapsign") {
       if (!patient.clinic.zapsignVerified || !patient.clinic.zapsignApiKey) {
         return reply.status(400).send({
-          error: "La clínica no tiene ZapSign configurado. Usá manual_upload o in_person_pad.",
+          error: "La clínica no tiene ZapSign configurado. Usa manual_upload o in_person_pad.",
           signatureId: signature.id,
         });
       }

@@ -58,7 +58,7 @@ export function RecallSection({ clinicId }: Props) {
     setTriggering(true); setTriggerMsg("");
     try {
       await triggerRecallCheck(clinicId);
-      setTriggerMsg("✓ Check disparado — revisá los eventos en unos segundos");
+      setTriggerMsg("✓ Check disparado — revisa los eventos en unos segundos");
       setTimeout(() => { fetchAll(); setTriggerMsg(""); }, 4000);
     } catch (e) {
       setTriggerMsg(e instanceof Error ? e.message : "Error");
@@ -257,7 +257,7 @@ function RuleModal({ clinicId, initial, onClose, onSaved }: {
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Mensaje template *</label>
             <textarea value={template} onChange={(e) => setTemplate(e.target.value.slice(0, 1000))} rows={4} className={`${inputCls} resize-none`} />
-            <p className="text-[10px] text-gray-400 mt-1">Usá <code className="bg-gray-100 px-1 rounded">{"{nombre}"}</code> y <code className="bg-gray-100 px-1 rounded">{"{clinica}"}</code> · máx 1000 chars</p>
+            <p className="text-[10px] text-gray-400 mt-1">Usa <code className="bg-gray-100 px-1 rounded">{"{nombre}"}</code> y <code className="bg-gray-100 px-1 rounded">{"{clinica}"}</code> · máx 1000 chars</p>
           </div>
           {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="flex gap-2 pt-1">

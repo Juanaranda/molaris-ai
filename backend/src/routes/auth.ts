@@ -99,11 +99,11 @@ export async function authRoutes(app: FastifyInstance) {
           to: user.email,
           subject: "Recupera tu contraseña — molari.ai",
           html: `<p>Hola ${user.name},</p>
-<p>Recibimos una solicitud para restablecer tu contraseña. Hacé click en el botón (el enlace expira en 1 hora):</p>
+<p>Recibimos una solicitud para restablecer tu contraseña. Haz clic en el botón (el enlace expira en 1 hora):</p>
 <p><a href="${link}" style="background:#1A5C7A;color:#fff;padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:bold">Crear nueva contraseña</a></p>
-<p>O copiá este enlace: <br>${link}</p>
-<p style="color:#888">Si no pediste esto, ignorá este correo — tu contraseña no cambió.</p>`,
-          text: `Hola ${user.name}, restablecé tu contraseña acá (expira en 1h): ${link}`,
+<p>O copia este enlace: <br>${link}</p>
+<p style="color:#888">Si no pediste esto, ignora este correo — tu contraseña no cambió.</p>`,
+          text: `Hola ${user.name}, restablece tu contraseña acá (expira en 1h): ${link}`,
         });
       }
     }
@@ -121,7 +121,7 @@ export async function authRoutes(app: FastifyInstance) {
       payload = jwt.verify(token, config.jwtSecret) as { userId: string; type: string; pwf?: string };
       if (payload.type !== "reset") throw new Error("tipo inválido");
     } catch {
-      return reply.status(400).send({ error: "El enlace es inválido o expiró. Pedí uno nuevo." });
+      return reply.status(400).send({ error: "El enlace es inválido o expiró. Pide uno nuevo." });
     }
 
     const user = await prisma.partnerUser.findUnique({ where: { id: payload.userId } });
@@ -130,7 +130,7 @@ export async function authRoutes(app: FastifyInstance) {
     // Un solo uso (#60): si la contraseña cambió después de emitir el token
     // (por este mismo flujo o por change-password), el fingerprint ya no calza.
     if (payload.pwf !== passwordFingerprint(user.passwordHash)) {
-      return reply.status(400).send({ error: "El enlace ya fue usado o expiró. Pedí uno nuevo." });
+      return reply.status(400).send({ error: "El enlace ya fue usado o expiró. Pide uno nuevo." });
     }
 
     const hash = await bcrypt.hash(newPassword, 12);

@@ -70,12 +70,12 @@ export default function ResetPasswordPage() {
           <div className="rounded-2xl p-8 shadow-sm" style={{ backgroundColor: "#FDFCFB", border: "1px solid #E5E0D9" }}>
             <div className="text-center mb-8">
               <h1 className="font-[family-name:var(--font-display)] text-2xl font-bold" style={{ color: "#0C1B26" }}>Nueva contraseña</h1>
-              <p className="text-sm mt-1" style={{ color: "#607281" }}>Elegí una contraseña nueva para tu cuenta</p>
+              <p className="text-sm mt-1" style={{ color: "#607281" }}>Elige una contraseña nueva para tu cuenta</p>
             </div>
 
             {!token ? (
               <p className="text-sm rounded-xl px-4 py-2.5 text-center" style={{ color: "#D95F45", backgroundColor: "#FDECEA" }}>
-                Enlace inválido. Pedí uno nuevo desde <Link href="/login" className="font-semibold underline">Iniciar sesión</Link>.
+                Enlace inválido. Pide uno nuevo desde <Link href="/login" className="font-semibold underline">Iniciar sesión</Link>.
               </p>
             ) : done ? (
               <p className="text-sm rounded-xl px-4 py-3 text-center" style={{ color: "#1A5C7A", backgroundColor: "#E8F3F7" }}>

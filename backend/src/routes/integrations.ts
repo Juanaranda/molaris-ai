@@ -318,7 +318,7 @@ export async function integrationRoutes(app: FastifyInstance) {
       }
     }
     if (token !== undefined && token !== null && (typeof token !== "string" || token.trim().length < 20)) {
-      return reply.status(400).send({ error: "Token inválido — pegá el System User Access Token permanente" });
+      return reply.status(400).send({ error: "Token inválido — pega el System User Access Token permanente" });
     }
 
     const data: Record<string, unknown> = { waVerified: false }; // limpiar verificación al cambiar credenciales
