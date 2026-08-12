@@ -24,6 +24,7 @@
     "@fastify/rate-limit": "^10.3.0",
     "@google/genai": "^2.0.1",
     "@prisma/client": "^6.19.2",
+    "@sentry/node": "^10.70.0",
     "axios": "^1.7.7",
     "bcryptjs": "^3.0.3",
     "dotenv": "^16.4.5",

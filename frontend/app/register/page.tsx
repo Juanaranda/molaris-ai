@@ -269,7 +269,9 @@ export default function RegisterPage() {
       }
       await res.json();
       await login(admin.email, admin.password);
-      router.push("/partners/setup");
+      // Antes del setup va la confirmación del correo (#66): el código ya salió
+      // al crear la cuenta, así que llega mientras el usuario cambia de pantalla.
+      router.push("/verificar-correo");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al registrar");
     } finally {

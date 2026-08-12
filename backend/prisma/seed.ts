@@ -11,8 +11,8 @@ const galanaConfig = {
     saturday: "Sábado: 10:00 - 14:00",
     sunday: "Domingo: cerrado",
   },
-  // Equipo real de Galana, confirmado por la clínica (jul 2026). Los horarios
-  // son un supuesto inicial — la clínica los ajusta desde el editor de equipo.
+  // Equipo real de Galana con sus días de atención, todo confirmado por la
+  // clínica (ago 2026). Se ajusta desde el editor de equipo cuando cambie.
   doctors: [
     {
       name: "Dr. Ivonne Poblete",
@@ -134,6 +134,8 @@ async function main() {
   console.log(`✅ Clínica creada/actualizada: ${molariDemo.name} (slug: ${molariDemo.slug})`);;
 
   // ─── Usuarios partner ────────────────────────────────────────────────────────
+  // Van con emailVerifiedAt seteado: son cuentas internas que no pasan por el
+  // flujo de código al correo (#66), y sin esto quedarían trabadas al entrar.
   const SALT_ROUNDS = 12;
 
   const superAdmin = await prisma.partnerUser.upsert({
@@ -144,6 +146,7 @@ async function main() {
       email: "superadmin@molari.ai",
       passwordHash: await bcrypt.hash("molari2024!", SALT_ROUNDS),
       role: "SUPERADMIN",
+      emailVerifiedAt: new Date(),
     },
   });
   console.log(`✅ Usuario: ${superAdmin.email} (${superAdmin.role})`);
@@ -157,6 +160,7 @@ async function main() {
       passwordHash: await bcrypt.hash("galana2024!", SALT_ROUNDS),
       role: "ADMIN",
       clinicId: galana.id,
+      emailVerifiedAt: new Date(),
     },
   });
   console.log(`✅ Usuario: ${adminGalana.email} (${adminGalana.role})`);
@@ -170,6 +174,7 @@ async function main() {
       passwordHash: await bcrypt.hash("galana2024!", SALT_ROUNDS),
       role: "USER",
       clinicId: galana.id,
+      emailVerifiedAt: new Date(),
     },
   });
   console.log(`✅ Usuario: ${recepcion.email} (${recepcion.role})`);

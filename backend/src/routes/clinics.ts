@@ -10,6 +10,7 @@ import { triggerAlert } from "../services/alerts/alertService";
 import { audit } from "../services/audit/auditService";
 import { isValidRut, formatRut } from "../lib/rut";
 import { sendMolariEmail } from "../services/email/molariEmails";
+import { issueVerificationCode } from "../services/auth/emailVerification";
 
 // Claves válidas dentro de Clinic.config. Evita inyectar JSON arbitrario, pero
 // debe cubrir TODO lo que escribe el frontend: si falta una, el PATCH completo
@@ -703,6 +704,7 @@ export async function clinicRoutes(app: FastifyInstance) {
     const soloServices = accountType === "solo" ? [soloSpecialty] : [];
 
     const newClinic = await prisma.clinic.create({
+      include: { partnerUsers: { select: { id: true } } },
       data: {
         slug,
         name: clinicData.name,
@@ -744,6 +746,16 @@ export async function clinicRoutes(app: FastifyInstance) {
       toName: admin.name,
       message: { type: "welcome", accountType, clinicName: clinicData.name },
     }).catch((err) => console.error("[welcome-email] fallo el envío:", err instanceof Error ? err.message : err));
+
+    // Código de verificación del correo (#66). Tampoco bloquea el registro: si el
+    // envío falla, la cuenta existe y el usuario puede pedir otro código desde el
+    // panel — quedarse sin cuenta por un correo caído sería peor que no verificar.
+    const adminUserId = newClinic.partnerUsers[0]?.id;
+    if (adminUserId) {
+      issueVerificationCode(adminUserId).catch((err) =>
+        console.error("[verify-email] fallo el envío:", err instanceof Error ? err.message : err)
+      );
+    }
 
     return reply.status(201).send({ clinicId: newClinic.id, slug: newClinic.slug, message: "Clínica registrada correctamente" });
   });

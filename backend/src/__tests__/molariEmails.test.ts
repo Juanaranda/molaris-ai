@@ -5,7 +5,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
  * redirección segura. Mockeamos sendEmail para capturar lo que se enviaría.
  */
 
-const sendEmailMock = vi.fn();
+// sendEmail ahora informa si el correo salió; el mock debe respetar ese contrato.
+const sendEmailMock = vi.fn(async () => ({ ok: true }));
 vi.mock("../services/email/emailService", () => ({
   sendEmail: (...args: unknown[]) => sendEmailMock(...args),
 }));
@@ -20,7 +21,7 @@ vi.mock("../config/env", () => ({
 
 import { sendMolariEmail } from "../services/email/molariEmails";
 
-beforeEach(() => { sendEmailMock.mockReset(); delete process.env.__TEST_REDIRECT; });
+beforeEach(() => { sendEmailMock.mockReset(); sendEmailMock.mockResolvedValue({ ok: true }); delete process.env.__TEST_REDIRECT; });
 afterEach(() => { delete process.env.__TEST_REDIRECT; });
 
 describe("sendMolariEmail — sin redirección (dominio verificado)", () => {
@@ -60,5 +61,19 @@ describe("plantillas por tipo", () => {
     const arg = sendEmailMock.mock.calls[0][0];
     expect(arg.subject).toBe("Nueva función");
     expect(arg.html).toContain("Ya puedes X");
+  });
+});
+
+describe("sendMolariEmail — reporte de entrega", () => {
+  it("informa delivered:false cuando el proveedor rechaza el envío", async () => {
+    sendEmailMock.mockResolvedValue({ ok: false, error: "resend_403" });
+    const res = await sendMolariEmail({ to: "juan@clinica.cl", message: { type: "birthday" } });
+    // De esto depende que el reenvío del código no mienta con "ya te llegó".
+    expect(res.delivered).toBe(false);
+  });
+
+  it("informa delivered:true cuando sale bien", async () => {
+    const res = await sendMolariEmail({ to: "juan@clinica.cl", message: { type: "birthday" } });
+    expect(res.delivered).toBe(true);
   });
 });

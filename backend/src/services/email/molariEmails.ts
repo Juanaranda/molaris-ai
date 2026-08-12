@@ -24,6 +24,7 @@ const BRAND = {
 /* ── Tipos de mensaje ─────────────────────────────────────────────────────── */
 export type MolariEmail =
   | { type: "welcome"; accountType?: "solo" | "clinic"; clinicName?: string }
+  | { type: "verify_email"; code: string; minutes: number }
   | { type: "birthday" }
   | { type: "announcement"; title: string; bodyHtml: string; ctaLabel?: string; ctaUrl?: string };
 
@@ -94,6 +95,27 @@ function render(msg: MolariEmail, toName: string): { subject: string; html: stri
         text: `${saludo}\n\nGracias por sumar ${quien} a molari.ai. Tu recepcionista con IA ya está lista.\n\nPrimeros pasos: completa tu horario, conecta WhatsApp o el widget web, y prueba el agente.\n\nTu panel: ${panelUrl}`,
       };
     }
+    case "verify_email": {
+      // El código va en el asunto además del cuerpo: así se ve en la notificación
+      // del teléfono sin tener que abrir el correo.
+      const espaciado = msg.code.replace(/(\d{3})(\d{3})/, "$1 $2");
+      return {
+        subject: `${msg.code} es tu código de verificación — molari.ai`,
+        html: layout({
+          preview: `Tu código es ${msg.code}. Expira en ${msg.minutes} minutos.`,
+          heading: "Confirma tu correo",
+          bodyHtml:
+            p(saludo) +
+            p("Para terminar de activar tu cuenta, ingresa este código en molari.ai:") +
+            `<tr><td style="padding:6px 0 18px;">
+               <div style="display:inline-block;background:${BRAND.cream};border:1px solid ${BRAND.border};border-radius:14px;padding:18px 28px;font-size:32px;font-weight:800;letter-spacing:6px;color:${BRAND.dark};font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">${espaciado}</div>
+             </td></tr>` +
+            p(`El código expira en ${msg.minutes} minutos y sirve una sola vez.`) +
+            p(`<span style="color:${BRAND.muted}">Si no creaste una cuenta en molari.ai, ignora este correo — sin el código nadie puede usarla.</span>`),
+        }),
+        text: `${saludo}\n\nTu código de verificación de molari.ai es: ${msg.code}\n\nExpira en ${msg.minutes} minutos y sirve una sola vez.\n\nSi no creaste una cuenta, ignora este correo.`,
+      };
+    }
     case "birthday": {
       return {
         subject: "¡Feliz cumpleaños! 🎉 — molari.ai",
@@ -145,6 +167,6 @@ export async function sendMolariEmail(input: {
     html = html.replace(/(<body[^>]*>)/i, `$1${banner}`);
   }
 
-  await sendEmail({ to, subject, html, text: rendered.text });
-  return { delivered: true, redirectedTo: redirectTo || undefined };
+  const res = await sendEmail({ to, subject, html, text: rendered.text });
+  return { delivered: res.ok, redirectedTo: redirectTo || undefined };
 }

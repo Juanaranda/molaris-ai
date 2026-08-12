@@ -1,9 +1,21 @@
-export type PricingType = "fixed" | "variable";
+/**
+ * REFERENCIA, NO FUENTE DE VERDAD.
+ *
+ * Ningún módulo importa este archivo en runtime: la config real de cada clínica
+ * vive en `Clinic.config` (BD) y la siembra `prisma/seed.ts`. Esto queda como
+ * ejemplo tipado para `_template.ts` al dar de alta una clínica nueva.
+ * Si editas algo acá y esperas que cambie el agente, no va a pasar — edítalo
+ * en el seed o desde el panel de la clínica.
+ */
+
+export type PricingType = "fixed" | "range" | "variable";
 
 export interface Service {
   name: string;
   pricingType: PricingType;
-  price?: string;
+  price?: string;      // solo "fixed": UN valor
+  priceMin?: string;   // solo "range"
+  priceMax?: string;   // solo "range"
   priceNote?: string;
 }
 
@@ -30,15 +42,16 @@ export const galanaConfig = {
   services: [
     {
       name: "Resina / tapadura",
-      pricingType: "fixed" as PricingType,
-      price: "$25.000 - $60.000",
+      pricingType: "range" as PricingType,
+      priceMin: "$25.000",
+      priceMax: "$60.000",
       priceNote: "El precio varía según el tamaño y ubicación de la caries.",
     },
     {
       name: "Limpieza dental",
-      pricingType: "fixed" as PricingType,
-      price: "a consultar",
-      priceNote: undefined,
+      pricingType: "range" as PricingType,
+      priceMin: "$25.000",
+      priceMax: "$40.000",
     },
     {
       name: "Blanqueamiento dental",
@@ -63,8 +76,7 @@ export const galanaConfig = {
     {
       name: "Urgencias dentales",
       pricingType: "fixed" as PricingType,
-      price: "a consultar",
-      priceNote: undefined,
+      price: "$35.000",
     },
     {
       name: "Endodoncia (tratamiento de conducto)",
@@ -79,9 +91,9 @@ export const galanaConfig = {
   ] as Service[],
   bookingUrl: process.env.GALANA_BOOKING_URL ?? null,
   slotDurationMin: 45,
-  // Equipo real de Galana, confirmado por la clínica (jul 2026). Los nombres y
-  // especialidades vienen de la clínica; los workDays son un supuesto inicial
-  // — la clínica los ajusta desde el editor de equipo.
+  // Equipo real de Galana, confirmado por la clínica (jul 2026). Nombres,
+  // especialidades y días de atención validados por la clínica (ago 2026).
+  // La clínica los ajusta desde el editor de equipo cuando cambien.
   // El prefijo va "Dr." parejo para no deducir el género desde el nombre.
   // Cuando la clínica confirme quién lleva "Dra.", se corrige acá.
   doctors: [

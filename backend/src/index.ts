@@ -1,4 +1,8 @@
-import Fastify from "fastify";
+// PRIMERO: Sentry instrumenta al importar, así que va antes que todo lo demás.
+import { initSentry, Sentry } from "./instrument";
+initSentry();
+
+import Fastify, { type FastifyError } from "fastify";
 import cors from "@fastify/cors";
 import formbody from "@fastify/formbody";
 import helmet from "@fastify/helmet";
@@ -7,7 +11,7 @@ import { config } from "./config/env";
 import { chatRoutes } from "./routes/chat";
 import { availabilityRoutes } from "./routes/availability";
 import { bookingRoutes } from "./routes/bookings";
-import { authRoutes } from "./routes/auth";
+import { authRoutes, verifyToken } from "./routes/auth";
 import { clinicRoutes } from "./routes/clinics";
 import { patientAuthRoutes } from "./routes/patient-auth";
 import { bookRoutes } from "./routes/book";
@@ -58,7 +62,13 @@ app.register(rateLimit, {
   max: 120,
   timeWindow: "1 minute",
   keyGenerator: (req) => (req.headers.authorization ?? req.ip) as string,
-  errorResponseBuilder: () => ({ error: "Demasiadas solicitudes. Intenta de nuevo en un minuto." }),
+  // El plugin hace `throw` de lo que devuelve esto. Sin statusCode adentro,
+  // Fastify no sabe que es un 429 y responde 500 — o sea que pasarse del límite
+  // se veía como "se cayó el servidor". El status va explícito por eso.
+  errorResponseBuilder: (_req, context) => ({
+    statusCode: context.statusCode,
+    error: "Demasiadas solicitudes. Intenta de nuevo en un minuto.",
+  }),
 });
 
 app.register(cors, {
@@ -141,12 +151,56 @@ app.get("/health", async (_req, reply) => {
   });
 });
 
+// Errores no atrapados por ninguna ruta (#58). Va como hook onError y NO como
+// setErrorHandler a propósito: el hook solo mira, mientras que reemplazar el
+// handler obliga a reconstruir la respuesta y ahí se pierden las que arman los
+// plugins — con setErrorHandler el 429 del rate-limit salía como 500.
+app.addHook("onError", async (req, _reply, err: FastifyError) => {
+  // Sin statusCode propio es un error no previsto, o sea un 500. Ojo: acá NO
+  // sirve mirar reply.statusCode — todavía vale 200 porque Fastify aún no armó
+  // la respuesta, y usarlo de respaldo hacía que los 500 reales se descartaran.
+  const status = err.statusCode ?? 500;
+  // Los 4xx son el usuario mandando algo mal, no un bug: ensucian el dashboard.
+  if (status < 500) return;
+  Sentry.withScope((scope) => {
+    scope.setTag("route", req.routeOptions?.url ?? req.url.split("?")[0]);
+    scope.setTag("method", req.method);
+    // Quién lo gatilló, solo por id. Saber que le pasa a una clínica y no a
+    // todas es la mitad del diagnóstico; el nombre y el email no hacen falta.
+    // El scope es por error, no global: en un server concurrente marcar el
+    // usuario globalmente le colgaría el error a quien pase después.
+    try {
+      const { userId, clinicId } = verifyToken(req.headers.authorization);
+      scope.setUser({ id: userId });
+      scope.setTag("clinicId", clinicId ?? "sin-clinica");
+    } catch {
+      // Ruta pública o token vencido: se reporta igual, sin usuario.
+    }
+    Sentry.captureException(err);
+  });
+});
+
+// Fallas fuera del ciclo de request: schedulers, promesas sueltas. Son
+// justamente las que hoy se pierden en los logs de Railway sin que nadie mire.
+process.on("unhandledRejection", (reason) => {
+  console.error("[unhandledRejection]", reason);
+  Sentry.captureException(reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("[uncaughtException]", err);
+  Sentry.captureException(err);
+  // No se mata el proceso: en Railway un reinicio deja la clínica sin agente.
+  // Queda registrado para arreglarlo, que es el punto.
+});
+
 app.listen({ port: config.port, host: "0.0.0.0" }, (err) => {
   if (err) {
     app.log.error(err);
+    Sentry.captureException(err);
     process.exit(1);
   }
   startReminderScheduler();
   startRecallScheduler();
   startRecoveryScheduler();
+  if (config.sentry.dsn) console.log(`[Sentry] Activo — entorno "${config.sentry.environment}"`);
 });
