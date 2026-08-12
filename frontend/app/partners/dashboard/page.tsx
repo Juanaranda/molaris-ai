@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getMe, getToken, logout, updateClinic, AuthUser, ClinicData } from "@/lib/auth";
 import { DoctorsEditor, DoctorRow } from "@/components/DoctorsEditor";
@@ -892,9 +892,17 @@ function DoctorView({ user, clinic, onShowFull }: { user: AuthUser; clinic: Clin
 export default function PartnersDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
+
   const [clinic, setClinic] = useState<ClinicData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("inicio");
+  // Al saltar a una pestaña desde un acceso rápido, en móvil puede quedar fuera
+  // de la parte visible de la barra y parece que no pasó nada.
+  useEffect(() => {
+    const activa = tabsRef.current?.querySelector<HTMLElement>("[data-tab-activa=\"true\"]");
+    activa?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+  }, [activeTab]);
   const [agendaAutoOpen, setAgendaAutoOpen] = useState(false);
   const [mpNotice, setMpNotice] = useState<"connected" | "error" | null>(null);
 
@@ -1127,7 +1135,7 @@ export default function PartnersDashboard() {
             <span className="text-sm text-gray-600 hidden sm:block">{user.name}</span>
             <RoleBadge role={user.role} />
           </div>}
-          <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Cerrar sesión</button>
+          <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-900 transition-colors py-2.5 px-1 -mx-1">Cerrar sesión</button>
         </div>
       </nav>
 
@@ -1185,13 +1193,19 @@ export default function PartnersDashboard() {
               <div className={`mb-4 rounded-xl px-4 py-2.5 text-sm font-medium flex items-center justify-between ${
                 mpNotice === "connected" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-600 border border-red-200"
               }`}>
-                <span>{mpNotice === "connected" ? "✓ Mercado Pago conectado correctamente." : "No se pudo conectar Mercado Pago. Intentá de nuevo."}</span>
+                <span>{mpNotice === "connected" ? "✓ Mercado Pago conectado correctamente." : "No se pudo conectar Mercado Pago. Intenta de nuevo."}</span>
                 <button onClick={() => setMpNotice(null)} className="text-current opacity-60 hover:opacity-100">✕</button>
               </div>
             )}
 
-            {/* Tabs */}
-            <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+            {/* Tabs — en móvil no caben todas y hay que deslizar. El degradado del
+                borde derecho es la única pista de que hay más: sin él, "Equipo",
+                "Inventario" y "Mi Clínica" son invisibles en un teléfono. */}
+            <div className="relative -mx-4 sm:mx-0">
+              <div
+                ref={tabsRef}
+                className="overflow-x-auto px-4 sm:px-0 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              >
               <div className="flex border-b border-gray-200 gap-1 min-w-max sm:min-w-0">
                 {(([
                   ["inicio", "Inicio"], ["conversaciones", "Conversaciones"], ["agenda", "Agenda"], ["analytics", "Analítica"],
@@ -1202,7 +1216,8 @@ export default function PartnersDashboard() {
                   ["clinica", clinic?.accountType === "solo" ? "Mi consulta" : "Mi Clínica"], ["config", "Configuración"],
                 ] as [Tab, string][])).map(([tab, label]) => (
                   <button key={tab} onClick={() => setActiveTab(tab)}
-                    className={`px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
+                    data-tab-activa={activeTab === tab}
+                    className={`px-3.5 sm:px-4 py-3 sm:py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
                       activeTab === tab
                         ? "border-blue-600 text-blue-600"
                         : "border-transparent text-gray-500 hover:text-gray-700"
@@ -1211,6 +1226,8 @@ export default function PartnersDashboard() {
                   </button>
                 ))}
               </div>
+              </div>
+              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-10 bg-gradient-to-l from-[#FDFCFB] to-transparent sm:hidden" />
             </div>
 
             {/* ══ Estado de verificación (KYC #66) ═══════════════════════════ */}

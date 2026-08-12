@@ -6,6 +6,13 @@ import Link from "next/link";
 import { getMe, getToken } from "@/lib/auth";
 import Dialog from "@mui/material/Dialog";
 import DialogContent from "@mui/material/DialogContent";
+import { PatientAutocomplete } from "@/components/PatientAutocomplete";
+import { invalidatePatientsCache } from "@/lib/patients";
+
+/** Los datos que vienen de la ficha se ven de solo lectura, no para retipear. */
+function estiloLectura(base: React.CSSProperties, bloqueado: boolean): React.CSSProperties {
+  return bloqueado ? { ...base, background: "#F8FAFC", color: "#64748B" } : base;
+}
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -582,6 +589,7 @@ function NewBookingModal({ doctors, initialDate, initialTime, open, onClose, onC
   });
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState("");
+  const [pacienteExistente, setPacienteExistente] = useState(false);
 
   // Sync pre-filled values whenever the modal opens
   useEffect(() => {
@@ -659,23 +667,39 @@ function NewBookingModal({ doctors, initialDate, initialTime, open, onClose, onC
           </div>
           <div>
             <label style={labelStyle}>Nombre paciente *</label>
-            <input type="text" value={form.patientName} onChange={set("patientName")} required
-              placeholder="Nombre completo" style={inputStyle} />
+            <PatientAutocomplete
+              value={form.patientName}
+              seleccionado={pacienteExistente}
+              inputStyle={inputStyle}
+              onChange={(nombre) => setForm((f) => ({ ...f, patientName: nombre }))}
+              onSelect={(p) => {
+                setForm((f) => ({ ...f, patientName: p.name, patientRut: p.rut ?? "",
+                  patientPhone: p.phone ?? "", patientEmail: p.email ?? "" }));
+                setPacienteExistente(true);
+              }}
+              onClear={() => {
+                setForm((f) => ({ ...f, patientName: "", patientRut: "", patientPhone: "", patientEmail: "" }));
+                setPacienteExistente(false);
+              }}
+            />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <label style={labelStyle}>RUT</label>
-              <input type="text" value={form.patientRut} onChange={set("patientRut")} placeholder="12.345.678-9" style={inputStyle} />
+              <input type="text" value={form.patientRut} onChange={set("patientRut")} placeholder="12.345.678-9"
+                readOnly={pacienteExistente} style={estiloLectura(inputStyle, pacienteExistente)} />
             </div>
             <div>
               <label style={labelStyle}>Teléfono</label>
-              <input type="tel" value={form.patientPhone} onChange={set("patientPhone")} placeholder="+56 9..." style={inputStyle} />
+              <input type="tel" value={form.patientPhone} onChange={set("patientPhone")} placeholder="+56 9..."
+                readOnly={pacienteExistente} style={estiloLectura(inputStyle, pacienteExistente)} />
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <label style={labelStyle}>Email</label>
-              <input type="email" value={form.patientEmail} onChange={set("patientEmail")} placeholder="correo@..." style={inputStyle} />
+              <input type="email" value={form.patientEmail} onChange={set("patientEmail")} placeholder="correo@..."
+                readOnly={pacienteExistente} style={estiloLectura(inputStyle, pacienteExistente)} />
             </div>
             <div>
               <label style={labelStyle}>Servicio</label>
@@ -859,6 +883,8 @@ export default function AgendaPage() {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error ?? "Error al crear cita");
     }
+    // Un paciente nuevo tiene que aparecer en las sugerencias de la próxima cita.
+    invalidatePatientsCache();
     await fetchWeek(weekStart);
     setSelectedDate(data.date);
   }

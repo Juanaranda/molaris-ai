@@ -52,7 +52,7 @@ export function InventoryManager({ clinicId }: { clinicId: string }) {
       {error && <p className="text-xs text-red-500">{error}</p>}
 
       {items.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-8">Aún no hay insumos. Agregá el primero.</p>
+        <p className="text-sm text-gray-400 text-center py-8">Aún no hay insumos. Agrega el primero.</p>
       ) : (
         <div className="flex flex-col gap-2">
           {items.map((it) => <ItemRow key={it.id} item={it} onChange={load} />)}

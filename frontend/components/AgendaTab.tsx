@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { getToken } from "@/lib/auth";
 import type { AuthUser } from "@/lib/auth";
 import { DentalQuoteTab } from "./DentalQuoteTab";
+import { PatientAutocomplete } from "./PatientAutocomplete";
+import { invalidatePatientsCache } from "@/lib/patients";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -417,6 +419,9 @@ function NewBookingModal({ doctors, initialDate, boxes, sedes = [], onClose, onC
     patientName: "", patientRut: "", patientPhone: "", patientEmail: "", service: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // Paciente traído de la ficha vs. escrito a mano: cambia si los campos de
+  // contacto se pueden tocar y qué se le muestra a quien está agendando.
+  const [pacienteExistente, setPacienteExistente] = useState(false);
 
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -445,14 +450,19 @@ function NewBookingModal({ doctors, initialDate, boxes, sedes = [], onClose, onC
   const lbl = "block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/40 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-2xl w-full max-w-md overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
+      {/* En móvil sube desde abajo y ocupa el ancho completo: el pulgar llega al
+          borde inferior, no al centro de la pantalla. En desktop sigue centrado. */}
+      <div className="bg-white rounded-t-3xl sm:rounded-2xl border border-gray-100 shadow-2xl w-full max-w-md max-h-[92vh] sm:max-h-[90vh] flex flex-col">
+        <div className="px-5 sm:px-6 py-4 border-b border-gray-50 flex items-center justify-between shrink-0 rounded-t-3xl sm:rounded-t-2xl bg-white">
           <h2 className="text-lg font-black text-gray-900">Nueva cita</h2>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500">✕</button>
+          <button onClick={onClose} aria-label="Cerrar"
+            className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500">✕</button>
         </div>
-        <form onSubmit={submit} className="px-6 py-5 flex flex-col gap-4">
+        {/* overflow-y-auto y no overflow-hidden: con el modal recortado, el
+            desplegable de pacientes quedaba cortado por el borde inferior. */}
+        <form onSubmit={submit} className="px-5 sm:px-6 py-5 flex flex-col gap-4 overflow-y-auto">
           {/* Doctor */}
           <div>
             <label className={lbl}>Profesional *</label>
@@ -493,22 +503,51 @@ function NewBookingModal({ doctors, initialDate, boxes, sedes = [], onClose, onC
           {/* Patient */}
           <div>
             <label className={lbl}>Nombre paciente *</label>
-            <input type="text" value={form.patientName} onChange={set("patientName")} placeholder="Nombre completo" required className={inp} />
+            <PatientAutocomplete
+              value={form.patientName}
+              seleccionado={pacienteExistente}
+              inputClassName={inp}
+              onChange={(nombre) => setForm((f) => ({ ...f, patientName: nombre }))}
+              onSelect={(p) => {
+                setForm((f) => ({
+                  ...f,
+                  patientName:  p.name,
+                  patientRut:   p.rut   ?? "",
+                  patientPhone: p.phone ?? "",
+                  patientEmail: p.email ?? "",
+                }));
+                setPacienteExistente(true);
+              }}
+              onClear={() => {
+                // Se limpia todo el contacto: dejar el RUT del anterior sería
+                // la forma más rápida de agendarle la hora a la persona equivocada.
+                setForm((f) => ({ ...f, patientName: "", patientRut: "", patientPhone: "", patientEmail: "" }));
+                setPacienteExistente(false);
+              }}
+            />
           </div>
+          {/* Con paciente de la ficha, los datos de contacto se muestran de solo
+              lectura: son los que ya están guardados, no algo para retipear. */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={lbl}>RUT</label>
-              <input type="text" value={form.patientRut} onChange={set("patientRut")} placeholder="12.345.678-9" className={inp} />
+              <input type="text" value={form.patientRut} onChange={set("patientRut")} placeholder="12.345.678-9"
+                readOnly={pacienteExistente}
+                className={pacienteExistente ? `${inp} bg-gray-50 text-gray-500` : inp} />
             </div>
             <div>
               <label className={lbl}>Teléfono</label>
-              <input type="tel" value={form.patientPhone} onChange={set("patientPhone")} placeholder="+56 9..." className={inp} />
+              <input type="tel" value={form.patientPhone} onChange={set("patientPhone")} placeholder="+56 9..."
+                readOnly={pacienteExistente}
+                className={pacienteExistente ? `${inp} bg-gray-50 text-gray-500` : inp} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={lbl}>Email</label>
-              <input type="email" value={form.patientEmail} onChange={set("patientEmail")} placeholder="correo@..." className={inp} />
+              <input type="email" value={form.patientEmail} onChange={set("patientEmail")} placeholder="correo@..."
+                readOnly={pacienteExistente}
+                className={pacienteExistente ? `${inp} bg-gray-50 text-gray-500` : inp} />
             </div>
             <div>
               <label className={lbl}>Servicio</label>
@@ -586,7 +625,13 @@ function AdminAgenda({
       : `${ws.getDate()} ${sm} – ${we.getDate()} ${em} ${ws.getFullYear()}`;
   })();
 
-  const [viewMode, setViewMode] = useState<"week" | "day">("week");
+  // En un teléfono la vista semana son 5 columnas de doctores en 375px: ilegible.
+  // Arranca en "día" y el toggle sigue estando por si igual la quieren.
+  // Se calcula en el inicializador (no en un efecto) para no pintar primero la
+  // semana y saltar a día — ese parpadeo se ve peor que cualquiera de las dos.
+  const [viewMode, setViewMode] = useState<"week" | "day">(
+    () => (typeof window !== "undefined" && window.innerWidth < 640 ? "day" : "week")
+  );
 
   const selectedDay = days.find((d) => safeDateStr(d.date) === selectedDate);
   let dayBookings = [...(selectedDay?.bookings ?? [])];
@@ -644,6 +689,9 @@ function AdminAgenda({
       body: JSON.stringify(data),
     });
     if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error ?? "Error"); }
+    // Si era un paciente nuevo, tiene que salir en las sugerencias de la
+    // próxima cita — si no, se vuelve a tipear igual y el autocompletar no sirve.
+    invalidatePatientsCache();
     // Navigate to the week that contains the new booking
     const bookingWeekStart = getMondayOf(new Date(data.date + "T12:00:00"));
     if (toDateStr(bookingWeekStart) !== toDateStr(weekStart)) {
@@ -662,27 +710,28 @@ function AdminAgenda({
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Week nav */}
-      <div className="flex items-center justify-between gap-2">
+      {/* Week nav — en móvil va en dos filas: en una sola, "+ Nueva cita"
+          quedaba fuera de pantalla y era el botón más usado de la agenda. */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
         <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
           <button onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d); }}
-            className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-gray-300 transition flex items-center justify-center font-bold shrink-0">‹</button>
+            className="w-11 h-11 sm:w-8 sm:h-8 rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-gray-300 transition flex items-center justify-center font-bold shrink-0">‹</button>
           <span className="text-xs sm:text-sm font-semibold text-gray-700 text-center capitalize truncate">
             {weekLabel}
           </span>
           <button onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d); }}
-            className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-gray-300 transition flex items-center justify-center font-bold shrink-0">›</button>
+            className="w-11 h-11 sm:w-8 sm:h-8 rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-gray-300 transition flex items-center justify-center font-bold shrink-0">›</button>
           <button onClick={() => { setWeekStart(getMondayOf(new Date())); setSelectedDate(todayStr); }}
-            className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition shrink-0">
+            className="text-xs font-semibold px-3.5 py-3 sm:py-1.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition shrink-0">
             Hoy
           </button>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 justify-between sm:justify-end">
           {/* View toggle */}
           <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5">
             {(["week", "day"] as const).map((m) => (
               <button key={m} onClick={() => setViewMode(m)}
-                className={`text-[11px] font-bold px-2.5 py-1 rounded-md transition ${
+                className={`text-[11px] font-bold px-3.5 py-3 sm:py-1.5 rounded-md transition ${
                   viewMode === m ? "bg-white text-gray-800 shadow-sm" : "text-gray-400 hover:text-gray-600"
                 }`}>
                 {m === "week" ? "Semana" : "Día"}
@@ -690,7 +739,7 @@ function AdminAgenda({
             ))}
           </div>
           <button onClick={() => setShowNew(true)}
-            className="text-xs sm:text-sm font-bold px-3 sm:px-4 py-2 rounded-xl text-white hover:opacity-90 transition shrink-0"
+            className="text-sm font-bold px-4 py-2.5 sm:py-2 rounded-xl text-white hover:opacity-90 transition shrink-0"
             style={{ backgroundColor: "#D95F45", boxShadow: "0 2px 8px rgba(217,95,69,0.3)" }}>
             + Nueva cita
           </button>
@@ -738,7 +787,7 @@ function AdminAgenda({
         style={{ scrollbarWidth: "none" }}>
         <span className="text-xs font-semibold text-gray-400">Ver:</span>
         <button onClick={() => setDoctorFilter(null)}
-          className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition ${
+          className={`text-xs font-semibold px-3.5 py-3 sm:py-1.5 rounded-full border transition ${
             !doctorFilter ? "bg-gray-800 text-white border-gray-800" : "border-gray-200 text-gray-500 hover:border-gray-300 bg-white"
           }`}>
           Todos
@@ -748,7 +797,7 @@ function AdminAgenda({
           const short = doc.replace(/Dra?\. /, "").split(" ")[0];
           return (
             <button key={doc} onClick={() => setDoctorFilter(doctorFilter === doc ? null : doc)}
-              className="text-xs font-semibold px-3 py-1.5 rounded-full border transition"
+              className="text-xs font-semibold px-3.5 py-3 sm:py-1.5 rounded-full border transition"
               style={doctorFilter === doc
                 ? { background: pal.dot, color: "white", borderColor: pal.dot }
                 : { background: "white", color: pal.text, borderColor: `${pal.dot}60` }

@@ -671,7 +671,7 @@ function AddNoteModal({ patientId, onClose, onCreated }: { patientId: string; on
 /* ─── Tab: Imágenes ───────────────────────────────────────────────────── */
 function ImagenesTab({ record }: { record: ClinicalRecord }) {
   if (record.images.length === 0) {
-    return <div className="text-center text-sm text-gray-400 py-10">Sin imágenes — usá el tab Odontograma para subir radiografías/fotos por pieza</div>;
+    return <div className="text-center text-sm text-gray-400 py-10">Sin imágenes — usa el tab Odontograma para subir radiografías/fotos por pieza</div>;
   }
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
