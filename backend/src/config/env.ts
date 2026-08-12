@@ -114,4 +114,13 @@ export const config = {
     adminToken:   process.env.ALERT_WA_TOKEN   ?? "",
     adminPhone:   process.env.ALERT_WA_TO      ?? "",
   },
+  sentry: {
+    // Sin DSN, Sentry queda apagado y no molesta en local (#58).
+    dsn: process.env.SENTRY_DSN ?? "",
+    // Separa beta de producción en el dashboard. Si no se setea, cae en NODE_ENV.
+    environment: process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV ?? "development",
+    // Fracción de transacciones con trazas de performance. 0 = solo errores,
+    // que es lo que se necesita hoy y no consume la cuota gratis.
+    tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? 0),
+  },
 };
