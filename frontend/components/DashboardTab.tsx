@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { getToken } from "@/lib/auth";
 import { DentalQuoteTab } from "./DentalQuoteTab";
+import { PatientAutocomplete } from "./PatientAutocomplete";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -404,6 +405,10 @@ function QuickQuoteModal({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState<"form" | "quote">("form");
   const [name, setName] = useState("");
   const [rut,  setRut]  = useState("");
+  // Acá el autocompletar no es solo comodidad: el presupuesto se enlaza a la
+  // ficha por RUT, así que uno tipeado distinto (o en blanco) deja el
+  // presupuesto colgando de nadie en vez de sumarse al historial del paciente.
+  const [pacienteExistente, setPacienteExistente] = useState(false);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -424,11 +429,14 @@ function QuickQuoteModal({ onClose }: { onClose: () => void }) {
           <form onSubmit={submit} className="max-w-sm mx-auto flex flex-col gap-4 mt-6">
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1.5">Nombre del paciente *</label>
-              <input
+              <PatientAutocomplete
+                value={name}
+                seleccionado={pacienteExistente}
+                inputClassName="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                 autoFocus
-                value={name} onChange={(e) => setName(e.target.value)}
-                placeholder="Ej: María González"
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                onChange={setName}
+                onSelect={(p) => { setName(p.name); setRut(p.rut ?? ""); setPacienteExistente(true); }}
+                onClear={() => { setName(""); setRut(""); setPacienteExistente(false); }}
               />
             </div>
             <div>
@@ -436,8 +444,16 @@ function QuickQuoteModal({ onClose }: { onClose: () => void }) {
               <input
                 value={rut} onChange={(e) => setRut(e.target.value)}
                 placeholder="12.345.678-9"
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                readOnly={pacienteExistente}
+                className={`w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+                  pacienteExistente ? "bg-gray-50 text-gray-500" : ""
+                }`}
               />
+              {pacienteExistente && !rut && (
+                <p className="text-[11px] text-amber-700 mt-1">
+                  Este paciente no tiene RUT guardado: el presupuesto no va a quedar enlazado a su ficha.
+                </p>
+              )}
             </div>
             <button type="submit" disabled={!name.trim()}
               className="w-full py-2.5 rounded-xl bg-[#1A5C7A] text-white text-sm font-bold hover:bg-[#0e4560] transition disabled:opacity-40">
