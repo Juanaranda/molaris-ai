@@ -7,6 +7,9 @@ import { useEffect, useState } from "react";
 function useTodayLabel() {
   const [label, setLabel] = useState("");
   useEffect(() => {
+    // A propósito: la fecha SOLO puede calcularse después de montar, si no
+    // queda congelada en la del build (la landing se prerenderiza estática).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLabel(new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long" }));
   }, []);
   return label;
@@ -21,6 +24,8 @@ function useWeekRangeLabel() {
     const saturday = new Date(monday);
     saturday.setDate(monday.getDate() + 5);
     const month = saturday.toLocaleDateString("es-CL", { month: "long" });
+    // Mismo caso que useTodayLabel: la semana solo se puede calcular tras montar.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLabel(`Lun ${monday.getDate()} — Sáb ${saturday.getDate()} ${month}`);
   }, []);
   return label;
