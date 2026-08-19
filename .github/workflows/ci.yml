@@ -27,7 +27,7 @@ jobs:
           NODE_ENV: test
 
   frontend:
-    name: Frontend — lint + build
+    name: Frontend — lint + tests + build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -43,6 +43,7 @@ jobs:
       # El lint va antes del build y bloquea: sin esto los errores se acumulan
       # en silencio (había 15 acumulados cuando se agregó este paso).
       - run: npm run lint
+      - run: npm test
       - run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: "1"
