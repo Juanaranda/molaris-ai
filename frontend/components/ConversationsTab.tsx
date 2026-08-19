@@ -45,6 +45,7 @@ export function ConversationsTab() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga de datos, no estado derivado
     if (!selectedId) { setDetail(null); return; }
     setLoadingDetail(true);
     getConversation(selectedId)

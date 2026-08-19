@@ -6,6 +6,7 @@ import type { AuthUser } from "@/lib/auth";
 import { DentalQuoteTab } from "./DentalQuoteTab";
 import { PatientAutocomplete } from "./PatientAutocomplete";
 import { invalidatePatientsCache } from "@/lib/patients";
+import { minutosDesdeInicioDeGrilla, esElTramoDeAhora } from "@/lib/agendaTime";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -61,6 +62,15 @@ const GRID_SLOTS = Array.from({ length: 21 }, (_, i) => {
   const totalMins = 9 * 60 + i * 30;
   return `${String(Math.floor(totalMins / 60)).padStart(2, "0")}:${totalMins % 60 === 0 ? "00" : "30"}`;
 });
+
+/** Un solo lee-el-reloj para la línea de "ahora": posición y etiqueta juntas. */
+function leerAhora(): { mins: number | null; label: string } {
+  const d = new Date();
+  return {
+    mins: minutosDesdeInicioDeGrilla(GRID_SLOTS, d),
+    label: `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`,
+  };
+}
 
 function getWorkHours(dateStr: string, workHours: Record<number, { start: number; end: number } | null>) {
   const dow = new Date(dateStr + "T12:00:00").getDay();
@@ -629,6 +639,17 @@ function AdminAgenda({
   // Arranca en "día" y el toggle sigue estando por si igual la quieren.
   // Se calcula en el inicializador (no en un efecto) para no pintar primero la
   // semana y saltar a día — ese parpadeo se ve peor que cualquiera de las dos.
+  // Se recalcula cada minuto: una línea de "ahora" que se queda congelada
+  // miente, y en una agenda eso es peor que no tenerla.
+  // Posición y etiqueta salen del mismo tick: si la etiqueta llamara a
+  // new Date() en el render, podría mostrar una hora distinta a la de la línea
+  // —y además leer el reloj durante el render arriesga desajustes de hidratación.
+  const [ahora, setAhora] = useState<{ mins: number | null; label: string }>(() => leerAhora());
+  useEffect(() => {
+    const id = setInterval(() => setAhora(leerAhora()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   const [viewMode, setViewMode] = useState<"week" | "day">(
     () => (typeof window !== "undefined" && window.innerWidth < 640 ? "day" : "week")
   );
@@ -964,10 +985,23 @@ function AdminAgenda({
                 const inWork = isInWorkHours(slot, wh);
                 const slotBookings = slotMap.get(slot) ?? [];
                 const isHour = slot.endsWith(":00");
+                // ahoraMin entra en la comparación solo para que la fila se
+                // repinte cuando avanza el minuto; la regla vive en lib/agendaTime.
+                const esSlotDeAhora =
+                  ahora.mins !== null && selectedDate === todayStr && esElTramoDeAhora(slot, GRID_SLOTS);
                 return (
-                  <div key={slot} className={`flex min-h-[44px] border-b border-gray-50 last:border-b-0 transition-colors ${
+                  <div key={slot} className={`relative flex min-h-[44px] border-b border-gray-50 last:border-b-0 transition-colors ${
                     inWork ? "bg-white" : "bg-gray-50/70"
                   }`}>
+                    {esSlotDeAhora && (
+                      <div className="pointer-events-none absolute left-0 right-0 top-0 flex items-center z-10" aria-hidden="true">
+                        <span className="w-14 shrink-0 pr-1.5 text-right text-[9px] font-black text-red-500 tabular-nums">
+                          {ahora.label}
+                        </span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                        <span className="flex-1 h-px bg-red-500/70" />
+                      </div>
+                    )}
                     {/* Time label */}
                     <div className={`w-14 shrink-0 flex items-start justify-end pr-3 pt-2 ${
                       isHour ? "text-[11px] font-bold text-gray-500" : "text-[10px] text-gray-300"

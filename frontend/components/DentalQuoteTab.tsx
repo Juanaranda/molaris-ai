@@ -387,7 +387,7 @@ function AddItemForm({
           <div>
             <p className="text-[11px] font-bold text-amber-700">Prestación por boca completa</p>
             <p className="text-[10px] text-amber-600 mt-0.5">
-              "{selectedPreset?.name}" se realiza una sola vez, no por pieza.
+              &quot;{selectedPreset?.name}&quot; se realiza una sola vez, no por pieza.
               Usa el botón de abajo para agregarla correctamente.
             </p>
           </div>
@@ -1077,6 +1077,7 @@ export function DentalQuoteTab({
   useEffect(() => {
     const token = getToken();
     if (!token) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga de datos, no estado derivado
     setLoading(true);
     const url = patient.rut
       ? `${API}/api/dental-quotes?patientRut=${encodeURIComponent(patient.rut)}`

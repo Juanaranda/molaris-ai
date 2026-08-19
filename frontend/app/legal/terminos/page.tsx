@@ -54,7 +54,7 @@ function LegalContent() {
           molari.ai es una plataforma de asistente virtual con inteligencia artificial diseñada para clínicas dentales. Permite automatizar la atención inicial de pacientes a través de canales digitales (web y WhatsApp), facilitar el agendamiento de citas y gestionar leads de manera eficiente.
         </p>
         <p>
-          El servicio es provisto por molari.ai, con domicilio en Santiago, Chile, a clínicas dentales que se registran como clientes ("la Clínica").
+          El servicio es provisto por molari.ai, con domicilio en Santiago, Chile, a clínicas dentales que se registran como clientes (&quot;la Clínica&quot;).
         </p>
       </Section>
 

@@ -51,7 +51,7 @@ function PrivacyContent() {
     <div>
       <Section title="1. Responsable del tratamiento">
         <p>
-          molari.ai (en adelante "molari.ai", "nosotros" o "el Proveedor") opera la plataforma de asistente virtual para clínicas dentales disponible en molari.ai. Esta Política describe cómo tratamos los datos personales en el contexto de la prestación de nuestros servicios.
+          molari.ai (en adelante &quot;molari.ai&quot;, &quot;nosotros&quot; o &quot;el Proveedor&quot;) opera la plataforma de asistente virtual para clínicas dentales disponible en molari.ai. Esta Política describe cómo tratamos los datos personales en el contexto de la prestación de nuestros servicios.
         </p>
         <p>
           molari.ai actúa como <strong>encargado del tratamiento</strong> de los datos de pacientes, en nombre de las clínicas que contratan el servicio (responsables del tratamiento). Para los datos de los usuarios administradores de la plataforma, molari.ai actúa como responsable.

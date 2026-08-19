@@ -60,6 +60,9 @@ export function AvailabilityPicker({ service, doctorFilter, preferredDate, color
 
   useEffect(() => {
     const controller = new AbortController();
+    // Marcar "cargando" antes del fetch es sincronizar la UI con un sistema
+    // externo; la regla apunta a estado derivado, no a esto.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setSelectedSlot(null);
     const params = new URLSearchParams({ weekStart });

@@ -5,6 +5,7 @@ import {
   WaitlistEntry,
   listWaitlist, addToWaitlist, updateWaitlistEntry, removeWaitlistEntry,
 } from "@/lib/waitlist";
+import { PatientAutocomplete } from "./PatientAutocomplete";
 
 interface Props {
   clinicId: string;
@@ -176,6 +177,10 @@ function AddModal({ clinicId, onClose, onAdded }: {
   const [notes,   setNotes]   = useState("");
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState("");
+  // La lista de espera es casi siempre gente que ya vino: se elige de la ficha
+  // en vez de retipear nombre y teléfono (y de paso el teléfono llega bien, que
+  // es de lo que depende el aviso por WhatsApp cuando se libera el cupo).
+  const [pacienteExistente, setPacienteExistente] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -208,11 +213,27 @@ function AddModal({ clinicId, onClose, onAdded }: {
         <form onSubmit={submit} className="p-5 flex flex-col gap-3 overflow-y-auto">
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Nombre *</label>
-            <input autoFocus value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+            <PatientAutocomplete
+              value={name}
+              seleccionado={pacienteExistente}
+              inputClassName={inputCls}
+              autoFocus
+              onChange={setName}
+              onSelect={(p) => { setName(p.name); setPhone(p.phone ?? ""); setPacienteExistente(true); }}
+              onClear={() => { setName(""); setPhone(""); setPacienteExistente(false); }}
+            />
           </div>
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Teléfono *</label>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+56912345678" className={inputCls} />
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+56912345678"
+              className={inputCls} />
+            {pacienteExistente && !phone.trim() && (
+              // Sin teléfono el aviso de cupo no llega a ninguna parte, así que
+              // conviene decirlo acá y no al apretar guardar.
+              <p className="text-[11px] text-amber-700 mt-1">
+                Este paciente no tiene teléfono guardado. Escríbelo para poder avisarle.
+              </p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
