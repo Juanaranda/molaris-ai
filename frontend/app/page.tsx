@@ -341,17 +341,17 @@ export default function Home() {
             <div>
               <span className="inline-flex items-center gap-2 text-xs font-bold px-4 py-1.5 rounded-full mb-5 animate-fade-up" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A", border: "1px solid rgba(26,92,122,0.2)" }}>
                 <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#D95F45" }} />
-                Software de gestión dental · con recepcionista IA 24/7
+                Software de gestión dental · con recepción IA 24/7
               </span>
 
               <h1 className="font-display text-3xl sm:text-5xl font-bold leading-[1.1] tracking-tight mb-4 text-balance animate-fade-up animate-fade-up-delay-1">
                 Tu clínica completa.<br />
                 {/* Espacio duro: evita que "duerme." quede huérfano al envolver en móvil. */}
-                <span style={{ color: "#D95F45" }}>Y una recepcionista que nunca&nbsp;duerme.</span>
+                <span style={{ color: "#D95F45" }}>Y una recepción que nunca&nbsp;duerme.</span>
               </h1>
 
               <p className="text-base max-w-md mb-6 animate-fade-up animate-fade-up-delay-2" style={{ color: "#607281" }}>
-                molari.ai es tu clínica completa en un solo lugar: agenda, ficha clínica, odontograma, pagos y analytics. Y además, una recepcionista con IA que responde a tus pacientes en WhatsApp y tu web, agenda citas y hace el seguimiento — 24/7.
+                molari.ai es tu clínica completa en un solo lugar: agenda, ficha clínica, odontograma, pagos y analytics. Y además, una recepción con IA que responde a tus pacientes en WhatsApp y tu web, agenda citas y hace el seguimiento — 24/7.
               </p>
 
               {/* Un solo CTA primario por sección; el secundario va discreto (outline). */}
@@ -442,41 +442,39 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FOTOS — clínica moderna, doctor y tecnología (elegidas por Juan; Unsplash License) */}
-      <section style={{ backgroundColor: "#F7F5F1" }}>
+      {/* TRANSICIÓN VISUAL — una sola foto, fundida con el fondo, como en
+          PLATFORMS y CÓMO FUNCIONA. Antes acá había un collage de tres fotos
+          sueltas sin título: se leía como relleno porque no decía nada. Una
+          foto con una frase encima sí sostiene el paso de "estos son tus
+          problemas" a "esto es lo que hace molari". */}
+      <section className="relative overflow-hidden" style={{ backgroundColor: "#F7F5F1" }}>
         <div className="max-w-5xl mx-auto px-6 sm:px-10 pb-14 sm:pb-20">
           <AnimateIn>
-            <div className="grid grid-cols-2 sm:grid-cols-3 sm:grid-rows-2 gap-3 sm:gap-4 sm:h-[430px]">
-              <div className="relative col-span-2 sm:row-span-2 h-64 sm:h-auto rounded-3xl overflow-hidden">
-                <Image
-                  src="/photos/dentista-paciente.jpg"
-                  alt="Dentista conversando con una paciente en una clínica moderna"
-                  fill
-                  sizes="(max-width: 640px) 100vw, 60vw"
-                  className="object-cover"
-                />
-                <div className="absolute bottom-4 left-4 flex items-center gap-2 px-4 py-2 rounded-full shadow-sm" style={{ backgroundColor: "rgba(253,252,251,0.94)" }}>
-                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#D95F45" }} />
-                  <span className="text-xs font-bold" style={{ color: "#0B2F42" }}>Tu equipo atiende — molari responde</span>
-                </div>
-              </div>
-              <div className="relative h-40 sm:h-auto rounded-3xl overflow-hidden">
-                <Image
-                  src="/photos/box-moderno.jpg"
-                  alt="Box de atención dental moderno"
-                  fill
-                  sizes="(max-width: 640px) 50vw, 30vw"
-                  className="object-cover"
-                />
-              </div>
-              <div className="relative h-40 sm:h-auto rounded-3xl overflow-hidden">
-                <Image
-                  src="/photos/radiografias.jpg"
-                  alt="Dentista examinando radiografías en un panel de luz"
-                  fill
-                  sizes="(max-width: 640px) 50vw, 30vw"
-                  className="object-cover"
-                />
+            <div className="relative rounded-3xl overflow-hidden" style={{ backgroundColor: "#0B2F42" }}>
+              <Image
+                src="/photos/dentista-paciente.jpg"
+                alt=""
+                aria-hidden
+                width={1600}
+                height={900}
+                sizes="(max-width: 640px) 100vw, 900px"
+                className="w-full h-64 sm:h-[340px] object-cover"
+                style={{ opacity: 0.55, objectPosition: "center 30%" }}
+              />
+              {/* Degradado desde abajo: el texto necesita contraste propio, no
+                  depender de qué tan clara sea la zona de la foto que toque. */}
+              <div
+                aria-hidden
+                className="absolute inset-0"
+                style={{ background: "linear-gradient(to top, rgba(11,47,66,0.92) 0%, rgba(11,47,66,0.45) 45%, rgba(11,47,66,0.1) 100%)" }}
+              />
+              <div className="absolute inset-x-0 bottom-0 p-6 sm:p-10">
+                <p className="text-xs font-bold uppercase tracking-[0.15em] mb-2" style={{ color: "#F2A28C" }}>
+                  Mientras tú atiendes
+                </p>
+                <p className="font-display text-xl sm:text-3xl font-bold text-white max-w-lg leading-snug">
+                  Tú en el box. molari respondiendo, agendando y haciendo el seguimiento.
+                </p>
               </div>
             </div>
           </AnimateIn>
