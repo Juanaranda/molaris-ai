@@ -8,6 +8,7 @@ import {
   updateSiiConfig, verifySii, SiiConfigUpdate,
   updateWhatsappConfig, verifyWhatsapp,
 } from "@/lib/integrations";
+import { Check, CreditCard, MessageCircle, Receipt } from "lucide-react";
 
 interface Props {
   clinicId: string;
@@ -52,7 +53,7 @@ export function IntegrationsSection({ clinicId }: Props) {
 /* ─── Status pill ──────────────────────────────────────────────────────── */
 function StatusPill({ verified }: { verified: boolean }) {
   return verified ? (
-    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">✓ Activo</span>
+    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700"><Check className="w-3.5 h-3.5 inline-block mr-1 align-[-2px]" aria-hidden />Activo</span>
   ) : (
     <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">○ Sin configurar</span>
   );
@@ -92,7 +93,7 @@ function MercadoPagoCard({ clinicId, verified, oauthAvailable, onChange }: { cli
     setVerify(true); setError(""); setMsg("");
     try {
       const user = await verifyMercadoPago(clinicId);
-      setMsg(`✓ Conectado como ${user.nickname ?? user.email ?? user.id}`);
+      setMsg(`Conectado como ${user.nickname ?? user.email ?? user.id}`);
       onChange();
     } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
     finally     { setVerify(false); }
@@ -102,7 +103,7 @@ function MercadoPagoCard({ clinicId, verified, oauthAvailable, onChange }: { cli
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
       <div className="flex items-center justify-between px-5 py-3 border-b border-gray-50">
         <div className="flex items-center gap-2">
-          <span className="text-lg">💳</span>
+          <span className="text-lg"><CreditCard className="w-4 h-4" aria-hidden /></span>
           <h4 className="text-sm font-bold text-gray-800">Mercado Pago — Pagos online</h4>
         </div>
         <StatusPill verified={verified} />
@@ -197,7 +198,7 @@ function SiiCard({
     setVerify(true); setError(""); setMsg("");
     try {
       const result = await verifySii(clinicId);
-      setMsg("✓ " + result.message);
+      setMsg("" + result.message);
       onChange();
     } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
     finally     { setVerify(false); }
@@ -207,7 +208,7 @@ function SiiCard({
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
       <div className="flex items-center justify-between px-5 py-3 border-b border-gray-50">
         <div className="flex items-center gap-2">
-          <span className="text-lg">🧾</span>
+          <span className="text-lg"><Receipt className="w-4 h-4" aria-hidden /></span>
           <h4 className="text-sm font-bold text-gray-800">SII / OpenFactura — Boleta electrónica</h4>
         </div>
         <StatusPill verified={sii.verified} />
@@ -314,7 +315,7 @@ function WhatsappCard({
     setVerify(true); setError(""); setMsg("");
     try {
       const num = await verifyWhatsapp(clinicId);
-      setMsg(`✓ Conectado: ${num.verifiedName ?? ""} ${num.displayPhone ?? ""}`.trim());
+      setMsg(`Conectado: ${num.verifiedName ?? ""} ${num.displayPhone ?? ""}`.trim());
       onChange();
     } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
     finally     { setVerify(false); }
@@ -324,7 +325,7 @@ function WhatsappCard({
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
       <div className="flex items-center justify-between px-5 py-3 border-b border-gray-50">
         <div className="flex items-center gap-2">
-          <span className="text-lg">💬</span>
+          <span className="text-lg"><MessageCircle className="w-4 h-4" aria-hidden /></span>
           <h4 className="text-sm font-bold text-gray-800">WhatsApp Meta — Mensajería</h4>
         </div>
         <StatusPill verified={verified} />

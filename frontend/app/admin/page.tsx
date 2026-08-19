@@ -10,6 +10,7 @@ import {
   deleteClinicAsAdmin,
   type PendingClinic,
 } from "@/lib/auth";
+import { Search, TriangleAlert } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -157,7 +158,7 @@ export default function AdminPage() {
     // Confirmación fuerte: hay que escribir el slug exacto. Evita borrar una
     // clínica real por un clic accidental. Acción irreversible (cascada).
     const typed = window.prompt(
-      `⚠️ Esto elimina la clínica "${c.name}" y TODOS sus datos (pacientes, citas, fichas, conversaciones). Es IRREVERSIBLE.\n\nEscribe el slug exacto para confirmar: ${c.slug}`
+   ` Esto elimina la clínica "${c.name}" y TODOS sus datos (pacientes, citas, fichas, conversaciones). Es IRREVERSIBLE.\n\nEscribe el slug exacto para confirmar: ${c.slug}`
     );
     if (typed === null) return;
     if (typed.trim() !== c.slug) { alert("El slug no coincide. No se eliminó nada."); return; }
@@ -233,7 +234,7 @@ export default function AdminPage() {
         {/* Alertas: agentes apagados (Issue #49/#50) */}
         {clinics.some((c) => !c.agentEnabled) && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-            <p className="text-sm font-bold text-red-700 mb-1">⚠️ Agentes apagados</p>
+            <p className="text-sm font-bold text-red-700 mb-1"><TriangleAlert className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Agentes apagados</p>
             <ul className="text-xs text-red-600 space-y-0.5">
               {clinics.filter((c) => !c.agentEnabled).map((c) => (
                 <li key={c.id}>
@@ -251,7 +252,7 @@ export default function AdminPage() {
           <div className="rounded-xl border border-amber-200 bg-amber-50 overflow-hidden">
             <div className="px-5 py-3 border-b border-amber-200 flex items-center justify-between">
               <p className="text-sm font-bold text-amber-800">
-                🔍 Clínicas por revisar
+                <Search className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Clínicas por revisar
                 <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-200 text-amber-800">{pending.length}</span>
               </p>
               <p className="text-xs text-amber-700">Verificación manual de identidad profesional</p>

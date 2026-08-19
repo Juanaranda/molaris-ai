@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { AuthUser, updateMe, CLINICAL_ROLE_LABELS } from "@/lib/auth";
+import { Stethoscope } from "lucide-react";
 
 interface Props {
   user: AuthUser;
@@ -158,7 +159,7 @@ export function MyProfileTab({ user, onUpdate }: Props) {
               <p className="text-sm text-gray-600 mb-0.5">{user.occupation}</p>
             )}
             {user.clinicalRole && (
-              <p className="text-[11px] text-teal-700 font-semibold mt-0.5">🩺 {CLINICAL_ROLE_LABELS[user.clinicalRole]}</p>
+              <p className="text-[11px] text-teal-700 font-semibold mt-0.5"><Stethoscope className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> {CLINICAL_ROLE_LABELS[user.clinicalRole]}</p>
             )}
             <p className="text-xs text-gray-400">{user.email}</p>
             {user.photoUrl && (

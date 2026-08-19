@@ -10,6 +10,7 @@ import { StandardOdontogram } from "@/components/StandardOdontogram";
 import { ToothFrontView } from "@/components/ToothFrontView";
 import { toothTypeOf, isUpperFdi } from "@/lib/tooth";
 import { ToothSurfaceWheel } from "@/components/ToothSurfaceWheel";
+import { ArrowUpDown, X } from "lucide-react";
 
 interface Props {
   patientId: string;
@@ -485,7 +486,7 @@ function FindingsTable({
           <button onClick={() => setOrden((o) => (o === "pieza" ? "fecha" : "pieza"))}
             className="text-[11px] font-bold px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:border-gray-300 transition"
             title="Cambiar el orden de la tabla">
-            {orden === "pieza" ? "↕ Por pieza" : "↕ Por fecha"}
+   {orden === "pieza" ? " Por pieza" : " Por fecha"}
           </button>
         </div>
       </div>
@@ -605,7 +606,7 @@ function AddEventModal({ toothFDI, patientId, catalog, initialSurfaces = [], onC
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <h3 className="text-sm font-bold text-gray-800">Registrar evento — {etiquetaSitio(toothFDI, catalog.sites)}</h3>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg leading-none">✕</button>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg leading-none"><X className="w-4 h-4" aria-hidden /></button>
         </div>
 
         <form onSubmit={submit} className="p-5 flex flex-col gap-3">

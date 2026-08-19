@@ -6,6 +6,7 @@ import { createBookingPaymentLink } from "@/lib/payments";
 import { emitBoletaForBooking } from "@/lib/boletas";
 import { WaitlistManager } from "@/components/WaitlistManager";
 import { LabOrdersManager } from "@/components/LabOrdersManager";
+import { CircleCheck, CreditCard, Receipt, Smile, X } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -134,7 +135,7 @@ export function BookingsTab({ clinicId }: Props) {
         <button onClick={() => setShowLab(true)}
           className="text-xs font-bold px-3 py-1.5 rounded-xl border border-violet-200 bg-violet-50 text-violet-800 hover:bg-violet-100 transition flex items-center gap-1.5"
           title="Órdenes de laboratorio">
-          🦷 Laboratorio
+          <Smile className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Laboratorio
         </button>
         <button onClick={() => setShowWaitlist(true)}
           className="text-xs font-bold px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 transition flex items-center gap-1.5"
@@ -251,14 +252,14 @@ export function BookingsTab({ clinicId }: Props) {
                               className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-full hover:bg-blue-100 transition-colors"
                               title="Generar link de pago Mercado Pago"
                             >
-                              💳 Cobrar
+                              <CreditCard className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Cobrar
                             </button>
                             <button
                               onClick={() => setBoletaModal({ booking: b })}
                               className="text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-100 px-2.5 py-1 rounded-full hover:bg-violet-100 transition-colors"
                               title="Emitir boleta electrónica SII"
                             >
-                              🧾 Boleta
+                              <Receipt className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Boleta
                             </button>
                             <button
                               onClick={() => updateStatus(b.id, "cancelled")}
@@ -373,7 +374,7 @@ function PaymentLinkModal({ booking, onClose }: PaymentLinkModalProps) {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <h3 className="text-sm font-bold text-gray-800">Generar link de pago</h3>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg leading-none">✕</button>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg leading-none"><X className="w-4 h-4" aria-hidden /></button>
         </div>
 
         {!link ? (
@@ -405,7 +406,7 @@ function PaymentLinkModal({ booking, onClose }: PaymentLinkModalProps) {
         ) : (
           <div className="p-5 flex flex-col gap-4">
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-sm text-emerald-800">
-              ✅ Link generado. Compártelo con el paciente.
+              <CircleCheck className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Link generado. Compártelo con el paciente.
             </div>
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-col gap-2">
               <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Link de pago</p>
@@ -415,7 +416,7 @@ function PaymentLinkModal({ booking, onClose }: PaymentLinkModalProps) {
               <div className="flex gap-2">
                 <button onClick={copy}
                   className="flex-1 text-xs font-bold px-3 py-2 rounded-lg bg-amber-700 text-white hover:bg-amber-800 transition">
-                  {copied ? "✓ Copiado" : "Copiar"}
+                  {copied ? "Copiado" : "Copiar"}
                 </button>
                 {wa && (
                   <a href={wa} target="_blank" rel="noopener noreferrer"
@@ -481,7 +482,7 @@ function BoletaModal({ booking, onClose }: BoletaModalProps) {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <h3 className="text-sm font-bold text-gray-800">Emitir boleta electrónica</h3>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg leading-none">✕</button>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg leading-none"><X className="w-4 h-4" aria-hidden /></button>
         </div>
 
         {!result ? (
@@ -523,7 +524,7 @@ function BoletaModal({ booking, onClose }: BoletaModalProps) {
         ) : (
           <div className="p-5 flex flex-col gap-4">
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-sm text-emerald-800">
-              ✅ Boleta emitida correctamente {result.folio ? `(folio #${result.folio})` : ""}
+              <CircleCheck className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Boleta emitida correctamente {result.folio ? `(folio #${result.folio})` : ""}
             </div>
             <div className="bg-gray-50 rounded-xl p-3 grid grid-cols-2 gap-3 text-sm">
               <div><p className="text-[10px] text-gray-400">Folio</p><p className="font-bold text-gray-800">{result.folio ?? "—"}</p></div>

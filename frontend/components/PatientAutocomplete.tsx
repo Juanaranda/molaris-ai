@@ -9,6 +9,7 @@ import {
   normalizar,
   type PatientSuggestion,
 } from "@/lib/patients";
+import { X } from "lucide-react";
 
 /**
  * Campo de nombre con sugerencias de pacientes ya registrados (pedido de Juan:
@@ -143,9 +144,7 @@ export function PatientAutocomplete({
           onClick={onClear}
           aria-label="Quitar paciente y escribir otro"
           className="shrink-0 w-9 h-9 rounded-full text-gray-400 hover:text-gray-700 hover:bg-white/80 transition flex items-center justify-center text-base"
-        >
-          ✕
-        </button>
+        ><X className="w-4 h-4" aria-hidden /></button>
       </div>
     );
   }

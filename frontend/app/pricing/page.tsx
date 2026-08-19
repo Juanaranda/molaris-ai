@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Check } from "lucide-react";
 
 const PLANS = [
   {
@@ -9,7 +10,7 @@ const PLANS = [
     description: "Para el dentista independiente. Menos que una consulta particular.",
     highlight: false,
     features: [
-      "Recepcionista IA en WhatsApp y web",
+      "Recepción IA en WhatsApp y web",
       "Agenda personal + recordatorios",
       "Ficha clínica + odontograma",
       "Pacientes y pagos",
@@ -26,7 +27,7 @@ const PLANS = [
     description: "Para la clínica que recién se digitaliza.",
     highlight: false,
     features: [
-      "Recepcionista IA en tu sitio web",
+      "Recepción IA en tu sitio web",
       "Agenda por profesional",
       "Ficha clínica + odontograma",
       "Recordatorios automáticos de cita",
@@ -44,7 +45,7 @@ const PLANS = [
     highlight: true,
     features: [
       "Todo lo de Esencial",
-      "Recepcionista IA en WhatsApp Business",
+      "Recepción IA en WhatsApp Business",
       "Recall automático + lista de espera",
       "Pagos online y boleta electrónica SII",
       "Dashboard de gestión + scoring de pacientes",
@@ -157,7 +158,7 @@ export default function PricingPage() {
               <ul className="space-y-3 flex-1 mb-8">
                 {plan.features.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-sm text-gray-700">
-                    <span className="text-blue-500 mt-0.5">✓</span>
+                    <span className="text-blue-500 mt-0.5"><Check className="w-3 h-3" aria-hidden /></span>
                     {f}
                   </li>
                 ))}

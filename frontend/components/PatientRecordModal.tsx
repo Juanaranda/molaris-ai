@@ -9,6 +9,7 @@ import {
 import { OdontogramPanel } from "@/components/OdontogramPanel";
 import { AnamnesisPanel } from "@/components/AnamnesisPanel";
 import { ConsentsPanel } from "@/components/ConsentsPanel";
+import { Check, Mail, MapPin, Phone, Stethoscope, TriangleAlert, X } from "lucide-react";
 
 interface Props {
   patientId: string;
@@ -91,19 +92,19 @@ export function PatientRecordView({
                 {/* El teléfono y el correo pueden venir de la identidad o del
                     paciente: no todos tienen ficha de identidad completa. */}
                 {(record?.identity?.phone ?? record?.patient.phone) && (
-                  <span>📞 {record?.identity?.phone ?? record?.patient.phone}</span>
+                  <span><Phone className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> {record?.identity?.phone ?? record?.patient.phone}</span>
                 )}
                 {(record?.identity?.email ?? record?.patient.email) && (
-                  <span className="truncate">✉ {record?.identity?.email ?? record?.patient.email}</span>
+                  <span className="truncate"><Mail className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> {record?.identity?.email ?? record?.patient.email}</span>
                 )}
               </div>
               {/* Quién lo atiende y dónde — sin esto hay que salir a buscarlo */}
               {record?.lastVisit && (
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-white/60 mt-1">
                   {record.lastVisit.doctor && record.lastVisit.doctor !== "Sin asignar" && (
-                    <span>🩺 {record.lastVisit.doctor}</span>
+                    <span><Stethoscope className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> {record.lastVisit.doctor}</span>
                   )}
-                  {record.lastVisit.sede && <span>📍 {record.lastVisit.sede}</span>}
+                  {record.lastVisit.sede && <span><MapPin className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> {record.lastVisit.sede}</span>}
                   <span>
                     Última atención {new Date(record.lastVisit.date).toLocaleDateString("es-CL", {
                       day: "numeric", month: "short", year: "numeric",
@@ -117,7 +118,7 @@ export function PatientRecordView({
             {record && record.alerts.length > 0 && (
               <div className="flex flex-wrap gap-1.5 max-w-sm">
                 {record.alerts.map((a, i) => (
-                  <span key={i} className="text-[11px] font-bold text-amber-950 bg-amber-300 px-2.5 py-1 rounded-full">⚠ {a}</span>
+                  <span key={i} className="text-[11px] font-bold text-amber-950 bg-amber-300 px-2.5 py-1 rounded-full"><TriangleAlert className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> {a}</span>
                 ))}
               </div>
             )}
@@ -133,7 +134,7 @@ export function PatientRecordView({
               )}
             </div>
             {onClose && (
-              <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-700 text-lg leading-none">✕</button>
+              <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-700 text-lg leading-none"><X className="w-4 h-4" aria-hidden /></button>
             )}
           </div>
           {record && record.alerts.length > 0 && (
@@ -322,7 +323,7 @@ function ResumenTab({ record, patientId, onRefresh }: { record: ClinicalRecord; 
             </label>
           )}
           {!editing && pu.marketingImagesConsent && (
-            <p className="mt-3 text-[11px] text-emerald-600">✓ Autoriza uso de imágenes con fines de marketing</p>
+            <p className="mt-3 text-[11px] text-emerald-600"><Check className="w-3.5 h-3.5 inline-block mr-1 align-[-2px]" aria-hidden />Autoriza uso de imágenes con fines de marketing</p>
           )}
         </div>
       )}
@@ -616,7 +617,7 @@ function AddNoteModal({ patientId, onClose, onCreated }: { patientId: string; on
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
           <h3 className="text-sm font-bold text-gray-800">Nueva nota clínica</h3>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg">✕</button>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg"><X className="w-4 h-4" aria-hidden /></button>
         </div>
         <form onSubmit={submit} className="p-5 flex flex-col gap-3 overflow-y-auto">
           <div>

@@ -7,6 +7,7 @@ import {
   getActiveTemplate, listAnamnesisResponses, submitAnamnesisResponse,
   SECTION_LABELS,
 } from "@/lib/anamnesis";
+import { TriangleAlert } from "lucide-react";
 
 interface Props {
   patientId: string;
@@ -119,7 +120,7 @@ export function AnamnesisPanel({ patientId }: Props) {
       {activeRedFlags.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
           <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 mb-2">
-            ⚠️ Alertas críticas ({activeRedFlags.length})
+            <TriangleAlert className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Alertas críticas ({activeRedFlags.length})
           </p>
           <div className="flex flex-wrap gap-1.5">
             {activeRedFlags.map((f) => (
@@ -183,7 +184,7 @@ function QuestionField({ q, value, editing, onChange }: {
       <div className="flex-1 min-w-0">
         <p className="text-sm text-gray-800 flex items-center gap-1.5">
           {q.label}
-          {q.redFlag && <span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">⚠️</span>}
+          {q.redFlag && <span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded"><TriangleAlert className="w-4 h-4" aria-hidden /></span>}
         </p>
         {editing ? (
           q.type === "boolean" ? (
@@ -220,7 +221,7 @@ function QuestionField({ q, value, editing, onChange }: {
           )
         ) : (
           <p className="text-xs text-gray-500 mt-0.5">
-            {value === true ? "✓ Sí"
+            {value === true ? "Sí"
              : value === false ? "No"
              : value === null || value === undefined || value === "" ? <span className="text-gray-300">—</span>
              : Array.isArray(value) ? value.join(", ")

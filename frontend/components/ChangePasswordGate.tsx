@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { changePassword, logout } from "@/lib/auth";
+import { Eye, EyeOff } from "lucide-react";
 
 interface Props {
   onSuccess: () => void;
@@ -75,7 +76,7 @@ export function ChangePasswordGate({ onSuccess }: Props) {
             label="Confirma nueva contraseña"
             value={confirm}
             onChange={setConfirm}
-            hint={confirm.length > 0 && !matches ? "No coinciden" : (matches && validLength ? "✓ Coinciden" : undefined)}
+            hint={confirm.length > 0 && !matches ? "No coinciden" : (matches && validLength ? "Coinciden" : undefined)}
             hintError={confirm.length > 0 && !matches}
             hintOk={matches && validLength}
           />
@@ -128,7 +129,7 @@ function PasswordField({ label, value, onChange, autoFocus, hint, hintError, hin
         />
         <button type="button" onClick={() => setShown((v) => !v)}
           className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-600">
-          {shown ? "🙈" : "👁"}
+          {shown ? <EyeOff className="w-4 h-4" aria-hidden /> : <Eye className="w-4 h-4" aria-hidden />}
         </button>
       </div>
       {hint && (

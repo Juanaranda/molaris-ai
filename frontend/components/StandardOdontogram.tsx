@@ -6,6 +6,7 @@ import { ToothSurfaceChart } from "@/components/ToothSurfaceChart";
 import { ToothFrontView } from "@/components/ToothFrontView";
 import { toothTypeOf, isUpperFdi, getArchRows, type DentitionType } from "@/lib/tooth";
 import { CONDITION_TO_STATE, surfacePaintFor, conditionLabel } from "@/lib/odontogramPaint";
+import { Check } from "lucide-react";
 
 /**
  * Odontograma estándar — vista simple y profesional (Issue #43).
@@ -446,7 +447,7 @@ function ToothCell({ fdi, proj, isMissing, isSelected, isHighlighted, onSelect, 
         {/* Badge de prestación agregada (presupuesto) */}
         {showHighlight && (
           <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center w-3.5 h-3.5 rounded-full bg-emerald-500 text-white text-[8px] font-black ring-1 ring-white pointer-events-none">
-            ✓
+           
           </span>
         )}
       </div>
@@ -564,7 +565,7 @@ function AnatomicalToothColumn({
           {itemCount}
         </span>
       ) : showHighlight && (
-        <span className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500 text-white text-[9px] font-black ring-2 ring-white pointer-events-none">✓</span>
+        <span className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500 text-white text-[9px] font-black ring-2 ring-white pointer-events-none"><Check className="w-3 h-3" aria-hidden /></span>
       )}
     </button>
   );

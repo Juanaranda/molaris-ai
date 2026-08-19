@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { AuthUser } from "@/lib/auth";
+import { Mail } from "lucide-react";
 
 /**
  * Recordatorio para quien postergó confirmar su correo (#66). No bloquea el
@@ -22,7 +23,7 @@ export function EmailVerificationBanner({ user }: { user: AuthUser | null }) {
       className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border px-4 py-3 text-sm"
       style={{ backgroundColor: "#FFF8E8", borderColor: "#F0C67C", color: "#7A5200" }}
     >
-      <span className="text-base leading-none">✉️</span>
+      <span className="text-base leading-none"><Mail className="w-4 h-4" aria-hidden /></span>
       <span className="flex-1 min-w-[14rem]">
         Tu correo <strong>{user.email}</strong> todavía no está confirmado. Sin
         esto no podemos ayudarte a recuperar tu contraseña.

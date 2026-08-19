@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState, useEffect, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { resetPassword } from "@/lib/auth";
+import { Check } from "lucide-react";
 
 function PasswordInput({ value, onChange, placeholder, style }: {
   value: string; onChange: (v: string) => void; placeholder?: string; style: React.CSSProperties;
@@ -78,8 +79,7 @@ export default function ResetPasswordPage() {
                 Enlace inválido. Pide uno nuevo desde <Link href="/login" className="font-semibold underline">Iniciar sesión</Link>.
               </p>
             ) : done ? (
-              <p className="text-sm rounded-xl px-4 py-3 text-center" style={{ color: "#1A5C7A", backgroundColor: "#E8F3F7" }}>
-                ✓ Contraseña actualizada. Te llevamos al inicio de sesión…
+              <p className="text-sm rounded-xl px-4 py-3 text-center" style={{ color: "#1A5C7A", backgroundColor: "#E8F3F7" }}><Check className="w-3.5 h-3.5 inline-block mr-1 align-[-2px]" aria-hidden />Contraseña actualizada. Te llevamos al inicio de sesión…
               </p>
             ) : (
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">

@@ -7,6 +7,7 @@ import { DentalQuoteTab } from "./DentalQuoteTab";
 import { PatientAutocomplete } from "./PatientAutocomplete";
 import { invalidatePatientsCache } from "@/lib/patients";
 import { minutosDesdeInicioDeGrilla, esElTramoDeAhora } from "@/lib/agendaTime";
+import { X } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -212,7 +213,7 @@ function QuickQuoteModal({ patient, onClose }: {
           <h2 className="text-base font-black text-gray-900 leading-tight">{patient.name}</h2>
         </div>
         <button onClick={onClose}
-          className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500 shrink-0">✕</button>
+          className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500 shrink-0"><X className="w-4 h-4" aria-hidden /></button>
       </div>
       <div className="flex-1 overflow-y-auto p-4">
         <DentalQuoteTab patient={patient} />
@@ -272,7 +273,7 @@ function BookingModal({ booking, onClose, onSave, onCancel, onNewQuote }: {
               <PayPill status={booking.paymentStatus} />
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-black/5 hover:bg-black/10 transition flex items-center justify-center text-gray-500">✕</button>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-black/5 hover:bg-black/10 transition flex items-center justify-center text-gray-500"><X className="w-4 h-4" aria-hidden /></button>
         </div>
 
         {/* Tabs */}
@@ -468,7 +469,7 @@ function NewBookingModal({ doctors, initialDate, boxes, sedes = [], onClose, onC
         <div className="px-5 sm:px-6 py-4 border-b border-gray-50 flex items-center justify-between shrink-0 rounded-t-3xl sm:rounded-t-2xl bg-white">
           <h2 className="text-lg font-black text-gray-900">Nueva cita</h2>
           <button onClick={onClose} aria-label="Cerrar"
-            className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500">✕</button>
+            className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500"><X className="w-4 h-4" aria-hidden /></button>
         </div>
         {/* overflow-y-auto y no overflow-hidden: con el modal recortado, el
             desplegable de pacientes quedaba cortado por el borde inferior. */}

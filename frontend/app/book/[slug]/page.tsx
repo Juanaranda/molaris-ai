@@ -3,6 +3,7 @@
 import { useParams, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { getClinicBookingInfo, getAvailableSlots, getPrefillData, ClinicBookingInfo, DoctorSlots } from "@/lib/patient-auth";
+import { Check } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -59,7 +60,7 @@ function StepBar({ step }: { step: number }) {
               color: i <= step ? "white" : "#A0B0BC",
             }}
           >
-            {i < step ? "✓" : i + 1}
+            {i < step ? <Check className="w-3.5 h-3.5" aria-hidden /> : i + 1}
           </div>
           <span className="text-[10px] font-medium hidden sm:block" style={{ color: i === step ? "#0B2F42" : "#A0B0BC" }}>
             {label}

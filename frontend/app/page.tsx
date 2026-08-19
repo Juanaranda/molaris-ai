@@ -4,6 +4,8 @@ import { SalesChat } from "@/components/SalesChat";
 import { HeroShowcase } from "@/components/HeroShowcase";
 import { AnimateIn } from "@/components/AnimateIn";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
+import { Check, CircleCheck, Smile } from "lucide-react";
+import { AgentFlowDiagram } from "@/components/AgentFlowDiagram";
 
 /* Muestra el chat de Juan (agente comercial). Se lee en build: cambiarlo en
    Vercel exige redeploy, no basta con guardar la variable.
@@ -256,6 +258,22 @@ function ChatMockup({ header, headerBg, messages, inputBg, sendBg, label, sublab
 }
 
 /* ─── Page ─────────────────────────────────────────────────────────── */
+/**
+ * Clínica inventada para mostrar el diagrama del agente en la landing. Va con
+ * el rótulo "Ejemplo" a la vista: son datos de muestra, no los de un cliente.
+ * Los valores son de una clínica chica creíble, para que el visitante se
+ * reconozca en ellos.
+ */
+const CLINICA_DE_EJEMPLO = {
+  assistantName: "Sofía",
+  tone: "cercano y profesional",
+  doctors: [1, 2, 3],
+  services: [1, 2, 3, 4, 5, 6],
+  schedule: { weekdays: "Lunes a Viernes: 09:00 - 19:00" },
+  whatsapp: "569XXXXXXXX",
+  instagram: "@clinicaaurora",
+};
+
 export default function Home() {
   const problems = [
     { num: "01", title: "Mensajes sin respuesta", desc: "Pacientes que escriben por WhatsApp esperan horas sin respuesta — y se van a la clínica de al lado." },
@@ -341,17 +359,17 @@ export default function Home() {
             <div>
               <span className="inline-flex items-center gap-2 text-xs font-bold px-4 py-1.5 rounded-full mb-5 animate-fade-up" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A", border: "1px solid rgba(26,92,122,0.2)" }}>
                 <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#D95F45" }} />
-                Software de gestión dental · con recepcionista IA 24/7
+                Software de gestión dental · con recepción IA 24/7
               </span>
 
               <h1 className="font-display text-3xl sm:text-5xl font-bold leading-[1.1] tracking-tight mb-4 text-balance animate-fade-up animate-fade-up-delay-1">
                 Tu clínica completa.<br />
                 {/* Espacio duro: evita que "duerme." quede huérfano al envolver en móvil. */}
-                <span style={{ color: "#D95F45" }}>Y una recepcionista que nunca&nbsp;duerme.</span>
+                <span style={{ color: "#D95F45" }}>Y una recepción que nunca&nbsp;duerme.</span>
               </h1>
 
               <p className="text-base max-w-md mb-6 animate-fade-up animate-fade-up-delay-2" style={{ color: "#607281" }}>
-                molari.ai es tu clínica completa en un solo lugar: agenda, ficha clínica, odontograma, pagos y analytics. Y además, una recepcionista con IA que responde a tus pacientes en WhatsApp y tu web, agenda citas y hace el seguimiento — 24/7.
+                molari.ai es tu clínica completa en un solo lugar: agenda, ficha clínica, odontograma, pagos y analytics. Y además, una recepción con IA que responde a tus pacientes en WhatsApp y tu web, agenda citas y hace el seguimiento — 24/7.
               </p>
 
               {/* Un solo CTA primario por sección; el secundario va discreto (outline). */}
@@ -399,7 +417,7 @@ export default function Home() {
               { icon: <IconCalendar />, value: "Agenda incluida", label: "Calendario por profesional, sin pagar otra herramienta" },
               { icon: <IconTooth />, value: "Ficha clínica", label: "Notas, planes de tratamiento, odontograma y pagos" },
               { icon: <IconChart />, value: "Analytics en vivo", label: "Ingresos, leads, conversión y rendimiento por doctor" },
-              { icon: <IconBot />, value: "Y además: IA 24/7", label: "Recepcionista que atiende sola en WhatsApp y tu web" },
+              { icon: <IconBot />, value: "Y además: IA 24/7", label: "Recepción que atiende sola en WhatsApp y tu web" },
             ].map((s, i) => (
               <AnimateIn key={s.value} delay={i * 90}>
                 <div className="flex flex-col gap-3">
@@ -442,41 +460,39 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FOTOS — clínica moderna, doctor y tecnología (elegidas por Juan; Unsplash License) */}
-      <section style={{ backgroundColor: "#F7F5F1" }}>
+      {/* TRANSICIÓN VISUAL — una sola foto, fundida con el fondo, como en
+          PLATFORMS y CÓMO FUNCIONA. Antes acá había un collage de tres fotos
+          sueltas sin título: se leía como relleno porque no decía nada. Una
+          foto con una frase encima sí sostiene el paso de "estos son tus
+          problemas" a "esto es lo que hace molari". */}
+      <section className="relative overflow-hidden" style={{ backgroundColor: "#F7F5F1" }}>
         <div className="max-w-5xl mx-auto px-6 sm:px-10 pb-14 sm:pb-20">
           <AnimateIn>
-            <div className="grid grid-cols-2 sm:grid-cols-3 sm:grid-rows-2 gap-3 sm:gap-4 sm:h-[430px]">
-              <div className="relative col-span-2 sm:row-span-2 h-64 sm:h-auto rounded-3xl overflow-hidden">
-                <Image
-                  src="/photos/dentista-paciente.jpg"
-                  alt="Dentista conversando con una paciente en una clínica moderna"
-                  fill
-                  sizes="(max-width: 640px) 100vw, 60vw"
-                  className="object-cover"
-                />
-                <div className="absolute bottom-4 left-4 flex items-center gap-2 px-4 py-2 rounded-full shadow-sm" style={{ backgroundColor: "rgba(253,252,251,0.94)" }}>
-                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#D95F45" }} />
-                  <span className="text-xs font-bold" style={{ color: "#0B2F42" }}>Tu equipo atiende — molari responde</span>
-                </div>
-              </div>
-              <div className="relative h-40 sm:h-auto rounded-3xl overflow-hidden">
-                <Image
-                  src="/photos/box-moderno.jpg"
-                  alt="Box de atención dental moderno"
-                  fill
-                  sizes="(max-width: 640px) 50vw, 30vw"
-                  className="object-cover"
-                />
-              </div>
-              <div className="relative h-40 sm:h-auto rounded-3xl overflow-hidden">
-                <Image
-                  src="/photos/radiografias.jpg"
-                  alt="Dentista examinando radiografías en un panel de luz"
-                  fill
-                  sizes="(max-width: 640px) 50vw, 30vw"
-                  className="object-cover"
-                />
+            <div className="relative rounded-3xl overflow-hidden" style={{ backgroundColor: "#0B2F42" }}>
+              <Image
+                src="/photos/dentista-paciente.jpg"
+                alt=""
+                aria-hidden
+                width={1600}
+                height={900}
+                sizes="(max-width: 640px) 100vw, 900px"
+                className="w-full h-64 sm:h-[340px] object-cover"
+                style={{ opacity: 0.55, objectPosition: "center 30%" }}
+              />
+              {/* Degradado desde abajo: el texto necesita contraste propio, no
+                  depender de qué tan clara sea la zona de la foto que toque. */}
+              <div
+                aria-hidden
+                className="absolute inset-0"
+                style={{ background: "linear-gradient(to top, rgba(11,47,66,0.92) 0%, rgba(11,47,66,0.45) 45%, rgba(11,47,66,0.1) 100%)" }}
+              />
+              <div className="absolute inset-x-0 bottom-0 p-6 sm:p-10">
+                <p className="text-xs font-bold uppercase tracking-[0.15em] mb-2" style={{ color: "#F2A28C" }}>
+                  Mientras tú atiendes
+                </p>
+                <p className="font-display text-xl sm:text-3xl font-bold text-white max-w-lg leading-snug">
+                  Tú en el box. molari respondiendo, agendando y haciendo el seguimiento.
+                </p>
               </div>
             </div>
           </AnimateIn>
@@ -518,7 +534,7 @@ export default function Home() {
                     <li key={i} className="flex items-start gap-2.5 text-sm" style={{ color: "#3D5166" }}>
                       <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5"
                         style={{ backgroundColor: f.bg, color: f.color, fontSize: 9 }}>
-                        ✓
+                       
                       </span>
                       {b.text}
                     </li>
@@ -568,7 +584,7 @@ export default function Home() {
                     { from: "user", text: "Hola, quiero agendar una limpieza 🦷" },
                     { from: "bot",  text: "¡Hola! ¿Tienes preferencia de día?" },
                     { from: "user", text: "El martes si es posible" },
-                    { from: "bot",  text: "Martes 10:00 con Dr. Poblete ✅ ¿Confirmo?" },
+          { from: "bot", text: "Martes 10:00 con Dr. Poblete ¿Confirmo?" },
                   ]}
                   inputBg="#E5DDD5"
                   sendBg="#25D366"
@@ -584,7 +600,7 @@ export default function Home() {
                   headerBg="linear-gradient(135deg, #1A5C7A, #0e4560)"
                   messages={[
                     { from: "user", text: "Me interesa una consulta de ortodoncia" },
-                    { from: "bot",  text: "Dr. Zerpa atiende lun, mié y vie 😊 ¿Qué día?" },
+          { from: "bot", text: "Dr. Zerpa atiende lun, mié y vie ¿Qué día?" },
                     { from: "user", text: "El viernes" },
                     { from: "bot",  text: "¡Perfecto! ¿Me das tu nombre? ✨" },
                   ]}
@@ -672,7 +688,7 @@ export default function Home() {
                   <li key={item} className="flex items-start gap-3 text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>
                     <span className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5"
                       style={{ background: "rgba(217,95,69,0.2)", color: "#D95F45", fontSize: 10, fontWeight: 800 }}>
-                      ✓
+                     
                     </span>
                     {item}
                   </li>
@@ -732,6 +748,42 @@ export default function Home() {
               </AnimateIn>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* CÓMO PIENSA EL AGENTE — el mismo componente que ve la clínica en su
+          configuración, alimentado con una clínica de ejemplo. Se reusa a
+          propósito: lo que se muestra acá para vender es literalmente lo que
+          después se entrega, no una maqueta que se despega del producto. */}
+      <section className="py-16 sm:py-24" style={{ backgroundColor: "#F7F5F1" }}>
+        <div className="max-w-4xl mx-auto px-6 sm:px-10">
+          <p className="text-xs font-bold uppercase tracking-[0.15em] text-center mb-3" style={{ color: "#1A5C7A" }}>
+            Sin cajas negras
+          </p>
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-center mb-4" style={{ color: "#0C1B26" }}>
+            Vas a saber exactamente qué hace
+          </h2>
+          <p className="text-sm text-center max-w-xl mx-auto mb-12" style={{ color: "#607281" }}>
+            No es un chatbot que responde cualquier cosa. Cada mensaje pasa por estos pasos, y
+            los que dependen de ti los configuras tú.
+          </p>
+
+          <AnimateIn>
+            <div className="rounded-3xl border p-6 sm:p-9 max-w-2xl mx-auto"
+              style={{ backgroundColor: "#FDFCFB", borderColor: "#E5E0D9" }}>
+              <div className="flex items-center gap-2 mb-6 pb-4" style={{ borderBottom: "1px solid #E5E0D9" }}>
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: "#D95F45" }} />
+                <p className="text-xs font-bold" style={{ color: "#0B2F42" }}>
+                  Clínica Dental Aurora
+                </p>
+                <span className="text-[10px] px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A" }}>
+                  Ejemplo
+                </span>
+              </div>
+              <AgentFlowDiagram compact config={CLINICA_DE_EJEMPLO} />
+            </div>
+          </AnimateIn>
         </div>
       </section>
 
@@ -836,9 +888,9 @@ export default function Home() {
               </div>
               <p className="text-sm mb-6" style={{ color: "#607281" }}>Para el dentista independiente — menos que una consulta particular</p>
               <ul className="flex flex-col gap-2.5 text-sm mb-8 flex-1">
-                {["Recepcionista IA en WhatsApp y web", "Agenda personal + recordatorios", "Ficha clínica + odontograma", "Pacientes y pagos", "1 profesional"].map((f) => (
+                {["Recepción IA en WhatsApp y web", "Agenda personal + recordatorios", "Ficha clínica + odontograma", "Pacientes y pagos", "1 profesional"].map((f) => (
                   <li key={f} className="flex items-center gap-2.5">
-                    <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A" }}>✓</span>
+                    <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A" }}><Check className="w-3 h-3" aria-hidden /></span>
                     {f}
                   </li>
                 ))}
@@ -861,9 +913,9 @@ export default function Home() {
               </div>
               <p className="text-sm mb-6" style={{ color: "#607281" }}>Para la clínica que recién se digitaliza</p>
               <ul className="flex flex-col gap-2.5 text-sm mb-8 flex-1">
-                {["Recepcionista IA en tu sitio web", "Agenda por profesional", "Ficha clínica + odontograma", "Recordatorios automáticos de cita", "Hasta 2 profesionales"].map((f) => (
+                {["Recepción IA en tu sitio web", "Agenda por profesional", "Ficha clínica + odontograma", "Recordatorios automáticos de cita", "Hasta 2 profesionales"].map((f) => (
                   <li key={f} className="flex items-center gap-2.5">
-                    <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A" }}>✓</span>
+                    <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A" }}><Check className="w-3 h-3" aria-hidden /></span>
                     {f}
                   </li>
                 ))}
@@ -891,14 +943,14 @@ export default function Home() {
               <ul className="flex flex-col gap-2.5 text-sm mb-8 flex-1">
                 {[
                   "Todo lo del plan Esencial",
-                  "Recepcionista IA en WhatsApp Business",
+                  "Recepción IA en WhatsApp Business",
                   "Recall automático + lista de espera",
                   "Pagos online y boleta electrónica SII",
                   "Dashboard de gestión + scoring de pacientes",
                   "Soporte prioritario",
                 ].map((f) => (
                   <li key={f} className="flex items-center gap-2.5">
-                    <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#FDECEA", color: "#D95F45" }}>✓</span>
+                    <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#FDECEA", color: "#D95F45" }}><Check className="w-3 h-3" aria-hidden /></span>
                     {f}
                   </li>
                 ))}
@@ -929,7 +981,7 @@ export default function Home() {
                   "SLA garantizado",
                 ].map((f) => (
                   <li key={f} className="flex items-center gap-2.5">
-                    <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A" }}>✓</span>
+                    <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A" }}><Check className="w-3 h-3" aria-hidden /></span>
                     {f}
                   </li>
                 ))}

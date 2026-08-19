@@ -5,6 +5,7 @@ import {
   LabOrder, LabOrderStatus, LabOrderType, ORDER_TYPE_LABELS,
   listLabOrders, createLabOrder, updateLabOrder, deleteLabOrder,
 } from "@/lib/labOrders";
+import { Check, DollarSign, Factory, Package, Send, Smile, User, X } from "lucide-react";
 
 interface Props {
   clinicId:   string;
@@ -89,7 +90,7 @@ export function LabOrdersManager({ clinicId, patientId, onClose }: Props) {
       <div className="bg-white rounded-none sm:rounded-2xl shadow-2xl w-full sm:max-w-4xl flex flex-col max-h-[100vh] sm:max-h-[92vh] overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <div>
-            <h2 className="text-base font-bold text-gray-900">🦷 Laboratorio</h2>
+            <h2 className="text-base font-bold text-gray-900"><Smile className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Laboratorio</h2>
             <p className="text-[11px] text-gray-400">
               {counts.active} activa{counts.active !== 1 ? "s" : ""}
               {counts.overdue > 0 && <span className="text-red-500 font-bold"> · {counts.overdue} atrasada{counts.overdue !== 1 ? "s" : ""}</span>}
@@ -100,7 +101,7 @@ export function LabOrdersManager({ clinicId, patientId, onClose }: Props) {
               className="text-xs font-bold px-3 py-1.5 rounded-xl bg-[#1A5C7A] text-white hover:bg-[#0e4560] transition">
               + Nueva orden
             </button>
-            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 text-lg leading-none">✕</button>
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 text-lg leading-none"><X className="w-4 h-4" aria-hidden /></button>
           </div>
         </div>
 
@@ -186,14 +187,14 @@ function OrderRow({ order, busy, onSetStatus, onRemove }: {
           )}
         </div>
         <p className="text-[11px] text-gray-500 truncate">
-          👤 {patientName} · 🏭 {order.labName}
-          {order.cost != null && <span> · 💰 ${order.cost.toLocaleString("es-CL")}</span>}
+          <User className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> {patientName} · <Factory className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> {order.labName}
+          {order.cost != null && <span> · <DollarSign className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> ${order.cost.toLocaleString("es-CL")}</span>}
         </p>
         <div className="flex gap-3 mt-1 text-[10px] text-gray-400">
-          <span>📤 Enviada: {new Date(order.sentAt).toLocaleDateString("es-CL")}</span>
+          <span><Send className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Enviada: {new Date(order.sentAt).toLocaleDateString("es-CL")}</span>
           {order.expectedReturnAt && <span>⏳ Esperada: {new Date(order.expectedReturnAt).toLocaleDateString("es-CL")}</span>}
-          {order.receivedAt && <span>📦 Recibida: {new Date(order.receivedAt).toLocaleDateString("es-CL")}</span>}
-          {order.installedAt && <span>✓ Instalada: {new Date(order.installedAt).toLocaleDateString("es-CL")}</span>}
+          {order.receivedAt && <span><Package className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Recibida: {new Date(order.receivedAt).toLocaleDateString("es-CL")}</span>}
+          {order.installedAt && <span><Check className="w-3.5 h-3.5 inline-block mr-1 align-[-2px]" aria-hidden />Instalada: {new Date(order.installedAt).toLocaleDateString("es-CL")}</span>}
         </div>
         {order.notes && <p className="text-[11px] text-gray-400 italic mt-1">{order.notes}</p>}
       </div>
@@ -212,9 +213,7 @@ function OrderRow({ order, busy, onSetStatus, onRemove }: {
           </button>
         )}
         <button onClick={onRemove} disabled={busy}
-          className="text-[11px] font-bold px-2 py-1 rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-50">
-          ✕
-        </button>
+          className="text-[11px] font-bold px-2 py-1 rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-50"><X className="w-4 h-4" aria-hidden /></button>
       </div>
     </div>
   );
@@ -261,7 +260,7 @@ function AddModal({ clinicId, patientId, onClose, onAdded }: {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
           <h3 className="text-sm font-bold text-gray-800">Nueva orden de laboratorio</h3>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg">✕</button>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg"><X className="w-4 h-4" aria-hidden /></button>
         </div>
         <form onSubmit={submit} className="p-5 flex flex-col gap-3 overflow-y-auto">
           <div className="grid grid-cols-2 gap-3">

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { AvailabilityPicker } from "@/components/AvailabilityPicker";
+import { Calendar, Hand } from "lucide-react";
 
 interface Message {
   role: "user" | "assistant";
@@ -28,7 +29,7 @@ export function WidgetChat() {
   const agentPhone = params.get("agentPhone") ?? null;
 
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", text: "Hola 👋 ¿En qué te puedo ayudar?" },
+  { role: "assistant", text: "Hola ¿En qué te puedo ayudar?" },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -152,7 +153,7 @@ export function WidgetChat() {
                       textAlign: "center",
                     }}
                   >
-                    📅 Elegir hora en línea
+                    <Calendar className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Elegir hora en línea
                   </a>
                 )}
               </div>

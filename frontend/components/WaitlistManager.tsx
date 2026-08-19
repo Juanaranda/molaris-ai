@@ -6,6 +6,7 @@ import {
   listWaitlist, addToWaitlist, updateWaitlistEntry, removeWaitlistEntry,
 } from "@/lib/waitlist";
 import { PatientAutocomplete } from "./PatientAutocomplete";
+import { Check, ClipboardList, Phone, Stethoscope, X } from "lucide-react";
 
 interface Props {
   clinicId: string;
@@ -75,7 +76,7 @@ export function WaitlistManager({ clinicId, onClose }: Props) {
               className="text-xs font-bold px-3 py-1.5 rounded-xl bg-[#1A5C7A] text-white hover:bg-[#0e4560] transition">
               + Agregar
             </button>
-            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 text-lg leading-none">✕</button>
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 text-lg leading-none"><X className="w-4 h-4" aria-hidden /></button>
           </div>
         </div>
 
@@ -120,9 +121,9 @@ function EntryRow({ entry, busy, onSetStatus, onRemove }: {
           <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${meta.cls}`}>{meta.label}</span>
         </div>
         <p className="text-[11px] text-gray-500 truncate">
-          📞 {entry.patientPhone}
-          {entry.preferredDoctor  && <span> · 👩‍⚕️ {entry.preferredDoctor}</span>}
-          {entry.preferredService && <span> · 🔬 {entry.preferredService}</span>}
+          <Phone className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> {entry.patientPhone}
+          {entry.preferredDoctor  && <span> · <Stethoscope className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> {entry.preferredDoctor}</span>}
+          {entry.preferredService && <span> · <ClipboardList className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> {entry.preferredService}</span>}
         </p>
         {(entry.dateFrom || entry.dateTo) && (
           <p className="text-[10px] text-gray-400">
@@ -147,8 +148,7 @@ function EntryRow({ entry, busy, onSetStatus, onRemove }: {
         {entry.status === "notified" && (
           <>
             <button onClick={() => onSetStatus(entry, "converted")} disabled={busy}
-              className="text-[11px] font-bold px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50">
-              ✓ Confirmó
+              className="text-[11px] font-bold px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"><Check className="w-3.5 h-3.5 inline-block mr-1 align-[-2px]" aria-hidden />Confirmó
             </button>
             <button onClick={() => onSetStatus(entry, "waiting")} disabled={busy}
               className="text-[11px] font-bold px-2 py-1 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50">
@@ -157,9 +157,7 @@ function EntryRow({ entry, busy, onSetStatus, onRemove }: {
           </>
         )}
         <button onClick={() => onRemove(entry)} disabled={busy}
-          className="text-[11px] font-bold px-2 py-1 rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-50">
-          ✕
-        </button>
+          className="text-[11px] font-bold px-2 py-1 rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-50"><X className="w-4 h-4" aria-hidden /></button>
       </div>
     </div>
   );
@@ -208,7 +206,7 @@ function AddModal({ clinicId, onClose, onAdded }: {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
           <h3 className="text-sm font-bold text-gray-800">Agregar a lista de espera</h3>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg">✕</button>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg"><X className="w-4 h-4" aria-hidden /></button>
         </div>
         <form onSubmit={submit} className="p-5 flex flex-col gap-3 overflow-y-auto">
           <div>

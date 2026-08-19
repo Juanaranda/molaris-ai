@@ -8,6 +8,8 @@ import { OpeningHoursEditor, OpeningHours, aScheduleTexto } from "@/components/O
 import { SedesEditor } from "@/components/SedesEditor";
 import { IntegrationsSection } from "@/components/IntegrationsSection";
 import { AgentControl } from "@/components/AgentControl";
+import { Building2, Camera, MapPin, MessageCircle, Phone, type LucideIcon } from "lucide-react";
+import { AgentFlowDiagram, type AgentFlowConfig } from "./AgentFlowDiagram";
 
 interface ClinicConfig {
   assistantName?: string;
@@ -34,7 +36,7 @@ interface ContactFieldProps {
   value: string;
   editable: boolean;
   onChange: (v: string) => void;
-  icon: string;
+  icon: LucideIcon;
   placeholder?: string;
   prefix?: string;
 }
@@ -43,7 +45,7 @@ function ContactField({ label, value, editable, onChange, icon, placeholder, pre
   if (!editable) {
     return (
       <div className="flex items-start gap-3">
-        <span className="text-lg mt-0.5 shrink-0 select-none">{icon}</span>
+        {(() => { const Icono = icon; return <Icono className="w-4 h-4 mt-0.5 shrink-0 text-gray-400" aria-hidden />; })()}
         <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</p>
           <p className="text-sm text-gray-800 mt-0.5 break-words">{value || <span className="text-gray-300">—</span>}</p>
@@ -179,6 +181,24 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
     <div className="flex flex-col gap-6">
       {canEdit && <AgentControl clinicId={clinic.id} />}
 
+      {/* ── Cómo piensa el agente ──────────────────────────────────────────
+          Va arriba de los campos a propósito: primero se entiende para qué
+          sirve lo que se va a llenar, y recién después se llena. */}
+      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <h3 className="text-sm font-bold text-gray-900 mb-1">Cómo funciona tu asistente</h3>
+        <p className="text-xs text-gray-500 mb-5">
+          Esto es lo que hace con cada mensaje que le llega a tu clínica.
+        </p>
+        <AgentFlowDiagram
+          config={{
+            ...(clinic.config as AgentFlowConfig),
+            // whatsapp e instagram viven en la clínica, no dentro de config.
+            whatsapp: clinic.whatsapp,
+            instagram: clinic.instagram,
+          }}
+        />
+      </section>
+
       {/* ── Header card ── */}
       <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div
@@ -296,16 +316,16 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <ContactField label="Nombre de la clínica" value={form.name} editable={editing} icon="🏥"
+          <ContactField label="Nombre de la clínica" value={form.name} editable={editing} icon={Building2}
             onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Ej: Galana Clínica Dental" />
-          <ContactField label="Teléfono" value={form.phone} editable={editing} icon="📞"
+          <ContactField label="Teléfono" value={form.phone} editable={editing} icon={Phone}
             onChange={(v) => setForm((f) => ({ ...f, phone: v }))} placeholder="+56 9 XXXX XXXX" />
-          <ContactField label="WhatsApp" value={form.whatsapp} editable={editing} icon="💬"
+          <ContactField label="WhatsApp" value={form.whatsapp} editable={editing} icon={MessageCircle}
             onChange={(v) => setForm((f) => ({ ...f, whatsapp: v }))} placeholder="+56 9 XXXX XXXX" />
-          <ContactField label="Instagram" value={form.instagram} editable={editing} icon="📸"
+          <ContactField label="Instagram" value={form.instagram} editable={editing} icon={Camera}
             onChange={(v) => setForm((f) => ({ ...f, instagram: v }))} placeholder="@clinica" prefix={form.instagram && !editing ? undefined : undefined} />
           <div className="sm:col-span-2">
-            <ContactField label="Dirección" value={form.location} editable={editing} icon="📍"
+            <ContactField label="Dirección" value={form.location} editable={editing} icon={MapPin}
               onChange={(v) => setForm((f) => ({ ...f, location: v }))} placeholder="Av. Ejemplo 123, Santiago" />
           </div>
         </div>
