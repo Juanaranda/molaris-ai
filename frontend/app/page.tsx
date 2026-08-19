@@ -5,6 +5,7 @@ import { HeroShowcase } from "@/components/HeroShowcase";
 import { AnimateIn } from "@/components/AnimateIn";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
 import { Check, CircleCheck, Smile } from "lucide-react";
+import { AgentFlowDiagram } from "@/components/AgentFlowDiagram";
 
 /* Muestra el chat de Juan (agente comercial). Se lee en build: cambiarlo en
    Vercel exige redeploy, no basta con guardar la variable.
@@ -257,6 +258,22 @@ function ChatMockup({ header, headerBg, messages, inputBg, sendBg, label, sublab
 }
 
 /* ─── Page ─────────────────────────────────────────────────────────── */
+/**
+ * Clínica inventada para mostrar el diagrama del agente en la landing. Va con
+ * el rótulo "Ejemplo" a la vista: son datos de muestra, no los de un cliente.
+ * Los valores son de una clínica chica creíble, para que el visitante se
+ * reconozca en ellos.
+ */
+const CLINICA_DE_EJEMPLO = {
+  assistantName: "Sofía",
+  tone: "cercano y profesional",
+  doctors: [1, 2, 3],
+  services: [1, 2, 3, 4, 5, 6],
+  schedule: { weekdays: "Lunes a Viernes: 09:00 - 19:00" },
+  whatsapp: "569XXXXXXXX",
+  instagram: "@clinicaaurora",
+};
+
 export default function Home() {
   const problems = [
     { num: "01", title: "Mensajes sin respuesta", desc: "Pacientes que escriben por WhatsApp esperan horas sin respuesta — y se van a la clínica de al lado." },
@@ -731,6 +748,42 @@ export default function Home() {
               </AnimateIn>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* CÓMO PIENSA EL AGENTE — el mismo componente que ve la clínica en su
+          configuración, alimentado con una clínica de ejemplo. Se reusa a
+          propósito: lo que se muestra acá para vender es literalmente lo que
+          después se entrega, no una maqueta que se despega del producto. */}
+      <section className="py-16 sm:py-24" style={{ backgroundColor: "#F7F5F1" }}>
+        <div className="max-w-4xl mx-auto px-6 sm:px-10">
+          <p className="text-xs font-bold uppercase tracking-[0.15em] text-center mb-3" style={{ color: "#1A5C7A" }}>
+            Sin cajas negras
+          </p>
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-center mb-4" style={{ color: "#0C1B26" }}>
+            Vas a saber exactamente qué hace
+          </h2>
+          <p className="text-sm text-center max-w-xl mx-auto mb-12" style={{ color: "#607281" }}>
+            No es un chatbot que responde cualquier cosa. Cada mensaje pasa por estos pasos, y
+            los que dependen de ti los configuras tú.
+          </p>
+
+          <AnimateIn>
+            <div className="rounded-3xl border p-6 sm:p-9 max-w-2xl mx-auto"
+              style={{ backgroundColor: "#FDFCFB", borderColor: "#E5E0D9" }}>
+              <div className="flex items-center gap-2 mb-6 pb-4" style={{ borderBottom: "1px solid #E5E0D9" }}>
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: "#D95F45" }} />
+                <p className="text-xs font-bold" style={{ color: "#0B2F42" }}>
+                  Clínica Dental Aurora
+                </p>
+                <span className="text-[10px] px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A" }}>
+                  Ejemplo
+                </span>
+              </div>
+              <AgentFlowDiagram compact config={CLINICA_DE_EJEMPLO} />
+            </div>
+          </AnimateIn>
         </div>
       </section>
 
