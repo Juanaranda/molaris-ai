@@ -9,6 +9,7 @@ import { SedesEditor } from "@/components/SedesEditor";
 import { IntegrationsSection } from "@/components/IntegrationsSection";
 import { AgentControl } from "@/components/AgentControl";
 import { Building2, Camera, MapPin, MessageCircle, Phone, type LucideIcon } from "lucide-react";
+import { AgentFlowDiagram, type AgentFlowConfig } from "./AgentFlowDiagram";
 
 interface ClinicConfig {
   assistantName?: string;
@@ -179,6 +180,24 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
   return (
     <div className="flex flex-col gap-6">
       {canEdit && <AgentControl clinicId={clinic.id} />}
+
+      {/* ── Cómo piensa el agente ──────────────────────────────────────────
+          Va arriba de los campos a propósito: primero se entiende para qué
+          sirve lo que se va a llenar, y recién después se llena. */}
+      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <h3 className="text-sm font-bold text-gray-900 mb-1">Cómo funciona tu asistente</h3>
+        <p className="text-xs text-gray-500 mb-5">
+          Esto es lo que hace con cada mensaje que le llega a tu clínica.
+        </p>
+        <AgentFlowDiagram
+          config={{
+            ...(clinic.config as AgentFlowConfig),
+            // whatsapp e instagram viven en la clínica, no dentro de config.
+            whatsapp: clinic.whatsapp,
+            instagram: clinic.instagram,
+          }}
+        />
+      </section>
 
       {/* ── Header card ── */}
       <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
