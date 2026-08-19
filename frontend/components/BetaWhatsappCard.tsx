@@ -1,5 +1,7 @@
 "use client";
 
+import { MessageCircle } from "lucide-react";
+
 /**
  * Muestra el número de WhatsApp de prueba (Twilio de beta) para que el usuario
  * le escriba directo al agente. Solo aparece si NEXT_PUBLIC_BETA_WHATSAPP_NUMBER
@@ -19,7 +21,7 @@ export function BetaWhatsappCard({ compact = false }: { compact?: boolean }) {
     <div className="rounded-2xl border p-5 flex flex-col gap-3"
       style={{ borderColor: "#9FE1CB", backgroundColor: "#E1F5EE" }}>
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: "white" }}>💬</div>
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: "white" }}><MessageCircle className="w-4 h-4" aria-hidden /></div>
         <div>
           <p className="text-sm font-bold" style={{ color: "#0F6E56" }}>Prueba el agente por WhatsApp</p>
           <p className="text-xs" style={{ color: "#0F6E56" }}>Escríbele directo a nuestro número de prueba</p>

@@ -6,6 +6,7 @@ import {
   listRecallRules, createRecallRule, updateRecallRule, deleteRecallRule,
   listRecallEvents, triggerRecallCheck,
 } from "@/lib/recall";
+import { Bell, Check, Hand, X } from "lucide-react";
 
 interface Props {
   clinicId: string;
@@ -58,7 +59,7 @@ export function RecallSection({ clinicId }: Props) {
     setTriggering(true); setTriggerMsg("");
     try {
       await triggerRecallCheck(clinicId);
-      setTriggerMsg("✓ Check disparado — revisa los eventos en unos segundos");
+      setTriggerMsg("Check disparado — revisa los eventos en unos segundos");
       setTimeout(() => { fetchAll(); setTriggerMsg(""); }, 4000);
     } catch (e) {
       setTriggerMsg(e instanceof Error ? e.message : "Error");
@@ -69,7 +70,7 @@ export function RecallSection({ clinicId }: Props) {
     <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
       <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
         <div>
-          <h2 className="font-semibold text-gray-900">🔔 Recall automático</h2>
+          <h2 className="font-semibold text-gray-900"><Bell className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Recall automático</h2>
           <p className="text-xs text-gray-400 mt-0.5">
             Recordatorios automáticos por WhatsApp para que los pacientes vuelvan a control
           </p>
@@ -140,7 +141,7 @@ export function RecallSection({ clinicId }: Props) {
                       <td className="px-3 py-2 text-gray-500 truncate">{e.rule.triggerService}</td>
                       <td className="px-3 py-2 text-right">
                         {e.success
-                          ? <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">✓ Enviado</span>
+                          ? <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded"><Check className="w-3.5 h-3.5 inline-block mr-1 align-[-2px]" aria-hidden />Enviado</span>
                           : <span className="text-[10px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded" title={e.errorMessage ?? ""}>✕ Falló</span>}
                       </td>
                     </tr>
@@ -198,9 +199,7 @@ function RuleRow({ rule, onEdit, onToggle, onDelete }: {
           Editar
         </button>
         <button onClick={onDelete}
-          className="text-[11px] font-bold px-2 py-1 rounded-lg text-red-500 hover:bg-red-50">
-          ✕
-        </button>
+          className="text-[11px] font-bold px-2 py-1 rounded-lg text-red-500 hover:bg-red-50"><X className="w-4 h-4" aria-hidden /></button>
       </div>
     </div>
   );
@@ -212,7 +211,7 @@ function RuleModal({ clinicId, initial, onClose, onSaved }: {
 }) {
   const [service,  setService]  = useState(initial?.triggerService ?? "");
   const [days,     setDays]     = useState<string>(String(initial?.intervalDays ?? 180));
-  const [template, setTemplate] = useState(initial?.messageTemplate ?? "Hola {nombre} 👋 Te toca tu control en {clinica}. Responde acá para reservar.");
+ const [template, setTemplate] = useState(initial?.messageTemplate ?? "Hola {nombre} Te toca tu control en {clinica}. Responde acá para reservar.");
   const [saving,   setSaving]   = useState(false);
   const [error,    setError]    = useState("");
 
@@ -241,7 +240,7 @@ function RuleModal({ clinicId, initial, onClose, onSaved }: {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
           <h3 className="text-sm font-bold text-gray-800">{initial ? "Editar regla" : "Nueva regla de recall"}</h3>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg">✕</button>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg"><X className="w-4 h-4" aria-hidden /></button>
         </div>
         <form onSubmit={submit} className="p-5 flex flex-col gap-3 overflow-y-auto">
           <div>

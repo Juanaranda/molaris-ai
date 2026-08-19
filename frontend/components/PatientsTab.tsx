@@ -7,6 +7,7 @@ import { ensurePatientId } from "@/lib/clinicalRecord";
 import { DentalQuoteTab } from "./DentalQuoteTab";
 import { PatientAutocomplete } from "./PatientAutocomplete";
 import { invalidatePatientsCache, haceCuanto, type PatientSuggestion } from "@/lib/patients";
+import { CircleCheck, ClipboardList, FileText, Pencil, Stethoscope, User, X } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -190,7 +191,7 @@ function NewPlanModal({
             <p className="text-xs text-gray-400 mt-0.5">{patient.name}</p>
           </div>
           <button onClick={onClose}
-            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500">✕</button>
+            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500"><X className="w-4 h-4" aria-hidden /></button>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-4">
           <div>
@@ -315,7 +316,7 @@ function NewBookingFromPatientModal({
             <p className="text-xs text-gray-400 mt-0.5">{patient.name}</p>
           </div>
           <button onClick={onClose}
-            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500">✕</button>
+            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500"><X className="w-4 h-4" aria-hidden /></button>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-4">
           <div>
@@ -506,17 +507,15 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
                   <button onClick={openClinicalRecord} disabled={openingRecord}
                     className="text-xs font-bold px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white transition disabled:opacity-50"
                     title="Abrir ficha clínica completa con odontograma">
-                    🩺 {openingRecord ? "Abriendo…" : "Ficha clínica"}
+                    <Stethoscope className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> {openingRecord ? "Abriendo…" : "Ficha clínica"}
                   </button>
                   <button onClick={() => setEditMode(true)}
                     className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center text-white/70 shrink-0"
-                    title="Editar datos del paciente">
-                    ✎
-                  </button>
+                    title="Editar datos del paciente"><Pencil className="w-4 h-4" aria-hidden /></button>
                 </>
               )}
               <button onClick={onClose}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center text-white/70 shrink-0">✕</button>
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center text-white/70 shrink-0"><X className="w-4 h-4" aria-hidden /></button>
             </div>
           </div>
           {recordError && <p className="mt-2 text-xs text-red-300">{recordError}</p>}
@@ -724,7 +723,7 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
                 </div>
               ) : plans.length === 0 ? (
                 <div className="flex flex-col items-center py-10 gap-2">
-                  <p className="text-2xl">📋</p>
+                  <p className="text-2xl"><ClipboardList className="w-4 h-4" aria-hidden /></p>
                   <p className="text-sm text-gray-400">Sin planes de tratamiento</p>
                   <button onClick={() => setShowNewPlan(true)}
                     className="mt-1 text-xs font-bold text-blue-600 hover:underline">Crear el primero</button>
@@ -902,7 +901,7 @@ function ImportCSVModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
             </p>
           </div>
           <button onClick={onClose}
-            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500 shrink-0">✕</button>
+            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500 shrink-0"><X className="w-4 h-4" aria-hidden /></button>
         </div>
 
         <div className="px-6 py-5">
@@ -913,7 +912,7 @@ function ImportCSVModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
               <button
                 onClick={() => fileRef.current?.click()}
                 className="border-2 border-dashed border-gray-200 rounded-2xl p-10 text-center hover:border-blue-300 hover:bg-blue-50 transition cursor-pointer w-full">
-                <div className="text-4xl mb-3">📄</div>
+                <div className="text-4xl mb-3"><FileText className="w-4 h-4" aria-hidden /></div>
                 <p className="text-sm font-bold text-gray-700 mb-1">Haz clic para seleccionar un archivo CSV</p>
                 <p className="text-xs text-gray-400">Compatible con cualquier exportación CSV de tu sistema de gestión</p>
               </button>
@@ -988,9 +987,7 @@ function ImportCSVModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
           {/* Step: result */}
           {step === "result" && result && (
             <div className="flex flex-col items-center gap-5 py-4">
-              <div className="w-16 h-16 rounded-full bg-emerald-50 border-2 border-emerald-200 flex items-center justify-center text-3xl">
-                ✅
-              </div>
+              <div className="w-16 h-16 rounded-full bg-emerald-50 border-2 border-emerald-200 flex items-center justify-center text-3xl"><CircleCheck className="w-4 h-4" aria-hidden /></div>
               <div>
                 <h3 className="text-lg font-black text-gray-900 text-center mb-1">¡Importación completada!</h3>
                 <p className="text-sm text-gray-500 text-center">{result.total} filas procesadas</p>
@@ -1073,7 +1070,7 @@ function NewPatientModal({ onClose, onCreated }: { onClose: () => void; onCreate
         <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
           <h3 className="text-base font-black text-gray-900">Nuevo paciente</h3>
           <button onClick={onClose}
-            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500">✕</button>
+            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500"><X className="w-4 h-4" aria-hidden /></button>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-4">
           <div>
@@ -1334,7 +1331,7 @@ export function PatientsTab() {
           {search ? (
             <button onClick={() => { setSearch(""); searchRef.current?.focus(); }}
               className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 text-xs flex items-center justify-center transition"
-              title="Limpiar búsqueda">✕</button>
+              title="Limpiar búsqueda"><X className="w-4 h-4" aria-hidden /></button>
           ) : (
             <kbd className="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded border border-gray-200 bg-gray-50 text-[10px] font-bold text-gray-400 hidden sm:block"
               title="Presiona / para buscar">/</kbd>
@@ -1413,7 +1410,7 @@ export function PatientsTab() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-4xl mb-3">👤</p>
+            <p className="text-4xl mb-3"><User className="w-4 h-4" aria-hidden /></p>
             <p className="text-sm font-medium text-gray-500">
               {search ? "No se encontró ningún paciente" : "Sin pacientes registrados"}
             </p>

@@ -7,6 +7,7 @@ import {
   listConsentTemplates, listConsentSignatures,
   requestSignature, updateSignature, renderConsent,
 } from "@/lib/consents";
+import { Check, Globe, Paperclip, PenLine, Printer, X, type LucideIcon } from "lucide-react";
 
 interface Props {
   patientId: string;
@@ -20,10 +21,10 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
   cancelled: { label: "Cancelado",   cls: "bg-gray-100 text-gray-500" },
 };
 
-const METHOD_META: Record<SignatureMethod, { label: string; icon: string }> = {
-  zapsign:        { label: "ZapSign (online)",     icon: "🌐" },
-  manual_upload:  { label: "Subir PDF firmado",    icon: "📎" },
-  in_person_pad:  { label: "Firma en clínica",     icon: "✍️" },
+const METHOD_META: Record<SignatureMethod, { label: string; Icono: LucideIcon }> = {
+  zapsign:        { label: "ZapSign (online)",     Icono: Globe },
+  manual_upload:  { label: "Subir PDF firmado",    Icono: Paperclip },
+  in_person_pad:  { label: "Firma en clínica",     Icono: PenLine },
 };
 
 /**
@@ -124,11 +125,11 @@ export function ConsentsPanel({ patientId }: Props) {
       {signedLink && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-start gap-3">
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-emerald-800 mb-1">✓ Link de firma generado</p>
+            <p className="text-sm font-bold text-emerald-800 mb-1"><Check className="w-3.5 h-3.5 inline-block mr-1 align-[-2px]" aria-hidden />Link de firma generado</p>
             <code className="text-[10px] font-mono bg-white px-2 py-1 rounded border border-emerald-200 break-all block">{signedLink}</code>
             <p className="text-[11px] text-emerald-700 mt-2">Compartilo con el paciente. ZapSign avisa cuando firme.</p>
           </div>
-          <button onClick={() => setSignedLink(null)} className="text-emerald-600 hover:text-emerald-800">✕</button>
+          <button onClick={() => setSignedLink(null)} className="text-emerald-600 hover:text-emerald-800"><X className="w-4 h-4" aria-hidden /></button>
         </div>
       )}
 
@@ -180,10 +181,10 @@ function SignatureRow({ sig, onPreview, onUploadPdf, onCancel }: {
           <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${status.cls}`}>{status.label}</span>
         </div>
         <p className="text-[11px] text-gray-500">
-          {method.icon} {method.label} · solicitado {new Date(sig.requestedAt).toLocaleDateString("es-CL")} por {sig.requestedBy.name}
+          <method.Icono className="w-3.5 h-3.5 inline-block align-[-2px] mr-1" aria-hidden />{method.label} · solicitado {new Date(sig.requestedAt).toLocaleDateString("es-CL")} por {sig.requestedBy.name}
         </p>
         {sig.signedAt && (
-          <p className="text-[11px] text-emerald-600 mt-0.5">✓ Firmado el {new Date(sig.signedAt).toLocaleDateString("es-CL")}</p>
+          <p className="text-[11px] text-emerald-600 mt-0.5"><Check className="w-3.5 h-3.5 inline-block mr-1 align-[-2px]" aria-hidden />Firmado el {new Date(sig.signedAt).toLocaleDateString("es-CL")}</p>
         )}
         {sig.notes && <p className="text-[11px] text-gray-400 mt-1 italic">{sig.notes}</p>}
       </div>
@@ -232,7 +233,7 @@ function RequestModal({ templates, requesting, onClose, onRequest, onPreview }: 
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
           <h3 className="text-sm font-bold text-gray-800">Solicitar consentimiento</h3>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg">✕</button>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg"><X className="w-4 h-4" aria-hidden /></button>
         </div>
         <div className="p-5 flex flex-col gap-4 overflow-y-auto">
           <div>
@@ -265,7 +266,7 @@ function RequestModal({ templates, requesting, onClose, onRequest, onPreview }: 
                       ? "bg-[#1A5C7A] text-white border-[#1A5C7A]"
                       : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
                   }`}>
-                  {m.icon} {m.label}
+                  <m.Icono className="w-3.5 h-3.5 inline-block align-[-2px] mr-1" aria-hidden />{m.label}
                 </button>
               ))}
             </div>
@@ -300,9 +301,9 @@ function PreviewModal({ title, body, onClose }: { title: string; body: string; o
           <div className="flex gap-2 items-center">
             <button onClick={() => window.print()}
               className="text-xs font-bold px-3 py-1 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">
-              🖨 Imprimir
+              <Printer className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Imprimir
             </button>
-            <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg">✕</button>
+            <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg"><X className="w-4 h-4" aria-hidden /></button>
           </div>
         </div>
         <div className="p-6 overflow-y-auto">

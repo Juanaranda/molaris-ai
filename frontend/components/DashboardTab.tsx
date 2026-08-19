@@ -4,6 +4,10 @@ import { useEffect, useState, useCallback } from "react";
 import { getToken } from "@/lib/auth";
 import { DentalQuoteTab } from "./DentalQuoteTab";
 import { PatientAutocomplete } from "./PatientAutocomplete";
+import {
+  Bot, Calendar, Camera, Circle, ClipboardList, DollarSign, FlaskConical, Globe,
+  Hourglass, MessageCircle, Stethoscope, TrendingUp, Users, X, type LucideIcon,
+} from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -46,22 +50,25 @@ const DEFAULT_WIDGETS: WidgetCfg[] = [
   { id: "services",     size: "half", order: 7, hidden: false },
 ];
 
-const WIDGET_META: Record<WidgetId, { title: string; icon: string }> = {
-  today:          { title: "Citas de hoy",          icon: "📅" },
-  revenue:        { title: "Ingresos del mes",       icon: "💰" },
-  leads:          { title: "Leads del agente IA",    icon: "🤖" },
-  "income-chart": { title: "Ingresos últimos 6 meses", icon: "📈" },
-  patients:       { title: "Pacientes",              icon: "👥" },
-  pending:        { title: "Cobros pendientes",      icon: "⏳" },
-  doctors:        { title: "Actividad por doctor",   icon: "🩺" },
-  services:       { title: "Servicios más pedidos",  icon: "📋" },
+// El icono se guarda como componente, no como texto: así hereda color y
+// tamaño del contenedor y se ve igual en todos los sistemas — un emoji lo
+// dibuja cada sistema operativo a su manera.
+const WIDGET_META: Record<WidgetId, { title: string; icon: LucideIcon }> = {
+  today:          { title: "Citas de hoy",          icon: Calendar },
+  revenue:        { title: "Ingresos del mes",       icon: DollarSign },
+  leads:          { title: "Leads del agente IA",    icon: Bot },
+  "income-chart": { title: "Ingresos últimos 6 meses", icon: TrendingUp },
+  patients:       { title: "Pacientes",              icon: Users },
+  pending:        { title: "Cobros pendientes",      icon: Hourglass },
+  doctors:        { title: "Actividad por doctor",   icon: Stethoscope },
+  services:       { title: "Servicios más pedidos",  icon: ClipboardList },
 };
 
-const CHANNEL_LABELS: Record<string, { name: string; icon: string; color: string }> = {
-  web:       { name: "Web",       icon: "🌐", color: "#3B82F6" },
-  whatsapp:  { name: "WhatsApp",  icon: "💬", color: "#10B981" },
-  instagram: { name: "Instagram", icon: "📷", color: "#EC4899" },
-  sandbox:   { name: "Pruebas",   icon: "🧪", color: "#94A3B8" },
+const CHANNEL_LABELS: Record<string, { name: string; icon: LucideIcon; color: string }> = {
+  web:       { name: "Web",       icon: Globe,         color: "#3B82F6" },
+  whatsapp:  { name: "WhatsApp",  icon: MessageCircle, color: "#10B981" },
+  instagram: { name: "Instagram", icon: Camera,        color: "#EC4899" },
+  sandbox:   { name: "Pruebas",   icon: FlaskConical,  color: "#94A3B8" },
 };
 
 const fmtCLP = (n: number) =>
@@ -316,12 +323,12 @@ function LeadsWidget({ analytics }: { analytics: Analytics | null }) {
         ) : (
           <div className="flex flex-col gap-3">
             {channels.map((c) => {
-              const meta = CHANNEL_LABELS[c.channel] ?? { name: c.channel, icon: "•", color: "#64748B" };
+              const meta = CHANNEL_LABELS[c.channel] ?? { name: c.channel, icon: Circle, color: "#64748B" };
               return (
                 <div key={c.channel} className="flex flex-col gap-1.5">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm">{meta.icon}</span>
+                      <meta.icon className="w-4 h-4 shrink-0" aria-hidden />
                       <span className="text-xs font-semibold text-gray-700">{meta.name}</span>
                       <span className="text-[10px] text-gray-400">· {c.sessions} conv.</span>
                     </div>
@@ -379,7 +386,7 @@ function WidgetCard({ cfg, editMode, onMoveUp, onMoveDown, onToggleSize, onToggl
     } ${editMode ? "border-blue-200 ring-1 ring-blue-100" : "border-gray-100"}`}>
       <div className="flex items-center justify-between px-5 py-3 border-b border-gray-50">
         <div className="flex items-center gap-2">
-          <span className="text-base">{meta.icon}</span>
+          <meta.icon className="w-4 h-4 shrink-0" aria-hidden />
           <h3 className="text-xs font-bold text-gray-700">{meta.title}</h3>
         </div>
         {editMode && (
@@ -391,7 +398,7 @@ function WidgetCard({ cfg, editMode, onMoveUp, onMoveDown, onToggleSize, onToggl
               {cfg.size === "half" ? "Ancho completo" : "Mitad"}
             </button>
             <button onClick={onToggleHidden}
-              className="w-6 h-6 rounded text-gray-400 hover:bg-red-50 hover:text-red-400 text-xs flex items-center justify-center" title="Ocultar">✕</button>
+              className="w-6 h-6 rounded text-gray-400 hover:bg-red-50 hover:text-red-400 text-xs flex items-center justify-center" title="Ocultar"><X className="w-4 h-4" aria-hidden /></button>
           </div>
         )}
       </div>
@@ -422,7 +429,7 @@ function QuickQuoteModal({ onClose }: { onClose: () => void }) {
         <h2 className="text-sm font-bold text-gray-800">
           {step === "form" ? "Nuevo presupuesto" : name}
         </h2>
-        <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition text-lg leading-none">✕</button>
+        <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition text-lg leading-none"><X className="w-4 h-4" aria-hidden /></button>
       </div>
       <div className="flex-1 overflow-y-auto p-4">
         {step === "form" ? (
@@ -626,7 +633,7 @@ export function DashboardTab({
             className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition ${
               editMode ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
             }`}>
-            {editMode ? "✓ Listo" : "⊞ Personalizar"}
+            {editMode ? "Listo" : "⊞ Personalizar"}
           </button>
         </div>
       </div>
@@ -657,7 +664,7 @@ export function DashboardTab({
             {hidden.map((cfg) => (
               <button key={cfg.id} onClick={() => toggleHidden(widgets.indexOf(cfg))}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 bg-white text-xs text-gray-500 hover:border-blue-300 hover:text-blue-600 transition">
-                <span>{WIDGET_META[cfg.id].icon}</span>
+                {(() => { const Icono = WIDGET_META[cfg.id].icon; return <Icono className="w-4 h-4 shrink-0" aria-hidden />; })()}
                 <span>{WIDGET_META[cfg.id].title}</span>
                 <span className="text-gray-300">+</span>
               </button>

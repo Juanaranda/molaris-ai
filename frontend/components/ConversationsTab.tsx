@@ -108,7 +108,7 @@ export function ConversationsTab() {
                       )}
                       {c.context?.slotBooked && (
                         <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                          style={{ backgroundColor: "#E1F5EE", color: "#0F6E56" }}>agendó ✓</span>
+                          style={{ backgroundColor: "#E1F5EE", color: "#0F6E56" }}>agendó</span>
                       )}
                       {typeof c.leadScore === "number" && c.leadScore > 0 && (
                         <span className="text-[10px]" style={{ color: "#607281" }}>· lead {c.leadScore}</span>
@@ -146,7 +146,7 @@ export function ConversationsTab() {
                   {detail.context?.urgency && <span className="text-[11px]" style={{ color: "#993C1D" }}>· {detail.context.urgency}</span>}
                   {detail.context?.slotBooked && (
                     <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                      style={{ backgroundColor: "#E1F5EE", color: "#0F6E56" }}>agendó cita ✓</span>
+                      style={{ backgroundColor: "#E1F5EE", color: "#0F6E56" }}>agendó cita</span>
                   )}
                 </div>
               </div>

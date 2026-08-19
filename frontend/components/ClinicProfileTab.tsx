@@ -8,6 +8,7 @@ import { OpeningHoursEditor, OpeningHours, aScheduleTexto } from "@/components/O
 import { SedesEditor } from "@/components/SedesEditor";
 import { IntegrationsSection } from "@/components/IntegrationsSection";
 import { AgentControl } from "@/components/AgentControl";
+import { Building2, Camera, MapPin, MessageCircle, Phone, type LucideIcon } from "lucide-react";
 
 interface ClinicConfig {
   assistantName?: string;
@@ -34,7 +35,7 @@ interface ContactFieldProps {
   value: string;
   editable: boolean;
   onChange: (v: string) => void;
-  icon: string;
+  icon: LucideIcon;
   placeholder?: string;
   prefix?: string;
 }
@@ -43,7 +44,7 @@ function ContactField({ label, value, editable, onChange, icon, placeholder, pre
   if (!editable) {
     return (
       <div className="flex items-start gap-3">
-        <span className="text-lg mt-0.5 shrink-0 select-none">{icon}</span>
+        {(() => { const Icono = icon; return <Icono className="w-4 h-4 mt-0.5 shrink-0 text-gray-400" aria-hidden />; })()}
         <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</p>
           <p className="text-sm text-gray-800 mt-0.5 break-words">{value || <span className="text-gray-300">—</span>}</p>
@@ -296,16 +297,16 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <ContactField label="Nombre de la clínica" value={form.name} editable={editing} icon="🏥"
+          <ContactField label="Nombre de la clínica" value={form.name} editable={editing} icon={Building2}
             onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Ej: Galana Clínica Dental" />
-          <ContactField label="Teléfono" value={form.phone} editable={editing} icon="📞"
+          <ContactField label="Teléfono" value={form.phone} editable={editing} icon={Phone}
             onChange={(v) => setForm((f) => ({ ...f, phone: v }))} placeholder="+56 9 XXXX XXXX" />
-          <ContactField label="WhatsApp" value={form.whatsapp} editable={editing} icon="💬"
+          <ContactField label="WhatsApp" value={form.whatsapp} editable={editing} icon={MessageCircle}
             onChange={(v) => setForm((f) => ({ ...f, whatsapp: v }))} placeholder="+56 9 XXXX XXXX" />
-          <ContactField label="Instagram" value={form.instagram} editable={editing} icon="📸"
+          <ContactField label="Instagram" value={form.instagram} editable={editing} icon={Camera}
             onChange={(v) => setForm((f) => ({ ...f, instagram: v }))} placeholder="@clinica" prefix={form.instagram && !editing ? undefined : undefined} />
           <div className="sm:col-span-2">
-            <ContactField label="Dirección" value={form.location} editable={editing} icon="📍"
+            <ContactField label="Dirección" value={form.location} editable={editing} icon={MapPin}
               onChange={(v) => setForm((f) => ({ ...f, location: v }))} placeholder="Av. Ejemplo 123, Santiago" />
           </div>
         </div>

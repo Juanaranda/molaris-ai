@@ -4,6 +4,7 @@ import { SalesChat } from "@/components/SalesChat";
 import { HeroShowcase } from "@/components/HeroShowcase";
 import { AnimateIn } from "@/components/AnimateIn";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
+import { Check, CircleCheck, Smile } from "lucide-react";
 
 /* Muestra el chat de Juan (agente comercial). Se lee en build: cambiarlo en
    Vercel exige redeploy, no basta con guardar la variable.
@@ -399,7 +400,7 @@ export default function Home() {
               { icon: <IconCalendar />, value: "Agenda incluida", label: "Calendario por profesional, sin pagar otra herramienta" },
               { icon: <IconTooth />, value: "Ficha clínica", label: "Notas, planes de tratamiento, odontograma y pagos" },
               { icon: <IconChart />, value: "Analytics en vivo", label: "Ingresos, leads, conversión y rendimiento por doctor" },
-              { icon: <IconBot />, value: "Y además: IA 24/7", label: "Recepcionista que atiende sola en WhatsApp y tu web" },
+              { icon: <IconBot />, value: "Y además: IA 24/7", label: "Recepción que atiende sola en WhatsApp y tu web" },
             ].map((s, i) => (
               <AnimateIn key={s.value} delay={i * 90}>
                 <div className="flex flex-col gap-3">
@@ -516,7 +517,7 @@ export default function Home() {
                     <li key={i} className="flex items-start gap-2.5 text-sm" style={{ color: "#3D5166" }}>
                       <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5"
                         style={{ backgroundColor: f.bg, color: f.color, fontSize: 9 }}>
-                        ✓
+                       
                       </span>
                       {b.text}
                     </li>
@@ -566,7 +567,7 @@ export default function Home() {
                     { from: "user", text: "Hola, quiero agendar una limpieza 🦷" },
                     { from: "bot",  text: "¡Hola! ¿Tienes preferencia de día?" },
                     { from: "user", text: "El martes si es posible" },
-                    { from: "bot",  text: "Martes 10:00 con Dr. Poblete ✅ ¿Confirmo?" },
+          { from: "bot", text: "Martes 10:00 con Dr. Poblete ¿Confirmo?" },
                   ]}
                   inputBg="#E5DDD5"
                   sendBg="#25D366"
@@ -582,7 +583,7 @@ export default function Home() {
                   headerBg="linear-gradient(135deg, #1A5C7A, #0e4560)"
                   messages={[
                     { from: "user", text: "Me interesa una consulta de ortodoncia" },
-                    { from: "bot",  text: "Dr. Zerpa atiende lun, mié y vie 😊 ¿Qué día?" },
+          { from: "bot", text: "Dr. Zerpa atiende lun, mié y vie ¿Qué día?" },
                     { from: "user", text: "El viernes" },
                     { from: "bot",  text: "¡Perfecto! ¿Me das tu nombre? ✨" },
                   ]}
@@ -670,7 +671,7 @@ export default function Home() {
                   <li key={item} className="flex items-start gap-3 text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>
                     <span className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5"
                       style={{ background: "rgba(217,95,69,0.2)", color: "#D95F45", fontSize: 10, fontWeight: 800 }}>
-                      ✓
+                     
                     </span>
                     {item}
                   </li>
@@ -834,9 +835,9 @@ export default function Home() {
               </div>
               <p className="text-sm mb-6" style={{ color: "#607281" }}>Para el dentista independiente — menos que una consulta particular</p>
               <ul className="flex flex-col gap-2.5 text-sm mb-8 flex-1">
-                {["Recepcionista IA en WhatsApp y web", "Agenda personal + recordatorios", "Ficha clínica + odontograma", "Pacientes y pagos", "1 profesional"].map((f) => (
+                {["Recepción IA en WhatsApp y web", "Agenda personal + recordatorios", "Ficha clínica + odontograma", "Pacientes y pagos", "1 profesional"].map((f) => (
                   <li key={f} className="flex items-center gap-2.5">
-                    <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A" }}>✓</span>
+                    <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A" }}><Check className="w-3 h-3" aria-hidden /></span>
                     {f}
                   </li>
                 ))}
@@ -859,9 +860,9 @@ export default function Home() {
               </div>
               <p className="text-sm mb-6" style={{ color: "#607281" }}>Para la clínica que recién se digitaliza</p>
               <ul className="flex flex-col gap-2.5 text-sm mb-8 flex-1">
-                {["Recepcionista IA en tu sitio web", "Agenda por profesional", "Ficha clínica + odontograma", "Recordatorios automáticos de cita", "Hasta 2 profesionales"].map((f) => (
+                {["Recepción IA en tu sitio web", "Agenda por profesional", "Ficha clínica + odontograma", "Recordatorios automáticos de cita", "Hasta 2 profesionales"].map((f) => (
                   <li key={f} className="flex items-center gap-2.5">
-                    <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A" }}>✓</span>
+                    <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A" }}><Check className="w-3 h-3" aria-hidden /></span>
                     {f}
                   </li>
                 ))}
@@ -889,14 +890,14 @@ export default function Home() {
               <ul className="flex flex-col gap-2.5 text-sm mb-8 flex-1">
                 {[
                   "Todo lo del plan Esencial",
-                  "Recepcionista IA en WhatsApp Business",
+                  "Recepción IA en WhatsApp Business",
                   "Recall automático + lista de espera",
                   "Pagos online y boleta electrónica SII",
                   "Dashboard de gestión + scoring de pacientes",
                   "Soporte prioritario",
                 ].map((f) => (
                   <li key={f} className="flex items-center gap-2.5">
-                    <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#FDECEA", color: "#D95F45" }}>✓</span>
+                    <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#FDECEA", color: "#D95F45" }}><Check className="w-3 h-3" aria-hidden /></span>
                     {f}
                   </li>
                 ))}
@@ -927,7 +928,7 @@ export default function Home() {
                   "SLA garantizado",
                 ].map((f) => (
                   <li key={f} className="flex items-center gap-2.5">
-                    <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A" }}>✓</span>
+                    <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A" }}><Check className="w-3 h-3" aria-hidden /></span>
                     {f}
                   </li>
                 ))}

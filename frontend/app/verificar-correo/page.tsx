@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getMe, sendVerificationCode, verifyEmailCode } from "@/lib/auth";
+import { Mail } from "lucide-react";
 
 const CODE_LEN = 6;
 const RESEND_COOLDOWN = 60;
@@ -148,9 +149,7 @@ function VerificarCorreo() {
         style={{ borderColor: "#E5E0D9" }}>
 
         <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-6 text-xl"
-          style={{ backgroundColor: "var(--surface, #F7F5F1)" }}>
-          ✉️
-        </div>
+          style={{ backgroundColor: "var(--surface, #F7F5F1)" }}><Mail className="w-4 h-4" aria-hidden /></div>
 
         <h1 className="font-[family-name:var(--font-display,sans-serif)] text-2xl font-bold mb-2"
           style={{ color: "var(--teal-dark, #0B2F42)" }}>

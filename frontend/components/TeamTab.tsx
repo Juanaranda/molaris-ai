@@ -5,6 +5,7 @@ import {
   AuthUser, PartnerRole, ClinicalRole, TeamMember, CLINICAL_ROLE_LABELS,
   listTeam, inviteTeamMember, updateTeamMember,
 } from "@/lib/auth";
+import { CircleCheck, Stethoscope, X } from "lucide-react";
 
 interface Props {
   clinicId: string;
@@ -170,7 +171,7 @@ function MemberRow({ member, isSelf, canManage, pending, onSetActive, onSetRole,
           </span>
           {member.clinicalRole && (
             <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-teal-100 text-teal-700">
-              🩺 {CLINICAL_ROLE_LABELS[member.clinicalRole]}
+              <Stethoscope className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> {CLINICAL_ROLE_LABELS[member.clinicalRole]}
             </span>
           )}
           {inactive && (
@@ -270,13 +271,12 @@ function InviteModal({ clinicId, onClose, onCreated }: InviteModalProps) {
           <h3 className="text-sm font-bold text-gray-800">
             {tempPass ? "Usuario creado" : "Invitar nuevo usuario"}
           </h3>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg leading-none">✕</button>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg leading-none"><X className="w-4 h-4" aria-hidden /></button>
         </div>
 
         {tempPass ? (
           <div className="p-5 flex flex-col gap-4">
-            <p className="text-sm text-gray-600">
-              ✅ <strong>{createdName}</strong> fue creado/a. Comparte estos datos de forma segura — la contraseña no se mostrará nuevamente.
+            <p className="text-sm text-gray-600"><CircleCheck className="w-4 h-4" aria-hidden /><strong>{createdName}</strong> fue creado/a. Comparte estos datos de forma segura — la contraseña no se mostrará nuevamente.
             </p>
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col gap-2">
               <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Contraseña temporal</p>

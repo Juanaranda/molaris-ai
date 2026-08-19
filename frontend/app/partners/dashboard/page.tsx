@@ -21,6 +21,7 @@ import { RecallSection } from "@/components/RecallSection";
 import { AuditLogSection } from "@/components/AuditLogSection";
 import { InventoryManager } from "@/components/InventoryManager";
 import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
+import { TriangleAlert, X, Zap } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -537,7 +538,7 @@ function AnalyticsPanel({ clinic, analytics, loading, onGoToConfig, onRetry }: {
                   </div>
                   {recallResult && (
                     <div className="shrink-0 text-xs text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl whitespace-nowrap">
-                      ✓ {recallResult.sent} / {recallResult.total} enviados
+                      {recallResult.sent} / {recallResult.total} enviados
                     </div>
                   )}
                 </div>
@@ -554,7 +555,7 @@ function AnalyticsPanel({ clinic, analytics, loading, onGoToConfig, onRetry }: {
                     {recallSending ? "Enviando…" : "Enviar campaña"}
                   </button>
                   {!clinic.whatsapp && (
-                    <p className="text-xs text-amber-600">⚠ Requiere WhatsApp configurado</p>
+                    <p className="text-xs text-amber-600"><TriangleAlert className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Requiere WhatsApp configurado</p>
                   )}
                 </div>
               </div>
@@ -1170,7 +1171,7 @@ export default function PartnersDashboard() {
           return !onboardingDone ? (
             <div className="flex items-center gap-4 px-5 py-4 rounded-2xl border"
               style={{ backgroundColor: "#FFF8F1", borderColor: "#FDD9A0" }}>
-              <span className="text-2xl shrink-0">⚡</span>
+              <span className="text-2xl shrink-0"><Zap className="w-4 h-4" aria-hidden /></span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold" style={{ color: "#92400E" }}>Completa la configuración inicial</p>
                 <p className="text-xs mt-0.5" style={{ color: "#B45309" }}>
@@ -1193,8 +1194,8 @@ export default function PartnersDashboard() {
               <div className={`mb-4 rounded-xl px-4 py-2.5 text-sm font-medium flex items-center justify-between ${
                 mpNotice === "connected" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-600 border border-red-200"
               }`}>
-                <span>{mpNotice === "connected" ? "✓ Mercado Pago conectado correctamente." : "No se pudo conectar Mercado Pago. Intenta de nuevo."}</span>
-                <button onClick={() => setMpNotice(null)} className="text-current opacity-60 hover:opacity-100">✕</button>
+                <span>{mpNotice === "connected" ? "Mercado Pago conectado correctamente." : "No se pudo conectar Mercado Pago. Intenta de nuevo."}</span>
+                <button onClick={() => setMpNotice(null)} className="text-current opacity-60 hover:opacity-100"><X className="w-4 h-4" aria-hidden /></button>
               </div>
             )}
 

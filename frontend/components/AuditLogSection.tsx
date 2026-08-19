@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AuditLogEntry, listAuditLog } from "@/lib/auditLog";
+import { ClipboardList, Eye, Pencil, RefreshCw } from "lucide-react";
 
 interface Props {
   clinicId: string;
@@ -18,10 +19,10 @@ const RESOURCE_LABELS: Record<string, string> = {
 };
 
 const ACTION_META: Record<string, { label: string; cls: string }> = {
-  read:   { label: "👁 Lectura",  cls: "bg-blue-100 text-blue-700" },
+ read:  { label: " Lectura", cls: "bg-blue-100 text-blue-700" },
   create: { label: "+ Creación",  cls: "bg-emerald-100 text-emerald-700" },
-  update: { label: "✎ Edición",   cls: "bg-amber-100 text-amber-800" },
-  delete: { label: "✕ Borrado",   cls: "bg-red-100 text-red-700" },
+ update: { label: " Edición",  cls: "bg-amber-100 text-amber-800" },
+  delete: { label: "Borrado",   cls: "bg-red-100 text-red-700" },
 };
 
 /**
@@ -59,14 +60,14 @@ export function AuditLogSection({ clinicId }: Props) {
     <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
       <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
         <div>
-          <h2 className="font-semibold text-gray-900">📋 Audit log médico-legal</h2>
+          <h2 className="font-semibold text-gray-900"><ClipboardList className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Audit log médico-legal</h2>
           <p className="text-xs text-gray-400 mt-0.5">
             Registro de toda lectura/edición de datos sensibles · Ley 20.584 · Retención 15 años
           </p>
         </div>
         <button onClick={fetchLogs} disabled={loading}
           className="text-xs font-bold px-3 py-1.5 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50">
-          {loading ? "…" : "↻ Refrescar"}
+     {loading ? "…" : " Refrescar"}
         </button>
       </div>
 

@@ -7,6 +7,7 @@ import { ensurePatientId } from "@/lib/clinicalRecord";
 import { getOdontogram, type ToothProjection } from "@/lib/odontogram";
 import { StandardOdontogram } from "@/components/StandardOdontogram";
 import type { DentitionType } from "@/lib/tooth";
+import { Check, CreditCard, Mail, Pencil, Printer, Smile, Stethoscope, TriangleAlert, X } from "lucide-react";
 
 /* El presupuesto guarda el FDI con punto ("1.6") desde siempre y hay
    cotizaciones así en la BBDD; la ficha clínica lo usa sin punto ("16").
@@ -383,7 +384,7 @@ function AddItemForm({
       {/* Aviso per_arch cuando hay múltiples piezas seleccionadas */}
       {showArchWarning && (
         <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200">
-          <span className="text-amber-500 text-sm shrink-0 mt-0.5">⚠</span>
+          <span className="text-amber-500 text-sm shrink-0 mt-0.5"><TriangleAlert className="w-4 h-4" aria-hidden /></span>
           <div>
             <p className="text-[11px] font-bold text-amber-700">Prestación por boca completa</p>
             <p className="text-[10px] text-amber-600 mt-0.5">
@@ -707,12 +708,10 @@ function QuoteBuilderModal({
             <button onClick={abrirFichaClinica} disabled={abriendoFicha}
               title="Ver hallazgos y odontograma clínico del paciente"
               className="text-xs font-bold px-3 py-1.5 rounded-xl border border-gray-200 text-gray-600 hover:border-[#1A5C7A] hover:text-[#1A5C7A] transition disabled:opacity-50">
-              🩺 {abriendoFicha ? "Abriendo…" : "Ver ficha clínica"}
+              <Stethoscope className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> {abriendoFicha ? "Abriendo…" : "Ver ficha clínica"}
             </button>
             <button onClick={onClose}
-              className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500">
-              ✕
-            </button>
+              className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 transition flex items-center justify-center text-gray-500"><X className="w-4 h-4" aria-hidden /></button>
           </div>
         </div>
         {errorFicha && (
@@ -805,7 +804,7 @@ function QuoteBuilderModal({
                         <div className="flex items-center gap-2 shrink-0">
                           <span className="text-xs font-bold text-gray-700">{fmtCLP(item.total)}</span>
                           <button onClick={() => removeItem(idx)}
-                            className="text-gray-300 hover:text-red-500 transition text-sm leading-none">✕</button>
+                            className="text-gray-300 hover:text-red-500 transition text-sm leading-none"><X className="w-4 h-4" aria-hidden /></button>
                         </div>
                       </div>
                     ))}
@@ -952,10 +951,10 @@ function QuoteCard({ quote, onStatusChange, onEdit }: {
           <div className="flex items-center gap-2 flex-wrap">
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span>
             {quote.accepted && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">✓ Aceptado</span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700"><Check className="w-3.5 h-3.5 inline-block mr-1 align-[-2px]" aria-hidden />Aceptado</span>
             )}
             <span className="text-[10px] text-gray-400">{dateStr}</span>
-            {emailMsg === "Enviado" && <span className="text-[10px] text-blue-600 font-semibold">✉ Enviado</span>}
+            {emailMsg === "Enviado" && <span className="text-[10px] text-blue-600 font-semibold"><Mail className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Enviado</span>}
           </div>
           <p className="text-sm font-bold text-gray-800 mt-1">
             {quote.items.length} prestación{quote.items.length !== 1 ? "es" : ""}
@@ -996,7 +995,7 @@ function QuoteCard({ quote, onStatusChange, onEdit }: {
               </div>
             ))}
             {quote.paymentInfo && (
-              <p className="text-[11px] text-gray-400 pt-3 border-t border-gray-50">💳 {quote.paymentInfo}</p>
+              <p className="text-[11px] text-gray-400 pt-3 border-t border-gray-50"><CreditCard className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> {quote.paymentInfo}</p>
             )}
           </div>
 
@@ -1028,12 +1027,12 @@ function QuoteCard({ quote, onStatusChange, onEdit }: {
               {!quote.accepted && (
                 <button onClick={() => onEdit(quote)}
                   className="text-xs font-semibold text-gray-500 hover:text-gray-700">
-                  ✏️ Editar
+                  <Pencil className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Editar
                 </button>
               )}
               <button onClick={() => printQuote(quote)}
                 className="text-xs font-semibold text-gray-500 hover:text-gray-700">
-                🖨 Imprimir
+                <Printer className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Imprimir
               </button>
               {emailMsg && emailMsg !== "Enviado" && <span className="text-[10px] text-red-500">{emailMsg}</span>}
               {showEmail ? (
@@ -1051,7 +1050,7 @@ function QuoteCard({ quote, onStatusChange, onEdit }: {
               ) : (
                 <button onClick={() => setShowEmail(true)}
                   className="text-xs font-semibold text-blue-600 hover:text-blue-700">
-                  ✉ Enviar por email
+                  <Mail className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Enviar por email
                 </button>
               )}
             </div>
@@ -1138,7 +1137,7 @@ export function DentalQuoteTab({
         </div>
       ) : quotes.length === 0 ? (
         <div className="flex flex-col items-center py-8 gap-2">
-          <p className="text-2xl">🦷</p>
+          <p className="text-2xl"><Smile className="w-4 h-4" aria-hidden /></p>
           <p className="text-sm text-gray-400">Sin presupuestos aún</p>
           <button onClick={() => setShowBuilder(true)} className="text-xs font-bold text-blue-600 hover:underline mt-1">
             Crear el primero

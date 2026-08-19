@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getMe, updateClinic } from "@/lib/auth";
 import { BetaWhatsappCard } from "@/components/BetaWhatsappCard";
+import { Building2, Calendar, Check, Globe, Hand, MessageCircle, Smartphone, Stethoscope, X, type LucideIcon } from "lucide-react";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -232,7 +233,7 @@ export default function SetupPage() {
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all ${
                       done ? "bg-emerald-500 text-white" : active ? "bg-white text-[#0B2F42]" : "bg-white/10 text-white/40"
                     }`}>
-                      {done ? "✓" : i + 1}
+                      {done ? <Check className="w-3.5 h-3.5" aria-hidden /> : i + 1}
                     </div>
                     {i < stepList.length - 1 && (
                       <div className={`w-px flex-1 my-1 ${done ? "bg-emerald-400/50" : "bg-white/10"}`} style={{ height: 28 }} />
@@ -268,7 +269,7 @@ export default function SetupPage() {
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
                     done ? "bg-emerald-500 text-white" : active ? "text-white" : "bg-gray-100 text-gray-400"
                   }`} style={active ? { backgroundColor: "#0B2F42" } : {}}>
-                    {done ? "✓" : i + 1}
+                    {done ? <Check className="w-3.5 h-3.5" aria-hidden /> : i + 1}
                   </div>
                   {i < stepList.length - 1 && (
                     <div className={`flex-1 h-px ${done ? "bg-emerald-400" : "bg-gray-200"}`} />
@@ -282,7 +283,7 @@ export default function SetupPage() {
           {step === 1 && (
             <div className="flex flex-col gap-6">
               <div>
-                <p className="text-4xl mb-4">👋</p>
+                <p className="text-4xl mb-4"><Hand className="w-4 h-4" aria-hidden /></p>
                 <h2 className="text-3xl font-black mb-2" style={{ color: "#0C1B26" }}>
                   {clinicName ? `Bienvenido, ${clinicName}` : "Bienvenido a molari.ai"}
                 </h2>
@@ -294,18 +295,18 @@ export default function SetupPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {(isSolo
                   ? [
-                      { icon: "🦷", title: "Tu consulta", desc: "Tus datos, especialidad y ubicación" },
-                      { icon: "🗓️", title: "Tu horario", desc: "Cuándo atiendes a tus pacientes" },
-                      { icon: "📲", title: "Tus canales", desc: "WhatsApp y web donde te escriben" },
+                      { Icono: Stethoscope, title: "Tu consulta", desc: "Tus datos, especialidad y ubicación" },
+                      { Icono: Calendar, title: "Tu horario", desc: "Cuándo atiendes a tus pacientes" },
+                      { Icono: Smartphone, title: "Tus canales", desc: "WhatsApp y web donde te escriben" },
                     ]
                   : [
-                      { icon: "🏥", title: "Tu clínica", desc: "Nombre, teléfono y ubicación de tu consulta" },
-                      { icon: "🦷", title: "Tus doctores", desc: "El equipo con sus especialidades y disponibilidad" },
-                      { icon: "📲", title: "Horario y canales", desc: "Cuándo atiendes y dónde te escriben los pacientes" },
+                      { Icono: Building2, title: "Tu clínica", desc: "Nombre, teléfono y ubicación de tu consulta" },
+                      { Icono: Stethoscope, title: "Tus doctores", desc: "El equipo con sus especialidades y disponibilidad" },
+                      { Icono: Smartphone, title: "Horario y canales", desc: "Cuándo atiendes y dónde te escriben los pacientes" },
                     ]
                 ).map((card) => (
                   <div key={card.title} className="bg-white rounded-2xl border p-5 flex flex-col gap-2" style={{ borderColor: "#E5E0D9" }}>
-                    <span className="text-2xl">{card.icon}</span>
+                    <card.Icono className="w-6 h-6" aria-hidden />
                     <p className="text-sm font-bold" style={{ color: "#0C1B26" }}>{card.title}</p>
                     <p className="text-xs leading-relaxed" style={{ color: "#607281" }}>{card.desc}</p>
                   </div>
@@ -412,9 +413,7 @@ export default function SetupPage() {
                       </p>
                       {doctors.length > 1 && (
                         <button onClick={() => removeDoctor(doc._id)}
-                          className="w-11 h-11 rounded-xl bg-gray-100 hover:bg-red-50 hover:text-red-500 transition text-gray-500 text-sm flex items-center justify-center shrink-0 -m-2">
-                          ✕
-                        </button>
+                          className="w-11 h-11 rounded-xl bg-gray-100 hover:bg-red-50 hover:text-red-500 transition text-gray-500 text-sm flex items-center justify-center shrink-0 -m-2"><X className="w-4 h-4" aria-hidden /></button>
                       )}
                     </div>
 
@@ -605,9 +604,7 @@ export default function SetupPage() {
               <div className="bg-white rounded-2xl border p-5 flex flex-col gap-3" style={{ borderColor: "#E5E0D9" }}>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                    style={{ backgroundColor: "#E9F5EC" }}>
-                    💬
-                  </div>
+                    style={{ backgroundColor: "#E9F5EC" }}><MessageCircle className="w-4 h-4" aria-hidden /></div>
                   <div>
                     <p className="text-sm font-bold" style={{ color: "#0C1B26" }}>WhatsApp Business</p>
                     <p className="text-xs" style={{ color: "#607281" }}>El asistente responderá aquí 24/7</p>
@@ -629,9 +626,7 @@ export default function SetupPage() {
               <div className="bg-white rounded-2xl border p-5 flex flex-col gap-3" style={{ borderColor: "#E5E0D9" }}>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                    style={{ backgroundColor: "#EEF3F8" }}>
-                    🌐
-                  </div>
+                    style={{ backgroundColor: "#EEF3F8" }}><Globe className="w-4 h-4" aria-hidden /></div>
                   <div>
                     <p className="text-sm font-bold" style={{ color: "#0C1B26" }}>Widget web</p>
                     <p className="text-xs" style={{ color: "#607281" }}>Pega este código en el {"<head>"} de tu sitio</p>

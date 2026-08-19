@@ -5,6 +5,7 @@ import {
   InventoryItem, getInventory, createInventoryItem,
   deleteInventoryItem, registerMovement,
 } from "@/lib/inventory";
+import { TriangleAlert, X } from "lucide-react";
 
 const fmtCLP = (n: number) => "$" + Math.round(n).toLocaleString("es-CL");
 
@@ -43,7 +44,7 @@ export function InventoryManager({ clinicId }: { clinicId: string }) {
 
       {lowCount > 0 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-700 font-semibold">
-          ⚠️ {lowCount} insumo{lowCount !== 1 ? "s" : ""} con stock bajo o agotado.
+          <TriangleAlert className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> {lowCount} insumo{lowCount !== 1 ? "s" : ""} con stock bajo o agotado.
         </div>
       )}
 
@@ -146,7 +147,7 @@ function ItemRow({ item, onChange }: { item: InventoryItem; onChange: () => void
         <button onClick={() => move("out")} disabled={busy} title="Salida (consumo)"
           className="text-xs font-bold px-2 py-1.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 disabled:opacity-50">− Salida</button>
         <button onClick={remove} disabled={busy} title="Eliminar"
-          className="text-xs px-2 py-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50">✕</button>
+          className="text-xs px-2 py-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50"><X className="w-4 h-4" aria-hidden /></button>
       </div>
       {err && <span className="text-xs text-red-500 w-full">{err}</span>}
     </div>

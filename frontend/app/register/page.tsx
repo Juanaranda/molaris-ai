@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { login } from "@/lib/auth";
+import { Building2, Check, MapPin, Stethoscope, type LucideIcon } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -197,7 +198,7 @@ function LocationSelector({
             className="text-xs px-3 py-1.5 rounded-xl font-medium"
             style={{ backgroundColor: "#E8F3F7", color: "var(--teal-mid, #1A5C7A)", border: "1px solid #B8D9EA" }}
           >
-            📍 {commune}, {region}
+            <MapPin className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> {commune}, {region}
           </span>
           <button
             type="button"
@@ -300,7 +301,7 @@ export default function RegisterPage() {
             {BENEFITS.map((b, i) => (
               <li key={i} className="flex items-start gap-3 text-sm" style={{ color: "rgba(255,255,255,0.75)" }}>
                 <span className="mt-0.5 w-5 h-5 shrink-0 rounded-full flex items-center justify-center text-xs font-bold"
-                  style={{ backgroundColor: "var(--coral, #D95F45)", color: "white" }}>✓</span>
+                  style={{ backgroundColor: "var(--coral, #D95F45)", color: "white" }}><Check className="w-3 h-3" aria-hidden /></span>
                 {b}
               </li>
             ))}
@@ -346,7 +347,7 @@ export default function RegisterPage() {
                     }`}
                     style={step >= s ? { backgroundColor: "var(--teal-mid, #1A5C7A)" } : {}}
                   >
-                    {step > s ? "✓" : s}
+                    {step > s ? <Check className="w-3.5 h-3.5" aria-hidden /> : s}
                   </div>
                   <span
                     className={`text-xs hidden sm:block ${step >= s ? "font-medium" : "text-gray-400"}`}
@@ -387,9 +388,9 @@ export default function RegisterPage() {
                     </label>
                     <div className="grid grid-cols-2 gap-2">
                       {([
-                        { key: "solo",   emoji: "🦷", title: "Doctor independiente", desc: "Atiendo yo solo" },
-                        { key: "clinic", emoji: "🏥", title: "Clínica o equipo", desc: "Varios profesionales" },
-                      ] as { key: AccountType; emoji: string; title: string; desc: string }[]).map((opt) => {
+                        { key: "solo",   Icono: Stethoscope, title: "Doctor independiente", desc: "Atiendo yo solo" },
+                        { key: "clinic", Icono: Building2,   title: "Clínica o equipo", desc: "Varios profesionales" },
+                      ] as { key: AccountType; Icono: LucideIcon; title: string; desc: string }[]).map((opt) => {
                         const active = accountType === opt.key;
                         return (
                           <button
@@ -401,7 +402,7 @@ export default function RegisterPage() {
                               ? { borderColor: "var(--teal-mid, #1A5C7A)", backgroundColor: "#E8F3F7", boxShadow: "0 0 0 1px var(--teal-mid, #1A5C7A)" }
                               : { borderColor: "#E5E0D9", backgroundColor: "var(--surface, #F7F5F1)" }}
                           >
-                            <span className="text-lg">{opt.emoji}</span>
+                            <opt.Icono className="w-5 h-5" aria-hidden />
                             <p className="text-sm font-bold mt-1" style={{ color: "var(--ink, #0C1B26)" }}>{opt.title}</p>
                             <p className="text-[11px]" style={{ color: "var(--ink-muted, #607281)" }}>{opt.desc}</p>
                           </button>
