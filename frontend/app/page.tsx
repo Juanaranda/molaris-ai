@@ -357,11 +357,6 @@ export default function Home() {
         <div className="relative max-w-6xl mx-auto px-6 sm:px-10 pt-10 sm:pt-14 pb-12 sm:pb-16">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
             <div>
-              <span className="inline-flex items-center gap-2 text-xs font-bold px-4 py-1.5 rounded-full mb-5 animate-fade-up" style={{ backgroundColor: "#E8F3F7", color: "#1A5C7A", border: "1px solid rgba(26,92,122,0.2)" }}>
-                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#D95F45" }} />
-                Software de gestión dental · con recepción IA 24/7
-              </span>
-
               <h1 className="font-display text-3xl sm:text-5xl font-bold leading-[1.1] tracking-tight mb-4 text-balance animate-fade-up animate-fade-up-delay-1">
                 Tu clínica completa.<br />
                 {/* Espacio duro: evita que "duerme." quede huérfano al envolver en móvil. */}
@@ -392,12 +387,13 @@ export default function Home() {
 
               {process.env.NEXT_PUBLIC_LIVE_CLINIC_LABEL && (
                 <div className="flex items-center gap-3 mt-6 animate-fade-up animate-fade-up-delay-3">
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ backgroundColor: "#E8F3F7", border: "1px solid rgba(26,92,122,0.15)" }}>
-                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#1A5C7A" }} />
-                    <p className="text-xs font-semibold" style={{ color: "#1A5C7A" }}>
-                      En producción · {process.env.NEXT_PUBLIC_LIVE_CLINIC_LABEL}
-                    </p>
-                  </div>
+                  <p className="senal-viva flex items-center gap-2.5 text-sm" style={{ color: "#607281" }}>
+                    <span className="punto-vivo" aria-hidden />
+                    Atendiendo pacientes ahora en{" "}
+                    <strong style={{ color: "#0B2F42", fontWeight: 650 }}>
+                      {process.env.NEXT_PUBLIC_LIVE_CLINIC_LABEL}
+                    </strong>
+                  </p>
                 </div>
               )}
             </div>
@@ -797,10 +793,10 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Copy */}
             <div>
-              <span className="inline-flex items-center gap-2 text-xs font-bold px-4 py-1.5 rounded-full mb-6" style={{ backgroundColor: "rgba(217,95,69,0.15)", color: "#D95F45", border: "1px solid rgba(217,95,69,0.3)" }}>
-                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#D95F45" }} />
+              <p className="flex items-center gap-3 text-xs font-bold uppercase tracking-[0.15em] mb-6" style={{ color: "#D95F45" }}>
+                <span className="h-px w-8" style={{ backgroundColor: "#D95F45", opacity: 0.5 }} aria-hidden />
                 Habla con Juan
-              </span>
+              </p>
               <h2 className="font-display text-3xl sm:text-4xl font-bold text-white mb-4">
                 ¿Tienes dudas?<br />
                 <span style={{ color: "#D95F45" }}>Pregúntale a Juan.</span>

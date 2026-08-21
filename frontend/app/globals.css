@@ -75,3 +75,35 @@ body {
 }
 .animate-float      { animation: float 5s ease-in-out infinite; }
 .animate-float-slow { animation: float 7s ease-in-out infinite; }
+
+/* ── Señal de "en vivo" ──────────────────────────────────────────────────────
+   El punto pulsante genérico está en todas las landings de SaaS. Este es un
+   punto sólido con una onda que se expande, como un radar: se lee como algo
+   que está pasando ahora, no como un adorno. Se usa SOLO donde hay algo
+   realmente en vivo — hoy, una clínica atendiendo. */
+.punto-vivo {
+  position: relative;
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--coral);
+  flex-shrink: 0;
+}
+.punto-vivo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--coral);
+  animation: onda-viva 2.4s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+}
+@keyframes onda-viva {
+  0%   { transform: scale(1);   opacity: 0.7; }
+  70%  { transform: scale(3.2); opacity: 0; }
+  100% { transform: scale(3.2); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .punto-vivo::after { animation: none; opacity: 0.35; }
+}
