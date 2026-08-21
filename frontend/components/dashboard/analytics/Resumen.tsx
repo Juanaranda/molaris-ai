@@ -3,10 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { Analytics } from "../types";
-import {
-  DOW_LABELS, IntentBadge, MONTH_LABELS, MiniBar, ScoreBadge, StatCard,
-  UrgencyDot, fmtCLP,
-} from "../widgets";
+import { IntentBadge, MONTH_LABELS, MiniBar, ScoreBadge, StatCard, UrgencyDot, fmtCLP } from "../widgets";
 
 /** Los números que mira el dueño primero: conversión, ingresos y leads recientes. */
 export function AnaliticaResumen({ analytics }: { analytics: Analytics }) {

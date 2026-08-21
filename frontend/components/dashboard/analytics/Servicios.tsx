@@ -1,10 +1,7 @@
 "use client";
 
 import type { Analytics } from "../types";
-import {
-  DOW_LABELS, IntentBadge, MONTH_LABELS, MiniBar, ScoreBadge, StatCard,
-  UrgencyDot, fmtCLP,
-} from "../widgets";
+import { MiniBar, fmtCLP } from "../widgets";
 
 /** Qué prestaciones se piden más y cuánto dejan. */
 export function AnaliticaServicios({ analytics }: { analytics: Analytics }) {
