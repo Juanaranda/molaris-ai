@@ -1,9 +1,13 @@
 @import "tailwindcss";
 
 @theme {
-  --font-family-display: var(--font-jakarta), "Plus Jakarta Sans", sans-serif;
-  --font-family-body: var(--font-jakarta), "Plus Jakarta Sans", sans-serif;
-  --font-family-sans: var(--font-jakarta), "Plus Jakarta Sans", sans-serif;
+  /* En Tailwind v4 las utilidades de fuente salen del namespace --font-*, no
+     de --font-family-*. Con el nombre viejo la clase `font-display` no
+     generaba nada: los 29 titulares que la usan venían heredando la fuente
+     del body. No se notaba porque display y body eran la misma familia. */
+  --font-display: var(--font-jakarta), "Plus Jakarta Sans", sans-serif;
+  --font-body: var(--font-jakarta), "Plus Jakarta Sans", sans-serif;
+  --font-sans: var(--font-jakarta), "Plus Jakarta Sans", sans-serif;
 
   /* Override blue palette → brand teal (#1A5C7A family) */
   --color-blue-50:  #EFF6FA;
@@ -48,7 +52,7 @@
 body {
   background-color: var(--surface);
   color: var(--ink);
-  font-family: var(--font-family-body);
+  font-family: var(--font-body);
 }
 
 @keyframes fade-up {
