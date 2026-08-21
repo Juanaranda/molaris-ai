@@ -17,6 +17,19 @@
   --color-blue-800: #0B2F42;
   --color-blue-900: #071E2B;
   --color-blue-950: #040F16;
+
+  /* Neutrales de marca en la escala `gray` de Tailwind.
+     El panel usa 1.590 clases gray-* y la marca tiene neutrales cálidos
+     (crema y beige); los de Tailwind son fríos en los diez tonos. Remapear acá
+     —igual que ya se hacía con blue-*— alinea todo el panel sin tocar un solo
+     componente.
+     Solo se remapea el tramo claro: es el que ocupa superficie (fondos,
+     separadores, bordes) y donde se notaba el desajuste. Del 400 hacia abajo
+     son textos, y ahí la marca ya es fría igual que Tailwind. */
+  --color-gray-50:  #FDFCFB;   /* --surface-white */
+  --color-gray-100: #F7F5F1;   /* --surface */
+  --color-gray-200: #E5E0D9;   /* --border */
+  --color-gray-300: #D5CEC3;   /* intermedio hacia el gris de texto */
 }
 
 :root {
