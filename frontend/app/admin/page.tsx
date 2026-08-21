@@ -99,9 +99,13 @@ function CostSparkline({ data }: { data: DayRow[] }) {
   );
 }
 
-// ── StatCard ───────────────────────────────────────────────────────────────
+// ── AdminStatCard ──────────────────────────────────────────────────────────
+// No es el StatCard del panel de la clínica y no debe unificarse a la ligera:
+// esta pantalla usa los tokens de marca (--ink, --border) y aquella la paleta
+// gris de Tailwind. Comparten forma de props y nada más; el nombre repetido
+// hacía parecer que una era copia de la otra.
 
-function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+function AdminStatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
     <div className="bg-white rounded-xl border p-4" style={{ borderColor: "var(--border)" }}>
       <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--ink-muted)" }}>{label}</p>
@@ -304,11 +308,11 @@ export default function AdminPage() {
 
         {/* KPIs globales */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <StatCard label="Clínicas" value={totals.clinics} />
-          <StatCard label="Conversaciones" value={fmt(totals.sessions)} />
-          <StatCard label="Leads" value={fmt(totals.leads)} />
-          <StatCard label="Citas" value={fmt(totals.bookings)} />
-          <StatCard label="Costo total" value={fmtUsd(totals.costUsd)} sub={`${fmt(totals.tokensIn + totals.tokensOut)} tokens`} />
+          <AdminStatCard label="Clínicas" value={totals.clinics} />
+          <AdminStatCard label="Conversaciones" value={fmt(totals.sessions)} />
+          <AdminStatCard label="Leads" value={fmt(totals.leads)} />
+          <AdminStatCard label="Citas" value={fmt(totals.bookings)} />
+          <AdminStatCard label="Costo total" value={fmtUsd(totals.costUsd)} sub={`${fmt(totals.tokensIn + totals.tokensOut)} tokens`} />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

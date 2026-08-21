@@ -4,11 +4,6 @@ import { useState } from "react";
 import { TriangleAlert } from "lucide-react";
 import { getToken, type ClinicData } from "@/lib/auth";
 import type { Analytics } from "../types";
-import {
-  DOW_LABELS, IntentBadge, MONTH_LABELS, MiniBar, ScoreBadge, StatCard,
-  UrgencyDot, fmtCLP,
-} from "../widgets";
-
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 /** Cuántos vuelven y cuántos son nuevos. */

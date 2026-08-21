@@ -1,10 +1,7 @@
 "use client";
 
 import type { Analytics } from "../types";
-import {
-  DOW_LABELS, IntentBadge, MONTH_LABELS, MiniBar, ScoreBadge, StatCard,
-  UrgencyDot, fmtCLP,
-} from "../widgets";
+import { DOW_LABELS, fmtCLP } from "../widgets";
 
 /** Cuándo se llena la agenda y cuánto se cancela. */
 export function AnaliticaOperaciones({ analytics }: { analytics: Analytics }) {

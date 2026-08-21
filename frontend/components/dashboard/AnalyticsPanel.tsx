@@ -1,22 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { TriangleAlert } from "lucide-react";
-import { getToken, type ClinicData } from "@/lib/auth";
+import type { ClinicData } from "@/lib/auth";
 import { SetupChecklist } from "@/components/SetupChecklist";
 import type { Analytics } from "./types";
-import {
-  DOW_LABELS, IntentBadge, MONTH_LABELS, MiniBar, ScoreBadge, StatCard,
-  UrgencyDot, fmtCLP,
-} from "./widgets";
 import { AnaliticaResumen } from "./analytics/Resumen";
 import { AnaliticaDoctores } from "./analytics/Doctores";
 import { AnaliticaPacientes } from "./analytics/Pacientes";
 import { AnaliticaServicios } from "./analytics/Servicios";
 import { AnaliticaOperaciones } from "./analytics/Operaciones";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 /**
  * Panel de analítica del dashboard. Eran ~550 líneas dentro de page.tsx, más
