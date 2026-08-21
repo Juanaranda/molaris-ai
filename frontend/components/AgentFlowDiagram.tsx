@@ -1,24 +1,25 @@
 "use client";
 
 import {
-  Bot, Calendar, CircleCheck, MessageCircle, Shield, Star, Stethoscope,
+  Bot, Calendar, MessageCircle, Shield, Star, Stethoscope,
   type LucideIcon,
 } from "lucide-react";
 
 /**
  * Cómo piensa el agente, dibujado desde la configuración real de la clínica.
  *
- * Nace de un pedido concreto: la configuración es hoy una lista de campos
- * (tono, servicios, doctores, horarios) y no se ve cómo se conectan, así que
- * el dueño de la clínica no tiene forma de saber qué hace su agente con lo que
- * llenó.
+ * Nace de un pedido concreto: la configuración es una lista de campos (tono,
+ * servicios, doctores, horarios) y no se ve cómo se conectan, así que el dueño
+ * de la clínica no tiene forma de saber qué hace su agente con lo que llenó.
  *
- * Los números salen de `config`, no están escritos a mano: si mañana agregan
- * un doctor, el diagrama lo dice. Un diagrama estático miente a la primera
- * semana, y uno que miente es peor que no tenerlo.
+ * Se dibuja como grafo de nodos —cada paso es una caja con su tipo, sus puertos
+ * y una arista hacia el siguiente— porque eso es lo que es. Una lista de viñetas
+ * no comunica que hay un orden ni que un paso alimenta al otro.
  *
- * Es solo para ver. Editar el comportamiento se sigue haciendo en los campos
- * de siempre.
+ * Los números salen de `config`, no están escritos a mano: si mañana agregan un
+ * doctor, el diagrama lo dice. Uno estático miente a la primera semana.
+ *
+ * Es solo para ver. Editar el comportamiento se sigue haciendo en los campos.
  */
 
 export interface AgentFlowConfig {
@@ -31,130 +32,198 @@ export interface AgentFlowConfig {
   instagram?: string | null;
 }
 
-interface Paso {
+/** El tipo de nodo se muestra en la cabecera, como en cualquier editor de flujo. */
+type TipoNodo = "entrada" | "filtro" | "contexto" | "respuesta" | "accion" | "salida";
+
+interface Nodo {
+  tipo: TipoNodo;
   icono: LucideIcon;
   titulo: string;
   detalle: string;
-  /** Los pasos "propios" son los que la clínica controla desde su configuración. */
-  destacado?: boolean;
+  /** Nodo alimentado por la configuración de la clínica. */
+  propio?: boolean;
 }
 
-function construirPasos(cfg: AgentFlowConfig): Paso[] {
+const TIPO_LABEL: Record<TipoNodo, string> = {
+  entrada:   "entrada",
+  filtro:    "filtro",
+  contexto:  "contexto",
+  respuesta: "respuesta",
+  accion:    "acción",
+  salida:    "salida",
+};
+
+function construirNodos(cfg: AgentFlowConfig): Nodo[] {
   const nDoctores = Array.isArray(cfg.doctors) ? cfg.doctors.length : 0;
   const nServicios = Array.isArray(cfg.services) ? cfg.services.length : 0;
   const asistente = cfg.assistantName?.trim() || "Tu asistente";
+  const horario = cfg.schedule?.weekdays?.trim();
 
   const canales = [
     cfg.whatsapp ? "WhatsApp" : null,
-    "tu sitio web",
+    "sitio web",
     cfg.instagram ? "Instagram" : null,
   ].filter(Boolean) as string[];
 
-  const horario = cfg.schedule?.weekdays?.trim();
-
   return [
     {
-      icono: MessageCircle,
+      tipo: "entrada", icono: MessageCircle,
       titulo: "Llega un mensaje",
       detalle: canales.length > 1
-        ? `Desde ${canales.slice(0, -1).join(", ")} y ${canales.at(-1)}`
-        : `Desde ${canales[0]}`,
+        ? `${canales.slice(0, -1).join(", ")} y ${canales.at(-1)}`
+        : canales[0],
     },
     {
-      icono: Shield,
+      tipo: "filtro", icono: Shield,
       titulo: "Filtra lo que no corresponde",
-      detalle: "Descarta mensajes fuera del ámbito dental antes de gastar una consulta a la IA",
+      detalle: "Descarta lo que no es dental antes de gastar una consulta a la IA",
     },
     {
-      icono: Stethoscope,
+      tipo: "contexto", icono: Stethoscope,
       titulo: "Carga el contexto de tu clínica",
       detalle: [
-        nDoctores ? `${nDoctores} ${nDoctores === 1 ? "profesional" : "profesionales"}` : "Tu equipo",
-        nServicios ? `${nServicios} ${nServicios === 1 ? "servicio" : "servicios"} con sus precios` : "Tus servicios",
-        horario || "Tu horario de atención",
+        nDoctores ? `${nDoctores} ${nDoctores === 1 ? "profesional" : "profesionales"}` : "tu equipo",
+        nServicios ? `${nServicios} ${nServicios === 1 ? "servicio" : "servicios"} con precio` : "tus servicios",
+        horario || "tu horario",
       ].join(" · "),
-      destacado: true,
+      propio: true,
     },
     {
-      icono: Bot,
+      tipo: "respuesta", icono: Bot,
       titulo: `${asistente} responde`,
       detalle: cfg.tone?.trim()
         ? `Con el tono que definiste: ${cfg.tone.trim()}`
         : "Con el tono que definas en la configuración",
-      destacado: true,
+      propio: true,
     },
     {
-      icono: Calendar,
-      titulo: "Si el paciente quiere hora, la agenda",
-      detalle: "Revisa el cupo del profesional antes de confirmar, para no pisar una cita existente",
+      tipo: "accion", icono: Calendar,
+      titulo: "Si quiere hora, la agenda",
+      detalle: "Revisa el cupo del profesional antes de confirmar",
     },
     {
-      icono: Star,
+      tipo: "salida", icono: Star,
       titulo: "Califica al paciente",
-      detalle: "Le pone un puntaje según urgencia e intención, para que sepas a quién llamar primero",
+      detalle: "Puntaje por urgencia e intención, para saber a quién llamar primero",
     },
   ];
 }
 
 export function AgentFlowDiagram({ config, compact = false }: {
   config: AgentFlowConfig;
-  /** En la landing se muestra más apretado y sin la nota del pie. */
   compact?: boolean;
 }) {
-  const pasos = construirPasos(config);
+  const nodos = construirNodos(config);
 
   return (
-    <div className="w-full">
-      <ol className="relative flex flex-col gap-0">
-        {pasos.map((paso, i) => {
-          const Icono = paso.icono;
-          const ultimo = i === pasos.length - 1;
+    <div className="flujo-agente w-full">
+      <ol className="flex flex-col">
+        {nodos.map((nodo, i) => {
+          const Icono = nodo.icono;
+          const ultimo = i === nodos.length - 1;
           return (
-            <li key={paso.titulo} className="relative flex gap-3 sm:gap-4">
-              {/* Columna del icono + línea que conecta con el siguiente paso */}
-              <div className="flex flex-col items-center shrink-0">
+            <li key={nodo.titulo} className="grid grid-cols-[2.4rem_1fr] sm:grid-cols-[3rem_1fr] gap-x-3 sm:gap-x-4">
+              {/* Riel: marcador del nodo + arista hacia el siguiente */}
+              <div className="flex flex-col items-center">
                 <span
-                  className="flex items-center justify-center rounded-xl border shrink-0"
+                  className="nodo-marca flex items-center justify-center rounded-xl border shrink-0"
                   style={{
-                    width: 38, height: 38,
-                    backgroundColor: paso.destacado ? "#E8F3F7" : "#FDFCFB",
-                    borderColor: paso.destacado ? "rgba(26,92,122,0.25)" : "#E5E0D9",
-                    color: paso.destacado ? "#1A5C7A" : "#607281",
+                    width: 40, height: 40,
+                    backgroundColor: nodo.propio ? "var(--teal-light, #E8F3F7)" : "var(--surface-white, #FDFCFB)",
+                    borderColor: nodo.propio ? "rgba(26,92,122,0.3)" : "var(--border, #E5E0D9)",
+                    color: nodo.propio ? "var(--teal-mid, #1A5C7A)" : "var(--ink-muted, #607281)",
                   }}
                 >
                   <Icono className="w-[18px] h-[18px]" aria-hidden />
                 </span>
+
                 {!ultimo && (
-                  <span
-                    aria-hidden
-                    className="w-px flex-1"
-                    style={{ backgroundColor: "#E5E0D9", minHeight: compact ? 18 : 26 }}
-                  />
+                  <span className="arista relative w-px flex-1" aria-hidden
+                    style={{ minHeight: compact ? 30 : 38, backgroundColor: "var(--border, #E5E0D9)" }}>
+                    {/* Pulso: recorre la arista para que se lea la dirección del
+                        flujo. Es la única animación y tiene ese trabajo. */}
+                    <span className="pulso" />
+                  </span>
                 )}
               </div>
 
-              <div className={compact ? "pb-4" : "pb-6"}>
-                <p className="text-sm font-bold leading-tight" style={{ color: "#0B2F42" }}>
-                  {paso.titulo}
-                </p>
-                <p className="text-xs leading-relaxed mt-0.5" style={{ color: "#607281" }}>
-                  {paso.detalle}
-                </p>
+              {/* Caja del nodo */}
+              <div className={compact ? "pb-3" : "pb-4"}>
+                <div className="nodo rounded-xl border overflow-hidden"
+                  style={{
+                    borderColor: nodo.propio ? "rgba(26,92,122,0.22)" : "var(--border, #E5E0D9)",
+                    backgroundColor: "var(--surface-white, #FDFCFB)",
+                  }}>
+                  <div className="flex items-center gap-2 px-3 py-1.5 border-b"
+                    style={{
+                      borderColor: nodo.propio ? "rgba(26,92,122,0.14)" : "var(--border, #E5E0D9)",
+                      backgroundColor: nodo.propio ? "rgba(26,92,122,0.045)" : "transparent",
+                    }}>
+                    <span className="font-mono text-[10px] tracking-[0.12em] uppercase"
+                      style={{ color: nodo.propio ? "var(--teal-mid, #1A5C7A)" : "var(--ink-faint, #8A9AA6)" }}>
+                      {TIPO_LABEL[nodo.tipo]}
+                    </span>
+                    {nodo.propio && (
+                      <span className="ml-auto text-[10px] font-semibold px-1.5 py-px rounded"
+                        style={{ backgroundColor: "var(--teal-light, #E8F3F7)", color: "var(--teal-mid, #1A5C7A)" }}>
+                        lo configuras tú
+                      </span>
+                    )}
+                  </div>
+                  <div className="px-3 py-2.5">
+                    <p className="text-sm font-bold leading-tight" style={{ color: "var(--teal-dark, #0B2F42)" }}>
+                      {nodo.titulo}
+                    </p>
+                    <p className="text-xs leading-relaxed mt-0.5" style={{ color: "var(--ink-muted, #607281)" }}>
+                      {nodo.detalle}
+                    </p>
+                  </div>
+                </div>
               </div>
             </li>
           );
         })}
       </ol>
 
-      {!compact && (
-        <p className="text-[11px] mt-1 flex items-start gap-1.5" style={{ color: "#8A9AA6" }}>
-          <CircleCheck className="w-3.5 h-3.5 shrink-0 mt-px" aria-hidden />
-          <span>
-            Los pasos resaltados usan lo que configuraste más abajo. Si cambias tu equipo,
-            tus servicios o tu horario, el agente cambia con ellos.
-          </span>
-        </p>
-      )}
+      <style>{`
+        .flujo-agente .pulso {
+          position: absolute;
+          left: -1.5px;
+          width: 4px;
+          height: 14px;
+          border-radius: 2px;
+          background: linear-gradient(to bottom, transparent, var(--teal-mid, #1A5C7A), transparent);
+          animation: flujo-pulso 2.6s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+          opacity: 0;
+        }
+        /* Cada arista arranca un poco después que la anterior: se lee como un
+           mensaje bajando por el flujo, no como seis luces parpadeando. */
+        .flujo-agente li:nth-child(1) .pulso { animation-delay: 0s; }
+        .flujo-agente li:nth-child(2) .pulso { animation-delay: 0.34s; }
+        .flujo-agente li:nth-child(3) .pulso { animation-delay: 0.68s; }
+        .flujo-agente li:nth-child(4) .pulso { animation-delay: 1.02s; }
+        .flujo-agente li:nth-child(5) .pulso { animation-delay: 1.36s; }
+
+        @keyframes flujo-pulso {
+          0%   { top: -14px; opacity: 0; }
+          12%  { opacity: 1; }
+          38%  { opacity: 1; }
+          50%  { top: 100%; opacity: 0; }
+          100% { top: 100%; opacity: 0; }
+        }
+
+        .flujo-agente .nodo { transition: border-color 160ms ease, box-shadow 160ms ease; }
+        .flujo-agente li:hover .nodo {
+          border-color: rgba(26,92,122,0.38);
+          box-shadow: 0 1px 3px rgba(11,47,66,0.07);
+        }
+        .flujo-agente li:hover .nodo-marca { border-color: rgba(26,92,122,0.45); }
+
+        @media (prefers-reduced-motion: reduce) {
+          .flujo-agente .pulso { animation: none; opacity: 0; }
+          .flujo-agente .nodo { transition: none; }
+        }
+      `}</style>
     </div>
   );
 }

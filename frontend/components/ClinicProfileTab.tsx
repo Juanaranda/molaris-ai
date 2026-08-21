@@ -187,7 +187,7 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
       <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
         <h3 className="text-sm font-bold text-gray-900 mb-1">Cómo funciona tu asistente</h3>
         <p className="text-xs text-gray-500 mb-5">
-          Esto es lo que hace con cada mensaje que le llega a tu clínica.
+          Cada mensaje que llega a tu clínica pasa por estos pasos. Los marcados en azul usan lo que configuras más abajo.
         </p>
         <AgentFlowDiagram
           config={{
