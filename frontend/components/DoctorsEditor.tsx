@@ -10,6 +10,10 @@ export interface DoctorRow {
   services?: string[];
   /** Horario propio. Si va vacío, el profesional hereda el de la clínica. */
   hours?: { from: string; to: string };
+  /** Contacto para confirmar sus horas. Sin al menos uno de los dos, la
+      solicitud del paciente se le queda esperando en la app. */
+  phone?: string;
+  email?: string;
 }
 
 /** Horas seleccionables, en bloques de 30 minutos entre las 07:00 y las 22:00. */
@@ -252,6 +256,29 @@ export function DoctorsEditor({ doctors, boxes, canEdit, maxDoctors, onSave }: P
                 className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <p className="text-[10px] text-gray-400 mt-1">Usa / para días sueltos o - para rango. Ej: Lun/Mié/Vie o Lun-Vie</p>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">
+                WhatsApp <span className="text-gray-400 font-normal">— para confirmar sus horas</span>
+              </label>
+              <input
+                value={form.phone ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                placeholder="+56 9 1234 5678"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">
+                Correo <span className="text-gray-400 font-normal">— alternativa al WhatsApp</span>
+              </label>
+              <input
+                type="email"
+                value={form.email ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="doctora@clinica.cl"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Horario de atención</label>
