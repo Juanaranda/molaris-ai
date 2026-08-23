@@ -760,8 +760,8 @@ export default function Home() {
             Vas a saber exactamente qué hace
           </h2>
           <p className="text-sm text-center max-w-xl mx-auto mb-12" style={{ color: "#607281" }}>
-            No es un chatbot que responde cualquier cosa. Cada mensaje pasa por estos pasos, y
-            los que dependen de ti los configuras tú.
+            No es un chatbot que agenda por su cuenta. Cada mensaje pasa por estos pasos, y
+            ninguna hora entra a tu agenda sin que tú la confirmes.
           </p>
 
           <AnimateIn>

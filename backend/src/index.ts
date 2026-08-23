@@ -37,6 +37,7 @@ import { anamnesisRoutes } from "./routes/anamnesis";
 import { consentRoutes } from "./routes/consents";
 import { labOrderRoutes } from "./routes/labOrders";
 import { inventoryRoutes } from "./routes/inventory";
+import { bookingConfirmRoutes } from "./routes/bookingConfirm";
 import { startReminderScheduler } from "./services/notifications/reminderService";
 import { startRecallScheduler } from "./services/notifications/recallService";
 import prisma from "./config/prisma";
@@ -47,6 +48,10 @@ import { startRecoveryScheduler } from "./services/agent/agentRecovery";
 const isProd = config.nodeEnv === "production";
 
 const app = Fastify({
+  // Fastify corta los parámetros de ruta en 100 caracteres y devuelve 404.
+  // El token de confirmación de citas es un JWT de ~200, así que el link que
+  // le llega al profesional por WhatsApp no encontraba la ruta.
+  maxParamLength: 512,
   logger: isProd
     ? { level: "warn", serializers: { req: (req) => ({ method: req.method, url: req.url }) } }
     : { level: "info" },
@@ -110,6 +115,7 @@ app.register(anamnesisRoutes, { prefix: "/api" });
 app.register(consentRoutes, { prefix: "/api" });
 app.register(labOrderRoutes, { prefix: "/api" });
 app.register(inventoryRoutes, { prefix: "/api" });
+app.register(bookingConfirmRoutes, { prefix: "/api" });
 
 // Health check para monitoreo externo (UptimeRobot, etc.) y diagnóstico (#58).
 // Devuelve 503 solo si la DB está caída (la clínica no puede operar); un

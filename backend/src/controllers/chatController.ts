@@ -8,6 +8,8 @@ import { config } from "../config/env";
 import { sendBookingNotification } from "../services/notifications/whatsappService";
 import { buildJuanPrompt } from "../services/ai/promptBuilder";
 import { calculateLeadScore } from "../lib/leadScoring";
+import { calcularPlazo } from "../services/booking/confirmation";
+import { avisarProfesional } from "../services/booking/notifyProfessional";
 import { triggerAlert } from "../services/alerts/alertService";
 
 const bodySchema = z.object({
@@ -243,6 +245,9 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
 
     // ── Ejecutar booking si el AI lo solicitó ────────────────────────────────
     let finalReply = aiReply;
+    // Ojo con el nombre: hoy significa "el agente dejó pedida la hora", no que
+    // esté confirmada. Se mantiene porque alimenta slotBooked del contexto,
+    // que mide intención de agendar y no citas cerradas.
     let chatBookingConfirmed = false;
 
     if (bookingAction && !isSandbox) {
@@ -267,6 +272,8 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
           });
           if (conflict) return { conflict: true, booking: null };
 
+          // El agente RESERVA, no confirma. La hora queda tomada para que nadie
+          // más la agarre, pero no es una cita hasta que un humano apruebe.
           const booking = await tx.booking.create({
             data: {
               clinicId: clinic.id,
@@ -274,7 +281,9 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
               patientRut: patientRut?.replace(/[.\-]/g, "") ?? null,
               doctor, date: requestedDate, time,
               service: service ?? null,
-              status: "confirmed",
+              status: "pending",
+              requestedVia: "agent",
+              confirmDeadline: calcularPlazo(requestedDate),
             },
           });
           return { conflict: false, booking };
@@ -288,7 +297,16 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
           chatBookingConfirmed = true;
           const dayName = DAY_NAMES_ES[new Date(`${date}T12:00:00`).getDay()];
 
-          // Notificación WhatsApp
+          // Aviso al profesional con el link de confirmación. Es el paso que
+          // convierte la reserva en cita, así que no puede quedarse en el aire:
+          // si falla, queda registrado y los recordatorios lo reintentan.
+          avisarProfesional({ bookingId: booking.id })
+            .then((r) => {
+              if (!r.enviado) console.warn(`[confirmación] no se pudo avisar (${r.motivo}) — booking ${booking.id}`);
+            })
+            .catch((e) => console.error("[confirmación] error avisando al profesional:", e));
+
+          // Notificación a la clínica (la de siempre)
           const clinicFull = await prisma.clinic.findUnique({
             where: { id: clinic.id },
             select: { whatsapp: true, name: true, phone: true, waVerified: true, waPhoneId: true, waToken: true },
@@ -305,7 +323,11 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
           }
 
           const firstName = patientName.split(" ")[0];
-          finalReply = `¡Listo, ${firstName}! Tu cita está confirmada:\n\n📅 ${dayName} ${new Date(`${date}T12:00:00`).toLocaleDateString("es-CL", { day: "numeric", month: "long" })} a las ${time}\n👨‍⚕️ ${doctor}\n\n¡Te esperamos en ${clinic.name}! 🦷`;
+          const fechaLegible = new Date(`${date}T12:00:00`).toLocaleDateString("es-CL", { day: "numeric", month: "long" });
+          // Se le dice la verdad: la hora está pedida, no confirmada. Prometerle
+          // una cita que todavía nadie aprobó es la peor forma de perder al
+          // paciente — llega a la clínica y no está agendado.
+          finalReply = `Listo, ${firstName}. Dejé tu solicitud para el ${dayName} ${fechaLegible} a las ${time} con ${doctor}.\n\nEstoy validándola con ${doctor} y te aviso apenas responda, sea que confirme o que te proponga otro horario. La hora te queda reservada mientras tanto.`;
         }
       } catch (bookingErr) {
         console.error("[chat] Error creando booking via chat:", bookingErr);
