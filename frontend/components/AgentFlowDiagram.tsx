@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  Bot, Calendar, MessageCircle, Shield, Star, Stethoscope,
+  Bot, Calendar, MessageCircle, Shield, Star, Stethoscope, UserCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -33,7 +33,7 @@ export interface AgentFlowConfig {
 }
 
 /** El tipo de nodo se muestra en la cabecera, como en cualquier editor de flujo. */
-type TipoNodo = "entrada" | "filtro" | "contexto" | "respuesta" | "accion" | "salida";
+type TipoNodo = "entrada" | "filtro" | "contexto" | "respuesta" | "accion" | "humano" | "salida";
 
 interface Nodo {
   tipo: TipoNodo;
@@ -50,6 +50,7 @@ const TIPO_LABEL: Record<TipoNodo, string> = {
   contexto:  "contexto",
   respuesta: "respuesta",
   accion:    "acción",
+  humano:    "decisión humana",
   salida:    "salida",
 };
 
@@ -98,8 +99,14 @@ function construirNodos(cfg: AgentFlowConfig): Nodo[] {
     },
     {
       tipo: "accion", icono: Calendar,
-      titulo: "Si quiere hora, la agenda",
-      detalle: "Revisa el cupo del profesional antes de confirmar",
+      titulo: "Si quiere hora, la reserva",
+      detalle: "Toma el cupo para que nadie más lo agarre — todavía no es una cita",
+    },
+    {
+      tipo: "humano", icono: UserCheck,
+      titulo: "Tú confirmas, no el agente",
+      detalle: "Te llega por WhatsApp con un link. Si no puedes, el paciente recibe otros horarios tuyos",
+      propio: true,
     },
     {
       tipo: "salida", icono: Star,
@@ -203,6 +210,7 @@ export function AgentFlowDiagram({ config, compact = false }: {
         .flujo-agente li:nth-child(3) .pulso { animation-delay: 0.68s; }
         .flujo-agente li:nth-child(4) .pulso { animation-delay: 1.02s; }
         .flujo-agente li:nth-child(5) .pulso { animation-delay: 1.36s; }
+        .flujo-agente li:nth-child(6) .pulso { animation-delay: 1.70s; }
 
         @keyframes flujo-pulso {
           0%   { top: -14px; opacity: 0; }

@@ -50,6 +50,12 @@ function bookingSelect() {
     patientEmail: true,
     service: true,
     status: true,
+    // Confirmación humana: distinguir en la agenda una hora que el agente dejó
+    // pedida de una cita cerrada. Sin esto se ven iguales, que es justo la
+    // confusión que el human-in-the-loop viene a eliminar.
+    requestedVia: true,
+    confirmDeadline: true,
+    confirmedByName: true,
     notes: true,
     paymentStatus: true,
     amountTotal: true,

@@ -3,13 +3,13 @@
  *
  * Matriz de permisos por clinicalRole (cuando es null, se usa el role base):
  *
- *                   | Read ficha | Notas | Eventos | Anamnesis | Consents | Equipo |
- *   HYGIENIST       |    ✓       |   —   |  Solo   |    R      |    R     |   —    |
- *                   |            |       | limpieza|           |          |        |
- *   GENERAL_DENTIST |    ✓       |   ✓   |    ✓    |    ✓      |    ✓     |   —    |
- *   SPECIALIST      |    ✓       |   ✓   |    ✓    |    ✓      |    ✓     |   —    |
- *   CLINIC_ADMIN    |    ✓       |   ✓   |    ✓    |    ✓      |    ✓     |   ✓    |
- *   RECEPTION       |    —       |   —   |    —    |    —      |    —     |   —    |
+ *                   | Read ficha | Notas | Eventos | Anamnesis | Consents | Equipo | Confirmar |
+ *   HYGIENIST       |    ✓       |   —   |  Solo   |    R      |    R     |   —    |     —     |
+ *                   |            |       | limpieza|           |          |        |           |
+ *   GENERAL_DENTIST |    ✓       |   ✓   |    ✓    |    ✓      |    ✓     |   —    |     ✓     |
+ *   SPECIALIST      |    ✓       |   ✓   |    ✓    |    ✓      |    ✓     |   —    |     ✓     |
+ *   CLINIC_ADMIN    |    ✓       |   ✓   |    ✓    |    ✓      |    ✓     |   ✓    |     ✓     |
+ *   RECEPTION       |    —       |   —   |    —    |    —      |    —     |   —    |     ✓     |
  *   (null)          |  fallback al permiso del PartnerRole (USER/ADMIN/SUPERADMIN) |
  */
 
@@ -19,7 +19,12 @@ export type ClinicalAction =
   | "read_clinical"      // ver ficha clínica, anamnesis, eventos
   | "write_clinical"     // crear notas, eventos, anamnesis, consents
   | "limpieza_only"      // higienista: solo crea eventos de tipo "limpieza"/"sellante"
-  | "manage_team";
+  | "manage_team"
+  // Confirmar o rechazar una hora que pidió un paciente por el agente.
+  // Es lo único de esta matriz que RECEPCIÓN sí puede: agendar es su trabajo,
+  // y si dependiera solo del doctor, una solicitud del sábado espera al lunes.
+  // La higienista queda fuera porque no maneja la agenda de otros.
+  | "confirm_bookings";
 
 /**
  * Resuelve si el usuario tiene permiso para una acción clínica.
@@ -47,6 +52,8 @@ export function canPerform(
         return clinicalRole !== "RECEPTION";
       case "manage_team":
         return clinicalRole === "CLINIC_ADMIN";
+      case "confirm_bookings":
+        return clinicalRole !== "HYGIENIST";
     }
   }
 
@@ -61,6 +68,11 @@ export function canPerform(
       return true;
     case "manage_team":
       return role === "ADMIN";
+    case "confirm_bookings":
+      // Sin clinicalRole asignado, cualquiera del equipo puede confirmar.
+      // Misma compatibilidad hacia atrás que arriba: restringir se hace
+      // asignando un rol clínico, no dejando gente fuera por omisión.
+      return true;
   }
 }
 

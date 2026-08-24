@@ -208,7 +208,11 @@ describe("chatController", () => {
     expect(res.statusCode).toBe(200);
 
     const body = JSON.parse(res.body);
-    expect(body.reply).toMatch(/confirmada/i);
+    // El agente NO confirma: deja la solicitud y lo dice. Prometerle una cita
+    // al paciente antes de que un humano apruebe es el bug que esto evita.
+    expect(body.reply).toMatch(/solicitud/i);
+    expect(body.reply).toMatch(/validándola/i);
+    expect(body.reply).not.toMatch(/confirmada/i);
 
     expect(mockPrisma.booking.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -218,7 +222,10 @@ describe("chatController", () => {
           patientRut:  "123456789",         // RUT normalizado sin puntos/guion
           doctor:      "Dra. Ana Aranda",
           time:        "10:00",
-          status:      "confirmed",
+          // Reservada, no confirmada: el cupo queda tomado pero todavía no
+          // es una cita.
+          status:      "pending",
+          requestedVia: "agent",
         }),
       })
     );
@@ -343,7 +350,7 @@ describe("chatController", () => {
         data: expect.objectContaining({
           patientName: "Sofía Muñoz",
           service:     "Ortodoncia",
-          status:      "confirmed",
+          status:      "pending",
         }),
       })
     );

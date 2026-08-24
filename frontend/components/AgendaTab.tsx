@@ -113,6 +113,10 @@ interface Booking {
   patientName: string | null; patientRut: string | null;
   patientPhone: string | null; patientEmail: string | null;
   service: string | null; status: string; notes: string | null;
+  /** "agent" = la pidió el agente y espera confirmación humana. */
+  requestedVia: string | null;
+  confirmDeadline: string | null;
+  confirmedByName: string | null;
   paymentStatus: string | null; amountTotal: number | null;
   amountPaid: number | null; paymentMethod: string | null; paidAt: string | null;
   createdAt: string;
@@ -120,13 +124,26 @@ interface Booking {
 interface DayData { date: string; bookings: Booking[]; }
 
 /* ── Status pill ─────────────────────────────────────────────────────── */
-function StatusPill({ status }: { status: string }) {
+function StatusPill({ status, requestedVia }: { status: string; requestedVia?: string | null }) {
+  // Una hora que el agente dejó pedida NO es lo mismo que una cita que alguien
+  // creó a mano y está esperando al paciente: la primera necesita que un humano
+  // decida, y si se ven iguales el doctor cree que tiene la agenda cerrada.
+  const esperandoConfirmacion = status === "pending" && requestedVia === "agent";
+
   const map: Record<string, string> = {
     confirmed: "bg-emerald-50 text-emerald-700 border-emerald-100",
     pending:   "bg-amber-50 text-amber-700 border-amber-100",
     cancelled: "bg-gray-50 text-gray-400 border-gray-100",
   };
   const labels: Record<string, string> = { confirmed: "Confirmada", pending: "Pendiente", cancelled: "Cancelada" };
+
+  if (esperandoConfirmacion) {
+    return (
+      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-100 text-amber-900 border-amber-300">
+        Por confirmar
+      </span>
+    );
+  }
   return (
     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${map[status] ?? map.pending}`}>
       {labels[status] ?? status}
@@ -157,7 +174,7 @@ function BookingRow({ b, showDate = false }: { b: MineBooking; showDate?: boolea
         <p className="text-xs text-gray-400 truncate">{[b.service, b.patientRut].filter(Boolean).join(" · ")}</p>
       </div>
       {b.patientPhone && <span className="text-xs text-gray-400 hidden sm:block">{b.patientPhone}</span>}
-      <StatusPill status={b.status} />
+      <StatusPill status={b.status} requestedVia={b.requestedVia} />
     </div>
   );
 }
@@ -222,7 +239,7 @@ function QuickQuoteModal({ patient, onClose }: {
   );
 }
 
-function BookingModal({ booking, onClose, onSave, onCancel, onNewQuote }: {
+function BookingModal({ booking, onClose, onSave, onCancel, onNewQuote, onDecided }: {
   booking: Booking;
   onClose: () => void;
   onSave: (id: string, patch: {
@@ -230,6 +247,8 @@ function BookingModal({ booking, onClose, onSave, onCancel, onNewQuote }: {
     paymentStatus: string; amountTotal: string; amountPaid: string; paymentMethod: string;
   }) => Promise<void>;
   onCancel: (id: string) => Promise<void>;
+  /** Se llama tras confirmar o rechazar, para refrescar la agenda. */
+  onDecided: () => void;
   onNewQuote?: (patient: { name: string; rut: string | null }) => void;
 }) {
   const [status, setStatus]             = useState(booking.status);
@@ -240,6 +259,25 @@ function BookingModal({ booking, onClose, onSave, onCancel, onNewQuote }: {
   const [paymentMethod, setPayMethod]   = useState(booking.paymentMethod ?? "cash");
   const [saving, setSaving]             = useState(false);
   const [tab, setTab]                   = useState<"info" | "payment">("info");
+  const [decidiendo, setDecidiendo]     = useState(false);
+  const [decisionError, setDecisionError] = useState("");
+
+  async function decidir(accion: "confirmar" | "rechazar") {
+    setDecidiendo(true); setDecisionError("");
+    try {
+      const res = await fetch(`${API}/api/bookings/${booking.id}/decision`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ accion }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.mensaje ?? d.error ?? "No pudimos registrar la decisión");
+      // Se cierra y se recarga: el estado cambió y la grilla debe reflejarlo.
+      onDecided();
+    } catch (e) {
+      setDecisionError(e instanceof Error ? e.message : "Error");
+    } finally { setDecidiendo(false); }
+  }
   const pal = palOf(booking.doctor);
 
   async function save() {
@@ -269,7 +307,7 @@ function BookingModal({ booking, onClose, onSave, onCancel, onNewQuote }: {
             <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: pal.text }}>{booking.doctor}</p>
             <h2 className="text-lg font-black text-gray-900 mt-0.5">{booking.patientName ?? "Paciente"}</h2>
             <div className="flex items-center gap-1.5 mt-1">
-              <StatusPill status={booking.status} />
+              <StatusPill status={booking.status} requestedVia={booking.requestedVia} />
               <PayPill status={booking.paymentStatus} />
             </div>
           </div>
@@ -287,6 +325,39 @@ function BookingModal({ booking, onClose, onSave, onCancel, onNewQuote }: {
             </button>
           ))}
         </div>
+
+        {/* Decisión pendiente: va arriba de todo porque es lo único que hay
+            que hacer con esta cita. Lo demás es contexto para decidir. */}
+        {booking.status === "pending" && booking.requestedVia === "agent" && (
+          <div className="px-6 py-4 border-b" style={{ backgroundColor: "#FFFDF7", borderColor: "#F0E0B8" }}>
+            <p className="text-sm font-bold" style={{ color: "#7A5200" }}>Esperando tu confirmación</p>
+            <p className="text-xs mt-0.5 mb-3" style={{ color: "#8A6A20" }}>
+              La pidió un paciente por el asistente. La hora está reservada, pero no es una cita
+              hasta que alguien decida
+              {booking.confirmDeadline
+                ? ` — se libera sola el ${new Date(booking.confirmDeadline).toLocaleString("es-CL",
+                    { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", hour12: false })}.`
+                : "."}
+            </p>
+            {decisionError && (
+              <p className="text-xs mb-2.5 rounded-lg px-3 py-2" style={{ backgroundColor: "#FDECEA", color: "#B3261E" }}>
+                {decisionError}
+              </p>
+            )}
+            <div className="flex gap-2">
+              <button onClick={() => decidir("confirmar")} disabled={decidiendo}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{ backgroundColor: "#1F6B4B" }}>
+                {decidiendo ? "Confirmando…" : "Confirmar"}
+              </button>
+              <button onClick={() => decidir("rechazar")} disabled={decidiendo}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-colors disabled:opacity-50"
+                style={{ borderColor: "#E0B44A", color: "#7A5200" }}>
+                No se puede
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="px-6 py-5 flex flex-col gap-4">
           {tab === "info" ? (
@@ -730,8 +801,53 @@ function AdminAgenda({
     return `${DAY_FULL[d.getDay()]} ${d.getDate()} de ${MONTHS[d.getMonth()]}`;
   })();
 
+  // Solicitudes del agente esperando decisión en la semana visible. Van
+  // arriba de todo: si hay que buscarlas dentro de la grilla, se quedan sin
+  // responder y caducan solas.
+  const porConfirmar = days
+    .flatMap((d) => d.bookings.map((b) => ({ ...b, dateStr: d.date })))
+    .filter((b) => b.status === "pending" && b.requestedVia === "agent")
+    .sort((a, b) => (a.confirmDeadline ?? "").localeCompare(b.confirmDeadline ?? ""));
+
   return (
     <div className="flex flex-col gap-5">
+      {porConfirmar.length > 0 && (
+        <div className="rounded-2xl border px-4 sm:px-5 py-4"
+          style={{ backgroundColor: "#FFFDF7", borderColor: "#F0E0B8" }}>
+          <p className="text-sm font-bold" style={{ color: "#7A5200" }}>
+            {porConfirmar.length === 1
+              ? "1 hora esperando confirmación"
+              : `${porConfirmar.length} horas esperando confirmación`}
+          </p>
+          <p className="text-xs mt-0.5 mb-3" style={{ color: "#8A6A20" }}>
+            Las pidió un paciente por el asistente. Si nadie responde, se liberan solas.
+          </p>
+          <div className="flex flex-col gap-1.5">
+            {porConfirmar.slice(0, 4).map((b) => (
+              <button key={b.id} onClick={() => setSelectedBooking(b)}
+                className="flex items-center gap-3 text-left rounded-xl px-3 py-2.5 bg-white/70 hover:bg-white transition border"
+                style={{ borderColor: "#F0E0B8" }}>
+                <span className="text-xs font-black tabular-nums shrink-0" style={{ color: "#7A5200" }}>
+                  {DAY_SHORT[new Date(b.dateStr + "T12:00:00").getDay()]} {b.time}
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-semibold text-gray-800 truncate">{b.patientName ?? "—"}</span>
+                  <span className="block text-[11px] text-gray-500 truncate">
+                    {[b.service, b.doctor].filter(Boolean).join(" · ")}
+                  </span>
+                </span>
+                <span className="text-xs font-bold shrink-0" style={{ color: "#7A5200" }}>Revisar ›</span>
+              </button>
+            ))}
+            {porConfirmar.length > 4 && (
+              <p className="text-[11px] pt-0.5" style={{ color: "#8A6A20" }}>
+                y {porConfirmar.length - 4} más en la agenda de abajo
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Week nav — en móvil va en dos filas: en una sola, "+ Nueva cita"
           quedaba fuera de pantalla y era el botón más usado de la agenda. */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
@@ -1022,12 +1138,18 @@ function AdminAgenda({
                       {slotBookings.map((b) => {
                         const pal = palOf(b.doctor, palMap);
                         const isCancelled = b.status === "cancelled";
+                        // Una hora que el agente dejó pedida se dibuja con borde
+                        // punteado y sin el relleno del profesional: a simple
+                        // vista se lee como "hueco reservado", no como cita.
+                        const porConfirmar = b.status === "pending" && b.requestedVia === "agent";
                         return (
                           <button key={b.id} onClick={() => setSelectedBooking(b)}
                             className={`w-full text-left flex items-center gap-2.5 px-2.5 py-2 rounded-xl border hover:shadow-sm transition group ${
                               isCancelled ? "opacity-40 line-through" : ""
                             }`}
-                            style={{ background: pal.bg, borderColor: `${pal.dot}40` }}>
+                            style={porConfirmar
+                              ? { background: "#FFFDF7", borderColor: "#E0B44A", borderStyle: "dashed" }
+                              : { background: pal.bg, borderColor: `${pal.dot}40` }}>
                             {/* Time exact */}
                             <span className="text-[10px] font-black tabular-nums shrink-0" style={{ color: pal.dot }}>
                               {b.time}
@@ -1049,7 +1171,7 @@ function AdminAgenda({
                             </div>
                             {/* Status + pay */}
                             <div className="flex flex-col items-end gap-0.5 shrink-0">
-                              <StatusPill status={b.status} />
+                              <StatusPill status={b.status} requestedVia={b.requestedVia} />
                               <PayPill status={b.paymentStatus} />
                             </div>
                             <span className="text-[10px] opacity-30 group-hover:opacity-60 transition">›</span>
@@ -1071,6 +1193,7 @@ function AdminAgenda({
           onClose={() => setSelectedBooking(null)}
           onSave={async (id, patch) => { await handleSave(id, patch); setSelectedBooking(null); }}
           onCancel={async (id) => { await handleCancel(id); setSelectedBooking(null); }}
+          onDecided={() => { setSelectedBooking(null); fetchWeek(weekStart); }}
           onNewQuote={(p) => setQuotePatient(p)}
         />
       )}

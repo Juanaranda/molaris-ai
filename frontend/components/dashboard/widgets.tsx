@@ -83,13 +83,26 @@ export function MiniBar({ value, max, color = "#3B82F6" }: { value: number; max:
   );
 }
 
-export function StatusPill({ status }: { status: string }) {
+export function StatusPill({ status, requestedVia }: { status: string; requestedVia?: string | null }) {
+  // Una hora que el agente dejó pedida NO es lo mismo que una cita que alguien
+  // creó a mano y está esperando al paciente: la primera necesita que un humano
+  // decida, y si se ven iguales el doctor cree que tiene la agenda cerrada.
+  const esperandoConfirmacion = status === "pending" && requestedVia === "agent";
+
   const map: Record<string, string> = {
     confirmed: "bg-emerald-50 text-emerald-700 border-emerald-100",
     pending:   "bg-amber-50 text-amber-700 border-amber-100",
     cancelled: "bg-gray-50 text-gray-400 border-gray-100",
   };
   const labels: Record<string, string> = { confirmed: "Confirmada", pending: "Pendiente", cancelled: "Cancelada" };
+
+  if (esperandoConfirmacion) {
+    return (
+      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-100 text-amber-900 border-amber-300">
+        Por confirmar
+      </span>
+    );
+  }
   return (
     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${map[status] ?? map.pending}`}>
       {labels[status] ?? status}
