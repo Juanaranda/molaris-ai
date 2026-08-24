@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getMe, updateClinic } from "@/lib/auth";
 import { BetaWhatsappCard } from "@/components/BetaWhatsappCard";
 import { Building2, Calendar, Check, Globe, Hand, MessageCircle, Smartphone, Stethoscope, X, type LucideIcon } from "lucide-react";
+import { queFaltaEn } from "@/lib/onboardingValidation";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -127,6 +128,17 @@ export default function SetupPage() {
       }
     });
   }, [router]);
+
+  /** Avanza si el paso está completo; si no, dice qué falta. */
+  function avanzar(desde: Step, hacia: Step) {
+    const falta = queFaltaEn(desde, {
+      esSolo: isSolo, nombreClinica: clinicName, telefono: clinicPhone,
+      ubicacion: clinicLocation, doctores: doctors, horario: Object.values(schedule),
+    });
+    if (falta) { setError(falta); return; }
+    setError("");
+    setStep(hacia);
+  }
 
   /* ── Doctor helpers ────────────────────────────────────────────────────── */
   function addDoctor() {
@@ -378,11 +390,7 @@ export default function SetupPage() {
               </div>
 
               <button
-                onClick={() => {
-                  if (!isSolo && !clinicName.trim()) { setError("El nombre de la clínica es obligatorio"); return; }
-                  setError("");
-                  setStep(isSolo ? 4 : 3);
-                }}
+                onClick={() => avanzar(2, isSolo ? 4 : 3)}
                 className="w-full py-4 rounded-2xl text-sm font-bold text-white transition hover:opacity-90"
                 style={{ backgroundColor: "#0B2F42" }}>
                 Continuar
@@ -471,14 +479,7 @@ export default function SetupPage() {
               </div>
 
               <button
-                onClick={() => {
-                  if (doctors.every((d) => !d.name.trim())) {
-                    setError("Agrega al menos un doctor con nombre");
-                    return;
-                  }
-                  setError("");
-                  setStep(4);
-                }}
+                onClick={() => avanzar(3, 4)}
                 className="w-full py-4 rounded-2xl text-sm font-bold text-white transition hover:opacity-90"
                 style={{ backgroundColor: "#0B2F42" }}>
                 Continuar
@@ -579,11 +580,12 @@ export default function SetupPage() {
               </div>
               )}
 
-              <button onClick={() => setStep(5)}
+              <button onClick={() => avanzar(4, 5)}
                 className="w-full py-4 rounded-2xl text-sm font-bold text-white transition hover:opacity-90"
                 style={{ backgroundColor: "#0B2F42" }}>
                 Continuar
               </button>
+              {error && <p className="text-xs text-red-600 text-center">{error}</p>}
             </div>
           )}
 

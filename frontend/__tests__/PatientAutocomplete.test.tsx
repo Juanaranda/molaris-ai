@@ -10,12 +10,16 @@ import type { PatientSuggestion } from "@/lib/patients";
  * RUT del anterior.
  */
 
+// Las fechas van fijas y distintas a propósito. Los dos calzan igual de bien
+// con "jose", así que el orden lo decide la última visita: con `new Date()` en
+// ambos, que quedaran o no en el mismo milisegundo cambiaba quién iba primero
+// y el test de teclado pasaba o fallaba según el reloj de la máquina.
 const PACIENTES: PatientSuggestion[] = [
   { key: "1", name: "José Pérez Soto", rut: "12.345.678-9", phone: "+56911111111",
-    email: "jose@mail.cl", visits: 3, lastVisit: new Date().toISOString(),
+    email: "jose@mail.cl", visits: 3, lastVisit: "2026-08-20T10:00:00.000Z",
     lastDoctor: "Dr. Ivonne Poblete", services: [] },
   { key: "2", name: "Josefina Ramírez", rut: "9.876.543-2", phone: null, email: null,
-    visits: 1, lastVisit: new Date().toISOString(), lastDoctor: "Dr. Nicolás Rojas", services: [] },
+    visits: 1, lastVisit: "2026-07-02T10:00:00.000Z", lastDoctor: "Dr. Nicolás Rojas", services: [] },
 ];
 
 const fetchPatientsMock = vi.fn();
@@ -105,7 +109,11 @@ describe("PatientAutocomplete", () => {
 
     const input = screen.getByRole("combobox");
     await user.click(input);
-    await screen.findAllByRole("option");
+    const opciones = await screen.findAllByRole("option");
+    // Se fija el orden esperado antes de navegar: si el ranking cambiara, el
+    // test debe fallar acá diciendo por qué, y no en el nombre que salió.
+    expect(opciones[0].textContent).toContain("José Pérez Soto");
+
     await user.keyboard("{ArrowDown}{Enter}");
 
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ name: "Josefina Ramírez" }));
