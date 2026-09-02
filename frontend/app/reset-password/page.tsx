@@ -62,7 +62,7 @@ export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F7F5F1" }}>
       <nav className="flex items-center justify-between px-8 py-5 border-b" style={{ backgroundColor: "#FDFCFB", borderColor: "#E5E0D9" }}>
-        <Link href="/"><Image src="/logo.svg" alt="molari.ai" width={140} height={36} priority /></Link>
+        <Link href="/"><Image src="/logo.svg" alt="molari.ai" width={140} height={49} style={{ height: "auto" }} preload /></Link>
         <Link href="/login" className="text-sm font-medium" style={{ color: "#607281" }}>Iniciar sesión</Link>
       </nav>
 

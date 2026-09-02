@@ -121,11 +121,16 @@ export default function SetupPage() {
       const cfg = data.clinic.config as Record<string, unknown>;
       if (Array.isArray(cfg.doctors) && cfg.doctors.length > 0) {
         setDoctors(
-          (cfg.doctors as { name: string; specialty?: string; days?: string[] }[]).map((d) => ({
+          // Se traen todos los campos, contacto incluido: este mismo asistente
+          // reescribe config.doctors al guardar, así que lo que no se cargue
+          // acá se borra en silencio al reabrirlo.
+          (cfg.doctors as { name: string; specialty?: string; days?: string[]; phone?: string; email?: string }[]).map((d) => ({
             _id: uid(),
             name: d.name,
             specialty: d.specialty ?? "Odontología General",
             days: (d.days ?? ["monday", "tuesday", "wednesday", "thursday", "friday"]) as DayKey[],
+            phone: d.phone,
+            email: d.email,
           }))
         );
       }
