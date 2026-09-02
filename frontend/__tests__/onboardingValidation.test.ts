@@ -15,7 +15,7 @@ const COMPLETO: DatosOnboarding = {
   nombreClinica: "Clínica Dental Aurora",
   telefono: "+56 2 2345 6789",
   ubicacion: "Providencia, Santiago",
-  doctores: [{ name: "Dr. Ivonne Poblete", days: ["monday", "wednesday"] }],
+  doctores: [{ name: "Dr. Ivonne Poblete", days: ["monday", "wednesday"], phone: "+56 9 8765 4321" }],
   horario: [
     { open: true,  from: "09:00", to: "18:00" },
     { open: false, from: "09:00", to: "13:00" },
@@ -52,10 +52,31 @@ describe("paso 3 — equipo", () => {
     expect(queFaltaEn(3, { ...COMPLETO, doctores: [{ name: "Dr. Rojas", days: [] }] })).toMatch(/días de atención/i);
   });
 
+  it("exige un canal de aviso: sin él la hora caduca sin que nadie la vea", () => {
+    const sinContacto = [{ name: "Dr. Rojas", days: ["monday"] }];
+    expect(queFaltaEn(3, { ...COMPLETO, doctores: sinContacto })).toMatch(/WhatsApp o el correo/i);
+    // El mensaje nombra a quién le falta: con seis profesionales en pantalla,
+    // "falta un contacto" obliga a revisarlos uno por uno.
+    expect(queFaltaEn(3, { ...COMPLETO, doctores: sinContacto })).toContain("Dr. Rojas");
+  });
+
+  it("basta con uno de los dos canales", () => {
+    const base = { name: "Dr. Rojas", days: ["monday"] };
+    expect(queFaltaEn(3, { ...COMPLETO, doctores: [{ ...base, phone: "+56 9 1111 1111" }] })).toBeNull();
+    expect(queFaltaEn(3, { ...COMPLETO, doctores: [{ ...base, email: "rojas@clinica.cl" }] })).toBeNull();
+  });
+
+  it("un contacto en blanco no cuenta como contacto", () => {
+    expect(queFaltaEn(3, {
+      ...COMPLETO,
+      doctores: [{ name: "Dr. Rojas", days: ["monday"], phone: "   ", email: "  " }],
+    })).toMatch(/WhatsApp o el correo/i);
+  });
+
   it("ignora las filas vacías si hay al menos una completa", () => {
     expect(queFaltaEn(3, {
       ...COMPLETO,
-      doctores: [{ name: "Dr. Rojas", days: ["monday"] }, { name: "", days: [] }],
+      doctores: [{ name: "Dr. Rojas", days: ["monday"], phone: "+56 9 1111 1111" }, { name: "", days: [] }],
     })).toBeNull();
   });
 });

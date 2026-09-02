@@ -28,6 +28,15 @@ const DAY_LABELS: Record<string, string> = {
 };
 const DAY_ORDER = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
+/**
+ * Un profesional sin WhatsApp ni correo no puede confirmar las horas que pide
+ * el agente: el aviso no tiene a dónde salir y la solicitud caduca sola. Se
+ * marca en la tabla porque hasta ahora eso solo quedaba en un log del servidor.
+ */
+function sinContacto(doc: DoctorRow): boolean {
+  return !doc.phone?.trim() && !doc.email?.trim();
+}
+
 function formatDays(days: string[]): string {
   return DAY_ORDER.filter((d) => days.includes(d)).map((d) => DAY_LABELS[d]).join("/");
 }
@@ -186,7 +195,18 @@ export function DoctorsEditor({ doctors, boxes, canEdit, maxDoctors, onSave }: P
           <tbody className="divide-y divide-gray-50">
             {rows.map((doc, i) => (
               <tr key={i}>
-                <td className="py-3 font-medium text-gray-800">{doc.name}</td>
+                <td className="py-3 font-medium text-gray-800">
+                  {doc.name}
+                  {sinContacto(doc) && (
+                    <span
+                      title="Sin WhatsApp ni correo: no puede confirmar horas"
+                      className="ml-2 inline-flex items-center gap-1 align-middle text-[11px] font-semibold"
+                      style={{ color: "#9A6B12" }}>
+                      <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#D9A02B" }} />
+                      sin aviso
+                    </span>
+                  )}
+                </td>
                 <td className="py-3 text-gray-600">{doc.specialty}</td>
                 <td className="py-3 text-gray-600 hidden sm:table-cell">{displaySchedule(doc)}</td>
                 <td className="py-3 text-gray-500 text-xs hidden md:table-cell max-w-[200px] truncate">
@@ -206,6 +226,16 @@ export function DoctorsEditor({ doctors, boxes, canEdit, maxDoctors, onSave }: P
           </tbody>
         </table>
       </div>
+
+      {rows.some(sinContacto) && (
+        <p className="mt-3 text-xs leading-relaxed" style={{ color: "#9A6B12" }}>
+          {rows.filter(sinContacto).length === 1
+            ? "Hay un profesional sin WhatsApp ni correo."
+            : `Hay ${rows.filter(sinContacto).length} profesionales sin WhatsApp ni correo.`}{" "}
+          Cuando un paciente pida hora con ellos, no tenemos a dónde mandar el link
+          para confirmarla y la solicitud caduca sola a las 24 horas. Edítalos para agregarlo.
+        </p>
+      )}
 
       {editing && (
         maxDoctors != null && rows.length >= maxDoctors ? (
