@@ -6,6 +6,9 @@ import prisma from "../config/prisma";
 import { config } from "../config/env";
 import { sendEmail } from "../services/email/emailService";
 import { issueVerificationCode, verifyEmailCode } from "../services/auth/emailVerification";
+import { emitirTokenPendiente, validarTokenPendiente, consumirCodigoRespaldo } from "../services/auth/twoFactor";
+import { verificarCodigo } from "../lib/totp";
+import { Prisma } from "@prisma/client";
 
 interface JwtPayload {
   userId: string;
@@ -23,6 +26,52 @@ function passwordFingerprint(passwordHash: string): string {
 export function verifyToken(authHeader: string | undefined): JwtPayload {
   if (!authHeader?.startsWith("Bearer ")) throw new Error("No token");
   return jwt.verify(authHeader.slice(7), config.jwtSecret) as JwtPayload;
+}
+
+type UsuarioConClinica = Prisma.PartnerUserGetPayload<{ include: { clinic: true } }>;
+
+/**
+ * La respuesta de sesión, una sola vez.
+ *
+ * El login normal y el segundo paso del 2FA tienen que devolver exactamente lo
+ * mismo: si se escriben por separado, el front termina viendo una sesión a
+ * medias según por dónde entró.
+ */
+function construirSesion(user: UsuarioConClinica) {
+  const token = jwt.sign(
+    { userId: user.id, role: user.role, clinicId: user.clinicId },
+    config.jwtSecret,
+    { expiresIn: "7d" }
+  );
+
+  return {
+    token,
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      clinicId: user.clinicId,
+      mustChangePassword: user.mustChangePassword,
+      emailVerified: user.emailVerifiedAt !== null,
+      totpEnabled: user.totpEnabled,
+    },
+    clinic: user.clinic ? {
+      id:       user.clinic.id,
+      slug:     user.clinic.slug,
+      name:     user.clinic.name,
+      plan:     user.clinic.plan,
+      active:   user.clinic.active,
+      phone:    user.clinic.phone,
+      whatsapp: user.clinic.whatsapp,
+      instagram: user.clinic.instagram,
+      location: user.clinic.location,
+      config:   user.clinic.config,
+      accountType: user.clinic.accountType,
+      verificationStatus: user.clinic.verificationStatus,
+      rejectionReason:    user.clinic.rejectionReason,
+    } : null,
+  };
 }
 
 export async function authRoutes(app: FastifyInstance) {
@@ -47,39 +96,52 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.status(401).send({ error: "Credenciales incorrectas" });
     }
 
-    const token = jwt.sign(
-      { userId: user.id, role: user.role, clinicId: user.clinicId },
-      config.jwtSecret,
-      { expiresIn: "7d" }
-    );
+    // Con segundo factor activo la contraseña sola no abre sesión: se entrega
+    // un token intermedio, corto y firmado con otra clave, que solo sirve para
+    // canjear el código en /auth/login/2fa.
+    if (user.totpEnabled) {
+      return reply.send({
+        requiere2FA: true,
+        pendingToken: emitirTokenPendiente(user.id),
+      });
+    }
 
-    return reply.send({
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        clinicId: user.clinicId,
-        mustChangePassword: user.mustChangePassword,
-        emailVerified: user.emailVerifiedAt !== null,
-      },
-      clinic: user.clinic ? {
-        id:       user.clinic.id,
-        slug:     user.clinic.slug,
-        name:     user.clinic.name,
-        plan:     user.clinic.plan,
-        active:   user.clinic.active,
-        phone:    user.clinic.phone,
-        whatsapp: user.clinic.whatsapp,
-        instagram: user.clinic.instagram,
-        location: user.clinic.location,
-        config:   user.clinic.config,
-        accountType: user.clinic.accountType,
-        verificationStatus: user.clinic.verificationStatus,
-        rejectionReason:    user.clinic.rejectionReason,
-      } : null,
-    });
+    return reply.send(construirSesion(user));
+  });
+
+  // POST /api/auth/login/2fa — segundo paso del login (#68).
+  app.post<{ Body: { pendingToken: string; codigo: string } }>("/auth/login/2fa", async (req, reply) => {
+    const { pendingToken, codigo } = req.body ?? {};
+
+    const userId = validarTokenPendiente(pendingToken);
+    if (!userId) {
+      return reply.status(401).send({ error: "La sesión expiró. Vuelve a ingresar tu contraseña." });
+    }
+
+    const user = await prisma.partnerUser.findUnique({ where: { id: userId }, include: { clinic: true } });
+    if (!user || !user.active || !user.totpEnabled || !user.totpSecret) {
+      return reply.status(401).send({ error: "No autorizado" });
+    }
+
+    const r = verificarCodigo(user.totpSecret, codigo, { ultimoPaso: user.totpLastStep });
+    if (r.valido) {
+      // Se registra la ventana usada para que ese mismo código no entre otra vez.
+      await prisma.partnerUser.update({ where: { id: user.id }, data: { totpLastStep: r.paso } });
+      return reply.send(construirSesion(user));
+    }
+
+    // Si no calzó el código de la app, puede ser uno de respaldo — el caso de
+    // "perdí el teléfono", que es justamente cuando más se necesita entrar.
+    const respaldo = await consumirCodigoRespaldo(codigo, user.totpBackupCodes);
+    if (respaldo.valido) {
+      await prisma.partnerUser.update({
+        where: { id: user.id },
+        data: { totpBackupCodes: respaldo.restantes },
+      });
+      return reply.send({ ...construirSesion(user), codigosRespaldoRestantes: respaldo.restantes.length });
+    }
+
+    return reply.status(401).send({ error: "Código incorrecto" });
   });
 
   // POST /api/auth/forgot-password — manda link de recuperación (Issue #55)

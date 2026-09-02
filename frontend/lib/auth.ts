@@ -92,7 +92,25 @@ export async function deleteClinicAsAdmin(id: string): Promise<void> {
   if (!res.ok) throw new Error((json as { error?: string }).error ?? "Error al eliminar la clínica");
 }
 
-export async function login(email: string, password: string) {
+export interface Sesion {
+  token: string;
+  user: AuthUser;
+  clinic: ClinicData | null;
+  /** Cuántos códigos de respaldo quedan, si se entró con uno. */
+  codigosRespaldoRestantes?: number;
+}
+
+/**
+ * Con segundo factor activo la contraseña no abre sesión: el backend devuelve
+ * un token intermedio que solo sirve para canjear el código. Va como unión
+ * discriminada para que el llamador no pueda leer `token` sin comprobar antes
+ * — antes esto guardaba "undefined" en localStorage y la sesión quedaba rota.
+ */
+export type ResultadoLogin =
+  | { requiere2FA: true; pendingToken: string }
+  | ({ requiere2FA?: false } & Sesion);
+
+export async function login(email: string, password: string): Promise<ResultadoLogin> {
   const res = await fetch(`${API}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -103,9 +121,48 @@ export async function login(email: string, password: string) {
     throw new Error(err.error ?? "Error al iniciar sesión");
   }
   const data = await res.json();
+  if (data.requiere2FA) return { requiere2FA: true, pendingToken: data.pendingToken };
+
   localStorage.setItem("molari_token", data.token);
-  return data as { token: string; user: AuthUser; clinic: ClinicData | null };
+  return data as ResultadoLogin;
 }
+
+/** Segundo paso: canjea el código (o uno de respaldo) por la sesión. */
+export async function loginSegundoFactor(pendingToken: string, codigo: string): Promise<Sesion> {
+  const res = await fetch(`${API}/api/auth/login/2fa`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pendingToken, codigo }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? "Código incorrecto");
+  localStorage.setItem("molari_token", data.token);
+  return data as Sesion;
+}
+
+/* ── Segundo factor: activar y desactivar (#68) ─────────────────────────── */
+
+function conToken(): HeadersInit {
+  return { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` };
+}
+
+async function pedir2FA<T>(ruta: string, body?: unknown): Promise<T> {
+  const res = await fetch(`${API}/api/auth/2fa${ruta}`, {
+    method: body === undefined ? "GET" : "POST",
+    headers: conToken(),
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? "No se pudo completar la operación");
+  return data as T;
+}
+
+export const estado2FA = () => pedir2FA<{ activo: boolean; codigosRespaldoRestantes: number }>("");
+export const setup2FA  = () => pedir2FA<{ secret: string; otpauthUrl: string }>("/setup", {});
+export const activar2FA = (codigo: string) =>
+  pedir2FA<{ activo: boolean; codigosRespaldo: string[] }>("/enable", { codigo });
+export const desactivar2FA = (password: string, codigo: string) =>
+  pedir2FA<{ activo: boolean }>("/disable", { password, codigo });
 
 export async function forgotPassword(email: string): Promise<void> {
   const res = await fetch(`${API}/api/auth/forgot-password`, {
