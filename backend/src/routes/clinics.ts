@@ -40,6 +40,43 @@ export const ALLOWED_CONFIG_KEYS = new Set([
 // una clínica chica se registre en el plan barato y cargue a todo su equipo.
 export const MAX_SOLO_DOCTORS = 1;
 
+// Va como `type` y no como `interface`: Prisma exige que lo que se guarda en
+// una columna Json tenga firma de índice implícita, y las interfaces no la traen.
+export type DoctorSolo = {
+  name: string;
+  specialty: string;
+  days: string[];
+  phone?: string;
+  email?: string;
+};
+
+/**
+ * El único profesional del dentista independiente (#69), armado al registrarse.
+ *
+ * El contacto se llena acá y no en el onboarding porque el asistente express se
+ * salta el paso del equipo: si no queda puesto ahora, el doctor no tiene por
+ * dónde recibir el link para confirmar las horas que le pide el agente, y cada
+ * solicitud caduca sola sin que él se entere. Para el independiente son los
+ * mismos datos de la consulta — la consulta es él.
+ *
+ * Prefiere el WhatsApp al teléfono fijo: el aviso sale por WhatsApp primero.
+ */
+export function construirDoctorSolo(datos: {
+  adminName: string;
+  adminEmail: string;
+  specialty?: string;
+  whatsapp?: string;
+  phone?: string;
+}): DoctorSolo {
+  return {
+    name: datos.adminName,
+    specialty: datos.specialty?.trim() || "Odontología General",
+    days: ["monday", "tuesday", "wednesday", "thursday", "friday"],
+    phone: datos.whatsapp?.trim() || datos.phone?.trim() || undefined,
+    email: datos.adminEmail,
+  };
+}
+
 // Versión vigente del DPA Molaris ↔ Clínica (Issue #38, Ley 21.719).
 // BORRADOR — pendiente validación legal. Subir la versión cuando cambie el texto.
 export const DPA_VERSION = "2026-06-draft";
@@ -695,11 +732,13 @@ export async function clinicRoutes(app: FastifyInstance) {
     const accountType = clinicData.accountType === "solo" ? "solo" : "clinic";
     const soloSpecialty = clinicData.specialty?.trim() || "Odontología General";
     const soloDoctors = accountType === "solo"
-      ? [{
-          name: admin.name,
+      ? [construirDoctorSolo({
+          adminName: admin.name,
+          adminEmail: admin.email,
           specialty: soloSpecialty,
-          days: ["monday", "tuesday", "wednesday", "thursday", "friday"],
-        }]
+          whatsapp: clinicData.whatsapp,
+          phone: clinicData.phone,
+        })]
       : [];
     const soloServices = accountType === "solo" ? [soloSpecialty] : [];
 

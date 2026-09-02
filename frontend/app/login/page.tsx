@@ -40,7 +40,7 @@ export default function LoginPage() {
       {/* Nav */}
       <nav className="flex items-center justify-between px-8 py-5 border-b" style={{ backgroundColor: "#FDFCFB", borderColor: "#E5E0D9" }}>
         <Link href="/">
-          <Image src="/logo.svg" alt="molari.ai" width={140} height={36} priority />
+          <Image src="/logo.svg" alt="molari.ai" width={140} height={49} style={{ height: "auto" }} preload />
         </Link>
         <Link href="/" className="text-sm font-medium transition-colors" style={{ color: "#607281" }}>
           Volver al inicio

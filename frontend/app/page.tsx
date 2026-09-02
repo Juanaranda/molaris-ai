@@ -331,7 +331,7 @@ export default function Home() {
 
       {/* NAV */}
       <nav className="flex items-center justify-between px-6 sm:px-10 py-5 bg-[#FDFCFB] border-b" style={{ borderColor: "#E5E0D9" }}>
-        <Image src="/logo.svg" alt="molari.ai" width={148} height={38} priority />
+        <Image src="/logo.svg" alt="molari.ai" width={148} height={51} style={{ height: "auto" }} preload />
         <div className="flex items-center gap-6">
           <a href="#funciones" className="text-sm font-medium hidden sm:block transition-colors" style={{ color: "#607281" }}>
             Funciones

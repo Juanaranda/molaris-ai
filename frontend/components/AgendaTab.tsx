@@ -7,6 +7,7 @@ import { DentalQuoteTab } from "./DentalQuoteTab";
 import { PatientAutocomplete } from "./PatientAutocomplete";
 import { invalidatePatientsCache } from "@/lib/patients";
 import { minutosDesdeInicioDeGrilla, esElTramoDeAhora } from "@/lib/agendaTime";
+import { restanteHasta } from "@/lib/plazos";
 import { X } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -65,11 +66,14 @@ const GRID_SLOTS = Array.from({ length: 21 }, (_, i) => {
 });
 
 /** Un solo lee-el-reloj para la línea de "ahora": posición y etiqueta juntas. */
-function leerAhora(): { mins: number | null; label: string } {
+function leerAhora(): { mins: number | null; label: string; fecha: Date } {
   const d = new Date();
   return {
     mins: minutosDesdeInicioDeGrilla(GRID_SLOTS, d),
     label: `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`,
+    // La usa la cuenta regresiva de las horas por confirmar. Va acá y no en un
+    // estado aparte para que ambas cosas latan con el mismo tick.
+    fecha: d,
   };
 }
 
@@ -339,6 +343,17 @@ function BookingModal({ booking, onClose, onSave, onCancel, onNewQuote, onDecide
                     { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", hour12: false })}.`
                 : "."}
             </p>
+            {/* La fecha exacta de arriba sirve para agendarse; el plazo en
+                horas es el que dice si hay que responder ahora. */}
+            {(() => {
+              const queda = restanteHasta(booking.confirmDeadline);
+              if (!queda) return null;
+              return (
+                <p className="text-xs font-bold mb-3" style={{ color: queda.urgente ? "#B3261E" : "#8A6A20" }}>
+                  {queda.vencida ? "El plazo ya venció." : `Vence ${queda.texto}.`}
+                </p>
+              );
+            })()}
             {decisionError && (
               <p className="text-xs mb-2.5 rounded-lg px-3 py-2" style={{ backgroundColor: "#FDECEA", color: "#B3261E" }}>
                 {decisionError}
@@ -716,7 +731,7 @@ function AdminAgenda({
   // Posición y etiqueta salen del mismo tick: si la etiqueta llamara a
   // new Date() en el render, podría mostrar una hora distinta a la de la línea
   // —y además leer el reloj durante el render arriesga desajustes de hidratación.
-  const [ahora, setAhora] = useState<{ mins: number | null; label: string }>(() => leerAhora());
+  const [ahora, setAhora] = useState<{ mins: number | null; label: string; fecha: Date }>(() => leerAhora());
   useEffect(() => {
     const id = setInterval(() => setAhora(leerAhora()), 60_000);
     return () => clearInterval(id);
@@ -809,6 +824,11 @@ function AdminAgenda({
     .filter((b) => b.status === "pending" && b.requestedVia === "agent")
     .sort((a, b) => (a.confirmDeadline ?? "").localeCompare(b.confirmDeadline ?? ""));
 
+  // Van ordenadas por plazo, así que la primera es la que menos aguanta.
+  const masApurada = porConfirmar.length > 0
+    ? restanteHasta(porConfirmar[0].confirmDeadline, ahora.fecha)
+    : null;
+
   return (
     <div className="flex flex-col gap-5">
       {porConfirmar.length > 0 && (
@@ -820,25 +840,39 @@ function AdminAgenda({
               : `${porConfirmar.length} horas esperando confirmación`}
           </p>
           <p className="text-xs mt-0.5 mb-3" style={{ color: "#8A6A20" }}>
-            Las pidió un paciente por el asistente. Si nadie responde, se liberan solas.
+            Las pidió un paciente por el asistente. Si nadie responde, se liberan solas
+            {masApurada && (masApurada.vencida
+              ? " — la primera ya venció."
+              : <> — la más apurada, <strong>{masApurada.texto}</strong>.</>)}
           </p>
           <div className="flex flex-col gap-1.5">
-            {porConfirmar.slice(0, 4).map((b) => (
-              <button key={b.id} onClick={() => setSelectedBooking(b)}
-                className="flex items-center gap-3 text-left rounded-xl px-3 py-2.5 bg-white/70 hover:bg-white transition border"
-                style={{ borderColor: "#F0E0B8" }}>
-                <span className="text-xs font-black tabular-nums shrink-0" style={{ color: "#7A5200" }}>
-                  {DAY_SHORT[new Date(b.dateStr + "T12:00:00").getDay()]} {b.time}
-                </span>
-                <span className="flex-1 min-w-0">
-                  <span className="block text-sm font-semibold text-gray-800 truncate">{b.patientName ?? "—"}</span>
-                  <span className="block text-[11px] text-gray-500 truncate">
-                    {[b.service, b.doctor].filter(Boolean).join(" · ")}
+            {porConfirmar.slice(0, 4).map((b) => {
+              const queda = restanteHasta(b.confirmDeadline, ahora.fecha);
+              return (
+                <button key={b.id} onClick={() => setSelectedBooking(b)}
+                  className="flex items-center gap-3 text-left rounded-xl px-3 py-2.5 bg-white/70 hover:bg-white transition border"
+                  style={{ borderColor: "#F0E0B8" }}>
+                  <span className="text-xs font-black tabular-nums shrink-0" style={{ color: "#7A5200" }}>
+                    {DAY_SHORT[new Date(b.dateStr + "T12:00:00").getDay()]} {b.time}
                   </span>
-                </span>
-                <span className="text-xs font-bold shrink-0" style={{ color: "#7A5200" }}>Revisar ›</span>
-              </button>
-            ))}
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-sm font-semibold text-gray-800 truncate">{b.patientName ?? "—"}</span>
+                    <span className="block text-[11px] text-gray-500 truncate">
+                      {[b.service, b.doctor].filter(Boolean).join(" · ")}
+                    </span>
+                  </span>
+                  {/* El plazo pesa más que "Revisar": es lo que decide si esta
+                      hora se atiende ahora o se pierde. */}
+                  {queda && (
+                    <span className="text-[11px] font-bold shrink-0 tabular-nums text-right"
+                      style={{ color: queda.urgente ? "#B3261E" : "#7A5200" }}>
+                      {queda.texto}
+                    </span>
+                  )}
+                  <span className="text-xs font-bold shrink-0" style={{ color: "#7A5200" }}>›</span>
+                </button>
+              );
+            })}
             {porConfirmar.length > 4 && (
               <p className="text-[11px] pt-0.5" style={{ color: "#8A6A20" }}>
                 y {porConfirmar.length - 4} más en la agenda de abajo

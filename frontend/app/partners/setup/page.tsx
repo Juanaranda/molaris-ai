@@ -29,6 +29,9 @@ interface Doctor {
   name: string;
   specialty: string;
   days: DayKey[];
+  /** Por acá le llega el aviso de una hora esperando su confirmación. */
+  phone?: string;
+  email?: string;
 }
 
 interface ScheduleDay {
@@ -118,11 +121,16 @@ export default function SetupPage() {
       const cfg = data.clinic.config as Record<string, unknown>;
       if (Array.isArray(cfg.doctors) && cfg.doctors.length > 0) {
         setDoctors(
-          (cfg.doctors as { name: string; specialty?: string; days?: string[] }[]).map((d) => ({
+          // Se traen todos los campos, contacto incluido: este mismo asistente
+          // reescribe config.doctors al guardar, así que lo que no se cargue
+          // acá se borra en silencio al reabrirlo.
+          (cfg.doctors as { name: string; specialty?: string; days?: string[]; phone?: string; email?: string }[]).map((d) => ({
             _id: uid(),
             name: d.name,
             specialty: d.specialty ?? "Odontología General",
             days: (d.days ?? ["monday", "tuesday", "wednesday", "thursday", "friday"]) as DayKey[],
+            phone: d.phone,
+            email: d.email,
           }))
         );
       }
@@ -196,7 +204,11 @@ export default function SetupPage() {
         config: {
           tone: "profesional pero cercano",
           schedule: scheduleConfig,
-          doctors: validDoctors.map(({ name, specialty, days }) => ({ name, specialty, days })),
+          doctors: validDoctors.map(({ name, specialty, days, phone, email }) => ({
+            name, specialty, days,
+            phone: phone?.trim() || undefined,
+            email: email?.trim() || undefined,
+          })),
           services: validDoctors.flatMap((d) => [d.specialty]).filter((v, i, a) => a.indexOf(v) === i),
           boxes,
           onboardingDone: true,
@@ -467,6 +479,46 @@ export default function SetupPage() {
                           );
                         })}
                       </div>
+                    </div>
+
+                    {/* Contacto. No es un dato administrativo: es por donde el
+                        profesional recibe el link para confirmar una hora. */}
+                    <div>
+                      <div className="flex items-baseline justify-between mb-2 gap-3">
+                        <label className="block text-xs font-semibold" style={{ color: "#607281" }}>
+                          Dónde le avisamos
+                        </label>
+                        {clinicPhone.trim() && doc.phone?.trim() !== clinicPhone.trim() && (
+                          <button
+                            type="button"
+                            onClick={() => updateDoctor(doc._id, "phone", clinicPhone.trim())}
+                            className="text-[11px] font-semibold underline underline-offset-2"
+                            style={{ color: "#1A5C7A" }}>
+                            usar el de la clínica
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input
+                          value={doc.phone ?? ""}
+                          onChange={(e) => updateDoctor(doc._id, "phone", e.target.value)}
+                          placeholder="WhatsApp: +56 9 1234 5678"
+                          inputMode="tel"
+                          className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                          style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
+                        />
+                        <input
+                          type="email"
+                          value={doc.email ?? ""}
+                          onChange={(e) => updateDoctor(doc._id, "email", e.target.value)}
+                          placeholder="Correo: doctora@clinica.cl"
+                          className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                          style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
+                        />
+                      </div>
+                      <p className="text-[11px] mt-1.5" style={{ color: "#8A9AA6" }}>
+                        Cuando un paciente pida hora, le llega un link para confirmarla. Basta con uno de los dos.
+                      </p>
                     </div>
                   </div>
                 ))}

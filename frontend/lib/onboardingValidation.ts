@@ -16,6 +16,8 @@
 export interface DoctorOnboarding {
   name: string;
   days: string[];
+  phone?: string;
+  email?: string;
 }
 
 export interface DiaHorario {
@@ -58,6 +60,14 @@ export function queFaltaEn(paso: number, d: DatosOnboarding): string | null {
     }
     if (conNombre.some((x) => x.days.length === 0)) {
       return "Hay un profesional sin días de atención. Marca al menos uno o el asistente no le va a ofrecer horas.";
+    }
+    // Una hora pedida por el agente queda esperando el visto bueno del
+    // profesional, y el aviso sale por WhatsApp o correo. Sin ninguno de los
+    // dos no hay a dónde mandarlo: la solicitud caduca sola a las 24 horas y al
+    // paciente le llega una disculpa sin que la clínica se entere de por qué.
+    const sinContacto = conNombre.find((x) => !x.phone?.trim() && !x.email?.trim());
+    if (sinContacto) {
+      return `Falta el WhatsApp o el correo de ${sinContacto.name.trim()}. Ahí le avisamos cuando un paciente pida hora, y sin eso la solicitud caduca sin que nadie la vea.`;
     }
     return null;
   }
