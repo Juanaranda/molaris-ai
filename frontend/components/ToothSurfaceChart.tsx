@@ -14,14 +14,18 @@
  */
 
 import type { DentalSurface } from "@/lib/odontogram";
+import { carasEnPantalla, ESMALTE, CONTORNO } from "@/lib/tooth";
 
 export type ToothType = "incisor" | "canine" | "premolar" | "molar";
 
 export interface ToothSurfaceChartProps {
-  /** FDI sin punto ("16"). Define el cuadrante, que decide de qué lado va mesial. */
+  /**
+   * FDI sin punto ("16"). De acá sale todo: cuadrante, arcada y tipo de pieza.
+   * Antes la arcada y el tipo venían por props, y un llamador podía pasar una
+   * arcada que contradijera al FDI — la puerta por la que entró la
+   * inconsistencia entre esta grilla y la rueda del detalle.
+   */
   fdi: string;
-  toothType: ToothType;
-  jaw: "upper" | "lower";
   /** Color por superficie. Las que no vengan quedan en color esmalte. */
   surfaceColors?: Partial<Record<DentalSurface, string>>;
   /** Tinte del diente completo (condiciones sin superficie: endodoncia, corona…). */
@@ -38,8 +42,9 @@ export interface ToothSurfaceChartProps {
   onSurfaceClick?: (surface: DentalSurface) => void;
 }
 
-const ENAMEL = "#FBF6EC";
-const STROKE = "#94A3B8";
+// Se importan de lib/tooth para que la rueda del detalle pinte igual.
+const ENAMEL = ESMALTE;
+const STROKE = CONTORNO;
 
 /* Geometría sobre viewBox 60×60: anillo dividido en cruz por las diagonales,
    con un círculo central. Es la forma que usan Dentalink y la mayoría de las
@@ -66,26 +71,18 @@ const ZONE_PATHS = {
  *   cuadrantes izquierdos (2, 3, 6, 7). Sin este espejado, la mitad del
  *   odontograma marcaría la cara contraria.
  */
-export function surfaceLayout(fdi: string, jaw: "upper" | "lower", toothType: ToothType) {
-  const quadrant = parseInt(fdi[0] ?? "1", 10);
-  const mesialOnRight = [1, 4, 5, 8].includes(quadrant);
-  const isUpper = jaw === "upper";
-  const isAnterior = toothType === "incisor" || toothType === "canine";
-
-  return {
-    top:    (isUpper ? "V" : "L") as DentalSurface,
-    bottom: (isUpper ? "P" : "V") as DentalSurface,
-    right:  (mesialOnRight ? "M" : "D") as DentalSurface,
-    left:   (mesialOnRight ? "D" : "M") as DentalSurface,
-    center: (isAnterior ? "I" : "O") as DentalSurface,
-  };
+export function surfaceLayout(fdi: string) {
+  // La orientación vive en lib/tooth para que la rueda del detalle y esta
+  // grilla no puedan discrepar sobre el mismo diente.
+  const c = carasEnPantalla(fdi);
+  return { top: c.arriba, bottom: c.abajo, right: c.derecha, left: c.izquierda, center: c.centro };
 }
 
 export function ToothSurfaceChart({
-  fdi, toothType, jaw, surfaceColors = {}, wholeToothColor,
+  fdi, surfaceColors = {}, wholeToothColor,
   size = 36, isMissing = false, className, onSurfaceClick,
 }: ToothSurfaceChartProps) {
-  const layout = surfaceLayout(fdi, jaw, toothType);
+  const layout = surfaceLayout(fdi);
   const clicable = Boolean(onSurfaceClick) && !isMissing;
 
   // stopPropagation: la celda entera es un botón que selecciona la pieza. Sin

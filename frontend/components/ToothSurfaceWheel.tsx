@@ -2,6 +2,12 @@
 
 import { useMemo } from "react";
 import type { DentalSurface } from "@/lib/odontogram";
+import { carasEnPantalla, ESMALTE, CONTORNO, RADIO_EXTERIOR, RADIO_CENTRO } from "@/lib/tooth";
+
+const ETIQUETAS: Record<DentalSurface, string> = {
+  V: "Vestibular", P: "Palatino", L: "Lingual",
+  M: "Mesial", D: "Distal", O: "Oclusal", I: "Incisal",
+};
 
 /**
  * Rueda anatómica de superficies dentales (Issue #40).
@@ -53,8 +59,8 @@ export function ToothSurfaceWheel({ toothFDI, selected, onToggle, size = 160, re
               aria-label={`${s.label} ${s.code}${isSelected ? " (seleccionada)" : ""}`}>
               <path
                 d={s.pathD(size)}
-                fill={isSelected ? "#1A5C7A" : "#FFFFFF"}
-                stroke="#94A3B8"
+                fill={isSelected ? "#1A5C7A" : ESMALTE}
+                stroke={CONTORNO}
                 strokeWidth={1.5}
                 className={readOnly ? "" : "transition hover:opacity-80"}
               />
@@ -90,32 +96,28 @@ export function ToothSurfaceWheel({ toothFDI, selected, onToggle, size = 160, re
  * Computa los 5 sectores con su posición y label correctos según el diente FDI.
  */
 function computeSectors(toothFDI: string): SurfaceMeta[] {
-  const quadrant = parseInt(toothFDI[0] ?? "1", 10);
-  const position = parseInt(toothFDI[1] ?? "1", 10);
+  // La orientación sale de lib/tooth, la misma que usa la grilla. Antes esta
+  // rueda ponía vestibular SIEMPRE arriba: en las piezas inferiores quedaba al
+  // revés que la grilla, y marcar "la cara de abajo" registraba vestibular en
+  // una pantalla y lingual en la otra.
+  const caras = carasEnPantalla(toothFDI);
 
-  const isUpper    = quadrant === 1 || quadrant === 2 || quadrant === 5 || quadrant === 6;
-  const isAnterior = position >= 1 && position <= 3;        // incisivos + canino
-  const isPatientRight = quadrant === 1 || quadrant === 4 || quadrant === 5 || quadrant === 8;
+  const centerSurface: DentalSurface = caras.centro;
+  const centerLabel = centerSurface === "I" ? "Incisal" : "Oclusal";
 
-  // Centro: I para anteriores, O para posteriores
-  const centerSurface: DentalSurface = isAnterior ? "I" : "O";
-  const centerLabel = isAnterior ? "Incisal" : "Oclusal";
+  const topSurface: DentalSurface = caras.arriba;
+  const topLabel = ETIQUETAS[topSurface];
 
-  // Bottom: P si es superior, L si es inferior
-  const bottomSurface: DentalSurface = isUpper ? "P" : "L";
-  const bottomLabel   = isUpper ? "Palatino" : "Lingual";
+  const bottomSurface: DentalSurface = caras.abajo;
+  const bottomLabel = ETIQUETAS[bottomSurface];
 
-  // M/D según lado del paciente
-  // Pieza en lado DERECHO del paciente (cuadrantes 1 y 4): la línea media (donde está M) queda a la
-  // izquierda del paciente y por convención de chart en espejo, a la DERECHA del diente en pantalla.
-  // Pieza en lado IZQUIERDO del paciente (cuadrantes 2 y 3): M queda a la IZQUIERDA del diente.
-  const leftSurface:  DentalSurface = isPatientRight ? "D" : "M";
-  const rightSurface: DentalSurface = isPatientRight ? "M" : "D";
+  const leftSurface:  DentalSurface = caras.izquierda;
+  const rightSurface: DentalSurface = caras.derecha;
 
   // Paths (función del size para que escale)
   const c = (s: number) => s / 2;
-  const innerR = (s: number) => s * 0.18;
-  const outerR = (s: number) => s * 0.46;
+  const innerR = (s: number) => s * RADIO_CENTRO;
+  const outerR = (s: number) => s * RADIO_EXTERIOR;
 
   // Cada sector externo es un anillo de 90° clipped al cuadrante correspondiente
   const arcPath = (s: number, startAngle: number, endAngle: number): string => {
@@ -149,8 +151,8 @@ function computeSectors(toothFDI: string): SurfaceMeta[] {
   //  LEFT:   135°…225°
   return [
     {
-      code:  "V" as DentalSurface,
-      label: "Vestibular",
+      code:  topSurface,
+      label: topLabel,
       pathD: (s) => arcPath(s, 225, 315),
       textX: (s) => labelPos(s, 270).x,
       textY: (s) => labelPos(s, 270).y,
