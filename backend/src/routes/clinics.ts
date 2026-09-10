@@ -965,7 +965,7 @@ export async function clinicRoutes(app: FastifyInstance) {
       : undefined;
 
     const name = patientName?.split(" ")[0] ?? "";
-    const body = `Hola ${name}! 😊 Gracias por visitar ${clinicName ?? "nuestra clínica"}. ¿Cómo fue tu experiencia? ¿Nos dejarías una reseña en Google? Tu opinión nos ayuda mucho 🙏`;
+    const body = `Hola ${name}, gracias por visitar ${clinicName ?? "nuestra clínica"}. ¿Cómo fue tu experiencia? ¿Nos dejarías una reseña en Google? Tu opinión nos ayuda mucho.`;
     await sendWhatsAppMessage(phone, body, clinicMeta);
 
     return reply.send({ ok: true });

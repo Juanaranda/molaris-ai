@@ -139,6 +139,15 @@ model PartnerUser {
   emailVerifyExpiresAt DateTime?
   emailVerifyAttempts  Int           @default(0)
   emailVerifySentAt    DateTime?
+  // Segundo factor TOTP (#68). Opt-in: se activa desde Configuración.
+  // El secreto no se puede hashear porque hay que recalcular el código con él;
+  // los de respaldo sí, que son de un solo uso y se comparan como contraseñas.
+  totpSecret           String?
+  totpEnabled          Boolean       @default(false)
+  totpBackupCodes      String[] // hasheados con bcrypt, nunca en claro
+  // Última ventana de 30 s aceptada. Sin esto, un código visto por encima del
+  // hombro sigue sirviendo el minuto que dura su validez.
+  totpLastStep         Int?
   // Perfil personal
   photoUrl             String? // Data URL o URL externa (limitado a 600KB en backend)
   occupation           String? // Ej: "Odontóloga General", "Recepcionista"

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { AuthUser, updateMe, CLINICAL_ROLE_LABELS } from "@/lib/auth";
 import { Stethoscope } from "lucide-react";
+import { TwoFactorSection } from "./TwoFactorSection";
 
 interface Props {
   user: AuthUser;
@@ -250,6 +251,10 @@ export function MyProfileTab({ user, onUpdate }: Props) {
           )}
         </div>
       </div>
+
+      {/* Seguridad de la cuenta (#68). Va acá y no en Configuración porque es
+          de la persona: dos admins de la misma clínica lo deciden por separado. */}
+      <TwoFactorSection />
     </div>
   );
 }

@@ -38,6 +38,7 @@ import { consentRoutes } from "./routes/consents";
 import { labOrderRoutes } from "./routes/labOrders";
 import { inventoryRoutes } from "./routes/inventory";
 import { bookingConfirmRoutes } from "./routes/bookingConfirm";
+import { twoFactorRoutes } from "./routes/twoFactor";
 import { startReminderScheduler } from "./services/notifications/reminderService";
 import { startRecallScheduler } from "./services/notifications/recallService";
 import prisma from "./config/prisma";
@@ -117,6 +118,7 @@ app.register(consentRoutes, { prefix: "/api" });
 app.register(labOrderRoutes, { prefix: "/api" });
 app.register(inventoryRoutes, { prefix: "/api" });
 app.register(bookingConfirmRoutes, { prefix: "/api" });
+app.register(twoFactorRoutes, { prefix: "/api" });
 
 // Health check para monitoreo externo (UptimeRobot, etc.) y diagnóstico (#58).
 // Devuelve 503 solo si la DB está caída (la clínica no puede operar); un

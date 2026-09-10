@@ -3,7 +3,7 @@ import { registerScheduler, markSchedulerRun } from "../notifications/schedulerH
 import { avisarProfesional } from "./notifyProfessional";
 import { sendWhatsAppMessage } from "../notifications/whatsappService";
 import { avisarPacienteDecision } from "./notifyPatient";
-import { RECORDATORIOS_HORAS } from "./confirmation";
+import { RECORDATORIOS_HORAS, ESPERANDO_CONFIRMACION } from "./confirmation";
 
 /**
  * Persigue las horas que el agente dejó pedidas y nadie ha resuelto.
@@ -35,7 +35,7 @@ export function recordatoriosQueTocan(horasEsperando: number): number {
 /** Solicitudes vivas: pedidas por el agente y todavía sin resolver. */
 function pendientesDelAgente() {
   return prisma.booking.findMany({
-    where: { status: "pending", requestedVia: "agent" },
+    where: ESPERANDO_CONFIRMACION,
     include: { clinic: { select: { id: true, name: true, whatsapp: true, waPhoneId: true, waToken: true, waVerified: true } } },
   });
 }
@@ -102,7 +102,7 @@ async function avisarRecepcion(bookingId: string): Promise<void> {
  */
 export async function caducarVencidas(ahora = new Date()): Promise<number> {
   const vencidas = await prisma.booking.findMany({
-    where: { status: "pending", requestedVia: "agent", confirmDeadline: { lte: ahora } },
+    where: { ...ESPERANDO_CONFIRMACION, confirmDeadline: { lte: ahora } },
     select: { id: true },
   });
 

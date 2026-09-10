@@ -49,6 +49,50 @@ function huellaEstado(status: string, confirmedAt: Date | null, rejectedAt: Date
   return crypto.createHmac("sha256", config.jwtSecret).update(material).digest("hex").slice(0, 16);
 }
 
+/**
+ * Los campos que TODA solicitud del agente tiene que llevar, venga de donde venga.
+ *
+ * Existe porque los dos caminos que crean solicitudes —el widget web y el
+ * webhook de WhatsApp— se habían separado y cada uno cargaba la mitad: el web
+ * marcaba `requestedVia` y el plazo pero no guardaba el teléfono, y el de
+ * WhatsApp guardaba el teléfono pero no lo marcaba, así que el scheduler nunca
+ * lo veía y esas horas quedaban "pending" para siempre con el cupo tomado.
+ *
+ * Sin teléfono la decisión del profesional no le llega a nadie, y sin
+ * `requestedVia` + `confirmDeadline` la solicitud queda fuera del circuito. Las
+ * tres cosas van juntas o el human-in-the-loop no cierra.
+ */
+export const VIAS_DEL_PACIENTE = ["agent", "web"] as const;
+export type ViaSolicitud = (typeof VIAS_DEL_PACIENTE)[number];
+
+/**
+ * Filtro de las horas que el paciente pidió y todavía nadie resolvió.
+ *
+ * Va acá y no repetido en cada consulta porque se compara en ocho lugares entre
+ * backend y panel: cuando se sumó la página pública, cambiar solo algunos habría
+ * dejado esas horas invisibles para el scheduler o para la agenda, que es como
+ * empezó este problema.
+ */
+export const ESPERANDO_CONFIRMACION: { status: string; requestedVia: { in: string[] } } = {
+  status: "pending",
+  requestedVia: { in: [...VIAS_DEL_PACIENTE] },
+};
+
+export function datosDeSolicitud({ fechaCita, telefono, via = "agent", ahora = new Date() }: {
+  fechaCita: Date;
+  telefono: string | null | undefined;
+  /** "agent" = la negoció el asistente · "web" = el paciente la eligió en la página pública */
+  via?: ViaSolicitud;
+  ahora?: Date;
+}): { status: "pending"; requestedVia: ViaSolicitud; confirmDeadline: Date; patientPhone: string | null } {
+  return {
+    status: "pending",
+    requestedVia: via,
+    confirmDeadline: calcularPlazo(fechaCita, ahora),
+    patientPhone: telefono?.trim() || null,
+  };
+}
+
 export function emitirTokenConfirmacion(booking: {
   id: string; status: string; confirmedAt: Date | null; rejectedAt: Date | null;
   confirmDeadline: Date | null;

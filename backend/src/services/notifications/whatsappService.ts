@@ -15,20 +15,30 @@ export interface BookingNotification {
   doctor: string;
   box: string | null;
   sessionId: string;
+  /**
+   * true cuando la pidió el agente y todavía espera el visto bueno del
+   * profesional. Sin esto el aviso decía "Nueva cita confirmada" para una hora
+   * que nadie había confirmado, que es justo lo que el human-in-the-loop
+   * quiere evitar.
+   */
+  porConfirmar?: boolean;
 }
 
 function buildMessage(b: BookingNotification): string {
-  const boxLine = b.box ? `📦 Box: ${b.box}` : "";
+  const boxLine = b.box ? `Box: ${b.box}` : "";
   return [
-    `🦷 *Nueva cita confirmada — ${b.clinicName}*`,
+    b.porConfirmar
+      ? `*Nueva solicitud de hora — ${b.clinicName}*`
+      : `*Nueva cita confirmada — ${b.clinicName}*`,
     ``,
-    `👤 Paciente: ${b.patientName || "Sin nombre aún"}`,
-    `🔬 Servicio: ${b.service || "A confirmar"}`,
-    `📅 Fecha: ${b.dayName} ${b.date.slice(8)}/${b.date.slice(5, 7)} a las ${b.time}`,
-    `👩‍⚕️ Doctor/a: ${b.doctor}`,
+    `Paciente: ${b.patientName || "Sin nombre aún"}`,
+    `Servicio: ${b.service || "A confirmar"}`,
+    `Fecha: ${b.dayName} ${b.date.slice(8)}/${b.date.slice(5, 7)} a las ${b.time}`,
+    `Profesional: ${b.doctor}`,
     boxLine,
+    b.porConfirmar ? `\nEspera confirmación del profesional.` : "",
     ``,
-    `📎 ID sesión: ${b.sessionId}`,
+    `ID sesión: ${b.sessionId}`,
     `_Generado por molari.ai_`,
   ]
     .filter((l) => l !== undefined)

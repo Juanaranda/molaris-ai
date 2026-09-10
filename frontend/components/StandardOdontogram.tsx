@@ -424,8 +424,6 @@ function ToothCell({ fdi, proj, isMissing, isSelected, isHighlighted, onSelect, 
       <div className="flex-1 flex items-center justify-center w-full relative">
         <ToothSurfaceChart
           fdi={fdi}
-          toothType={toothTypeOf(fdi)}
-          jaw={isUpper ? "upper" : "lower"}
           size={Math.round(size * 0.66)}
           surfaceColors={paint.surfaces}
           wholeToothColor={paint.wholeTooth}
@@ -504,8 +502,6 @@ function AnatomicalToothColumn({
   const chartEl = (
     <ToothSurfaceChart
       fdi={fdi}
-      toothType={toothTypeOf(fdi)}
-      jaw={isUpper ? "upper" : "lower"}
       size={innerSize}
       surfaceColors={paint.surfaces}
       wholeToothColor={paint.wholeTooth}

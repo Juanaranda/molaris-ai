@@ -8,7 +8,7 @@ import { config } from "../config/env";
 import { sendBookingNotification } from "../services/notifications/whatsappService";
 import { buildJuanPrompt } from "../services/ai/promptBuilder";
 import { calculateLeadScore } from "../lib/leadScoring";
-import { calcularPlazo } from "../services/booking/confirmation";
+import { calcularPlazo, datosDeSolicitud } from "../services/booking/confirmation";
 import { avisarProfesional } from "../services/booking/notifyProfessional";
 import { triggerAlert } from "../services/alerts/alertService";
 
@@ -173,7 +173,7 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
     // Kill switch del agente (#49): si está apagado, no llamamos a la IA.
     // Guardamos el mensaje (ya hecho arriba) y respondemos con fallback humano.
     if (clinic.agentEnabled === false) {
-      const fallback = "¡Gracias por tu mensaje! 🙏 En este momento te atiende una persona del equipo; te respondemos a la brevedad.";
+      const fallback = "Gracias por tu mensaje. En este momento te atiende una persona del equipo; te respondemos a la brevedad.";
       await prisma.message.create({ data: { sessionId: session.id, role: "assistant", content: fallback } });
       return reply.send({ reply: fallback, sessionId: session.id, context: existingCtx, isFarewell: false, showScheduler: false });
     }
@@ -184,7 +184,7 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
     const clinicCfg = clinic.config as { aiDailyBudgetUsd?: number } | null;
     const withinBudget = await checkDailyBudget(clinic.id, clinic.name, clinicCfg?.aiDailyBudgetUsd);
     if (!withinBudget) {
-      const fallback = "¡Gracias por tu mensaje! 🙏 En este momento te atiende una persona del equipo; te respondemos a la brevedad.";
+      const fallback = "Gracias por tu mensaje. En este momento te atiende una persona del equipo; te respondemos a la brevedad.";
       await prisma.message.create({ data: { sessionId: session.id, role: "assistant", content: fallback } });
       return reply.send({ reply: fallback, sessionId: session.id, context: existingCtx, isFarewell: false, showScheduler: false });
     }
@@ -194,7 +194,7 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
     if (config.clinics.requireApproval && !isDemoMode && !isSandbox &&
         clinic.verificationStatus !== "MANUAL_APPROVED" &&
         clinic.verificationStatus !== "AUTO_VERIFIED") {
-      const fallback = "¡Gracias por tu mensaje! 🙌 Estamos terminando de activar esta clínica; muy pronto podremos atenderte.";
+      const fallback = "Gracias por tu mensaje. Estamos terminando de activar esta clínica; muy pronto podremos atenderte.";
       await prisma.message.create({ data: { sessionId: session.id, role: "assistant", content: fallback } });
       return reply.send({ reply: fallback, sessionId: session.id, context: existingCtx, isFarewell: false, showScheduler: false });
     }
@@ -252,7 +252,7 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
 
     if (bookingAction && !isSandbox) {
       try {
-        const { doctor, date, time, patientName, patientRut, service } = bookingAction;
+        const { doctor, date, time, patientName, patientRut, patientPhone, service } = bookingAction;
         // El modelo puede emitir un tool call incompleto — sin estos campos no
         // hay cita válida y el .replace/.split de abajo lanzaría TypeError.
         if (!doctor || !date || !time || !patientName) {
@@ -266,6 +266,18 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
         const endOfDay   = new Date(`${date}T23:59:59`);
         const requestedDate = new Date(`${date}T12:00:00.000Z`);
 
+        // Respaldo por si el modelo no trajo el teléfono: si esa persona ya se
+        // atendió acá, el número que usó está en su cita anterior. Vale la pena
+        // porque sin teléfono la decisión del profesional no le llega a nadie.
+        const rutLimpio = patientRut?.replace(/[.\-]/g, "") ?? null;
+        const telefonoDeLaFicha = rutLimpio
+          ? (await prisma.booking.findFirst({
+              where: { clinicId: clinic.id, patientRut: rutLimpio, patientPhone: { not: null } },
+              orderBy: { createdAt: "desc" },
+              select: { patientPhone: true },
+            }))?.patientPhone ?? null
+          : null;
+
         const txResult = await prisma.$transaction(async (tx) => {
           const conflict = await tx.booking.findFirst({
             where: { clinicId: clinic.id, date: { gte: startOfDay, lte: endOfDay }, doctor, time, status: { not: "cancelled" } },
@@ -278,12 +290,10 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
             data: {
               clinicId: clinic.id,
               patientName,
-              patientRut: patientRut?.replace(/[.\-]/g, "") ?? null,
+              patientRut: rutLimpio,
               doctor, date: requestedDate, time,
               service: service ?? null,
-              status: "pending",
-              requestedVia: "agent",
-              confirmDeadline: calcularPlazo(requestedDate),
+              ...datosDeSolicitud({ fechaCita: requestedDate, telefono: patientPhone ?? telefonoDeLaFicha }),
             },
           });
           return { conflict: false, booking };
@@ -319,6 +329,7 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
               clinicName: clinicFull.name, clinicWhatsapp: clinicFull.whatsapp, clinicMeta,
               patientName, service: service ?? "A confirmar",
               date, dayName, time, doctor, box: null, sessionId: booking.id,
+              porConfirmar: true,
             }).catch(() => {});
           }
 
@@ -371,8 +382,8 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
       if ((justReadyToBook || hasBookingCue) && !alreadyBooked) {
         const bookingUrl = `${config.frontendUrl}/book/${clinicSlug}?s=${session.id}`;
         finalReply = hasBookingCue
-          ? aiReply.trimEnd() + `\n\n👉 ${bookingUrl}`
-          : aiReply.replace(/\s+$/, "") + `\n\n👉 ${bookingUrl}`;
+          ? aiReply.trimEnd() + `\n\n${bookingUrl}`
+          : aiReply.replace(/\s+$/, "") + `\n\n${bookingUrl}`;
       }
     }
 
@@ -413,7 +424,7 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
     } catch { /* no propagar errores del log */ }
 
     return reply.send({
-      reply: "En este momento estamos con alta demanda. Por favor escríbenos directamente al WhatsApp y te atendemos de inmediato. 🦷",
+      reply: "En este momento estamos con alta demanda. Escríbenos directamente al WhatsApp y te atendemos de inmediato.",
       sessionId: (req.body as { sessionId?: string })?.sessionId ?? null,
       context: null,
       isFarewell: false,

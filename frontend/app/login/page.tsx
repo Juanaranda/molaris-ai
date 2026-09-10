@@ -4,11 +4,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { login, forgotPassword } from "@/lib/auth";
+import { login, loginSegundoFactor, forgotPassword } from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<"login" | "forgot">("login");
+  // Paso del segundo factor (#68). Se entra acá solo si la cuenta lo tiene
+  // activo; el token intermedio dura pocos minutos y no abre sesión por sí solo.
+  const [pendingToken, setPendingToken] = useState<string | null>(null);
+  const [codigo, setCodigo] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -24,9 +28,18 @@ export default function LoginPage() {
       if (mode === "forgot") {
         await forgotPassword(email);
         setNotice("Si el correo está registrado, te enviamos un enlace para recuperar tu contraseña. Revisa tu bandeja (y spam).");
-      } else {
-        await login(email, password);
+      } else if (pendingToken) {
+        await loginSegundoFactor(pendingToken, codigo);
         router.push("/partners/dashboard");
+      } else {
+        const r = await login(email, password);
+        if (r.requiere2FA) {
+          // La contraseña quedó validada, pero todavía no hay sesión.
+          setPendingToken(r.pendingToken);
+          setCodigo("");
+        } else {
+          router.push("/partners/dashboard");
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
@@ -62,7 +75,34 @@ export default function LoginPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              <div>
+              {pendingToken && (
+                <div className="flex flex-col gap-2">
+                  <label className="block text-xs font-semibold uppercase tracking-wider" style={{ color: "#607281" }}>
+                    Código de verificación
+                  </label>
+                  <p className="text-xs -mt-1" style={{ color: "#607281" }}>
+                    Abre tu app autenticadora y escribe el código de 6 dígitos.
+                  </p>
+                  <input
+                    value={codigo}
+                    onChange={(e) => setCodigo(e.target.value)}
+                    placeholder="123456"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    autoFocus
+                    required
+                    className="w-full px-4 py-3 rounded-xl text-lg tracking-[0.3em] text-center font-bold outline-none transition"
+                    style={{ border: "1px solid #E5E0D9", backgroundColor: "#F7F5F1", color: "#0C1B26" }}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = "#1A5C7A")}
+                    onBlur={(e) => (e.currentTarget.style.borderColor = "#E5E0D9")}
+                  />
+                  <p className="text-[11px]" style={{ color: "#8A9AA6" }}>
+                    ¿Perdiste el teléfono? Escribe uno de tus códigos de respaldo.
+                  </p>
+                </div>
+              )}
+
+              <div hidden={!!pendingToken}>
                 <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: "#607281" }}>
                   Correo electrónico
                 </label>
@@ -71,7 +111,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="admin@tuclinica.cl"
-                  required
+                  required={!pendingToken}
                   className="w-full px-4 py-3 rounded-xl text-sm outline-none transition"
                   style={{ border: "1px solid #E5E0D9", backgroundColor: "#F7F5F1", color: "#0C1B26" }}
                   onFocus={(e) => (e.currentTarget.style.borderColor = "#1A5C7A")}
@@ -80,7 +120,7 @@ export default function LoginPage() {
               </div>
 
               {mode === "login" && (
-                <div>
+                <div hidden={!!pendingToken}>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="block text-xs font-semibold uppercase tracking-wider" style={{ color: "#607281" }}>
                       Contraseña
@@ -96,7 +136,7 @@ export default function LoginPage() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      required
+                      required={!pendingToken}
                       className="w-full px-4 py-3 pr-16 rounded-xl text-sm outline-none transition"
                       style={{ border: "1px solid #E5E0D9", backgroundColor: "#F7F5F1", color: "#0C1B26" }}
                       onFocus={(e) => (e.currentTarget.style.borderColor = "#1A5C7A")}
@@ -123,13 +163,21 @@ export default function LoginPage() {
                 </p>
               )}
 
+              {pendingToken && (
+                <button type="button"
+                  onClick={() => { setPendingToken(null); setCodigo(""); setError(""); }}
+                  className="text-xs font-semibold hover:underline self-start" style={{ color: "#607281" }}>
+                  Volver
+                </button>
+              )}
+
               <button
                 type="submit"
                 disabled={loading}
                 className="w-full text-white font-semibold py-3 rounded-xl text-sm mt-1 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ backgroundColor: "#0B2F42" }}
               >
-                {loading ? "Enviando..." : mode === "forgot" ? "Enviar enlace de recuperación" : "Ingresar"}
+                {loading ? "Enviando..." : mode === "forgot" ? "Enviar enlace de recuperación" : pendingToken ? "Verificar código" : "Ingresar"}
               </button>
 
               {mode === "forgot" && (

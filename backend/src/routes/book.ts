@@ -1,6 +1,8 @@
 import { FastifyInstance } from "fastify";
 import prisma from "../config/prisma";
 import { sendBookingNotification } from "../services/notifications/whatsappService";
+import { datosDeSolicitud } from "../services/booking/confirmation";
+import { avisarProfesional } from "../services/booking/notifyProfessional";
 import { verifyPatientToken } from "./patient-auth";
 
 interface DoctorConfig {
@@ -220,15 +222,26 @@ export async function bookRoutes(app: FastifyInstance) {
         clinicId:     clinic.id,
         patientName,
         patientRut:   guest.rut.trim(),
-        patientPhone: guest.phone?.trim() || null,
         patientEmail: guest.email?.trim() || null,
         doctor,
         date:         requestedDate,
         time,
         service:      service ?? null,
-        status:       "confirmed",
+        // La hora la elige el paciente, pero la confirma el profesional — igual
+        // que por el asistente. Que la página muestre solo horas publicadas no
+        // equivale a que el doctor haya dicho que sí a esa hora concreta.
+        ...datosDeSolicitud({
+          fechaCita: requestedDate,
+          telefono: guest.phone,
+          via: "web",
+        }),
       },
     });
+
+    // El link para decidir sale de inmediato; el scheduler es el respaldo.
+    avisarProfesional({ bookingId: booking.id }).then((r) => {
+      if (!r.enviado) console.warn(`[book] no se pudo avisar al profesional (${r.motivo}) — booking ${booking.id}`);
+    }).catch((e) => console.error("[book] fallo avisando al profesional:", e));
 
     if (clinic.whatsapp) {
       const DAY_NAMES_ES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
@@ -240,6 +253,7 @@ export async function bookRoutes(app: FastifyInstance) {
         clinicName: clinic.name, clinicWhatsapp: clinic.whatsapp, clinicMeta,
         patientName, service: service ?? "A confirmar",
         date, dayName, time, doctor, box: null, sessionId: booking.id,
+        porConfirmar: true,
       }).catch(() => {});
     }
 

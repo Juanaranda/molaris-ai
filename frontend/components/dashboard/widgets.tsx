@@ -5,6 +5,8 @@
  * components/dashboard y no en la raíz.
  */
 
+import { esperaConfirmacion } from "@/lib/solicitudes";
+
 /** Formato corto de pesos: $1.2M / $850k. Para tablas, no para montos exactos. */
 export const fmtCLP = (n: number) =>
   n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : `$${(n / 1_000).toFixed(0)}k`;
@@ -87,7 +89,7 @@ export function StatusPill({ status, requestedVia }: { status: string; requested
   // Una hora que el agente dejó pedida NO es lo mismo que una cita que alguien
   // creó a mano y está esperando al paciente: la primera necesita que un humano
   // decida, y si se ven iguales el doctor cree que tiene la agenda cerrada.
-  const esperandoConfirmacion = status === "pending" && requestedVia === "agent";
+  const esperandoConfirmacion = esperaConfirmacion({ status, requestedVia });
 
   const map: Record<string, string> = {
     confirmed: "bg-emerald-50 text-emerald-700 border-emerald-100",

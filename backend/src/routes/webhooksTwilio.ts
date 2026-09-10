@@ -14,6 +14,8 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import crypto from "crypto";
 import prisma from "../config/prisma";
+import { datosDeSolicitud } from "../services/booking/confirmation";
+import { avisarProfesional } from "../services/booking/notifyProfessional";
 import { config } from "../config/env";
 import { getAIResponse } from "../services/ai/claudeService";
 import { recordAgentSuccess, recordAgentFailure } from "../services/agent/agentHealth";
@@ -21,7 +23,7 @@ import { checkDailyBudget } from "../services/ai/budgetGuard";
 import { isDuplicateWebhookEvent } from "../lib/webhookDedup";
 
 const DAYS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-const HUMAN_FALLBACK = "¡Gracias por tu mensaje! 🙏 En un momento te atiende una persona del equipo.";
+const HUMAN_FALLBACK = "Gracias por tu mensaje. En un momento te atiende una persona del equipo.";
 
 function escapeXml(s: string): string {
   return s
@@ -145,19 +147,22 @@ export async function webhookTwilioRoutes(app: FastifyInstance) {
         const { doctor, date, time, patientName, patientRut, service } = result.bookingAction;
         try {
           const bookingDate = new Date(`${date}T12:00:00`);
-          await prisma.booking.create({
+          const solicitud = await prisma.booking.create({
             data: {
               clinicId: clinic.id,
               patientName: patientName || fromPhone,
               patientRut:  patientRut  || null,
-              patientPhone: fromPhone,
               date: bookingDate, time, doctor,
               service: service || null,
-              status: "pending",
+              ...datosDeSolicitud({ fechaCita: bookingDate, telefono: fromPhone }),
               sessionId: session.id,
             },
           });
-          aiReply = `¡Listo ${patientName.split(" ")[0]}! Tu cita quedó agendada para el ${DAYS[bookingDate.getDay()]} ${date.slice(8)}/${date.slice(5, 7)} a las ${time} con ${doctor}. Te esperamos en ${clinic.name}. 🦷`;
+          avisarProfesional({ bookingId: solicitud.id }).then((r) => {
+            if (!r.enviado) console.warn(`[Twilio] no se pudo avisar al profesional (${r.motivo}) — booking ${solicitud.id}`);
+          }).catch((e) => console.error("[Twilio] fallo avisando al profesional:", e));
+          // La hora queda pedida, no cerrada: la confirma el profesional.
+          aiReply = `Listo ${patientName.split(" ")[0]}, dejé tu solicitud para el ${DAYS[bookingDate.getDay()]} ${date.slice(8)}/${date.slice(5, 7)} a las ${time} con ${doctor}. Estoy validándola y te aviso apenas tenga respuesta.`;
         } catch {
           aiReply = result.reply || aiReply;
         }
