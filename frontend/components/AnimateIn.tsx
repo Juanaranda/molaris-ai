@@ -61,9 +61,9 @@ export function AnimateIn({
   }, [delay, threshold]);
 
   const translateMap: Record<string, string> = {
-    up: 'translateY(22px)',
-    left: 'translateX(-22px)',
-    right: 'translateX(22px)',
+    up: 'translateY(14px)',
+    left: 'translateX(-14px)',
+    right: 'translateX(14px)',
     none: 'none',
   };
 
@@ -74,7 +74,7 @@ export function AnimateIn({
       style={{
         opacity: 0,
         transform: translateMap[direction],
-        transition: `opacity 0.65s cubic-bezier(0.22,1,0.36,1), transform 0.65s cubic-bezier(0.22,1,0.36,1)`,
+        transition: `opacity 0.45s cubic-bezier(0.22,1,0.36,1), transform 0.45s cubic-bezier(0.22,1,0.36,1)`,
         ...style,
       }}
     >

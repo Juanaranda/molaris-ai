@@ -335,8 +335,13 @@ export default function Home() {
     },
   ];
 
+  // overflowX "clip" y no "hidden": poner overflow en un solo eje fuerza el otro
+  // a "auto", y eso convertía a <main> en contenedor de scroll. Las animaciones
+  // ligadas al scroll se resolvían contra él —donde nada scrollea— y quedaban
+  // congeladas en su estado final. "clip" recorta sin crear el contenedor, y
+  // además impide el desplazamiento lateral en móvil mejor que "hidden".
   return (
-    <main className="min-h-screen overflow-x-hidden" style={{ backgroundColor: "#F7F5F1", color: "#0C1B26" }}>
+    <main className="min-h-screen" style={{ overflowX: "clip", backgroundColor: "#F7F5F1", color: "#0C1B26" }}>
 
       {/* NAV */}
       <nav className="flex items-center justify-between px-6 sm:px-10 py-5 bg-[#FDFCFB] border-b" style={{ borderColor: "#E5E0D9" }}>
@@ -407,7 +412,7 @@ export default function Home() {
               )}
             </div>
 
-            <div className="animate-fade-up animate-fade-up-delay-2 animate-float-slow">
+            <div className="animate-fade-up animate-fade-up-delay-2">
               <HeroShowcase />
             </div>
           </div>
@@ -567,7 +572,7 @@ export default function Home() {
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 justify-items-center">
             <AnimateIn delay={0}>
-              <div className="animate-float">
+              <div>
                 <ChatMockup
                   header={{ name: "Galana Clínica Dental", sub: "En línea", initial: "G" }}
                   headerBg="#128C7E"
@@ -584,8 +589,8 @@ export default function Home() {
                 />
               </div>
             </AnimateIn>
-            <AnimateIn delay={120}>
-              <div className="animate-float" style={{ animationDelay: '1.5s' }}>
+            <AnimateIn delay={60}>
+              <div>
                 <ChatMockup
                   header={{ name: "galana.dental", sub: "Widget web · En línea", initial: "G" }}
                   headerBg="linear-gradient(135deg, #1A5C7A, #0e4560)"
@@ -602,8 +607,8 @@ export default function Home() {
                 />
               </div>
             </AnimateIn>
-            <AnimateIn delay={240}>
-              <div className="animate-float" style={{ animationDelay: '2.8s' }}>
+            <AnimateIn delay={120}>
+              <div>
                 <ChatMockup
                   header={{ name: "galana.dental", sub: "Instagram · Mensaje directo", initial: "G" }}
                   headerBg="linear-gradient(135deg, #F58529, #DD2A7B 45%, #8134AF 80%, #515BD4)"
@@ -692,7 +697,7 @@ export default function Home() {
                 Acceder al panel
               </Link>
             </div>
-            <AnimateIn direction="right" className="w-full animate-float-slow">
+            <AnimateIn direction="right" className="w-full">
               <AgendaMockup />
             </AnimateIn>
           </div>
@@ -882,7 +887,7 @@ export default function Home() {
             </AnimateIn>
 
             {/* Esencial */}
-            <AnimateIn delay={110} style={{ display: 'flex', flexDirection: 'column' }}>
+            <AnimateIn delay={55} style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="flex flex-col rounded-2xl p-6 sm:p-7 flex-1" style={{ border: "1px solid #E5E0D9", backgroundColor: "#FDFCFB" }}>
               <p className="text-xs font-bold uppercase tracking-[0.12em] mb-5" style={{ color: "#607281" }}>Esencial</p>
               <div className="mb-1">
@@ -907,7 +912,7 @@ export default function Home() {
             </AnimateIn>
 
             {/* Pro */}
-            <AnimateIn delay={220} style={{ display: 'flex', flexDirection: 'column' }}>
+            <AnimateIn delay={110} style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="flex flex-col rounded-2xl p-6 sm:p-7 relative shadow-lg flex-1" style={{ border: "2px solid #D95F45", backgroundColor: "#FDFCFB" }}>
               <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 text-white text-[11px] font-bold px-4 py-1 rounded-full whitespace-nowrap" style={{ backgroundColor: "#D95F45" }}>
                 Más popular
@@ -942,7 +947,7 @@ export default function Home() {
             </AnimateIn>
 
             {/* Clínica+ */}
-            <AnimateIn delay={330} style={{ display: 'flex', flexDirection: 'column' }}>
+            <AnimateIn delay={165} style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="flex flex-col rounded-2xl p-6 sm:p-7 flex-1" style={{ border: "1px solid #E5E0D9", backgroundColor: "#FDFCFB" }}>
               <p className="text-xs font-bold uppercase tracking-[0.12em] mb-5" style={{ color: "#607281" }}>Clínica+</p>
               <div className="mb-1">

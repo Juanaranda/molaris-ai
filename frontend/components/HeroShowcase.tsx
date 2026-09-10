@@ -428,23 +428,30 @@ const TABS = [
 export function HeroShowcase() {
   const [active, setActive] = useState(0);
 
+  const [detenido, setDetenido] = useState(false);
+
   useEffect(() => {
+    // Quien pidió menos movimiento no debería tener una pantalla rotando sola.
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    if (detenido) return;
     // Se recorre TABS.length y no un 3 fijo: al sumar una pantalla, el
     // carrusel la incluía o no según se acordara alguien de cambiar el número.
     const t = setInterval(() => setActive((a) => (a + 1) % TABS.length), 4500);
     return () => clearInterval(t);
-  }, []);
+  }, [detenido]);
 
   const screens = [ActivityMockup, AgendaMockup, AnalyticsMockup, FichaMockup];
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4"
+      onMouseEnter={() => setDetenido(true)}
+      onFocusCapture={() => setDetenido(true)}>
       {/* Tab pills */}
       <div className="flex items-center gap-2">
         {TABS.map((t, i) => (
           <button
             key={t.label}
-            onClick={() => { setActive(i); }}
+            onClick={() => { setActive(i); setDetenido(true); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
             style={active === i
               ? { background: "#0B2F42", color: "#fff", border: "1px solid #0B2F42", outline: "none" }
@@ -476,7 +483,7 @@ export function HeroShowcase() {
         {TABS.map((_, i) => (
           <button
             key={i}
-            onClick={() => setActive(i)}
+            onClick={() => { setActive(i); setDetenido(true); }}
             style={{
               height: 3, borderRadius: 99,
               width: active === i ? 28 : 8,
