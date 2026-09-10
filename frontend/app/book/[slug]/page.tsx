@@ -237,8 +237,13 @@ export default function BookPage() {
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
               </div>
-              <h2 className="text-2xl font-bold mb-1" style={{ color: "#0C1B26" }}>¡Cita confirmada!</h2>
-              <p className="text-sm" style={{ color: "#607281" }}>Te esperamos en {clinic.name}</p>
+              {/* La hora queda pedida, no cerrada: la confirma el profesional.
+                  Decir "confirmada" acá era la misma promesa que se sacó del
+                  asistente cuando se armó la confirmación humana. */}
+              <h2 className="text-2xl font-bold mb-1" style={{ color: "#0C1B26" }}>Solicitud enviada</h2>
+              <p className="text-sm" style={{ color: "#607281" }}>
+                {clinic.name} la está revisando. Te avisamos apenas el profesional responda.
+              </p>
             </div>
             <div className="rounded-xl p-4 mb-6 space-y-2" style={{ backgroundColor: "#F7F5F1" }}>
               {[
@@ -253,8 +258,11 @@ export default function BookPage() {
                 </div>
               ))}
             </div>
+            <p className="text-xs text-center mb-4" style={{ color: "#8A9AA6" }}>
+              Si no puede atenderte a esa hora, te ofrecemos otras opciones.
+            </p>
             <button onClick={reset} className="w-full py-3 rounded-xl text-sm font-semibold" style={{ border: "1.5px solid #E5E0D9", color: "#607281" }}>
-              Agendar otra hora
+              Pedir otra hora
             </button>
           </div>
         )}

@@ -9,6 +9,7 @@ import { invalidatePatientsCache } from "@/lib/patients";
 import { minutosDesdeInicioDeGrilla, esElTramoDeAhora } from "@/lib/agendaTime";
 import { restanteHasta } from "@/lib/plazos";
 import { X } from "lucide-react";
+import { esperaConfirmacion } from "@/lib/solicitudes";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -132,7 +133,7 @@ function StatusPill({ status, requestedVia }: { status: string; requestedVia?: s
   // Una hora que el agente dejó pedida NO es lo mismo que una cita que alguien
   // creó a mano y está esperando al paciente: la primera necesita que un humano
   // decida, y si se ven iguales el doctor cree que tiene la agenda cerrada.
-  const esperandoConfirmacion = status === "pending" && requestedVia === "agent";
+  const esperandoConfirmacion = esperaConfirmacion({ status, requestedVia });
 
   const map: Record<string, string> = {
     confirmed: "bg-emerald-50 text-emerald-700 border-emerald-100",
@@ -332,7 +333,7 @@ function BookingModal({ booking, onClose, onSave, onCancel, onNewQuote, onDecide
 
         {/* Decisión pendiente: va arriba de todo porque es lo único que hay
             que hacer con esta cita. Lo demás es contexto para decidir. */}
-        {booking.status === "pending" && booking.requestedVia === "agent" && (
+        {esperaConfirmacion(booking) && (
           <div className="px-6 py-4 border-b" style={{ backgroundColor: "#FFFDF7", borderColor: "#F0E0B8" }}>
             <p className="text-sm font-bold" style={{ color: "#7A5200" }}>Esperando tu confirmación</p>
             <p className="text-xs mt-0.5 mb-3" style={{ color: "#8A6A20" }}>
@@ -821,7 +822,7 @@ function AdminAgenda({
   // responder y caducan solas.
   const porConfirmar = days
     .flatMap((d) => d.bookings.map((b) => ({ ...b, dateStr: d.date })))
-    .filter((b) => b.status === "pending" && b.requestedVia === "agent")
+    .filter(esperaConfirmacion)
     .sort((a, b) => (a.confirmDeadline ?? "").localeCompare(b.confirmDeadline ?? ""));
 
   // Van ordenadas por plazo, así que la primera es la que menos aguanta.
@@ -1175,7 +1176,7 @@ function AdminAgenda({
                         // Una hora que el agente dejó pedida se dibuja con borde
                         // punteado y sin el relleno del profesional: a simple
                         // vista se lee como "hueco reservado", no como cita.
-                        const porConfirmar = b.status === "pending" && b.requestedVia === "agent";
+                        const porConfirmar = esperaConfirmacion(b);
                         return (
                           <button key={b.id} onClick={() => setSelectedBooking(b)}
                             className={`w-full text-left flex items-center gap-2.5 px-2.5 py-2 rounded-xl border hover:shadow-sm transition group ${

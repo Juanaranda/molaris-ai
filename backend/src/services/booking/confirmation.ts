@@ -62,14 +62,32 @@ function huellaEstado(status: string, confirmedAt: Date | null, rejectedAt: Date
  * `requestedVia` + `confirmDeadline` la solicitud queda fuera del circuito. Las
  * tres cosas van juntas o el human-in-the-loop no cierra.
  */
-export function datosDeSolicitud({ fechaCita, telefono, ahora = new Date() }: {
+export const VIAS_DEL_PACIENTE = ["agent", "web"] as const;
+export type ViaSolicitud = (typeof VIAS_DEL_PACIENTE)[number];
+
+/**
+ * Filtro de las horas que el paciente pidió y todavía nadie resolvió.
+ *
+ * Va acá y no repetido en cada consulta porque se compara en ocho lugares entre
+ * backend y panel: cuando se sumó la página pública, cambiar solo algunos habría
+ * dejado esas horas invisibles para el scheduler o para la agenda, que es como
+ * empezó este problema.
+ */
+export const ESPERANDO_CONFIRMACION: { status: string; requestedVia: { in: string[] } } = {
+  status: "pending",
+  requestedVia: { in: [...VIAS_DEL_PACIENTE] },
+};
+
+export function datosDeSolicitud({ fechaCita, telefono, via = "agent", ahora = new Date() }: {
   fechaCita: Date;
   telefono: string | null | undefined;
+  /** "agent" = la negoció el asistente · "web" = el paciente la eligió en la página pública */
+  via?: ViaSolicitud;
   ahora?: Date;
-}): { status: "pending"; requestedVia: "agent"; confirmDeadline: Date; patientPhone: string | null } {
+}): { status: "pending"; requestedVia: ViaSolicitud; confirmDeadline: Date; patientPhone: string | null } {
   return {
     status: "pending",
-    requestedVia: "agent",
+    requestedVia: via,
     confirmDeadline: calcularPlazo(fechaCita, ahora),
     patientPhone: telefono?.trim() || null,
   };
