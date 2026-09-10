@@ -2,6 +2,8 @@ import { FastifyInstance } from "fastify";
 import prisma from "../config/prisma";
 import { getAIResponse } from "../services/ai/claudeService";
 import { config } from "../config/env";
+import { datosDeSolicitud } from "../services/booking/confirmation";
+import { avisarProfesional } from "../services/booking/notifyProfessional";
 
 function twiml(message: string): string {
   const safe = message
@@ -171,12 +173,11 @@ export async function webhookRoutes(app: FastifyInstance) {
                   clinicId: clinic.id,
                   patientName: displayName,
                   patientRut: patientRut?.replace(/[.\-]/g, "") || null,
-                  patientPhone: fromPhone,
                   date: bookingDate,
                   time,
                   doctor,
                   service: service || null,
-                  status: "pending",
+                  ...datosDeSolicitud({ fechaCita: bookingDate, telefono: fromPhone }),
                   sessionId: session.id,
                 },
               });
@@ -196,10 +197,18 @@ export async function webhookRoutes(app: FastifyInstance) {
                 "Sábado",
               ];
               const dayName = DAY_NAMES_ES[bookingDate.getDay()];
-              aiReply = `¡Listo ${displayName.split(" ")[0]}! Tu cita está confirmada para el ${dayName} ${date.slice(8)}/${date.slice(5, 7)} a las ${time} con ${doctor}. Te esperamos en ${clinic.name}. 🦷`;
+              // La hora queda pedida, no confirmada: la confirma el profesional.
+              // Prometer una cita cerrada acá era la misma mentira que se sacó
+              // del widget web cuando se armó el human-in-the-loop.
+              aiReply = `Listo ${displayName.split(" ")[0]}, dejé tu solicitud para el ${dayName} ${date.slice(8)}/${date.slice(5, 7)} a las ${time} con ${doctor}. Estoy validándola y te aviso apenas tenga respuesta.`;
               console.info(
-                `[Webhook] Cita creada id=${txResult.booking!.id} para ${displayName}`,
+                `[Webhook] Solicitud creada id=${txResult.booking!.id} para ${displayName}`,
               );
+              // Sin esto la solicitud espera a que el scheduler pase (cada 15
+              // min); el profesional recibe el link de inmediato.
+              avisarProfesional({ bookingId: txResult.booking!.id }).then((r) => {
+                if (!r.enviado) console.warn(`[Webhook] no se pudo avisar al profesional (${r.motivo}) — booking ${txResult.booking!.id}`);
+              }).catch((e) => console.error("[Webhook] fallo avisando al profesional:", e));
             }
           } catch (bookingErr: any) {
             console.error(

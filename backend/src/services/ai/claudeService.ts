@@ -40,6 +40,7 @@ export interface BookingAction {
   time: string;
   patientName: string;
   patientRut: string;
+  patientPhone?: string;
   service?: string;
 }
 
@@ -140,16 +141,17 @@ const TOOLS = [
     function: {
       name: "create_booking",
       description:
-        "Crea una cita confirmada cuando el paciente eligió agendar por el chat y ya tienes TODOS los datos: doctor, fecha (YYYY-MM-DD), hora (HH:MM), nombre completo y RUT del paciente. NO llames esta función si falta algún dato.",
+        "Pide una hora para el paciente. La hora NO queda confirmada: el profesional la aprueba después, así que nunca le digas al paciente que su cita está confirmada. Llama esta función cuando ya tengas doctor, fecha (YYYY-MM-DD), hora (HH:MM), nombre completo, RUT y teléfono de contacto. NO la llames si falta algún dato.",
       parameters: {
         type: "object",
-        required: ["doctor", "date", "time", "patientName", "patientRut"],
+        required: ["doctor", "date", "time", "patientName", "patientRut", "patientPhone"],
         properties: {
           doctor:      { type: "string", description: "Nombre exacto del doctor, tal como aparece en la lista del equipo médico" },
           date:        { type: "string", description: "Fecha en formato YYYY-MM-DD" },
           time:        { type: "string", description: "Hora en formato HH:MM (ej: 10:30)" },
           patientName: { type: "string", description: "Nombre completo del paciente" },
           patientRut:  { type: "string", description: "RUT del paciente sin puntos ni guión" },
+          patientPhone: { type: "string", description: "Teléfono del paciente. Es por donde se le avisa si el profesional confirma o rechaza la hora: sin esto se queda esperando una respuesta que nunca llega." },
           service:     { type: "string", description: "Tipo de consulta (opcional)" },
         },
       },
@@ -507,7 +509,7 @@ export async function getAIResponse({
 
   // Si el flujo está completo, usar despedida determinista (no depender del LLM)
   if (isFarewell && !replyText) {
-    replyText = `¡Perfecto ${mergedContext.patientName?.split(" ")[0]}! Tu cita está confirmada. Te contactaremos para recordarte. ¡Hasta pronto! 🦷`;
+    replyText = `Listo ${mergedContext.patientName?.split(" ")[0]}, dejé tu solicitud. La estoy validando con el profesional y te aviso apenas responda.`;
   }
 
   // Si el modelo retornó sin texto (solo tool_call o respuesta vacía), generar confirmación

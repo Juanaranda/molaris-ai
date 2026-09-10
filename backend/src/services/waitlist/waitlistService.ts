@@ -72,12 +72,12 @@ export async function notifyWaitlistForCanceledBooking(bookingId: string): Promi
   const dateStr = b.date.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
   const firstName = match.patientName.split(" ")[0];
   const msg = [
-    `Hola ${firstName} 👋`,
+    `Hola ${firstName},`,
     ``,
     `Se liberó un cupo en *${b.clinic.name}* que coincide con lo que esperabas:`,
-    `📅 ${dateStr} a las ${b.time}`,
-    `👩‍⚕️ ${b.doctor}`,
-    b.service ? `🔬 ${b.service}` : "",
+    `${dateStr} a las ${b.time}`,
+    `Con ${b.doctor}`,
+    b.service ? `${b.service}` : "",
     ``,
     `¿Te interesa? Responde *SÍ* a este mensaje o llámanos al +${b.clinic.whatsapp ?? ""}.`,
     ``,
