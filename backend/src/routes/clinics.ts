@@ -77,6 +77,28 @@ export function construirDoctorSolo(datos: {
   };
 }
 
+/**
+ * Qué pasa al pedir la baja de una clínica (MOL-17, mitigación del 23/9).
+ *
+ * La ruta nació como "derecho de supresión" (Ley 21.719), pero borraba en
+ * cascada las fichas clínicas y el registro de auditoría, y la ficha es
+ * documento médico-legal que la Ley 20.584 obliga a conservar por años. Las
+ * dos leyes chocan y eso lo resuelve un abogado (MOL-11). Mientras tanto,
+ * nada con registros clínicos se borra: se desactiva.
+ *
+ * Solo el SUPERADMIN puede borrar de verdad, y solo una clínica sin registros
+ * clínicos: es lo que permite limpiar clínicas de prueba vacías sin arriesgar
+ * una ficha real.
+ */
+export type BajaClinica = "borrar" | "desactivar";
+
+export function decidirBajaClinica({ rol, registrosClinicos }: {
+  rol: string;
+  registrosClinicos: number;
+}): BajaClinica {
+  return rol === "SUPERADMIN" && registrosClinicos === 0 ? "borrar" : "desactivar";
+}
+
 // Versión vigente del DPA Molaris ↔ Clínica (Issue #38, Ley 21.719).
 // BORRADOR — pendiente validación legal. Subir la versión cuando cambie el texto.
 export const DPA_VERSION = "2026-06-draft";
@@ -799,10 +821,11 @@ export async function clinicRoutes(app: FastifyInstance) {
     return reply.status(201).send({ clinicId: newClinic.id, slug: newClinic.slug, message: "Clínica registrada correctamente" });
   });
 
-  // DELETE /api/clinics/:id — baja de cuenta / derecho de supresión (Ley 21.719)
-  // SUPERADMIN puede eliminar cualquier clínica. El ADMIN dueño puede eliminar la
-  // suya confirmando su contraseña (acción irreversible). Borra en cascada TODOS
-  // los datos de la clínica dentro de una transacción: si algo falla, no borra nada.
+  // DELETE /api/clinics/:id — baja de una clínica.
+  // Si tiene registros clínicos, o si la pide su propio ADMIN, se DESACTIVA y
+  // no se borra nada (ver decidirBajaClinica y MOL-17). Solo el SUPERADMIN
+  // borra, y solo clínicas sin registros clínicos: en cascada, dentro de una
+  // transacción, y si algo falla no borra nada.
   app.delete<{ Params: { id: string }; Body: { password?: string } }>(
     "/clinics/:id",
     async (req, reply) => {
@@ -832,9 +855,43 @@ export async function clinicRoutes(app: FastifyInstance) {
 
       const clinic = await prisma.clinic.findUnique({
         where: { id: clinicId },
-        select: { id: true, name: true, slug: true },
+        select: { id: true, name: true, slug: true, active: true },
       });
       if (!clinic) return reply.status(404).send({ error: "Clínica no encontrada" });
+
+      // Lo que es ficha clínica en sentido médico-legal. Si hay algo de esto,
+      // la clínica no se borra: se desactiva (ver decidirBajaClinica).
+      const conteos = await Promise.all([
+        prisma.clinicalNote.count({ where: { clinicId } }),
+        prisma.dentalEvent.count({ where: { clinicId } }),
+        prisma.toothImage.count({ where: { clinicId } }),
+        prisma.anamnesisResponse.count({ where: { clinicId } }),
+        prisma.consentSignature.count({ where: { clinicId } }),
+        prisma.treatmentPlan.count({ where: { clinicId } }),
+      ]);
+      const registrosClinicos = conteos.reduce((a, b) => a + b, 0);
+
+      if (decidirBajaClinica({ rol: payload.role, registrosClinicos }) === "desactivar") {
+        // Desactivar apaga la página pública, el login de pacientes, los
+        // webhooks de WhatsApp y el chat web. Los datos quedan intactos y el
+        // equipo de la clínica puede seguir entrando para exportarlos.
+        await prisma.clinic.update({ where: { id: clinicId }, data: { active: false } });
+        audit({
+          req, clinicId, actorId: payload.userId, action: "update",
+          resourceType: "Clinic", resourceId: clinicId,
+          snapshotBefore: { active: clinic.active },
+          snapshotAfter: { active: false, registrosClinicos },
+        });
+        console.warn(`[clinic-delete] ${clinic.slug} DESACTIVADA (no borrada) por ${payload.role} ${payload.userId}: ${registrosClinicos} registro(s) clínico(s)`);
+        return reply.send({
+          ok: true,
+          mode: "deactivated",
+          reason: registrosClinicos > 0
+            ? `La clínica tiene ${registrosClinicos} registro(s) clínico(s). La ficha clínica se conserva por ley, así que se desactivó en vez de borrarse.`
+            : "La clínica se desactivó. Sus datos se conservan.",
+          clinic: { id: clinic.id, slug: clinic.slug, name: clinic.name },
+        });
+      }
 
       // Orden de borrado por dependencias de FK (hijos → padres). Las tablas con
       // onDelete: Cascade (DentalEventSurface, DentalQuoteItem) caen con su padre.
@@ -872,7 +929,7 @@ export async function clinicRoutes(app: FastifyInstance) {
       ]);
 
       console.warn(`[clinic-delete] Clínica ${clinic.slug} (${clinicId}) eliminada por ${payload.role} ${payload.userId}`);
-      return reply.send({ ok: true, deleted: { id: clinic.id, slug: clinic.slug, name: clinic.name } });
+      return reply.send({ ok: true, mode: "deleted", clinic: { id: clinic.id, slug: clinic.slug, name: clinic.name } });
     }
   );
 

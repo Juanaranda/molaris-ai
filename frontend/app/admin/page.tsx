@@ -159,18 +159,27 @@ export default function AdminPage() {
 
   const [deleting, setDeleting] = useState<string | null>(null);
   async function handleDelete(c: ClinicRow) {
-    // Confirmación fuerte: hay que escribir el slug exacto. Evita borrar una
-    // clínica real por un clic accidental. Acción irreversible (cascada).
+    // Confirmación fuerte: hay que escribir el slug exacto. Evita dar de baja
+    // una clínica real por un clic accidental.
     const typed = window.prompt(
-   ` Esto elimina la clínica "${c.name}" y TODOS sus datos (pacientes, citas, fichas, conversaciones). Es IRREVERSIBLE.\n\nEscribe el slug exacto para confirmar: ${c.slug}`
+      `Dar de baja "${c.name}".\n\n` +
+      `Si tiene fichas clínicas, NO se borra: se desactiva y sus datos se conservan (la ficha se guarda por ley). ` +
+      `Solo una clínica sin registros clínicos se borra por completo, y eso es irreversible.\n\n` +
+      `Escribe el slug exacto para confirmar: ${c.slug}`
     );
     if (typed === null) return;
-    if (typed.trim() !== c.slug) { alert("El slug no coincide. No se eliminó nada."); return; }
+    if (typed.trim() !== c.slug) { alert("El slug no coincide. No se hizo nada."); return; }
     setDeleting(c.id);
     try {
-      await deleteClinicAsAdmin(c.id);
-      setData((d) => d ? { ...d, clinics: d.clinics.filter((x) => x.id !== c.id) } : d);
-      setPending((p) => p.filter((x) => x.id !== c.id));
+      const r = await deleteClinicAsAdmin(c.id);
+      if (r.mode === "deactivated") {
+        // Sigue existiendo: se marca inactiva en vez de sacarla de la lista.
+        setData((d) => d ? { ...d, clinics: d.clinics.map((x) => x.id === c.id ? { ...x, active: false } : x) } : d);
+        alert(r.reason ?? "La clínica se desactivó. Sus datos se conservan.");
+      } else {
+        setData((d) => d ? { ...d, clinics: d.clinics.filter((x) => x.id !== c.id) } : d);
+        setPending((p) => p.filter((x) => x.id !== c.id));
+      }
     } catch (e) {
       alert(e instanceof Error ? e.message : "Error al eliminar");
     } finally {

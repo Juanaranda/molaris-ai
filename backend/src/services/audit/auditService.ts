@@ -24,7 +24,10 @@ export type AuditResourceType =
   | "ToothImage"
   | "Identity"
   | "Boleta"
-  | "Payment";
+  | "Payment"
+  // Baja de una clínica (MOL-17): se registra quién la desactivó y cuántos
+  // registros clínicos tenía, porque eso decidió que no se borrara.
+  | "Clinic";
 
 interface AuditInput {
   req:            FastifyRequest;

@@ -69,12 +69,15 @@ body {
 .animate-fade-up-delay-4 { animation-delay: 0.44s; }
 .animate-fade-up-delay-5 { animation-delay: 0.56s; }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50%       { transform: translateY(-10px); }
-}
-.animate-float      { animation: float 5s ease-in-out infinite; }
-.animate-float-slow { animation: float 7s ease-in-out infinite; }
+/* El revelado al entrar lo maneja AnimateIn con IntersectionObserver.
+   Se probó animation-timeline: view() para ligar el avance a la posición del
+   scroll, pero la timeline se engancha y nunca avanza (currentTime null) — ni
+   siquiera tras sacar el contenedor de scroll que creaba overflow-x: hidden.
+   No se deja un camino que no se pudo verificar funcionando.
+
+   Lo que sí se quitó: un `float` infinito en cinco elementos que subían y
+   bajaban 10px para siempre. Ese era el movimiento que se sentía inquieto,
+   porque ocurría solo, sin relación con lo que hace la persona. */
 
 /* ── Señal de "en vivo" ──────────────────────────────────────────────────────
    El punto pulsante genérico está en todas las landings de SaaS. Este es un

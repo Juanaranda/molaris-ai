@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ToothSurfaceChart } from "./ToothSurfaceChart";
 
 /* Las fechas se calculan tras montar: la landing se prerenderiza estática, así
    que un new Date() en el render quedaría congelado en la fecha del build. */
@@ -309,31 +310,150 @@ function AnalyticsMockup() {
 }
 
 /* ─── Showcase principal ─────────────────────────────────────────────────── */
+
+/* ─── Ficha clínica ───────────────────────────────────────────────────
+   Usa el ToothSurfaceChart de verdad, el mismo que corre dentro de la app.
+   Es a propósito: lo que se ve acá no es un dibujo de cómo sería el producto,
+   es el producto. Si el odontograma cambia, esta pantalla cambia con él. */
+function FichaMockup() {
+  // Hallazgos de muestra sobre piezas reales. Caries en rojo, restauración en
+  // azul, ausente en gris — el mismo código de color de la ficha.
+  const CARIES = "#E5544B";
+  const RESTAURACION = "#4A90D9";
+
+  const SUPERIOR = ["17", "16", "15", "14", "13", "12", "11", "21", "22", "23", "24", "25", "26", "27"];
+  const INFERIOR = ["47", "46", "45", "44", "43", "42", "41", "31", "32", "33", "34", "35", "36", "37"];
+
+  const hallazgos: Record<string, { surfaces?: Record<string, string>; whole?: string; missing?: boolean }> = {
+    "16": { surfaces: { O: CARIES } },
+    "26": { surfaces: { O: RESTAURACION, M: RESTAURACION } },
+    "36": { missing: true },
+    "46": { surfaces: { V: CARIES } },
+    "11": { whole: RESTAURACION },
+  };
+
+  const fila = (piezas: string[]) => (
+    <div className="flex justify-center gap-[2px]">
+      {piezas.map((fdi) => {
+        const h = hallazgos[fdi];
+        return (
+          <ToothSurfaceChart
+            key={fdi}
+            fdi={fdi}
+            size={26}
+            isMissing={h?.missing}
+            wholeToothColor={h?.whole}
+            surfaceColors={h?.surfaces as never}
+          />
+        );
+      })}
+    </div>
+  );
+
+  return (
+    <div className="rounded-2xl overflow-hidden shadow-2xl" style={{ background: "#FDFCFB", border: "1px solid #E5E0D9" }}>
+      <div className="px-4 py-3 flex items-center gap-3" style={{ background: "#0B2F42" }}>
+        <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0"
+          style={{ background: "rgba(255,255,255,0.15)" }}>MR</div>
+        <div className="min-w-0">
+          <p className="text-white font-semibold text-xs truncate">María Rojas Contreras</p>
+          <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.6)" }}>Ficha clínica · última visita hace 3 meses</p>
+        </div>
+      </div>
+
+      <div className="px-4 pt-4 pb-2">
+        <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "#8A9AA6" }}>Odontograma</p>
+        <div className="flex flex-col gap-[3px]">
+          {fila(SUPERIOR)}
+          {fila(INFERIOR)}
+        </div>
+      </div>
+
+      <div className="px-4 pb-3 flex flex-wrap gap-x-4 gap-y-1">
+        {[
+          { c: CARIES, t: "Caries" },
+          { c: RESTAURACION, t: "Restauración" },
+          { c: "#F1F5F9", t: "Ausente" },
+        ].map(({ c, t }) => (
+          <span key={t} className="flex items-center gap-1.5 text-[10px]" style={{ color: "#607281" }}>
+            <span className="w-2.5 h-2.5 rounded-sm" style={{ background: c, border: "1px solid #cbd5e1" }} />
+            {t}
+          </span>
+        ))}
+      </div>
+
+      <div className="border-t px-4 py-3 grid grid-cols-3 gap-2" style={{ borderColor: "#EFEAE2" }}>
+        {[
+          { k: "Plan de tratamiento", v: "3 sesiones" },
+          { k: "Presupuesto", v: "$284.000" },
+          { k: "Alergias", v: "Penicilina" },
+        ].map(({ k, v }) => (
+          <div key={k}>
+            <p className="text-[9px] uppercase tracking-wider" style={{ color: "#8A9AA6" }}>{k}</p>
+            <p className="text-xs font-semibold" style={{ color: "#0C1B26" }}>{v}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Historial: cada hallazgo queda fechado y firmado. Es lo que exige la
+          Ley 20.584 para una ficha, y lo que una planilla no da. */}
+      <div className="border-t px-4 py-3" style={{ borderColor: "#EFEAE2" }}>
+        <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "#8A9AA6" }}>Historial</p>
+        <div className="flex flex-col gap-2">
+          {[
+            { f: "12 ago", t: "Caries oclusal en 1.6", q: "Dr. Poblete", c: CARIES },
+            { f: "12 ago", t: "Presupuesto enviado por WhatsApp", q: "Asistente", c: "#25D366" },
+            { f: "28 jul", t: "Restauración en 2.6 completada", q: "Dr. Garcés", c: RESTAURACION },
+          ].map(({ f, t, q, c }) => (
+            <div key={t} className="flex items-center gap-2.5">
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: c }} />
+              <span className="text-[10px] tabular-nums shrink-0" style={{ color: "#8A9AA6" }}>{f}</span>
+              <span className="text-[11px] flex-1 min-w-0 truncate" style={{ color: "#0C1B26" }}>{t}</span>
+              <span className="text-[10px] shrink-0" style={{ color: "#8A9AA6" }}>{q}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const TABS = [
   { label: "Canales activos", dot: "#25D366" },
   { label: "Agenda",          dot: "#8B5CF6" },
   { label: "Analytics",       dot: "#D95F45" },
+  { label: "Ficha clínica",   dot: "#1A5C7A" },
 ];
 
 export function HeroShowcase() {
   const [active, setActive] = useState(0);
 
-  useEffect(() => {
-    const t = setInterval(() => setActive((a) => (a + 1) % 3), 4500);
-    return () => clearInterval(t);
-  }, []);
+  const [detenido, setDetenido] = useState(false);
 
-  const screens = [ActivityMockup, AgendaMockup, AnalyticsMockup];
+  useEffect(() => {
+    // Quien pidió menos movimiento no debería tener una pantalla rotando sola.
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    if (detenido) return;
+    // Se recorre TABS.length y no un 3 fijo: al sumar una pantalla, el
+    // carrusel la incluía o no según se acordara alguien de cambiar el número.
+    const t = setInterval(() => setActive((a) => (a + 1) % TABS.length), 4500);
+    return () => clearInterval(t);
+  }, [detenido]);
+
+  const screens = [ActivityMockup, AgendaMockup, AnalyticsMockup, FichaMockup];
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Tab pills */}
-      <div className="flex items-center gap-2">
+    <div className="flex flex-col gap-4"
+      onMouseEnter={() => setDetenido(true)}
+      onFocusCapture={() => setDetenido(true)}>
+      {/* Tab pills — con cuatro pestañas la fila no cabía en 375px y la última
+          quedaba cortada por el borde. Se envuelven en vez de desbordar. */}
+      <div className="flex flex-wrap items-center gap-2">
         {TABS.map((t, i) => (
           <button
             key={t.label}
-            onClick={() => { setActive(i); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
+            onClick={() => { setActive(i); setDetenido(true); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap"
             style={active === i
               ? { background: "#0B2F42", color: "#fff", border: "1px solid #0B2F42", outline: "none" }
               : { color: "#607281", border: "1px solid #E5E0D9", background: "#FDFCFB", outline: "none" }}
@@ -364,7 +484,7 @@ export function HeroShowcase() {
         {TABS.map((_, i) => (
           <button
             key={i}
-            onClick={() => setActive(i)}
+            onClick={() => { setActive(i); setDetenido(true); }}
             style={{
               height: 3, borderRadius: 99,
               width: active === i ? 28 : 8,

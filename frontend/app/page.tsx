@@ -209,7 +209,7 @@ function AgendaMockup() {
 }
 
 /* ─── Chat mockup ─────────────────────────────────────────────────── */
-function ChatMockup({ header, headerBg, messages, inputBg, sendBg, label, sublabel }: {
+function ChatMockup({ header, headerBg, messages, inputBg, sendBg, label, sublabel, pronto }: {
   header: { name: string; sub: string; initial: string };
   headerBg: string;
   messages: { from: "user" | "bot"; text: string }[];
@@ -217,6 +217,9 @@ function ChatMockup({ header, headerBg, messages, inputBg, sendBg, label, sublab
   sendBg: string;
   label: string;
   sublabel: string;
+  /** Canal anunciado pero todavía no conectado. Se marca en vez de insinuarlo:
+      una clínica que lo contrata por esto y no lo encuentra, se va. */
+  pronto?: boolean;
 }) {
   return (
     <div className="flex flex-col items-center gap-3">
@@ -250,7 +253,13 @@ function ChatMockup({ header, headerBg, messages, inputBg, sendBg, label, sublab
         </div>
       </div>
       <div className="text-center">
-        <p className="font-semibold text-sm" style={{ color: "#0C1B26" }}>{label}</p>
+        <p className="font-semibold text-sm flex items-center justify-center gap-2" style={{ color: "#0C1B26" }}>
+          {label}
+          {pronto && (
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: "#EFEAE2", color: "#8A6A20" }}>Pronto</span>
+          )}
+        </p>
         <p className="text-xs" style={{ color: "#607281" }}>{sublabel}</p>
       </div>
     </div>
@@ -326,25 +335,34 @@ export default function Home() {
     },
   ];
 
+  // overflowX "clip" y no "hidden": poner overflow en un solo eje fuerza el otro
+  // a "auto", y eso convertía a <main> en contenedor de scroll. Las animaciones
+  // ligadas al scroll se resolvían contra él —donde nada scrollea— y quedaban
+  // congeladas en su estado final. "clip" recorta sin crear el contenedor, y
+  // además impide el desplazamiento lateral en móvil mejor que "hidden".
   return (
-    <main className="min-h-screen overflow-x-hidden" style={{ backgroundColor: "#F7F5F1", color: "#0C1B26" }}>
+    <main className="min-h-screen" style={{ overflowX: "clip", backgroundColor: "#F7F5F1", color: "#0C1B26" }}>
 
       {/* NAV */}
       <nav className="flex items-center justify-between px-6 sm:px-10 py-5 bg-[#FDFCFB] border-b" style={{ borderColor: "#E5E0D9" }}>
-        <Image src="/logo.svg" alt="molari.ai" width={148} height={51} style={{ height: "auto" }} preload />
-        <div className="flex items-center gap-6">
+        {/* En 375px no cabían logo + Acceder + botón: "Prueba gratis" se partía
+            en dos líneas. Logo más chico y menos separación solo en móvil. */}
+        <Image src="/logo.svg" alt="molari.ai" width={148} height={51} style={{ height: "auto" }} className="w-[112px] sm:w-[148px]" preload />
+        <div className="flex items-center gap-3 sm:gap-6">
           <a href="#funciones" className="text-sm font-medium hidden sm:block transition-colors" style={{ color: "#607281" }}>
             Funciones
           </a>
           <a href="#pricing" className="text-sm font-medium hidden sm:block transition-colors" style={{ color: "#607281" }}>
             Precios
           </a>
-          <Link href="/login" className="text-sm font-medium transition-colors" style={{ color: "#0C1B26" }}>
+          {/* Área de toque de 44px: con solo el texto medía 20px y era la
+              entrada al panel, que se usa sobre todo desde el celular. */}
+          <Link href="/login" className="text-sm font-medium transition-colors inline-flex items-center py-3 -my-3" style={{ color: "#0C1B26" }}>
             Acceder
           </Link>
           <Link
             href="/register"
-            className="text-sm font-semibold px-5 py-2 rounded-full text-white transition-opacity hover:opacity-90"
+            className="text-sm font-semibold px-4 sm:px-5 py-2 rounded-full text-white transition-opacity hover:opacity-90 inline-flex items-center min-h-11 sm:min-h-0 whitespace-nowrap"
             style={{ backgroundColor: "#D95F45" }}
           >
             Prueba gratis
@@ -398,7 +416,7 @@ export default function Home() {
               )}
             </div>
 
-            <div className="animate-fade-up animate-fade-up-delay-2 animate-float-slow">
+            <div className="animate-fade-up animate-fade-up-delay-2">
               <HeroShowcase />
             </div>
           </div>
@@ -545,21 +563,7 @@ export default function Home() {
 
       {/* PLATFORMS */}
       <section className="relative py-16 sm:py-24 overflow-hidden" style={{ backgroundColor: "#F7F5F1" }}>
-        {/* Foto fundida con el fondo: doctor revisando el celular (decorativa) */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute right-0 top-0 hidden lg:block"
-          style={{
-            width: 460,
-            height: 340,
-            backgroundImage: "url(/photos/doctor-celular.jpg)",
-            backgroundSize: "cover",
-            backgroundPosition: "center 35%",
-            opacity: 0.5,
-            WebkitMaskImage: "radial-gradient(75% 75% at 70% 40%, rgba(0,0,0,0.9) 25%, transparent 70%)",
-            maskImage: "radial-gradient(75% 75% at 70% 40%, rgba(0,0,0,0.9) 25%, transparent 70%)",
-          }}
-        />
+        
         <div className="max-w-5xl mx-auto px-6 sm:px-10">
           <p className="text-xs font-bold uppercase tracking-[0.15em] text-center mb-3" style={{ color: "#1A5C7A" }}>
             Multiplataforma
@@ -572,12 +576,12 @@ export default function Home() {
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 justify-items-center">
             <AnimateIn delay={0}>
-              <div className="animate-float">
+              <div>
                 <ChatMockup
                   header={{ name: "Galana Clínica Dental", sub: "En línea", initial: "G" }}
                   headerBg="#128C7E"
                   messages={[
-                    { from: "user", text: "Hola, quiero agendar una limpieza 🦷" },
+                    { from: "user", text: "Hola, quiero agendar una limpieza" },
                     { from: "bot",  text: "¡Hola! ¿Tienes preferencia de día?" },
                     { from: "user", text: "El martes si es posible" },
           { from: "bot", text: "Martes 10:00 con Dr. Poblete ¿Confirmo?" },
@@ -589,8 +593,8 @@ export default function Home() {
                 />
               </div>
             </AnimateIn>
-            <AnimateIn delay={120}>
-              <div className="animate-float" style={{ animationDelay: '1.5s' }}>
+            <AnimateIn delay={60}>
+              <div>
                 <ChatMockup
                   header={{ name: "galana.dental", sub: "Widget web · En línea", initial: "G" }}
                   headerBg="linear-gradient(135deg, #1A5C7A, #0e4560)"
@@ -598,7 +602,7 @@ export default function Home() {
                     { from: "user", text: "Me interesa una consulta de ortodoncia" },
           { from: "bot", text: "Dr. Zerpa atiende lun, mié y vie ¿Qué día?" },
                     { from: "user", text: "El viernes" },
-                    { from: "bot",  text: "¡Perfecto! ¿Me das tu nombre? ✨" },
+                    { from: "bot",  text: "Perfecto. ¿Me das tu nombre?" },
                   ]}
                   inputBg="#f8fafc"
                   sendBg="#1A5C7A"
@@ -607,21 +611,22 @@ export default function Home() {
                 />
               </div>
             </AnimateIn>
-            <AnimateIn delay={240}>
-              <div className="animate-float" style={{ animationDelay: '2.8s' }}>
+            <AnimateIn delay={120}>
+              <div>
                 <ChatMockup
-                  header={{ name: "Galana Clínica Dental", sub: "Asistente virtual · 24/7", initial: "G" }}
-                  headerBg="#1A5C7A"
+                  header={{ name: "galana.dental", sub: "Instagram · Mensaje directo", initial: "G" }}
+                  headerBg="linear-gradient(135deg, #F58529, #DD2A7B 45%, #8134AF 80%, #515BD4)"
                   messages={[
-                    { from: "user", text: "¿Cuánto vale una endodoncia?" },
-                    { from: "bot",  text: "Varía según la pieza. ¿Te agendo con Dr. Garcés?" },
-                    { from: "user", text: "Sí, esta semana si puede ser" },
-                    { from: "bot",  text: "Aquí tienes los horarios disponibles 👇" },
+                    { from: "user", text: "Hola! vi sus blanqueamientos, cuánto salen?" },
+                    { from: "bot",  text: "Hola! Depende del tipo. ¿Te cuento las opciones?" },
+                    { from: "user", text: "Sí porfa" },
+                    { from: "bot",  text: "Te dejo las tres y te agendo evaluación gratis" },
                   ]}
-                  inputBg="#F7F5F1"
-                  sendBg="#1A5C7A"
-                  label="Cotizaciones y precios"
-                  sublabel="Responde dudas antes de la cita"
+                  inputBg="#FAFAFA"
+                  sendBg="#DD2A7B"
+                  label="Instagram"
+                  sublabel="Donde te preguntan por precios"
+                  pronto
                 />
               </div>
             </AnimateIn>
@@ -682,10 +687,10 @@ export default function Home() {
                   "Las citas del chatbot aparecen aquí al instante",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-3 text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>
-                    <span className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5"
-                      style={{ background: "rgba(217,95,69,0.2)", color: "#D95F45", fontSize: 10, fontWeight: 800 }}>
-                     
-                    </span>
+                    {/* Punto, no círculo vacío: al sacar los ✓ quedó el
+                        contenedor sin contenido y se veía un hueco naranjo. */}
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-2"
+                      style={{ background: "#D95F45" }} />
                     {item}
                   </li>
                 ))}
@@ -696,7 +701,7 @@ export default function Home() {
                 Acceder al panel
               </Link>
             </div>
-            <AnimateIn direction="right" className="w-full animate-float-slow">
+            <AnimateIn direction="right" className="w-full">
               <AgendaMockup />
             </AnimateIn>
           </div>
@@ -705,21 +710,7 @@ export default function Home() {
 
       {/* CÓMO FUNCIONA — fondo claro para romper el patrón oscuro */}
       <section id="como-funciona" className="relative py-16 sm:py-24 overflow-hidden" style={{ backgroundColor: "#FDFCFB" }}>
-        {/* Foto fundida con el fondo: doctora trabajando en el laptop (decorativa) */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute left-0 top-0 hidden lg:block"
-          style={{
-            width: 440,
-            height: 320,
-            backgroundImage: "url(/photos/doctora-laptop.jpg)",
-            backgroundSize: "cover",
-            backgroundPosition: "center 30%",
-            opacity: 0.45,
-            WebkitMaskImage: "radial-gradient(75% 75% at 30% 40%, rgba(0,0,0,0.9) 25%, transparent 70%)",
-            maskImage: "radial-gradient(75% 75% at 30% 40%, rgba(0,0,0,0.9) 25%, transparent 70%)",
-          }}
-        />
+        
         <div className="max-w-4xl mx-auto px-6 sm:px-10">
           <p className="text-xs font-bold uppercase tracking-[0.15em] text-center mb-3" style={{ color: "#1A5C7A" }}>
             Proceso
@@ -839,18 +830,26 @@ export default function Home() {
             {[
               {
                 icon: <IconLock />,
-                title: "Cifrado de extremo a extremo",
+                // No "de extremo a extremo": eso significa que ni el proveedor
+                // puede leer los datos, y el servidor sí lee los mensajes para
+                // que la IA los responda. Lo que hay es cifrado en tránsito y en reposo.
+                title: "Cifrado en tránsito y en reposo",
                 desc: "Los datos clínicos viajan cifrados y se almacenan cifrados en reposo.",
               },
               {
                 icon: <IconShieldCheck />,
-                title: "Cumplimiento normativo chileno",
-                desc: "Diseñado según la Ley 21.719 de protección de datos personales y la normativa de datos de salud.",
+                // No se afirma "cumplimiento": el paquete legal (#70) y el DPA
+                // (#38) siguen sin validar con abogado. Se describe lo que el
+                // producto hace, que es verificable.
+                title: "Pensado para la normativa chilena",
+                desc: "Cada registro clínico queda con el profesional que lo hizo y la fecha, y el consentimiento del paciente queda firmado. Diseñado con la Ley 20.584 y la Ley 21.719 en mente.",
               },
               {
                 icon: <IconExport />,
                 title: "Tus datos son tuyos",
-                desc: "Exporta tu información completa cuando quieras, sin letra chica.",
+                // Hoy solo existe la descarga de pacientes en CSV. "Información
+                // completa" prometía fichas, odontograma y pagos, que no se exportan.
+                desc: "Descarga tu lista de pacientes en CSV cuando quieras, sin pedirle permiso a nadie.",
               },
             ].map((item, i) => (
               <AnimateIn key={item.title} delay={i * 110}>
@@ -900,7 +899,7 @@ export default function Home() {
             </AnimateIn>
 
             {/* Esencial */}
-            <AnimateIn delay={110} style={{ display: 'flex', flexDirection: 'column' }}>
+            <AnimateIn delay={55} style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="flex flex-col rounded-2xl p-6 sm:p-7 flex-1" style={{ border: "1px solid #E5E0D9", backgroundColor: "#FDFCFB" }}>
               <p className="text-xs font-bold uppercase tracking-[0.12em] mb-5" style={{ color: "#607281" }}>Esencial</p>
               <div className="mb-1">
@@ -925,7 +924,7 @@ export default function Home() {
             </AnimateIn>
 
             {/* Pro */}
-            <AnimateIn delay={220} style={{ display: 'flex', flexDirection: 'column' }}>
+            <AnimateIn delay={110} style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="flex flex-col rounded-2xl p-6 sm:p-7 relative shadow-lg flex-1" style={{ border: "2px solid #D95F45", backgroundColor: "#FDFCFB" }}>
               <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 text-white text-[11px] font-bold px-4 py-1 rounded-full whitespace-nowrap" style={{ backgroundColor: "#D95F45" }}>
                 Más popular
@@ -960,7 +959,7 @@ export default function Home() {
             </AnimateIn>
 
             {/* Clínica+ */}
-            <AnimateIn delay={330} style={{ display: 'flex', flexDirection: 'column' }}>
+            <AnimateIn delay={165} style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="flex flex-col rounded-2xl p-6 sm:p-7 flex-1" style={{ border: "1px solid #E5E0D9", backgroundColor: "#FDFCFB" }}>
               <p className="text-xs font-bold uppercase tracking-[0.12em] mb-5" style={{ color: "#607281" }}>Clínica+</p>
               <div className="mb-1">

@@ -142,6 +142,11 @@ export async function chatController(req: FastifyRequest, reply: FastifyReply) {
     if (!clinic) {
       return reply.status(404).send({ error: `Clínica "${clinicSlug}" no encontrada` });
     }
+    // Una clínica dada de baja deja de atender, igual que en la página pública
+    // y en WhatsApp. El chat web era el único canal que no lo revisaba.
+    if (!clinic.active) {
+      return reply.status(404).send({ error: "Esta clínica no está recibiendo mensajes por este canal." });
+    }
 
     let session = sessionId
       ? await prisma.session.findUnique({ where: { id: sessionId } })
