@@ -61,6 +61,9 @@ const CLINIC = {
   id: "clinic-1",
   slug: "galana",
   name: "Galana Clínica Dental",
+  // En la base siempre existe (default true). El chat ahora rechaza las
+  // clínicas dadas de baja, así que el fixture tiene que traerlo.
+  active: true,
   whatsapp: "+56912345678",
   phone: null,
   config: {
@@ -364,6 +367,17 @@ describe("chatController", () => {
   });
 
   // ── 11. Error del AI — fallback gracioso ──────────────────────────────────
+
+  it("una clínica dada de baja no atiende por el chat web", async () => {
+    // Con fichas clínicas la baja desactiva en vez de borrar (MOL-17). El chat
+    // web era el único canal que no revisaba `active`: seguía respondiendo.
+    mockPrisma.clinic.findUnique.mockResolvedValue({ ...CLINIC, active: false });
+
+    const res = await post(app, { message: "Hola", clinicSlug: "galana" });
+    expect(res.statusCode).toBe(404);
+    expect(mockGetAIResponse).not.toHaveBeenCalled();
+    expect(mockPrisma.session.create).not.toHaveBeenCalled();
+  });
 
   it("si el AI falla responde con mensaje de fallback sin status 500", async () => {
     mockGetAIResponse.mockRejectedValue(new Error("Timeout"));

@@ -83,13 +83,19 @@ export async function rejectClinic(id: string, reason: string): Promise<void> {
 }
 
 /** Elimina una clínica y TODOS sus datos (cascada, irreversible). Solo SUPERADMIN. */
-export async function deleteClinicAsAdmin(id: string): Promise<void> {
+/**
+ * Pide la baja de una clínica. El backend decide si la borra o solo la
+ * desactiva: con registros clínicos nunca se borra, porque la ficha se
+ * conserva por ley (MOL-17). Por eso devuelve qué hizo en vez de nada.
+ */
+export async function deleteClinicAsAdmin(id: string): Promise<{ mode: "deleted" | "deactivated"; reason?: string }> {
   const res = await fetch(`${API}/api/clinics/${id}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${getToken()}` },
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error((json as { error?: string }).error ?? "Error al eliminar la clínica");
+  return json as { mode: "deleted" | "deactivated"; reason?: string };
 }
 
 export interface Sesion {
