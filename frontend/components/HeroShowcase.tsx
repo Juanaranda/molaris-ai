@@ -446,13 +446,14 @@ export function HeroShowcase() {
     <div className="flex flex-col gap-4"
       onMouseEnter={() => setDetenido(true)}
       onFocusCapture={() => setDetenido(true)}>
-      {/* Tab pills */}
-      <div className="flex items-center gap-2">
+      {/* Tab pills — con cuatro pestañas la fila no cabía en 375px y la última
+          quedaba cortada por el borde. Se envuelven en vez de desbordar. */}
+      <div className="flex flex-wrap items-center gap-2">
         {TABS.map((t, i) => (
           <button
             key={t.label}
             onClick={() => { setActive(i); setDetenido(true); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap"
             style={active === i
               ? { background: "#0B2F42", color: "#fff", border: "1px solid #0B2F42", outline: "none" }
               : { color: "#607281", border: "1px solid #E5E0D9", background: "#FDFCFB", outline: "none" }}

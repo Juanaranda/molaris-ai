@@ -97,17 +97,21 @@ export default function PricingPage() {
   return (
     <main className="min-h-screen bg-white text-gray-900 font-sans">
       {/* NAV */}
-      <nav className="flex items-center justify-between px-8 py-5 border-b border-gray-100">
+      {/* Mismo problema que el nav de la landing: en 375px "Hablar con ventas"
+          se partía en dos líneas. Menos margen, logo más chico y sin cortes en móvil. */}
+      <nav className="flex items-center justify-between px-5 sm:px-8 py-5 border-b border-gray-100">
         <Link href="/">
-          <Image src="/logo.svg" alt="molari.ai" width={160} height={55} style={{ height: "auto" }} preload />
+          <Image src="/logo.svg" alt="molari.ai" width={160} height={55} style={{ height: "auto" }} className="w-[112px] sm:w-[160px]" preload />
         </Link>
-        <div className="flex items-center gap-6">
-          <Link href="/#demo" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+        <div className="flex items-center gap-3 sm:gap-6">
+          {/* "#demo" no existía: el link dejaba arriba de la landing, sin demo.
+              La demo es la sección donde se le pregunta al asistente (#juan). */}
+          <Link href="/#juan" className="text-sm text-gray-600 hover:text-gray-900 transition-colors inline-flex items-center py-3 -my-3">
             Demo
           </Link>
           <Link
             href="https://wa.me/56966865887"
-            className="bg-blue-600 text-white text-sm font-medium px-5 py-2 rounded-full hover:bg-blue-700 transition-colors"
+            className="bg-blue-600 text-white text-sm font-medium px-4 sm:px-5 py-2 rounded-full hover:bg-blue-700 transition-colors inline-flex items-center min-h-11 sm:min-h-0 whitespace-nowrap"
           >
             Hablar con ventas
           </Link>

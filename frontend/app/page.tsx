@@ -345,20 +345,24 @@ export default function Home() {
 
       {/* NAV */}
       <nav className="flex items-center justify-between px-6 sm:px-10 py-5 bg-[#FDFCFB] border-b" style={{ borderColor: "#E5E0D9" }}>
-        <Image src="/logo.svg" alt="molari.ai" width={148} height={51} style={{ height: "auto" }} preload />
-        <div className="flex items-center gap-6">
+        {/* En 375px no cabían logo + Acceder + botón: "Prueba gratis" se partía
+            en dos líneas. Logo más chico y menos separación solo en móvil. */}
+        <Image src="/logo.svg" alt="molari.ai" width={148} height={51} style={{ height: "auto" }} className="w-[112px] sm:w-[148px]" preload />
+        <div className="flex items-center gap-3 sm:gap-6">
           <a href="#funciones" className="text-sm font-medium hidden sm:block transition-colors" style={{ color: "#607281" }}>
             Funciones
           </a>
           <a href="#pricing" className="text-sm font-medium hidden sm:block transition-colors" style={{ color: "#607281" }}>
             Precios
           </a>
-          <Link href="/login" className="text-sm font-medium transition-colors" style={{ color: "#0C1B26" }}>
+          {/* Área de toque de 44px: con solo el texto medía 20px y era la
+              entrada al panel, que se usa sobre todo desde el celular. */}
+          <Link href="/login" className="text-sm font-medium transition-colors inline-flex items-center py-3 -my-3" style={{ color: "#0C1B26" }}>
             Acceder
           </Link>
           <Link
             href="/register"
-            className="text-sm font-semibold px-5 py-2 rounded-full text-white transition-opacity hover:opacity-90"
+            className="text-sm font-semibold px-4 sm:px-5 py-2 rounded-full text-white transition-opacity hover:opacity-90 inline-flex items-center min-h-11 sm:min-h-0 whitespace-nowrap"
             style={{ backgroundColor: "#D95F45" }}
           >
             Prueba gratis
@@ -826,18 +830,26 @@ export default function Home() {
             {[
               {
                 icon: <IconLock />,
-                title: "Cifrado de extremo a extremo",
+                // No "de extremo a extremo": eso significa que ni el proveedor
+                // puede leer los datos, y el servidor sí lee los mensajes para
+                // que la IA los responda. Lo que hay es cifrado en tránsito y en reposo.
+                title: "Cifrado en tránsito y en reposo",
                 desc: "Los datos clínicos viajan cifrados y se almacenan cifrados en reposo.",
               },
               {
                 icon: <IconShieldCheck />,
-                title: "Cumplimiento normativo chileno",
-                desc: "Diseñado según la Ley 21.719 de protección de datos personales y la normativa de datos de salud.",
+                // No se afirma "cumplimiento": el paquete legal (#70) y el DPA
+                // (#38) siguen sin validar con abogado. Se describe lo que el
+                // producto hace, que es verificable.
+                title: "Pensado para la normativa chilena",
+                desc: "Cada registro clínico queda con el profesional que lo hizo y la fecha, y el consentimiento del paciente queda firmado. Diseñado con la Ley 20.584 y la Ley 21.719 en mente.",
               },
               {
                 icon: <IconExport />,
                 title: "Tus datos son tuyos",
-                desc: "Exporta tu información completa cuando quieras, sin letra chica.",
+                // Hoy solo existe la descarga de pacientes en CSV. "Información
+                // completa" prometía fichas, odontograma y pagos, que no se exportan.
+                desc: "Descarga tu lista de pacientes en CSV cuando quieras, sin pedirle permiso a nadie.",
               },
             ].map((item, i) => (
               <AnimateIn key={item.title} delay={i * 110}>
