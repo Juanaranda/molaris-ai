@@ -16,14 +16,21 @@ function fmtDate(iso: string) {
 }
 
 export default function ErrorsPage() {
-  const [data, setData] = useState<ErrorStats | null>(null);
   const [days, setDays] = useState(7);
-  const [loading, setLoading] = useState(true);
+  // Igual que en Modelos: "cargando" se deriva de si los datos son del rango
+  // elegido, y una respuesta atrasada no pisa la vigente.
+  const [res, setRes] = useState<{ days: number; data: ErrorStats | null } | null>(null);
 
   useEffect(() => {
-    setLoading(true);
-    api.errors(days).then(setData).finally(() => setLoading(false));
+    let vigente = true;
+    api.errors(days)
+      .then((d) => { if (vigente) setRes({ days, data: d }); })
+      .catch(() => { if (vigente) setRes({ days, data: null }); });
+    return () => { vigente = false; };
   }, [days]);
+
+  const loading = res?.days !== days;
+  const data = res?.data ?? null;
 
   if (loading) return <p className="text-sm text-gray-400 animate-pulse">Cargando...</p>;
   if (!data)   return null;
