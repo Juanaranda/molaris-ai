@@ -11,7 +11,7 @@ import { config } from "./config/env";
 import { chatRoutes } from "./routes/chat";
 import { availabilityRoutes } from "./routes/availability";
 import { bookingRoutes } from "./routes/bookings";
-import { authRoutes, verifyToken } from "./routes/auth";
+import { authRoutes, verifyToken, validarSesionVigente } from "./routes/auth";
 import { clinicRoutes } from "./routes/clinics";
 import { patientAuthRoutes } from "./routes/patient-auth";
 import { bookRoutes } from "./routes/book";
@@ -88,6 +88,12 @@ app.register(cors, {
 });
 
 app.register(formbody);
+
+// Antes de cualquier ruta: una sesión del equipo desactivada, o con otro rol o
+// clínica en la base, se corta acá (MOL-30). Va como hook global y no en cada
+// ruta porque verifyToken se usa en ~100 lugares y basta con olvidar uno.
+app.addHook("onRequest", validarSesionVigente);
+
 app.register(chatRoutes, { prefix: "/api" });
 app.register(availabilityRoutes, { prefix: "/api" });
 app.register(bookingRoutes, { prefix: "/api" });
