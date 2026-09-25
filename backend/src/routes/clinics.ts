@@ -11,6 +11,7 @@ import { audit } from "../services/audit/auditService";
 import { isValidRut, formatRut } from "../lib/rut";
 import { sendMolariEmail } from "../services/email/molariEmails";
 import { issueVerificationCode } from "../services/auth/emailVerification";
+import { clinicaSinSecretos } from "../lib/clinicaSinSecretos";
 
 // Claves válidas dentro de Clinic.config. Evita inyectar JSON arbitrario, pero
 // debe cubrir TODO lo que escribe el frontend: si falta una, el PATCH completo
@@ -474,7 +475,7 @@ export async function clinicRoutes(app: FastifyInstance) {
     const clinic = await prisma.clinic.findUnique({ where: { id: req.params.id } });
     if (!clinic) return reply.status(404).send({ error: "Clínica no encontrada" });
 
-    return reply.send(clinic);
+    return reply.send(clinicaSinSecretos(clinic));
   });
 
   // PATCH /api/clinics/:id  — solo ADMIN o SUPERADMIN
@@ -544,7 +545,7 @@ export async function clinicRoutes(app: FastifyInstance) {
       },
     });
 
-    return reply.send(updated);
+    return reply.send(clinicaSinSecretos(updated));
   });
 
   // GET /api/clinics/:id/bookings
@@ -691,7 +692,7 @@ export async function clinicRoutes(app: FastifyInstance) {
       cooldownMs: 0,
     }).catch(() => {});
 
-    return reply.send(updated);
+    return reply.send(clinicaSinSecretos(updated));
   });
 
   // POST /api/clinics — registro público de nueva clínica + admin

@@ -1,4 +1,4 @@
-import { FastifyInstance } from "fastify";
+import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -23,9 +23,79 @@ function passwordFingerprint(passwordHash: string): string {
   return crypto.createHmac("sha256", config.jwtSecret).update(passwordHash).digest("hex").slice(0, 16);
 }
 
+const ROLES_DEL_EQUIPO = new Set(["SUPERADMIN", "ADMIN", "USER"]);
+
+/**
+ * ¿Es un token de sesión de alguien del equipo de una clínica?
+ *
+ * Todos los tokens del sistema se firman con la misma clave: la sesión del
+ * equipo, la del portal de pacientes, el reseteo de contraseña, el link de
+ * confirmación de horas y el `state` de Mercado Pago. Antes `verifyToken` solo
+ * revisaba la firma, así que cualquiera de ellos pasaba como sesión del equipo.
+ *
+ * El peor caso: el token de paciente trae `clinicId` y no trae `role`. Las
+ * rutas preguntan "¿no eres SUPERADMIN y la clínica no es la tuya?" —falso, es
+ * la suya— y "¿eres USER?" —falso, no tiene rol—, así que un paciente que se
+ * registraba en la página pública podía listar y exportar todos los pacientes,
+ * ver los ingresos y modificar la clínica. Se comprobó en local el 23/9.
+ *
+ * Una sesión del equipo es la única forma que tiene `userId`, un rol conocido y
+ * ninguna marca de tipo (`type`, `kind`, `stage`).
+ */
+export function esTokenDeSesion(p: unknown): p is JwtPayload {
+  if (!p || typeof p !== "object") return false;
+  const t = p as Record<string, unknown>;
+  if ("type" in t || "kind" in t || "stage" in t) return false;
+  return typeof t.userId === "string" && t.userId.length > 0 && ROLES_DEL_EQUIPO.has(t.role as string);
+}
+
 export function verifyToken(authHeader: string | undefined): JwtPayload {
   if (!authHeader?.startsWith("Bearer ")) throw new Error("No token");
-  return jwt.verify(authHeader.slice(7), config.jwtSecret) as JwtPayload;
+  const payload = jwt.verify(authHeader.slice(7), config.jwtSecret);
+  if (!esTokenDeSesion(payload)) throw new Error("No es un token de sesión del equipo");
+  return payload;
+}
+
+/**
+ * Por qué una sesión del equipo ya no sirve, o null si sigue vigente (MOL-30).
+ *
+ * El token dura 7 días y guarda el rol y la clínica de cuando se emitió. Sin
+ * esta revisión, una persona desactivada seguía usando la API hasta que vencía,
+ * y alguien a quien le bajaban el rol conservaba los permisos anteriores.
+ */
+export function motivoSesionInvalida(
+  token: { role: string; clinicId: string | null },
+  usuario: { active: boolean; role: string; clinicId: string | null } | null,
+): "no_existe" | "desactivado" | "rol_cambio" | "clinica_cambio" | null {
+  if (!usuario) return "no_existe";
+  if (!usuario.active) return "desactivado";
+  if (usuario.role !== token.role) return "rol_cambio";
+  if ((usuario.clinicId ?? null) !== (token.clinicId ?? null)) return "clinica_cambio";
+  return null;
+}
+
+/**
+ * Filtro global: toda request con sesión del equipo se contrasta con la base.
+ * Es una consulta por clave primaria; a esta escala, el costo es menor que el
+ * riesgo de una persona despedida con acceso a la ficha por una semana.
+ */
+export async function validarSesionVigente(req: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const header = req.headers.authorization;
+  if (!header?.startsWith("Bearer ")) return;
+
+  let payload: JwtPayload;
+  // Si no es una sesión del equipo (paciente, token vencido o inválido) no se
+  // decide acá: cada ruta ya lo rechaza o usa su propio verificador.
+  try { payload = verifyToken(header); } catch { return; }
+
+  const usuario = await prisma.partnerUser.findUnique({
+    where: { id: payload.userId },
+    select: { active: true, role: true, clinicId: true },
+  });
+  const motivo = motivoSesionInvalida(payload, usuario);
+  if (motivo) {
+    return reply.status(401).send({ error: "Tu sesión ya no es válida. Vuelve a iniciar sesión.", motivo });
+  }
 }
 
 type UsuarioConClinica = Prisma.PartnerUserGetPayload<{ include: { clinic: true } }>;
