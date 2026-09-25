@@ -6,10 +6,23 @@ import {
   AnamnesisQuestion, ensureActiveTemplate, computeRedFlags,
 } from "../services/anamnesis/anamnesisService";
 import { audit } from "../services/audit/auditService";
+import { canPerform, type ClinicalAction } from "../services/auth/clinicalPermissions";
 
 export async function anamnesisRoutes(app: FastifyInstance) {
 
-  async function guardPatient(req: { headers: { authorization?: string }; params: { patientId: string } }):
+  /**
+   * La anamnesis es información clínica: la matriz de permisos la cubre con
+   * read_clinical y write_clinical, y Recepción no tiene ninguna de las dos
+   * (MOL-31). Antes el guard solo revisaba que el paciente fuera de la misma
+   * clínica, así que Recepción la leía y escribía por API, y la higienista, que
+   * solo lee, también escribía.
+   *
+   * El rol clínico se lee de la base y no del token, igual que en el odontograma.
+   */
+  async function guardPatient(
+    req: { headers: { authorization?: string }; params: { patientId: string } },
+    action: ClinicalAction,
+  ):
     Promise<
       | { ok: true;  payload: ReturnType<typeof verifyToken>; patient: { id: string; clinicId: string } }
       | { ok: false; status: number; error: string }
@@ -25,6 +38,13 @@ export async function anamnesisRoutes(app: FastifyInstance) {
     if (!patient) return { ok: false, status: 404, error: "Paciente no encontrado" };
     if (payload.role !== "SUPERADMIN" && payload.clinicId !== patient.clinicId) {
       return { ok: false, status: 403, error: "Acceso denegado" };
+    }
+    const me = await prisma.partnerUser.findUnique({
+      where:  { id: payload.userId },
+      select: { role: true, clinicalRole: true },
+    });
+    if (!me || !canPerform(me.role, me.clinicalRole, action)) {
+      return { ok: false, status: 403, error: "Sin permisos clínicos para esta acción" };
     }
     return { ok: true, payload, patient };
   }
@@ -94,8 +114,14 @@ export async function anamnesisRoutes(app: FastifyInstance) {
   app.get<{ Params: { patientId: string } }>(
     "/patients/:patientId/anamnesis-responses",
     async (req, reply) => {
-      const g = await guardPatient(req);
+      const g = await guardPatient(req, "read_clinical");
       if (!g.ok) return reply.status(g.status).send({ error: g.error });
+
+      // Leer la anamnesis es leer la ficha: queda registrado igual que ella.
+      audit({
+        req, actorId: g.payload.userId, clinicId: g.patient.clinicId,
+        action: "read", resourceType: "ClinicalRecord", resourceId: g.patient.id,
+      });
 
       const responses = await prisma.anamnesisResponse.findMany({
         where:   { patientId: req.params.patientId },
@@ -114,7 +140,7 @@ export async function anamnesisRoutes(app: FastifyInstance) {
     Params: { patientId: string };
     Body:   { answers: Record<string, unknown> };
   }>("/patients/:patientId/anamnesis-responses", async (req, reply) => {
-    const g = await guardPatient(req);
+    const g = await guardPatient(req, "write_clinical");
     if (!g.ok) return reply.status(g.status).send({ error: g.error });
 
     const { answers } = req.body ?? {};

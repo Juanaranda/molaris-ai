@@ -6,6 +6,9 @@ import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
 import { sendWhatsAppMessage } from "../services/notifications/whatsappService";
 import { notifyWaitlistForCanceledBooking } from "../services/waitlist/waitlistService";
+import {
+  decidirCambioDeEstado, resolverSolicitud, quienDecide, mensajeConflicto,
+} from "../services/booking/decisionDesdePanel";
 import { triggerAlert } from "../services/alerts/alertService";
 import { audit } from "../services/audit/auditService";
 import { isValidRut, formatRut } from "../lib/rut";
@@ -610,10 +613,24 @@ export async function clinicRoutes(app: FastifyInstance) {
       });
       if (!booking) return reply.status(404).send({ error: "Cita no encontrada" });
 
-      const updated = await prisma.booking.update({
-        where: { id: booking.id },
-        data: { status },
-      });
+      // Una hora que pidió el paciente se aprueba o rechaza como en el link de
+      // confirmación, para que el paciente se entere (MOL-32).
+      const cambio = decidirCambioDeEstado(booking, status);
+      let updated;
+      if (cambio === "directo") {
+        updated = await prisma.booking.update({
+          where: { id: booking.id },
+          data: { status },
+        });
+      } else {
+        const res = await resolverSolicitud({
+          bookingId: booking.id, decision: cambio, quien: await quienDecide(payload.userId),
+        });
+        if (!res.ok) {
+          return reply.status(409).send({ error: mensajeConflicto(res.motivo), motivo: res.motivo });
+        }
+        updated = await prisma.booking.findUnique({ where: { id: booking.id } });
+      }
 
       // Hook: si se canceló, intentar notificar al primero de la lista de espera (async)
       if (booking.status !== "cancelled" && status === "cancelled") {
@@ -1152,6 +1169,12 @@ export async function clinicRoutes(app: FastifyInstance) {
       }
       if (active === false) {
         return reply.status(400).send({ error: "No puedes desactivarte a ti mismo" });
+      }
+      // El rol clínico decide qué parte de la ficha se ve. Sin esta regla, una
+      // recepcionista con perfil Admin podía ponerse "Admin clínico" o quitarse
+      // el rol y leer todas las fichas (MOL-31). Lo cambia otra persona.
+      if (clinicalRole !== undefined && clinicalRole !== target.clinicalRole) {
+        return reply.status(400).send({ error: "No puedes cambiar tu propio rol clínico. Pídeselo a otro administrador." });
       }
     }
 

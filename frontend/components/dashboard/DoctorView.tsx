@@ -3,10 +3,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { getToken, type AuthUser, type ClinicData } from "@/lib/auth";
+import type { AuthUser, ClinicData } from "@/lib/auth";
+import {
+  citasActivasDelDoctor,
+  fechaLocal,
+  fetchAgendaDelDia,
+  proximaCita,
+  type AgendaBooking,
+} from "@/lib/doctorView";
 import { RoleBadge, StatusPill } from "./widgets";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 /**
  * Vista reducida para quien tiene rol USER: ve sus propias citas y poco más.
@@ -14,20 +19,11 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
  * del panel de administración.
  */
 
-interface DoctorBooking {
-  id: string;
-  startTime: string;
-  patientName: string | null;
-  service: string | null;
-  status: string;
-  doctor: string | null;
-}
-
 export function DoctorView({ user, clinic, onShowFull }: { user: AuthUser; clinic: ClinicData; onShowFull: () => void }) {
-  const [bookings, setBookings] = useState<DoctorBooking[]>([]);
+  const [activeBookings, setActiveBookings] = useState<AgendaBooking[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(true);
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = fechaLocal();
   const firstName = user.name?.split(" ")[0] ?? user.name ?? "Doctor/a";
 
   const todayLabel = new Date().toLocaleDateString("es-CL", {
@@ -39,17 +35,8 @@ export function DoctorView({ user, clinic, onShowFull }: { user: AuthUser; clini
     async function load() {
       setLoadingBookings(true);
       try {
-        const res = await fetch(`${API}/api/agenda/bookings?date=${todayStr}`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-          signal: controller.signal,
-        });
-        if (res.ok) {
-          const data: DoctorBooking[] = await res.json();
-          const filtered = data.filter((b) =>
-            b.doctor && b.doctor.toLowerCase().includes(user.name?.split(" ").pop()?.toLowerCase() ?? "")
-          );
-          setBookings(filtered);
-        }
+        const data = await fetchAgendaDelDia(todayStr, controller.signal);
+        setActiveBookings(citasActivasDelDoctor(data, user.name ?? ""));
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
       } finally { if (!controller.signal.aborted) setLoadingBookings(false); }
@@ -58,12 +45,7 @@ export function DoctorView({ user, clinic, onShowFull }: { user: AuthUser; clini
     return () => controller.abort();
   }, [todayStr, user.name]);
 
-  const activeBookings = bookings.filter((b) => b.status !== "cancelled");
-  const nextBooking = activeBookings.find((b) => new Date(b.startTime) > new Date());
-
-  function fmtTime(iso: string) {
-    return new Date(iso).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
-  }
+  const nextBooking = proximaCita(activeBookings);
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F8FAFC" }}>
@@ -102,7 +84,7 @@ export function DoctorView({ user, clinic, onShowFull }: { user: AuthUser; clini
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-1">
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Proxima cita</p>
             <p className="text-3xl font-black leading-none" style={{ color: "#D95F45" }}>
-              {loadingBookings ? "—" : nextBooking ? fmtTime(nextBooking.startTime) : "—"}
+              {loadingBookings ? "—" : nextBooking ? nextBooking.time : "—"}
             </p>
             {nextBooking && (
               <p className="text-xs text-gray-400 mt-0.5 truncate">{nextBooking.patientName ?? "Paciente"}</p>
@@ -136,13 +118,13 @@ export function DoctorView({ user, clinic, onShowFull }: { user: AuthUser; clini
               {activeBookings.map((b) => (
                 <div key={b.id} className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors">
                   <div className="shrink-0 w-14 text-center">
-                    <span className="text-sm font-black" style={{ color: "#0B2F42" }}>{fmtTime(b.startTime)}</span>
+                    <span className="text-sm font-black" style={{ color: "#0B2F42" }}>{b.time}</span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-900 truncate">{b.patientName ?? "Paciente"}</p>
                     {b.service && <p className="text-xs text-gray-400 truncate mt-0.5">{b.service}</p>}
                   </div>
-                  <StatusPill status={b.status} />
+                  <StatusPill status={b.status} requestedVia={b.requestedVia} />
                 </div>
               ))}
             </div>

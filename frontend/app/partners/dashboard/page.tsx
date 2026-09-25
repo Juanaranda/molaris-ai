@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getMe, getToken, logout, updateClinic, AuthUser, ClinicData } from "@/lib/auth";
+import { vistaDelPanel } from "@/lib/doctorView";
 import { BookingsTab } from "@/components/BookingsTab";
 import { SetupChecklist } from "@/components/SetupChecklist";
 import { AgendaTab } from "@/components/AgendaTab";
@@ -92,22 +93,34 @@ export default function PartnersDashboard() {
   const canEdit = user?.role === "ADMIN" || user?.role === "SUPERADMIN";
   const cfg = (clinic?.config as ClinicConfig) ?? {};
 
-  if (!loading && user?.role === "USER" && clinic && !forceFull) {
-    return <DoctorView user={user} clinic={clinic} onShowFull={() => setForceFull(true)} />;
-  }
+  const { vista, pedirCambioDeContrasena } = vistaDelPanel({
+    loading, user, tieneClinica: Boolean(clinic), forzarPanelCompleto: forceFull,
+  });
 
-  if (loading) {
+  // Gate bloqueante: forzar cambio de password en primer login. Se arma antes
+  // de elegir la vista para que también le salga al doctor (MOL-33).
+  const passwordGate = pedirCambioDeContrasena && user ? (
+    <ChangePasswordGate onSuccess={() => setUser({ ...user, mustChangePassword: false })} />
+  ) : null;
+
+  if (vista === "cargando") {
     return <div className="min-h-screen flex items-center justify-center">
       <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
     </div>;
   }
 
+  if (vista === "doctor" && user && clinic) {
+    return (
+      <>
+        {passwordGate}
+        <DoctorView user={user} clinic={clinic} onShowFull={() => setForceFull(true)} />
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Gate bloqueante: forzar cambio de password en primer login */}
-      {user?.mustChangePassword && (
-        <ChangePasswordGate onSuccess={() => setUser({ ...user, mustChangePassword: false })} />
-      )}
+      {passwordGate}
 
       {/* Nav */}
       <nav className="flex items-center justify-between px-6 sm:px-8 py-4 border-b border-gray-100 sticky top-0 z-10" style={{ backgroundColor: "#FDFCFB" }}>

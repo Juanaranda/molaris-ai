@@ -3,6 +3,9 @@ import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
 import { sendBookingNotification } from "../services/notifications/whatsappService";
 import { canonicalDoctorName } from "../lib/doctorName";
+import {
+  decidirCambioDeEstado, resolverSolicitud, quienDecide, mensajeConflicto,
+} from "../services/booking/decisionDesdePanel";
 
 interface AgendaQueryDay {
   date?: string;
@@ -282,10 +285,23 @@ export async function agendaRoutes(app: FastifyInstance) {
 
     const isPaid = paymentStatus === "paid" || paymentStatus === "partial";
 
+    // Una hora que pidió el paciente se aprueba o rechaza como en el link de
+    // confirmación, para que el paciente se entere (MOL-32). El resto de los
+    // campos se guarda igual después.
+    const cambio = decidirCambioDeEstado(existing, status);
+    if (cambio !== "directo") {
+      const res = await resolverSolicitud({
+        bookingId: id, decision: cambio, quien: await quienDecide(payload.userId),
+      });
+      if (!res.ok) {
+        return reply.status(409).send({ error: mensajeConflicto(res.motivo), motivo: res.motivo });
+      }
+    }
+
     const updated = await prisma.booking.update({
       where: { id },
       data: {
-        ...(status !== undefined ? { status } : {}),
+        ...(status !== undefined && cambio === "directo" ? { status } : {}),
         ...(notes !== undefined ? { notes } : {}),
         ...(sede !== undefined ? { sede: sede?.trim() || null } : {}),
         ...(paymentStatus !== undefined ? { paymentStatus } : {}),

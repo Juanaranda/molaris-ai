@@ -6,6 +6,7 @@ import {
   validarTokenConfirmacion, confirmarBooking, rechazarBooking,
 } from "../services/booking/confirmation";
 import { avisarPacienteDecision } from "../services/booking/notifyPatient";
+import { resolverSolicitud, mensajeConflicto } from "../services/booking/decisionDesdePanel";
 
 /**
  * Confirmación de las horas que pide el agente.
@@ -95,24 +96,16 @@ export async function bookingConfirmRoutes(app: FastifyInstance) {
       if (!b || b.clinicId !== user.clinicId) return reply.status(404).send({ error: "Cita no encontrada" });
 
       const { accion, motivo } = req.body ?? {};
-      const quien = { id: user.id, nombre: user.name };
-      const res = accion === "rechazar"
-        ? await rechazarBooking(req.params.id, quien, motivo)
-        : await confirmarBooking(req.params.id, quien);
+      const res = await resolverSolicitud({
+        bookingId: req.params.id,
+        decision: accion === "rechazar" ? "rechazar" : "confirmar",
+        quien: { id: user.id, nombre: user.name },
+        motivo,
+      });
 
       if (!res.ok) {
-        return reply.status(409).send({
-          error: res.motivo,
-          mensaje: res.motivo === "ocupado"
-            ? "Esa hora ya fue tomada por otra cita."
-            : "Esta solicitud ya fue resuelta.",
-        });
+        return reply.status(409).send({ error: res.motivo, mensaje: mensajeConflicto(res.motivo) });
       }
-      avisarPacienteDecision({
-        bookingId: req.params.id,
-        decision: accion === "rechazar" ? "rechazada" : "confirmada",
-        motivo,
-      }).catch(() => {});
       return reply.send({ ok: true, estado: res.estado });
     },
   );
