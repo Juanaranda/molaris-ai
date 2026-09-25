@@ -78,6 +78,12 @@ export const ESPERANDO_CONFIRMACION: { status: string; requestedVia: { in: strin
   requestedVia: { in: [...VIAS_DEL_PACIENTE] },
 };
 
+/** Lo mismo que ESPERANDO_CONFIRMACION, pero para una cita que ya está en memoria. */
+export function esperaConfirmacion(b: { status: string; requestedVia?: string | null }): boolean {
+  return b.status === ESPERANDO_CONFIRMACION.status
+    && (VIAS_DEL_PACIENTE as readonly string[]).includes(b.requestedVia ?? "");
+}
+
 export function datosDeSolicitud({ fechaCita, telefono, via = "agent", ahora = new Date() }: {
   fechaCita: Date;
   telefono: string | null | undefined;

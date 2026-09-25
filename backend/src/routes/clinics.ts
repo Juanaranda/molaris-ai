@@ -6,6 +6,9 @@ import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
 import { sendWhatsAppMessage } from "../services/notifications/whatsappService";
 import { notifyWaitlistForCanceledBooking } from "../services/waitlist/waitlistService";
+import {
+  decidirCambioDeEstado, resolverSolicitud, quienDecide, mensajeConflicto,
+} from "../services/booking/decisionDesdePanel";
 import { triggerAlert } from "../services/alerts/alertService";
 import { audit } from "../services/audit/auditService";
 import { isValidRut, formatRut } from "../lib/rut";
@@ -610,10 +613,24 @@ export async function clinicRoutes(app: FastifyInstance) {
       });
       if (!booking) return reply.status(404).send({ error: "Cita no encontrada" });
 
-      const updated = await prisma.booking.update({
-        where: { id: booking.id },
-        data: { status },
-      });
+      // Una hora que pidió el paciente se aprueba o rechaza como en el link de
+      // confirmación, para que el paciente se entere (MOL-32).
+      const cambio = decidirCambioDeEstado(booking, status);
+      let updated;
+      if (cambio === "directo") {
+        updated = await prisma.booking.update({
+          where: { id: booking.id },
+          data: { status },
+        });
+      } else {
+        const res = await resolverSolicitud({
+          bookingId: booking.id, decision: cambio, quien: await quienDecide(payload.userId),
+        });
+        if (!res.ok) {
+          return reply.status(409).send({ error: res.motivo, mensaje: mensajeConflicto(res.motivo) });
+        }
+        updated = await prisma.booking.findUnique({ where: { id: booking.id } });
+      }
 
       // Hook: si se canceló, intentar notificar al primero de la lista de espera (async)
       if (booking.status !== "cancelled" && status === "cancelled") {
