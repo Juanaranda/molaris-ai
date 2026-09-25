@@ -627,7 +627,7 @@ export async function clinicRoutes(app: FastifyInstance) {
           bookingId: booking.id, decision: cambio, quien: await quienDecide(payload.userId),
         });
         if (!res.ok) {
-          return reply.status(409).send({ error: res.motivo, mensaje: mensajeConflicto(res.motivo) });
+          return reply.status(409).send({ error: mensajeConflicto(res.motivo), motivo: res.motivo });
         }
         updated = await prisma.booking.findUnique({ where: { id: booking.id } });
       }
