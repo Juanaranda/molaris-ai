@@ -1153,6 +1153,12 @@ export async function clinicRoutes(app: FastifyInstance) {
       if (active === false) {
         return reply.status(400).send({ error: "No puedes desactivarte a ti mismo" });
       }
+      // El rol clínico decide qué parte de la ficha se ve. Sin esta regla, una
+      // recepcionista con perfil Admin podía ponerse "Admin clínico" o quitarse
+      // el rol y leer todas las fichas (MOL-31). Lo cambia otra persona.
+      if (clinicalRole !== undefined && clinicalRole !== target.clinicalRole) {
+        return reply.status(400).send({ error: "No puedes cambiar tu propio rol clínico. Pídeselo a otro administrador." });
+      }
     }
 
     const updated = await prisma.partnerUser.update({
