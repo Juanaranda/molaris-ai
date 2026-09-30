@@ -147,26 +147,43 @@ function render(msg: MolariEmail, toName: string): { subject: string; html: stri
 }
 
 /* ── Envío (con redirección segura) ───────────────────────────────────────── */
+
+/**
+ * Envía un correo ya armado respetando `MOLARI_EMAIL_REDIRECT_TO`. Lo usan los
+ * correos de molari y también los que la clínica le manda a su paciente desde
+ * el panel (presupuestos): sin dominio verificado, ninguno debe llegar a un
+ * paciente real mientras se prueba.
+ */
+export async function sendRedirectableEmail(input: {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+}): Promise<{ delivered: boolean; redirectedTo?: string }> {
+  const redirectTo = config.email.molariRedirectTo;
+
+  let to = input.to;
+  let subject = input.subject;
+  let html = input.html;
+
+  if (redirectTo) {
+    // Modo prueba: todo va al correo del dueño, avisando el destinatario real.
+    to = redirectTo;
+    subject = `[→ ${input.to}] ${subject}`;
+    const realTo = input.to.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+    const banner = `<div style="background:#FFF4E5;border:1px solid #F0C67C;color:#8A5A00;font-family:sans-serif;font-size:12px;padding:10px 16px;text-align:center;">Modo prueba — este correo iba dirigido a <strong>${realTo}</strong></div>`;
+    html = html.replace(/(<body[^>]*>)/i, `$1${banner}`);
+  }
+
+  const res = await sendEmail({ to, subject, html, text: input.text });
+  return { delivered: res.ok, redirectedTo: redirectTo || undefined };
+}
+
 export async function sendMolariEmail(input: {
   to: string;
   toName?: string;
   message: MolariEmail;
 }): Promise<{ delivered: boolean; redirectedTo?: string }> {
   const rendered = render(input.message, input.toName ?? "");
-  const redirectTo = config.email.molariRedirectTo;
-
-  let to = input.to;
-  let subject = rendered.subject;
-  let html = rendered.html;
-
-  if (redirectTo) {
-    // Modo prueba: todo va al correo del dueño, avisando el destinatario real.
-    to = redirectTo;
-    subject = `[→ ${input.to}] ${subject}`;
-    const banner = `<div style="background:#FFF4E5;border:1px solid #F0C67C;color:#8A5A00;font-family:sans-serif;font-size:12px;padding:10px 16px;text-align:center;">Modo prueba — este correo iba dirigido a <strong>${input.to}</strong></div>`;
-    html = html.replace(/(<body[^>]*>)/i, `$1${banner}`);
-  }
-
-  const res = await sendEmail({ to, subject, html, text: rendered.text });
-  return { delivered: res.ok, redirectedTo: redirectTo || undefined };
+  return sendRedirectableEmail({ to: input.to, ...rendered });
 }

@@ -1,6 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
+import { sendRedirectableEmail } from "../services/email/molariEmails";
+import { pickPatientEmail, renderQuoteEmail } from "../services/email/quoteEmail";
 
 interface QuoteItem {
   toothFDI?: string;
@@ -180,6 +182,58 @@ export async function dentalQuotesRoutes(app: FastifyInstance) {
       select: quoteSelect,
     });
     return reply.send(updated);
+  });
+
+  // POST /api/dental-quotes/:id/send-email — manda el presupuesto al correo del paciente
+  app.post<{ Params: { id: string } }>("/dental-quotes/:id/send-email", async (req, reply) => {
+    let payload;
+    try { payload = verifyToken(req.headers.authorization); }
+    catch { return reply.status(401).send({ error: "No autorizado" }); }
+    if (!payload.clinicId) return reply.status(403).send({ error: "Sin clínica" });
+
+    const quote = await prisma.dentalQuote.findUnique({
+      where: { id: req.params.id },
+      select: {
+        clinicId: true, patientRut: true, patientName: true, doctor: true,
+        discount: true, totalAmount: true, notes: true, paymentInfo: true, createdAt: true,
+        items: {
+          select: {
+            toothFDI: true, surfaces: true, prestacion: true,
+            unitPrice: true, quantity: true, discount: true, total: true,
+          },
+        },
+        clinic: { select: { name: true, phone: true, location: true } },
+      },
+    });
+    if (!quote || quote.clinicId !== payload.clinicId) {
+      return reply.status(404).send({ error: "Presupuesto no encontrado" });
+    }
+
+    // El correo del paciente está en sus citas; sin RUT no hay cómo saber de
+    // quién es con certeza, y mandar un presupuesto a otra persona no se arregla.
+    const bookings = quote.patientRut
+      ? await prisma.booking.findMany({
+          where: {
+            clinicId: payload.clinicId,
+            patientRut: quote.patientRut,
+            patientEmail: { not: null },
+            status: { not: "cancelled" },
+          },
+          select: { patientEmail: true },
+          orderBy: { date: "desc" },
+          take: 20,
+        })
+      : [];
+    const to = pickPatientEmail(bookings.map((b) => b.patientEmail));
+    if (!to) return reply.status(400).send({ error: "El paciente no tiene correo registrado" });
+
+    const { clinic, ...rest } = quote;
+    const email = renderQuoteEmail({ ...rest, clinic });
+    const { delivered } = await sendRedirectableEmail({ to, ...email });
+    if (!delivered) {
+      return reply.status(502).send({ error: "No se pudo enviar el correo. Intenta de nuevo en unos minutos." });
+    }
+    return reply.send({ ok: true, to });
   });
 
   // DELETE /api/dental-quotes/:id
