@@ -12,14 +12,22 @@ const TIER_COLOR: Record<string, string> = {
 };
 
 export default function ModelsPage() {
-  const [data, setData] = useState<ModelStats | null>(null);
   const [days, setDays] = useState(30);
-  const [loading, setLoading] = useState(true);
+  // Guarda para qué rango son los datos: "cargando" es que no calzan con el
+  // rango elegido, sin setState dentro del efecto. Si una respuesta vieja
+  // llega tarde, no pisa la del rango actual.
+  const [res, setRes] = useState<{ days: number; data: ModelStats | null } | null>(null);
 
   useEffect(() => {
-    setLoading(true);
-    api.models(days).then(setData).finally(() => setLoading(false));
+    let vigente = true;
+    api.models(days)
+      .then((d) => { if (vigente) setRes({ days, data: d }); })
+      .catch(() => { if (vigente) setRes({ days, data: null }); });
+    return () => { vigente = false; };
   }, [days]);
+
+  const loading = res?.days !== days;
+  const data = res?.data ?? null;
 
   if (loading) return <p className="text-sm text-gray-400 animate-pulse">Cargando...</p>;
   if (!data)   return null;
