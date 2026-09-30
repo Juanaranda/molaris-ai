@@ -447,13 +447,15 @@ export function HeroShowcase() {
       onMouseEnter={() => setDetenido(true)}
       onFocusCapture={() => setDetenido(true)}>
       {/* Tab pills — con cuatro pestañas la fila no cabía en 375px y la última
-          quedaba cortada por el borde. Se envuelven en vez de desbordar. */}
+          quedaba cortada por el borde. Se envuelven en vez de desbordar.
+          En el celular miden 44px de alto (área de toque recomendada); en
+          escritorio vuelven a los 30px de siempre. */}
       <div className="flex flex-wrap items-center gap-2">
         {TABS.map((t, i) => (
           <button
             key={t.label}
             onClick={() => { setActive(i); setDetenido(true); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap"
+            className="flex items-center gap-1.5 px-3 py-1.5 max-sm:min-h-11 rounded-full text-xs font-bold transition-all whitespace-nowrap"
             style={active === i
               ? { background: "#0B2F42", color: "#fff", border: "1px solid #0B2F42", outline: "none" }
               : { color: "#607281", border: "1px solid #E5E0D9", background: "#FDFCFB", outline: "none" }}
@@ -479,20 +481,25 @@ export function HeroShowcase() {
         ))}
       </div>
 
-      {/* Progress bar dots */}
-      <div className="flex items-center gap-2 justify-center">
+      {/* Progress bar dots — la barrita visible mide 3px; en el celular el
+          botón que la envuelve ocupa 44×44 para que se pueda tocar. En
+          escritorio el botón queda del tamaño de la barra, como antes. */}
+      <div className="flex items-center gap-2 max-sm:gap-0 justify-center">
         {TABS.map((_, i) => (
           <button
             key={i}
             onClick={() => { setActive(i); setDetenido(true); }}
-            style={{
+            className="flex items-center justify-center max-sm:min-h-11 max-sm:min-w-11"
+            style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }}
+          >
+            <span style={{
+              display: "block",
               height: 3, borderRadius: 99,
               width: active === i ? 28 : 8,
               background: active === i ? "#D95F45" : "#D9D4CC",
               transition: "all 0.4s ease",
-              border: "none", cursor: "pointer", padding: 0,
-            }}
-          />
+            }} />
+          </button>
         ))}
       </div>
     </div>
