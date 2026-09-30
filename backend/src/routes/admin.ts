@@ -5,6 +5,7 @@ import { verifyToken } from "./auth";
 import { runReminderCheck } from "../services/notifications/reminderService";
 import { sendMolariEmail, type MolariEmail, type MolariEmailType } from "../services/email/molariEmails";
 import { getOpenRouterCredits } from "../services/ai/creditsService";
+import { obtenerEstado } from "../services/estado/estadoService";
 
 export async function adminRoutes(app: FastifyInstance) {
 
@@ -320,6 +321,14 @@ export async function adminRoutes(app: FastifyInstance) {
       });
     }
   );
+
+  // GET /api/admin/estado — estado de los ambientes: salud, commit servido vs
+  // rama, deploys, chequeos automáticos y consumo de Neon. Solo SUPERADMIN:
+  // lleva datos de infraestructura.
+  app.get("/admin/estado", async (req, reply) => {
+    if (!assertSuperAdmin(req, reply)) return;
+    return reply.send(await obtenerEstado());
+  });
 
   // GET /api/admin/budget — gasto de IA del día por clínica vs cap (#59)
   app.get("/admin/budget", async (req, reply) => {
