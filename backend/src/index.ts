@@ -137,7 +137,10 @@ app.get("/health", async (_req, reply) => {
     await prisma.$queryRaw`SELECT 1`;
     db = { ok: true, latencyMs: Date.now() - t0 };
   } catch (e) {
-    db = { ok: false, error: e instanceof Error ? e.message : String(e) };
+    // El detalle va al log y no a la respuesta: el mensaje de Prisma trae el
+    // host de la base, y /health es público.
+    app.log.error({ err: e }, "[health] la base no responde");
+    db = { ok: false, error: "La base de datos no responde" };
   }
 
   const schedulers = getSchedulerHealth();
@@ -160,6 +163,9 @@ app.get("/health", async (_req, reply) => {
   return reply.code(db.ok ? 200 : 503).send({
     status,
     project: "molari.ai",
+    // Commit que está sirviendo (Railway lo inyecta). El chequeo de beta lo
+    // compara con la punta de la rama: si no calzan, el último deploy no entró.
+    version: process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
     timestamp: new Date().toISOString(),
     uptimeSec: Math.round(process.uptime()),
     checks: { db, schedulers, ai },
