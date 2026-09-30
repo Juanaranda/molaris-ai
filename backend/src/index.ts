@@ -12,6 +12,7 @@ import { chatRoutes } from "./routes/chat";
 import { availabilityRoutes } from "./routes/availability";
 import { bookingRoutes } from "./routes/bookings";
 import { authRoutes, verifyToken, validarSesionVigente } from "./routes/auth";
+import { hookErrorInterno } from "./lib/errorInterno";
 import { clinicRoutes } from "./routes/clinics";
 import { patientAuthRoutes } from "./routes/patient-auth";
 import { bookRoutes } from "./routes/book";
@@ -200,6 +201,11 @@ app.addHook("onError", async (req, _reply, err: FastifyError) => {
     Sentry.captureException(err);
   });
 });
+
+// Y lo que sale al navegador: un mensaje en español, sin el error original
+// (que puede traer el host de la base). Es onSend y no setErrorHandler por la
+// misma razón de arriba.
+app.addHook("onSend", hookErrorInterno);
 
 // Fallas fuera del ciclo de request: schedulers, promesas sueltas. Son
 // justamente las que hoy se pierden en los logs de Railway sin que nadie mire.
