@@ -5,9 +5,9 @@ import crypto from "node:crypto";
 import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
 import { sendWhatsAppMessage } from "../services/notifications/whatsappService";
-import { notifyWaitlistForCanceledBooking } from "../services/waitlist/waitlistService";
 import {
   decidirCambioDeEstado, resolverSolicitud, quienDecide, mensajeConflicto,
+  avisarListaDeEsperaSiSeLibera,
 } from "../services/booking/decisionDesdePanel";
 import { triggerAlert } from "../services/alerts/alertService";
 import { audit } from "../services/audit/auditService";
@@ -632,11 +632,8 @@ export async function clinicRoutes(app: FastifyInstance) {
         updated = await prisma.booking.findUnique({ where: { id: booking.id } });
       }
 
-      // Hook: si se canceló, intentar notificar al primero de la lista de espera (async)
-      if (booking.status !== "cancelled" && status === "cancelled") {
-        notifyWaitlistForCanceledBooking(booking.id)
-          .catch((e) => console.error("[Waitlist] notify failed:", e));
-      }
+      // Si se canceló, avisar al primero de la lista de espera (sin bloquear)
+      avisarListaDeEsperaSiSeLibera(booking.id, booking.status, status);
 
       return reply.send(updated);
     }

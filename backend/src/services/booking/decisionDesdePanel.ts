@@ -3,6 +3,7 @@ import {
   esperaConfirmacion, confirmarBooking, rechazarBooking, type ResultadoDecision,
 } from "./confirmation";
 import { avisarPacienteDecision } from "./notifyPatient";
+import { notifyWaitlistForCanceledBooking } from "../waitlist/waitlistService";
 
 /**
  * Qué hacer cuando alguien cambia el estado de una cita desde el panel (MOL-32).
@@ -26,6 +27,34 @@ export function decidirCambioDeEstado(
   if (nuevo === "confirmed") return "confirmar";
   if (nuevo === "cancelled") return "rechazar";
   return "directo";
+}
+
+/**
+ * ¿El cambio libera el cupo? Solo cuando una cita viva pasa a cancelada, sea
+ * una cancelación directa o el rechazo de una solicitud (que también tenía la
+ * hora tomada). Cancelar una cita ya cancelada no libera nada nuevo.
+ */
+export function liberaCupo(estadoAnterior: string, estadoNuevo: string | undefined): boolean {
+  return estadoAnterior !== "cancelled" && estadoNuevo === "cancelled";
+}
+
+/**
+ * Efecto de cancelar desde el panel: si se liberó el cupo, avisa al primero de
+ * la lista de espera (MOL-36). Antes solo lo hacía la ruta de Citas; la agenda
+ * cancelaba sin avisar.
+ *
+ * Va sin await: si WhatsApp falla, la cancelación ya quedó hecha y no tiene
+ * por qué deshacerse. Devuelve si disparó el aviso.
+ */
+export function avisarListaDeEsperaSiSeLibera(
+  bookingId: string,
+  estadoAnterior: string,
+  estadoNuevo: string | undefined,
+): boolean {
+  if (!liberaCupo(estadoAnterior, estadoNuevo)) return false;
+  notifyWaitlistForCanceledBooking(bookingId)
+    .catch((e) => console.error("[Waitlist] notify failed:", e));
+  return true;
 }
 
 /** Texto del 409 cuando la decisión no se pudo aplicar. */

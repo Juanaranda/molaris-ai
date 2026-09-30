@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockConfirmar, mockRechazar, mockAvisar } = vi.hoisted(() => ({
+const { mockConfirmar, mockRechazar, mockAvisar, mockListaEspera } = vi.hoisted(() => ({
   mockConfirmar: vi.fn(),
   mockRechazar: vi.fn(),
   mockAvisar: vi.fn(),
+  mockListaEspera: vi.fn(),
 }));
 vi.mock("../services/booking/confirmation", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../services/booking/confirmation")>()),
@@ -11,10 +12,14 @@ vi.mock("../services/booking/confirmation", async (importOriginal) => ({
   rechazarBooking: mockRechazar,
 }));
 vi.mock("../services/booking/notifyPatient", () => ({ avisarPacienteDecision: mockAvisar }));
+vi.mock("../services/waitlist/waitlistService", () => ({
+  notifyWaitlistForCanceledBooking: mockListaEspera,
+}));
 
 import { esperaConfirmacion } from "../services/booking/confirmation";
 import {
   decidirCambioDeEstado, resolverSolicitud, mensajeConflicto,
+  liberaCupo, avisarListaDeEsperaSiSeLibera,
 } from "../services/booking/decisionDesdePanel";
 
 /**
@@ -113,5 +118,58 @@ describe("mensajeConflicto", () => {
   it("distingue una hora tomada de una solicitud ya resuelta", () => {
     expect(mensajeConflicto("ocupado")).toMatch(/tomada/);
     expect(mensajeConflicto("ya_resuelta")).toMatch(/ya fue resuelta/);
+  });
+});
+
+/**
+ * Cancelar desde la agenda no le avisaba a la lista de espera; desde Citas sí
+ * (MOL-36). Las tres rutas del panel usan ahora el mismo criterio.
+ */
+describe("liberaCupo", () => {
+  it("una cita viva que pasa a cancelada libera el cupo", () => {
+    expect(liberaCupo("confirmed", "cancelled")).toBe(true);
+    expect(liberaCupo("pending", "cancelled")).toBe(true);
+  });
+
+  it("cancelar una cita ya cancelada no libera nada nuevo", () => {
+    expect(liberaCupo("cancelled", "cancelled")).toBe(false);
+  });
+
+  it("cualquier otro cambio, o no tocar el estado, no libera el cupo", () => {
+    expect(liberaCupo("pending", "confirmed")).toBe(false);
+    expect(liberaCupo("confirmed", "pending")).toBe(false);
+    expect(liberaCupo("confirmed", undefined)).toBe(false);
+    expect(liberaCupo("cancelled", "pending")).toBe(false);
+  });
+});
+
+describe("avisarListaDeEsperaSiSeLibera", () => {
+  beforeEach(() => {
+    mockListaEspera.mockReset().mockResolvedValue({ notified: true });
+  });
+
+  it("al liberarse el cupo, avisa a la lista de espera por esa cita", () => {
+    expect(avisarListaDeEsperaSiSeLibera("b1", "confirmed", "cancelled")).toBe(true);
+    expect(mockListaEspera).toHaveBeenCalledWith("b1");
+  });
+
+  it("si la cita ya estaba cancelada, no vuelve a avisar", () => {
+    expect(avisarListaDeEsperaSiSeLibera("b1", "cancelled", "cancelled")).toBe(false);
+    expect(mockListaEspera).not.toHaveBeenCalled();
+  });
+
+  it("si no se canceló, no avisa", () => {
+    expect(avisarListaDeEsperaSiSeLibera("b1", "pending", "confirmed")).toBe(false);
+    expect(avisarListaDeEsperaSiSeLibera("b1", "confirmed", undefined)).toBe(false);
+    expect(mockListaEspera).not.toHaveBeenCalled();
+  });
+
+  it("si el aviso falla, no revienta: la cancelación ya quedó hecha", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockListaEspera.mockRejectedValue(new Error("WhatsApp caído"));
+    expect(() => avisarListaDeEsperaSiSeLibera("b1", "confirmed", "cancelled")).not.toThrow();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
   });
 });

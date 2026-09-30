@@ -5,6 +5,7 @@ import { sendBookingNotification } from "../services/notifications/whatsappServi
 import { canonicalDoctorName } from "../lib/doctorName";
 import {
   decidirCambioDeEstado, resolverSolicitud, quienDecide, mensajeConflicto,
+  avisarListaDeEsperaSiSeLibera,
 } from "../services/booking/decisionDesdePanel";
 
 interface AgendaQueryDay {
@@ -313,6 +314,9 @@ export async function agendaRoutes(app: FastifyInstance) {
       select: bookingSelect(),
     });
 
+    // Si se canceló (directo o como rechazo), el cupo quedó libre (MOL-36)
+    avisarListaDeEsperaSiSeLibera(id, existing.status, status);
+
     return reply.send(updated);
   });
 
@@ -336,11 +340,29 @@ export async function agendaRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: "Cita no encontrada" });
     }
 
-    const updated = await prisma.booking.update({
-      where: { id },
-      data: { status: "cancelled" },
-      select: bookingSelect(),
-    });
+    // Igual que el selector de estado: si la hora la pidió el paciente y
+    // espera confirmación, cancelarla es rechazarla y el paciente se entera
+    // (MOL-32). Si no, se cancela directo.
+    const cambio = decidirCambioDeEstado(existing, "cancelled");
+    let updated;
+    if (cambio !== "directo") {
+      const res = await resolverSolicitud({
+        bookingId: id, decision: cambio, quien: await quienDecide(payload.userId),
+      });
+      if (!res.ok) {
+        return reply.status(409).send({ error: mensajeConflicto(res.motivo), motivo: res.motivo });
+      }
+      updated = await prisma.booking.findUnique({ where: { id }, select: bookingSelect() });
+    } else {
+      updated = await prisma.booking.update({
+        where: { id },
+        data: { status: "cancelled" },
+        select: bookingSelect(),
+      });
+    }
+
+    // El cupo quedó libre: avisar a la lista de espera, como en Citas (MOL-36)
+    avisarListaDeEsperaSiSeLibera(id, existing.status, "cancelled");
 
     return reply.send(updated);
   });
