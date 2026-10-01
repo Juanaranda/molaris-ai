@@ -13,10 +13,24 @@ const subirSourceMaps = Boolean(
   process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT
 );
 
+// Build para la app de teléfono (MOL-40): Capacitor lleva los archivos dentro
+// de la app en vez de cargar el sitio desde internet, que su documentación
+// desaconseja para producción. Solo cambia este build; el de Vercel sigue igual.
+const paraApp = process.env.MOBILE_EXPORT === "1";
+
 const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  // Para que el código sepa si corre dentro de la app (lib/rutasApp.ts).
+  env: { NEXT_PUBLIC_APP_MOVIL: paraApp ? "1" : "0" },
+  ...(paraApp ? {
+    output: "export" as const,
+    // Sin servidor no hay quién optimice imágenes: se sirven tal cual.
+    images: { unoptimized: true },
+    // /login/index.html en vez de /login.html: así Capacitor encuentra cada página.
+    trailingSlash: true,
+  } : {}),
   // Los source maps se generan SOLO cuando se van a subir a Sentry. Generarlos
   // sin subirlos los dejaría servidos junto al bundle, o sea publicando el
   // código fuente del panel a cualquiera que abra las herramientas del

@@ -7,6 +7,7 @@ import { ensurePatientId } from "@/lib/clinicalRecord";
 import { getOdontogram, type ToothProjection } from "@/lib/odontogram";
 import { StandardOdontogram } from "@/components/StandardOdontogram";
 import type { DentitionType } from "@/lib/tooth";
+import { rutaPaciente } from "@/lib/rutasApp";
 import { Check, CreditCard, Mail, Pencil, Printer, Smile, Stethoscope, TriangleAlert, X } from "lucide-react";
 
 /* El presupuesto guarda el FDI con punto ("1.6") desde siempre y hay
@@ -528,7 +529,7 @@ function QuoteBuilderModal({
       // identificar la ficha con certeza y es mejor decirlo que abrir la de otro.
       if (!patient.rut) throw new Error("El paciente necesita RUT para abrir su ficha clínica");
       const patientId = await ensurePatientId(me.clinic.id, { rut: patient.rut });
-      router.push(`/partners/pacientes/${patientId}`);
+      router.push(rutaPaciente(patientId));
     } catch (e) {
       setErrorFicha(e instanceof Error ? e.message : "No se pudo abrir la ficha");
       setAbriendoFicha(false);

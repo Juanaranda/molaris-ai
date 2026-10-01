@@ -7,6 +7,7 @@ import { ensurePatientId } from "@/lib/clinicalRecord";
 import { DentalQuoteTab } from "./DentalQuoteTab";
 import { PatientAutocomplete } from "./PatientAutocomplete";
 import { invalidatePatientsCache, haceCuanto, type PatientSuggestion } from "@/lib/patients";
+import { rutaPaciente } from "@/lib/rutasApp";
 import { CircleCheck, ClipboardList, FileText, Pencil, Stethoscope, User, X } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -377,7 +378,7 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
         rut: patient.rut ?? undefined,
         phone: patient.phone ?? undefined,
       });
-      router.push(`/partners/pacientes/${patientId}`);
+      router.push(rutaPaciente(patientId));
     } catch (e) {
       setRecordError(e instanceof Error ? e.message : "Error");
       setOpeningRecord(false);

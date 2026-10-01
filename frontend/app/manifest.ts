@@ -1,5 +1,8 @@
 import type { MetadataRoute } from "next";
 
+// No cambia entre requests; además el build de la app (export estático) lo exige.
+export const dynamic = "force-static";
+
 /**
  * Lo que hace instalable a molari en el celular (PWA): en Android, Chrome
  * ofrece "Instalar app"; en iPhone, Safari → Compartir → "Agregar a pantalla
