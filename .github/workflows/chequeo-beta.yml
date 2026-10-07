@@ -1,0 +1,67 @@
+name: Chequeo de beta
+
+# Capa 1 del QA (MOL-16): después de cada deploy a beta, un chequeo completo;
+# y cada 30 min, solo la salud, para enterarse si beta se cae (MOL-14).
+# Cuando falla, GitHub le manda un correo a quien corresponde según sus
+# notificaciones de Actions: así se habría visto la caída de la base del 29/9.
+
+on:
+  deployment_status:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chequeo-beta-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  salud:
+    name: Salud de beta
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: beta
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # BETA_SHA vacío a propósito: justo después de un push, Railway tarda
+      # unos minutos en desplegar y esto daría falsas alarmas. El chequeo del
+      # commit lo hace el job de abajo, cuando Railway avisa que terminó.
+      - run: node scripts/chequeo-beta.mjs --solo-salud
+
+  completo:
+    name: Chequeo completo de beta
+    # Deploys exitosos de beta: Vercel los reporta como "Production" (su rama
+    # de producción es beta) y Railway como "molari / beta". Los "Preview" son
+    # pushes a dev y no se chequean.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'deployment_status' &&
+       github.event.deployment_status.state == 'success' &&
+       (github.event.deployment.environment == 'Production' ||
+        github.event.deployment.environment == 'molari / beta'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: beta
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Playwright se instala solo acá (--no-save): no entra en ningún
+      # package.json del producto.
+      - run: npm i --no-save playwright@1 && npx playwright install --with-deps chromium
+      - name: Chequeo
+        env:
+          # Solo cuando avisa Railway se sabe qué commit debería servir el backend.
+          BETA_SHA: ${{ github.event.deployment.environment == 'molari / beta' && github.event.deployment.sha || '' }}
+        run: node scripts/chequeo-beta.mjs

@@ -7,6 +7,7 @@ import { ensurePatientId } from "@/lib/clinicalRecord";
 import { getOdontogram, type ToothProjection } from "@/lib/odontogram";
 import { StandardOdontogram } from "@/components/StandardOdontogram";
 import type { DentitionType } from "@/lib/tooth";
+import { rutaPaciente } from "@/lib/rutasApp";
 import { Check, CreditCard, Mail, Pencil, Printer, Smile, Stethoscope, TriangleAlert, X } from "lucide-react";
 
 /* El presupuesto guarda el FDI con punto ("1.6") desde siempre y hay
@@ -528,7 +529,7 @@ function QuoteBuilderModal({
       // identificar la ficha con certeza y es mejor decirlo que abrir la de otro.
       if (!patient.rut) throw new Error("El paciente necesita RUT para abrir su ficha clínica");
       const patientId = await ensurePatientId(me.clinic.id, { rut: patient.rut });
-      router.push(`/partners/pacientes/${patientId}`);
+      router.push(rutaPaciente(patientId));
     } catch (e) {
       setErrorFicha(e instanceof Error ? e.message : "No se pudo abrir la ficha");
       setAbriendoFicha(false);
@@ -919,28 +920,33 @@ function QuoteCard({ quote, onStatusChange, onEdit }: {
 }) {
   const [expanded, setExpanded]         = useState(false);
   const [showEmail, setShowEmail]       = useState(false);
-  const [emailInput, setEmailInput]     = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
-  const [emailMsg, setEmailMsg]         = useState("");
+  const [emailSentTo, setEmailSentTo]   = useState("");
+  const [emailError, setEmailError]     = useState("");
 
   const st = STATUS_LABELS[quote.status] ?? STATUS_LABELS.draft;
   const MONTHS = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
   const d = new Date(quote.createdAt);
   const dateStr = `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 
+  // Va al correo que el paciente tiene registrado en sus citas: el backend lo
+  // busca por RUT, así un presupuesto no termina en la casilla equivocada.
   async function sendEmail() {
-    if (!emailInput.trim()) return;
-    setSendingEmail(true); setEmailMsg("");
+    setSendingEmail(true); setEmailError("");
     try {
       const token = getToken();
       const res = await fetch(`${API}/api/dental-quotes/${quote.id}/send-email`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ email: emailInput.trim() }),
+        headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) { setEmailMsg("Enviado"); setShowEmail(false); setTimeout(() => setEmailMsg(""), 4000); }
-      else setEmailMsg("Error al enviar");
-    } catch { setEmailMsg("Error de conexión"); }
+      const data = await res.json().catch(() => ({})) as { to?: string; error?: string };
+      if (res.ok) {
+        setEmailSentTo(data.to ?? "el paciente"); setShowEmail(false);
+        setTimeout(() => setEmailSentTo(""), 6000);
+      } else {
+        setEmailError(data.error ?? "No se pudo enviar el correo");
+      }
+    } catch { setEmailError("Error de conexión"); }
     finally { setSendingEmail(false); }
   }
 
@@ -954,7 +960,7 @@ function QuoteCard({ quote, onStatusChange, onEdit }: {
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700"><Check className="w-3.5 h-3.5 inline-block mr-1 align-[-2px]" aria-hidden />Aceptado</span>
             )}
             <span className="text-[10px] text-gray-400">{dateStr}</span>
-            {emailMsg === "Enviado" && <span className="text-[10px] text-blue-600 font-semibold"><Mail className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Enviado</span>}
+            {emailSentTo && <span className="text-[10px] text-blue-600 font-semibold"><Mail className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Enviado a {emailSentTo}</span>}
           </div>
           <p className="text-sm font-bold text-gray-800 mt-1">
             {quote.items.length} prestación{quote.items.length !== 1 ? "es" : ""}
@@ -1034,21 +1040,18 @@ function QuoteCard({ quote, onStatusChange, onEdit }: {
                 className="text-xs font-semibold text-gray-500 hover:text-gray-700">
                 <Printer className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Imprimir
               </button>
-              {emailMsg && emailMsg !== "Enviado" && <span className="text-[10px] text-red-500">{emailMsg}</span>}
+              {emailError && <span role="alert" className="text-[10px] text-red-500">{emailError}</span>}
               {showEmail ? (
                 <>
-                  <input type="email" value={emailInput} onChange={(e) => setEmailInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && sendEmail()}
-                    placeholder="correo@paciente.cl" autoFocus
-                    className="px-2 py-1 rounded-lg border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 w-44" />
+                  <span className="text-xs text-gray-500">¿Enviar al correo registrado del paciente?</span>
                   <button onClick={sendEmail} disabled={sendingEmail}
                     className="text-xs font-bold px-3 py-1.5 rounded-xl bg-[#1A5C7A] text-white hover:bg-[#0e4560] transition disabled:opacity-50">
-                    {sendingEmail ? "…" : "Enviar"}
+                    {sendingEmail ? "Enviando…" : "Enviar"}
                   </button>
-                  <button onClick={() => setShowEmail(false)} className="text-xs text-gray-400 hover:text-gray-600">Cancelar</button>
+                  <button onClick={() => { setShowEmail(false); setEmailError(""); }} className="text-xs text-gray-400 hover:text-gray-600">Cancelar</button>
                 </>
               ) : (
-                <button onClick={() => setShowEmail(true)}
+                <button onClick={() => { setShowEmail(true); setEmailError(""); }}
                   className="text-xs font-semibold text-blue-600 hover:text-blue-700">
                   <Mail className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Enviar por email
                 </button>

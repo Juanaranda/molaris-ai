@@ -19,7 +19,7 @@ vi.mock("../config/env", () => ({
   },
 }));
 
-import { sendMolariEmail } from "../services/email/molariEmails";
+import { sendMolariEmail, sendRedirectableEmail } from "../services/email/molariEmails";
 
 beforeEach(() => { sendEmailMock.mockReset(); sendEmailMock.mockResolvedValue({ ok: true }); delete process.env.__TEST_REDIRECT; });
 afterEach(() => { delete process.env.__TEST_REDIRECT; });
@@ -47,6 +47,21 @@ describe("sendMolariEmail — con redirección (sin dominio)", () => {
     expect(arg.html).toContain("Modo prueba");
     expect(arg.html).toContain("juan@clinica.cl");
     expect(res.redirectedTo).toBe("dueno@molari.ai");
+  });
+
+  it("un correo armado afuera (presupuesto al paciente) también se redirige", async () => {
+    await sendRedirectableEmail({ to: "paciente@correo.cl", subject: "Tu presupuesto", html: "<html><body><p>x</p></body></html>" });
+    const arg = sendEmailMock.mock.calls[0][0];
+    expect(arg.to).toBe("dueno@molari.ai");
+    expect(arg.subject).toBe("[→ paciente@correo.cl] Tu presupuesto");
+    expect(arg.html).toContain("Modo prueba");
+  });
+});
+
+describe("sendRedirectableEmail — sin redirección", () => {
+  it("va al destinatario real tal cual", async () => {
+    await sendRedirectableEmail({ to: "paciente@correo.cl", subject: "Tu presupuesto", html: "<p>x</p>", text: "x" });
+    expect(sendEmailMock).toHaveBeenCalledWith({ to: "paciente@correo.cl", subject: "Tu presupuesto", html: "<p>x</p>", text: "x" });
   });
 });
 

@@ -1,0 +1,21 @@
+{
+  "name": "molari-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "App de teléfono de molari (Capacitor): empaqueta el panel del frontend para App Store y Google Play",
+  "scripts": {
+    "build:web": "cd ../frontend && MOBILE_EXPORT=1 NEXT_PUBLIC_API_URL=${MOLARI_API_URL:-https://molaris-ai-beta.up.railway.app} npx next build --webpack",
+    "sync": "npm run build:web && cap sync",
+    "ios": "npm run sync && cap open ios",
+    "android": "npm run sync && cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.2",
+    "@capacitor/core": "8.5.2",
+    "@capacitor/ios": "8.5.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.2",
+    "typescript": "5.9.3"
+  }
+}

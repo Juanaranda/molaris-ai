@@ -8,6 +8,7 @@ const links = [
   { href: "/dashboard/models",  label: "Modelos" },
   { href: "/dashboard/errors",  label: "Errores" },
   { href: "/dashboard/clinics", label: "Clínicas" },
+  { href: "/dashboard/estado",  label: "Estado" },
 ];
 
 export function Nav() {

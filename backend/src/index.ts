@@ -12,6 +12,8 @@ import { chatRoutes } from "./routes/chat";
 import { availabilityRoutes } from "./routes/availability";
 import { bookingRoutes } from "./routes/bookings";
 import { authRoutes, verifyToken, validarSesionVigente } from "./routes/auth";
+import { hookErrorInterno } from "./lib/errorInterno";
+import { origenesPermitidos } from "./lib/origenes";
 import { clinicRoutes } from "./routes/clinics";
 import { patientAuthRoutes } from "./routes/patient-auth";
 import { bookRoutes } from "./routes/book";
@@ -79,9 +81,7 @@ app.register(rateLimit, {
 });
 
 app.register(cors, {
-  origin: isProd
-    ? [config.frontendUrl, /\.molari\.ai$/, /\.vercel\.app$/]
-    : true,
+  origin: isProd ? origenesPermitidos(config.frontendUrl) : true,
   methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: false,
@@ -137,7 +137,10 @@ app.get("/health", async (_req, reply) => {
     await prisma.$queryRaw`SELECT 1`;
     db = { ok: true, latencyMs: Date.now() - t0 };
   } catch (e) {
-    db = { ok: false, error: e instanceof Error ? e.message : String(e) };
+    // El detalle va al log y no a la respuesta: el mensaje de Prisma trae el
+    // host de la base, y /health es público.
+    app.log.error({ err: e }, "[health] la base no responde");
+    db = { ok: false, error: "La base de datos no responde" };
   }
 
   const schedulers = getSchedulerHealth();
@@ -160,6 +163,9 @@ app.get("/health", async (_req, reply) => {
   return reply.code(db.ok ? 200 : 503).send({
     status,
     project: "molari.ai",
+    // Commit que está sirviendo (Railway lo inyecta). El chequeo de beta lo
+    // compara con la punta de la rama: si no calzan, el último deploy no entró.
+    version: process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
     timestamp: new Date().toISOString(),
     uptimeSec: Math.round(process.uptime()),
     checks: { db, schedulers, ai },
@@ -194,6 +200,11 @@ app.addHook("onError", async (req, _reply, err: FastifyError) => {
     Sentry.captureException(err);
   });
 });
+
+// Y lo que sale al navegador: un mensaje en español, sin el error original
+// (que puede traer el host de la base). Es onSend y no setErrorHandler por la
+// misma razón de arriba.
+app.addHook("onSend", hookErrorInterno);
 
 // Fallas fuera del ciclo de request: schedulers, promesas sueltas. Son
 // justamente las que hoy se pierden en los logs de Railway sin que nadie mire.
