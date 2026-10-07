@@ -13,6 +13,7 @@ import { availabilityRoutes } from "./routes/availability";
 import { bookingRoutes } from "./routes/bookings";
 import { authRoutes, verifyToken, validarSesionVigente } from "./routes/auth";
 import { hookErrorInterno } from "./lib/errorInterno";
+import { origenesPermitidos } from "./lib/origenes";
 import { clinicRoutes } from "./routes/clinics";
 import { patientAuthRoutes } from "./routes/patient-auth";
 import { bookRoutes } from "./routes/book";
@@ -80,9 +81,7 @@ app.register(rateLimit, {
 });
 
 app.register(cors, {
-  origin: isProd
-    ? [config.frontendUrl, /\.molari\.ai$/, /\.vercel\.app$/]
-    : true,
+  origin: isProd ? origenesPermitidos(config.frontendUrl) : true,
   methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: false,
