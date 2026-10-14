@@ -93,6 +93,32 @@ async function salud() {
   }
 }
 
+// ── 1b. Últimos deploys ─────────────────────────────────────────────────────
+// Un deploy fallido deja corriendo la versión anterior: el sitio responde y
+// todo "se ve bien", pero lo último no está. Así pasó el 30/9 con Railway.
+const REPO = process.env.GITHUB_REPOSITORY ?? "Juanaranda/molaris-ai";
+// Cómo reporta cada plataforma los deploys de beta a GitHub.
+const DEPLOYS_BETA = { "Production": "Vercel (frontend)", "molari / beta": "Railway (backend)" };
+
+async function deploys() {
+  const headers = { Accept: "application/vnd.github+json", "User-Agent": "chequeo-beta" };
+  if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  const api = (ruta) => traer(`https://api.github.com/repos/${REPO}${ruta}`, { headers });
+
+  const { res, error } = await api("/deployments?per_page=50");
+  if (error || !res.ok) return aviso(`No se pudo consultar los deploys en GitHub (${error ?? res.status})`);
+  const lista = await res.json();
+  for (const [ambiente, nombre] of Object.entries(DEPLOYS_BETA)) {
+    const ultimo = lista.find((d) => d.environment === ambiente);
+    if (!ultimo) continue;
+    const st = await api(`/deployments/${ultimo.id}/statuses?per_page=1`);
+    const estado = st.res?.ok ? (await st.res.json())[0]?.state : undefined;
+    const sha = ultimo.sha.slice(0, 7);
+    if (estado === "failure" || estado === "error") falla(`Falló el último deploy de ${nombre} (${sha}): sigue corriendo la versión anterior`);
+    else if (estado === "success") ok(`Último deploy de ${nombre} exitoso (${sha})`);
+  }
+}
+
 // ── 2. Páginas, links internos y promesas falsas ────────────────────────────
 function textoVisible(html) {
   return html
@@ -184,6 +210,7 @@ async function navegador() {
 
 // ── Informe ────────────────────────────────────────────────────────────────
 await salud();
+await deploys();
 if (!SOLO_SALUD) {
   await paginas();
   await navegador();

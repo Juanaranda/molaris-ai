@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: read
+  deployments: read  # para saber si el último deploy falló
 
 concurrency:
   group: chequeo-beta-${{ github.event_name }}
@@ -35,16 +36,19 @@ jobs:
       # unos minutos en desplegar y esto daría falsas alarmas. El chequeo del
       # commit lo hace el job de abajo, cuando Railway avisa que terminó.
       - run: node scripts/chequeo-beta.mjs --solo-salud
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   completo:
     name: Chequeo completo de beta
-    # Deploys exitosos de beta: Vercel los reporta como "Production" (su rama
-    # de producción es beta) y Railway como "molari / beta". Los "Preview" son
-    # pushes a dev y no se chequean.
+    # Deploys de beta que terminaron, bien o mal: Vercel los reporta como
+    # "Production" (su rama de producción es beta) y Railway como "molari /
+    # beta". Los "Preview" son pushes a dev y no se chequean. Un deploy fallido
+    # también corre el chequeo: es justo el caso que hay que avisar (30/9).
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'deployment_status' &&
-       github.event.deployment_status.state == 'success' &&
+       contains(fromJSON('["success","failure","error"]'), github.event.deployment_status.state) &&
        (github.event.deployment.environment == 'Production' ||
         github.event.deployment.environment == 'molari / beta'))
     runs-on: ubuntu-latest
@@ -62,6 +66,7 @@ jobs:
       - run: npm i --no-save playwright@1 && npx playwright install --with-deps chromium
       - name: Chequeo
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Solo cuando avisa Railway se sabe qué commit debería servir el backend.
           BETA_SHA: ${{ github.event.deployment.environment == 'molari / beta' && github.event.deployment.sha || '' }}
         run: node scripts/chequeo-beta.mjs
