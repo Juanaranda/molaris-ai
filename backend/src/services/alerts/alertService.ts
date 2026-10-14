@@ -8,7 +8,15 @@ export type AlertKind =
   | "ai_fallback_used"
   | "ai_budget_exceeded"
   | "agent_disabled"
-  | "agent_enabled";
+  | "agent_enabled"
+  // Infraestructura (MOL-42): lo que el vigilante revisa cada pocos minutos.
+  | "db_unreachable"
+  | "db_recovered"
+  | "scheduler_stalled"
+  | "scheduler_recovered"
+  | "error_spike"
+  // Al arrancar: confirma cada deploy y sirve de prueba al configurar un canal.
+  | "backend_started";
 
 export type AlertSeverity = "info" | "warn" | "critical";
 
@@ -45,8 +53,20 @@ function actionFor(kind: AlertKind): string | null {
              `   Para subir el cap de esta clínica: ${dashboard} → Mi Clínica.`;
     case "agent_disabled":
       return `→ Reactivar cuando corresponda: ${dashboard}`;
+    case "db_unreachable":
+      // El 29/9 fue la cuota del plan gratis de Neon: lo primero a mirar.
+      return `→ Revisar el proyecto en Neon (console.neon.tech): si el cómputo está suspendido o sin cuota.\n` +
+             `   Cuando vuelva, si el backend no se recupera solo, Redeploy en Railway.`;
+    case "scheduler_stalled":
+      return `→ Recordatorios o confirmaciones pueden no estar saliendo.\n` +
+             `   Revisar los logs del backend en Railway; un Redeploy reinicia los schedulers.`;
+    case "error_spike":
+      return `→ Revisar los errores en Sentry o en los logs del backend en Railway.`;
     case "ai_fallback_used":
     case "agent_enabled":
+    case "db_recovered":
+    case "scheduler_recovered":
+    case "backend_started":
       return null; // informativas: no hay nada que hacer
   }
 }
@@ -69,6 +89,27 @@ async function sendWhatsAppAlert(text: string): Promise<void> {
   }
 }
 
+/**
+ * Telegram: no depende de tener la cuenta de Meta configurada, que es justo lo
+ * que dejaba las alertas solo en el log. Sin token o chat, no hace nada.
+ */
+async function sendTelegramAlert(text: string): Promise<void> {
+  const token = config.alerts.telegramToken;
+  const chatId = config.alerts.telegramChatId;
+  if (!token || !chatId) return;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) console.error("[Alert] Telegram respondió", res.status);
+  } catch (err) {
+    console.error("[Alert] Falló envío Telegram:", err instanceof Error ? err.message : err);
+  }
+}
+
 export async function triggerAlert(opts: AlertOptions): Promise<void> {
   const cooldown = opts.cooldownMs ?? DEFAULT_COOLDOWN_MS;
   const clinicId = typeof opts.detail?.clinicId === "string" ? opts.detail.clinicId : "global";
@@ -82,13 +123,14 @@ export async function triggerAlert(opts: AlertOptions): Promise<void> {
   lastSent.set(key, now);
 
   const action = actionFor(opts.kind);
+  const ambiente = config.alerts.ambiente ? ` · ${config.alerts.ambiente}` : "";
   const text =
-    `[molari.ai] ${opts.severity.toUpperCase()} — ${opts.kind}\n\n` +
+    `[molari.ai${ambiente}] ${opts.severity.toUpperCase()} — ${opts.kind}\n\n` +
     `${opts.message}\n` +
     (action ? `\n${action}\n` : "") +
     (opts.detail ? `\nDetalle: ${JSON.stringify(opts.detail).slice(0, 400)}` : "");
 
-  await sendWhatsAppAlert(text);
+  await Promise.all([sendWhatsAppAlert(text), sendTelegramAlert(text)]);
 }
 
 export function _resetAlertCooldowns(): void {

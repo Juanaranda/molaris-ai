@@ -113,6 +113,12 @@ export const config = {
     adminPhoneId: process.env.ALERT_WA_PHONE_ID ?? "",
     adminToken:   process.env.ALERT_WA_TOKEN   ?? "",
     adminPhone:   process.env.ALERT_WA_TO      ?? "",
+    // Telegram (MOL-42): gratis e instantáneo, no depende de tener Meta
+    // configurado. Bot creado con @BotFather; el chat es el de Juan con el bot.
+    telegramToken:  process.env.ALERT_TELEGRAM_BOT_TOKEN ?? "",
+    telegramChatId: process.env.ALERT_TELEGRAM_CHAT_ID   ?? "",
+    // Para que la alerta diga de dónde viene (beta, producción).
+    ambiente: process.env.ALERT_AMBIENTE ?? process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV ?? "local",
   },
   sentry: {
     // Sin DSN, Sentry queda apagado y no molesta en local (#58).
