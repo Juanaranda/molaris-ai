@@ -49,6 +49,7 @@ import { getOpenRouterCredits } from "./services/ai/creditsService";
 import { startRecoveryScheduler } from "./services/agent/agentRecovery";
 import { startConfirmScheduler } from "./services/booking/confirmScheduler";
 import { startVigilante, registrarRespuesta } from "./services/alerts/vigilante";
+import { triggerAlert } from "./services/alerts/alertService";
 
 const isProd = config.nodeEnv === "production";
 
@@ -235,4 +236,9 @@ app.listen({ port: config.port, host: "0.0.0.0" }, (err) => {
   startConfirmScheduler();
   startVigilante();
   if (config.sentry.dsn) console.log(`[Sentry] Activo — entorno "${config.sentry.environment}"`);
+  // Confirma cada deploy, y al configurar un canal de alertas es la prueba de
+  // que funciona: guardar variables en Railway reinicia el servicio (MOL-42).
+  const version = process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) ?? "local";
+  triggerAlert({ kind: "backend_started", severity: "info", message: `El backend arrancó con la versión ${version}.` })
+    .catch(() => {});
 });

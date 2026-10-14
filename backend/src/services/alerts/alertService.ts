@@ -14,7 +14,9 @@ export type AlertKind =
   | "db_recovered"
   | "scheduler_stalled"
   | "scheduler_recovered"
-  | "error_spike";
+  | "error_spike"
+  // Al arrancar: confirma cada deploy y sirve de prueba al configurar un canal.
+  | "backend_started";
 
 export type AlertSeverity = "info" | "warn" | "critical";
 
@@ -64,6 +66,7 @@ function actionFor(kind: AlertKind): string | null {
     case "agent_enabled":
     case "db_recovered":
     case "scheduler_recovered":
+    case "backend_started":
       return null; // informativas: no hay nada que hacer
   }
 }
