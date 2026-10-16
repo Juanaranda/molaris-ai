@@ -21,6 +21,9 @@ import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 import { AnalyticsPanel } from "@/components/dashboard/AnalyticsPanel";
 import { ConfigTab } from "@/components/dashboard/ConfigTab";
 import { DoctorView } from "@/components/dashboard/DoctorView";
+import { NavCelular } from "@/components/dashboard/NavCelular";
+import { Tabs } from "@/components/ui";
+import { seccionesDelPanel } from "@/lib/navegacion";
 import { InfoField, RoleBadge } from "@/components/dashboard/widgets";
 import type { Analytics, ClinicConfig, Tab } from "@/components/dashboard/types";
 import { TriangleAlert, X, Zap } from "lucide-react";
@@ -31,16 +34,16 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 export default function PartnersDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
-  const tabsRef = useRef<HTMLDivElement>(null);
 
   const [clinic, setClinic] = useState<ClinicData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("inicio");
-  // Al saltar a una pestaña desde un acceso rápido, en móvil puede quedar fuera
-  // de la parte visible de la barra y parece que no pasó nada.
+  // Al cambiar de sección desde la barra inferior del celular, la nueva tiene
+  // que empezar arriba: si no, se abre a la altura en que estaba la anterior.
+  const primeraCarga = useRef(true);
   useEffect(() => {
-    const activa = tabsRef.current?.querySelector<HTMLElement>("[data-tab-activa=\"true\"]");
-    activa?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+    if (primeraCarga.current) { primeraCarga.current = false; return; }
+    window.scrollTo({ top: 0 });
   }, [activeTab]);
   const [agendaAutoOpen, setAgendaAutoOpen] = useState(false);
   const [mpNotice, setMpNotice] = useState<"connected" | "error" | null>(null);
@@ -91,6 +94,7 @@ export default function PartnersDashboard() {
 
 
   const canEdit = user?.role === "ADMIN" || user?.role === "SUPERADMIN";
+  const secciones = seccionesDelPanel({ rol: user?.role, tipoCuenta: clinic?.accountType });
   const cfg = (clinic?.config as ClinicConfig) ?? {};
 
   const { vista, pedirCambioDeContrasena } = vistaDelPanel({
@@ -134,7 +138,8 @@ export default function PartnersDashboard() {
         </div>
       </nav>
 
-      <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-8 py-8 flex flex-col gap-6">
+      {/* pb-28 en el celular: espacio para la barra inferior fija (MOL-46). */}
+      <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-8 pt-8 pb-28 sm:pb-8 flex flex-col gap-6">
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
@@ -193,37 +198,14 @@ export default function PartnersDashboard() {
               </div>
             )}
 
-            {/* Tabs — en móvil no caben todas y hay que deslizar. El degradado del
-                borde derecho es la única pista de que hay más: sin él, "Equipo",
-                "Inventario" y "Mi Clínica" son invisibles en un teléfono. */}
-            <div className="relative -mx-4 sm:mx-0">
-              <div
-                ref={tabsRef}
-                className="overflow-x-auto px-4 sm:px-0 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              >
-              <div className="flex border-b border-gray-200 gap-1 min-w-max sm:min-w-0">
-                {(([
-                  ["inicio", "Inicio"], ["conversaciones", "Conversaciones"], ["agenda", "Agenda"], ["analytics", "Analítica"],
-                  ["patients", "Pacientes"], ["bookings", "Citas"], ["perfil", "Mi Perfil"],
-                  // Modo solo (#69): un doctor independiente no tiene equipo ni inventario de clínica
-                  ...(user && user.role !== "USER" && clinic?.accountType !== "solo" ? [["equipo", "Equipo"]] as [Tab, string][] : []),
-                  ...(clinic?.accountType !== "solo" ? [["inventario", "Inventario"]] as [Tab, string][] : []),
-                  ["clinica", clinic?.accountType === "solo" ? "Mi consulta" : "Mi Clínica"], ["config", "Configuración"],
-                ] as [Tab, string][])).map(([tab, label]) => (
-                  <button key={tab} onClick={() => setActiveTab(tab)}
-                    data-tab-activa={activeTab === tab}
-                    className={`px-3.5 sm:px-4 py-3 sm:py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
-                      activeTab === tab
-                        ? "border-blue-600 text-blue-600"
-                        : "border-transparent text-gray-500 hover:text-gray-700"
-                    }`}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-              </div>
-              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-10 bg-gradient-to-l from-[#FDFCFB] to-transparent sm:hidden" />
-            </div>
+            {/* Navegación (MOL-46). En escritorio, todas las secciones como
+                pestañas accesibles. En el celular, una barra inferior con las
+                cuatro de todos los días y "Más": antes eran once pestañas que
+                había que deslizar de lado para encontrar Pacientes. */}
+            <Tabs className="hidden sm:flex" label="Secciones del panel"
+              items={secciones.map((s) => ({ id: s.id, label: s.label }))}
+              value={activeTab} onChange={(id) => setActiveTab(id as Tab)} />
+            <NavCelular secciones={secciones} activa={activeTab} onChange={setActiveTab} />
 
             {/* ══ Estado de verificación (KYC #66) ═══════════════════════════ */}
             {clinic?.verificationStatus === "REJECTED" && (
