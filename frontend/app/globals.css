@@ -34,19 +34,55 @@
   --color-gray-100: #F7F5F1;   /* --surface */
   --color-gray-200: #E5E0D9;   /* --border */
   --color-gray-300: #D5CEC3;   /* intermedio hacia el gris de texto */
+
+  /* ── Tokens semánticos (MOL-46) ─────────────────────────────────────────
+     Por qué: el panel tiene 173 colores escritos a mano porque la paleta de
+     marca vivía solo en variables CSS que Tailwind no convierte en clases.
+     Con estos tokens existen `text-ink`, `bg-brand`, `border-line`,
+     `bg-accent-soft`… y un color de marca se cambia en un solo lugar.
+     Nombran el USO, no el tono: "accent" es lo que pide acción o urge. */
+  --color-ink:          #0C1B26;  /* texto principal */
+  --color-ink-muted:    #56656F;  /* texto secundario: 4,5:1 también sobre ground */
+  --color-ground:       #F7F5F1;  /* fondo de la app */
+  --color-surface:      #FFFFFF;  /* tarjetas y paneles */
+  --color-line:         #E5E0D9;  /* bordes y separadores */
+  --color-line-soft:    #F0ECE6;  /* separadores dentro de una tarjeta */
+
+  --color-brand:        #1A5C7A;  /* acción principal, enlaces, selección */
+  --color-brand-strong: #0B2F42;  /* títulos, hover de brand */
+  --color-brand-soft:   #E8F3F7;  /* fondo de lo seleccionado */
+  --color-brand-ink:    #145069;  /* texto sobre brand-soft */
+
+  --color-accent:       #D95F45;  /* coral: lo que espera respuesta */
+  --color-accent-soft:  #FBEAE5;
+  --color-accent-ink:   #9A3A25;  /* texto sobre accent-soft (4,5:1) */
+
+  --color-ok:           #1F6B4B;
+  --color-ok-soft:      #E7F3EC;
+  --color-warn:         #7A5200;
+  --color-warn-soft:    #FFF4E0;
+  --color-danger:       #B3261E;
+  --color-danger-soft:  #FDECEA;
+
+  /* Radios: controles (botones, campos) y contenedores (tarjetas). */
+  --radius-control: 10px;
+  --radius-card:    16px;
 }
 
+/* Alias de los nombres antiguos: el código que ya usa var(--teal-mid) sigue
+   igual, pero el valor sale de un solo lugar. --ink-muted se oscureció un
+   poco (#607281 → #56656F) porque sobre el fondo crema no llegaba a 4,5:1. */
 :root {
-  --ink: #0C1B26;
-  --ink-muted: #607281;
-  --surface: #F7F5F1;
-  --surface-white: #FDFCFB;
-  --teal-dark: #0B2F42;
-  --teal-mid: #1A5C7A;
-  --teal-light: #E8F3F7;
-  --coral: #D95F45;
-  --coral-light: #FDECEA;
-  --border: #E5E0D9;
+  --ink: var(--color-ink);
+  --ink-muted: var(--color-ink-muted);
+  --surface: var(--color-ground);
+  --surface-white: var(--color-gray-50);
+  --teal-dark: var(--color-brand-strong);
+  --teal-mid: var(--color-brand);
+  --teal-light: var(--color-brand-soft);
+  --coral: var(--color-accent);
+  --coral-light: var(--color-danger-soft);
+  --border: var(--color-line);
 }
 
 body {
