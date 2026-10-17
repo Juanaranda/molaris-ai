@@ -4,13 +4,13 @@ import { getAIResponse } from "../services/ai/claudeService";
 import { config } from "../config/env";
 import { datosDeSolicitud } from "../services/booking/confirmation";
 import { avisarProfesional } from "../services/booking/notifyProfessional";
+import { avisoPrivacidadWhatsApp } from "../lib/avisoPrivacidad";
 
-function twiml(message: string): string {
-  const safe = message
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-  return `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${safe}</Message></Response>`;
+// Varios mensajes en una respuesta: Twilio los envía en orden (aviso de
+// privacidad + respuesta en una conversación nueva).
+export function twiml(...mensajes: string[]): string {
+  const escapar = (m: string) => m.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return `<?xml version="1.0" encoding="UTF-8"?><Response>${mensajes.map((m) => `<Message>${escapar(m)}</Message>`).join("")}</Response>`;
 }
 
 export async function webhookRoutes(app: FastifyInstance) {
@@ -104,6 +104,8 @@ export async function webhookRoutes(app: FastifyInstance) {
         },
         orderBy: { createdAt: "desc" },
       });
+      // Conversación nueva → aviso de privacidad antes de la respuesta (MOL-11).
+      let aviso: string | null = null;
       if (!session) {
         session = await prisma.session.create({
           data: {
@@ -112,6 +114,14 @@ export async function webhookRoutes(app: FastifyInstance) {
             channel: "whatsapp",
           },
         });
+        // Si el aviso falla, el paciente igual recibe su respuesta.
+        try {
+          aviso = avisoPrivacidadWhatsApp(clinic.name, config.frontendUrl);
+          await prisma.message.create({ data: { sessionId: session.id, role: "assistant", content: aviso } });
+        } catch (err) {
+          console.error("[Twilio webhook] Error preparando aviso de privacidad:", err);
+          aviso = null;
+        }
       }
 
       // Guardar mensaje entrante
@@ -238,7 +248,7 @@ export async function webhookRoutes(app: FastifyInstance) {
         console.error("[Webhook] Error AI:", err?.message ?? err);
       }
 
-      return reply.type("text/xml").send(twiml(aiReply));
+      return reply.type("text/xml").send(aviso ? twiml(aviso, aiReply) : twiml(aiReply));
     },
   );
 }

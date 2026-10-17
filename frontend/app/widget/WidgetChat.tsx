@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { AvailabilityPicker } from "@/components/AvailabilityPicker";
 import { Calendar, Hand } from "lucide-react";
+import { AvisoPrivacidadChat } from "@/components/AvisoPrivacidadChat";
 
 interface Message {
   role: "user" | "assistant";
@@ -121,6 +122,8 @@ export function WidgetChat() {
 
       {/* Messages */}
       <div style={{ flex: 1, overflowY: "auto", padding: "12px 12px 0", display: "flex", flexDirection: "column", gap: 8 }}>
+        {/* Antes del primer mensaje: que responde una IA y dónde se procesa (MOL-11). */}
+        <AvisoPrivacidadChat nombreClinica={clinicName || "la clínica"} />
         {messages.map((msg, i) => {
           // Separar texto del link de agendamiento si viene en el mensaje
           const bookingMatch = msg.role === "assistant"
