@@ -47,6 +47,17 @@ export function fechaLocal(d = new Date()): string {
   return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
+/**
+ * Saludo según la hora local. Antes decía siempre "Buenos dias" (sin tilde),
+ * también a las siete de la tarde.
+ */
+export function saludo(d = new Date()): string {
+  const h = d.getHours();
+  if (h >= 5 && h < 12) return "Buenos días";
+  if (h >= 12 && h < 20) return "Buenas tardes";
+  return "Buenas noches";
+}
+
 /** Minutos desde medianoche de una hora "HH:MM" (o "H:MM"); null si no se entiende. */
 export function minutosDeHora(hora: string): number | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec(hora.trim());

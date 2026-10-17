@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AvisoBorrador } from "@/components/legal/AvisoBorrador";
 
 export const metadata = { title: "Política de Privacidad — molari.ai" };
 
@@ -14,6 +15,8 @@ export default function PrivacidadPage() {
       </nav>
 
       <div className="max-w-3xl mx-auto px-6 py-12">
+        <AvisoBorrador />
+
         <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--coral, #D95F45)" }}>
           Legal
         </p>

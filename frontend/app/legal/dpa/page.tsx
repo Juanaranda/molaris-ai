@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AvisoBorrador } from "@/components/legal/AvisoBorrador";
 
 export const metadata = { title: "Contrato de Tratamiento de Datos (DPA) — molari.ai" };
 
@@ -16,12 +17,7 @@ export default function DpaPage() {
       </nav>
 
       <div className="max-w-3xl mx-auto px-6 py-12">
-        {/* Estado: borrador hasta validación legal */}
-        <div className="mb-8 rounded-xl border px-4 py-3 text-sm" style={{ borderColor: "#E0B400", backgroundColor: "#FFF8E1", color: "#7A5C00" }}>
-          <strong>BORRADOR — pendiente de validación legal.</strong> Este documento es una plantilla
-          operativa y no constituye asesoría legal. Debe ser revisado por un abogado antes de su uso
-          contractual definitivo.
-        </div>
+        <AvisoBorrador />
 
         <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--coral, #D95F45)" }}>
           Legal

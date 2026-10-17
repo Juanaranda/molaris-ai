@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { AvailabilityPicker } from "@/components/AvailabilityPicker";
+import { AvisoPrivacidadChat } from "@/components/AvisoPrivacidadChat";
 
 interface Message {
   role: "user" | "assistant";
@@ -184,6 +185,8 @@ export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica 
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          {/* Lo que se escribe acá también lo procesa la IA (MOL-11). */}
+          <AvisoPrivacidadChat nombreClinica={displayClinicName} />
           {messages.map((msg, i) => (
             <div key={i}>
               <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>

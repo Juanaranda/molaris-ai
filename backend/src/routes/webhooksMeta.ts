@@ -18,6 +18,7 @@ import { getAIResponse } from "../services/ai/claudeService";
 import { sendMetaMessage, markMetaMessageRead } from "../services/whatsapp/metaService";
 import { recordAgentSuccess, recordAgentFailure } from "../services/agent/agentHealth";
 import { isDuplicateWebhookEvent } from "../lib/webhookDedup";
+import { avisoPrivacidadWhatsApp } from "../lib/avisoPrivacidad";
 
 interface MetaWebhookBody {
   object: string;
@@ -142,6 +143,17 @@ export async function webhookMetaRoutes(app: FastifyInstance) {
             session = await prisma.session.create({
               data: { clinicId: clinic.id, patientId: patient.id, channel: "whatsapp" },
             });
+            // Conversación nueva: antes de la primera respuesta, el aviso de
+            // que responde una IA y de dónde se procesan los mensajes (MOL-11).
+            // Todo dentro del try: si el aviso falla, el paciente igual recibe
+            // su respuesta.
+            try {
+              const aviso = avisoPrivacidadWhatsApp(clinic.name, config.frontendUrl);
+              await sendMetaMessage(phoneId, clinic.waToken, fromPhone, aviso);
+              await prisma.message.create({ data: { sessionId: session.id, role: "assistant", content: aviso } });
+            } catch (err: unknown) {
+              console.error("[Meta webhook] Error enviando aviso de privacidad:", err);
+            }
           }
 
           await prisma.message.create({

@@ -28,6 +28,7 @@ const {
 
 vi.mock("../config/env", () => ({
   config: {
+    frontendUrl: "https://beta.molari.test",
     meta: {
       verifyToken: VERIFY_TOKEN,
       appSecret:   APP_SECRET,
@@ -214,6 +215,11 @@ describe("POST /webhooks/meta — validación HMAC", () => {
     // Verificar que el mensaje del paciente se procesó y se envió respuesta
     await new Promise((r) => setTimeout(r, 30)); // esperar al async post-200
     expect(mockMarkRead).toHaveBeenCalledWith("PHONE_123", "TOKEN_X", "msg-1");
-    expect(mockSendMeta).toHaveBeenCalled();
+    // Conversación nueva: primero el aviso de que responde una IA (MOL-11),
+    // después la respuesta.
+    expect(mockSendMeta).toHaveBeenCalledTimes(2);
+    expect(mockSendMeta.mock.calls[0][3]).toContain("asistente de inteligencia artificial de Test Clinic");
+    expect(mockSendMeta.mock.calls[0][3]).toContain("https://beta.molari.test/legal/privacidad");
+    expect(mockSendMeta.mock.calls[1][3]).not.toContain("inteligencia artificial");
   });
 });
