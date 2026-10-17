@@ -6,6 +6,7 @@
  */
 
 import { esperaConfirmacion } from "@/lib/solicitudes";
+import { Badge, type TonoBadge } from "@/components/ui";
 
 /** Formato corto de pesos: $1.2M / $850k. Para tablas, no para montos exactos. */
 export const fmtCLP = (n: number) =>
@@ -18,12 +19,15 @@ export const MONTH_LABELS: Record<string, string> = {
 export const DOW_LABELS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
 
 export function RoleBadge({ role }: { role: string }) {
-  const styles: Record<string, string> = {
-    SUPERADMIN: "bg-purple-100 text-purple-700",
-    ADMIN: "bg-blue-100 text-blue-700",
-    USER: "bg-gray-100 text-gray-600",
+  // En español y con el nombre que usa el panel (Usuario / Admin): antes
+  // mostraba el valor interno, "USER", en la pantalla del doctor.
+  const roles: Record<string, { texto: string; tono: TonoBadge }> = {
+    SUPERADMIN: { texto: "Superadmin", tono: "brand" },
+    ADMIN: { texto: "Admin", tono: "brand" },
+    USER: { texto: "Usuario", tono: "neutral" },
   };
-  return <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${styles[role] ?? styles.USER}`}>{role}</span>;
+  const r = roles[role] ?? { texto: role, tono: "neutral" as TonoBadge };
+  return <Badge tone={r.tono}>{r.texto}</Badge>;
 }
 
 export function IntentBadge({ intent }: { intent: string | null }) {
@@ -89,26 +93,16 @@ export function StatusPill({ status, requestedVia }: { status: string; requested
   // Una hora que el agente dejó pedida NO es lo mismo que una cita que alguien
   // creó a mano y está esperando al paciente: la primera necesita que un humano
   // decida, y si se ven iguales el doctor cree que tiene la agenda cerrada.
-  const esperandoConfirmacion = esperaConfirmacion({ status, requestedVia });
-
-  const map: Record<string, string> = {
-    confirmed: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    pending:   "bg-amber-50 text-amber-700 border-amber-100",
-    cancelled: "bg-gray-50 text-gray-400 border-gray-100",
+  // Con el Badge de la base (MOL-46): antes era texto de 10px y "Cancelada"
+  // iba en gris claro sobre gris, casi ilegible. Por confirmar va en coral,
+  // el color de "esto espera tu respuesta" en todo el panel.
+  if (esperaConfirmacion({ status, requestedVia })) return <Badge tone="accent">Por confirmar</Badge>;
+  const estados: Record<string, { tono: TonoBadge; texto: string }> = {
+    confirmed: { tono: "ok", texto: "Confirmada" },
+    pending:   { tono: "warn", texto: "Pendiente" },
+    cancelled: { tono: "neutral", texto: "Cancelada" },
   };
-  const labels: Record<string, string> = { confirmed: "Confirmada", pending: "Pendiente", cancelled: "Cancelada" };
-
-  if (esperandoConfirmacion) {
-    return (
-      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-100 text-amber-900 border-amber-300">
-        Por confirmar
-      </span>
-    );
-  }
-  return (
-    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${map[status] ?? map.pending}`}>
-      {labels[status] ?? status}
-    </span>
-  );
+  const e = estados[status] ?? { tono: "warn" as TonoBadge, texto: status };
+  return <Badge tone={e.tono}>{e.texto}</Badge>;
 }
 

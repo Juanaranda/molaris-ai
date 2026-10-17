@@ -6,9 +6,21 @@ import {
   fetchAgendaDelDia,
   minutosDeHora,
   proximaCita,
+  saludo,
   vistaDelPanel,
   type AgendaBooking,
 } from "@/lib/doctorView";
+
+describe("saludo", () => {
+  const a = (h: number) => new Date(2026, 9, 17, h, 30);
+  it("días en la mañana, tardes después del mediodía, noches desde las 20", () => {
+    expect(saludo(a(8))).toBe("Buenos días");
+    expect(saludo(a(12))).toBe("Buenas tardes");
+    expect(saludo(a(19))).toBe("Buenas tardes");
+    expect(saludo(a(20))).toBe("Buenas noches");
+    expect(saludo(a(2))).toBe("Buenas noches");
+  });
+});
 
 // El token sale de localStorage, que en jsdom no está garantizado: se fija acá
 // para que los tests de fetch prueben la URL y el manejo de errores, no eso.
