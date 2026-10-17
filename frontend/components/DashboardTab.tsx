@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { getToken } from "@/lib/auth";
 import { DentalQuoteTab } from "./DentalQuoteTab";
 import { PatientAutocomplete } from "./PatientAutocomplete";
+import { Button } from "./ui";
 import {
   Bot, Calendar, Camera, Circle, ClipboardList, DollarSign, FlaskConical, Globe,
   Hourglass, MessageCircle, Stethoscope, TrendingUp, Users, X, type LucideIcon,
@@ -567,55 +568,14 @@ export function DashboardTab({
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Quick actions */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          {
-            label: "Registrar paciente",
-            icon: (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-                <path d="M16 11c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z" strokeWidth={0} fill="currentColor" opacity="0"/>
-                <circle cx="9" cy="7" r="3.5" />
-                <path d="M2 20c0-3.31 3.13-6 7-6s7 2.69 7 6" />
-                <path d="M19 8v4M17 10h4" />
-              </svg>
-            ),
-            color: "from-violet-500 to-purple-600",
-            onClick: onNewPatient ?? (() => {}),
-            disabled: !onNewPatient,
-          },
-          {
-            label: "Agendar hora",
-            icon: (
-              <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-              </svg>
-            ),
-            color: "from-[#1A5C7A] to-[#0e4560]",
-            onClick: onNewBooking ?? (() => {}),
-            disabled: !onNewBooking,
-          },
-          {
-            label: "Hacer presupuesto",
-            icon: (
-              <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
-              </svg>
-            ),
-            color: "from-emerald-500 to-teal-600",
-            onClick: () => setShowQuote(true),
-            disabled: false,
-          },
-        ].map(({ label, icon, color, onClick, disabled }) => (
-          <button
-            key={label}
-            onClick={onClick}
-            disabled={disabled}
-            className={`flex flex-col items-center justify-center gap-2 py-4 px-3 rounded-2xl text-white bg-gradient-to-br ${color} shadow-sm hover:shadow-md active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-default`}>
-            <div className="opacity-90">{icon}</div>
-            <span className="text-[11px] font-bold text-center leading-tight">{label}</span>
-          </button>
-        ))}
+      {/* Acciones rápidas. Eran tres tarjetas con degradados (morado, azul,
+          verde) que se leían como plantilla y empujaban hacia abajo lo del día
+          (MOL-46). Ahora son botones normales: una acción principal y dos
+          secundarias. */}
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={onNewBooking} disabled={!onNewBooking}>+ Agendar hora</Button>
+        <Button variant="secondary" onClick={onNewPatient} disabled={!onNewPatient}>Registrar paciente</Button>
+        <Button variant="secondary" onClick={() => setShowQuote(true)}>Hacer presupuesto</Button>
       </div>
 
       {/* Header */}

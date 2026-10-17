@@ -18,6 +18,9 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#FDFCFB",
+  // Sin esto, env(safe-area-inset-bottom) vale 0 en el iPhone y la barra
+  // inferior del panel queda encima de la barrita de inicio (MOL-46).
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
