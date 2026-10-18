@@ -203,6 +203,7 @@ export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica 
               {msg.showPicker && msg.role === "assistant" && (
                 <div className="mt-2">
                   <AvailabilityPicker
+                    clinicSlug={clinicSlug}
                     service={context?.serviceInterest}
                     color="#0284C7"
                     onSelect={handleSlotSelected}

@@ -18,6 +18,8 @@ interface DayAvailability {
 }
 
 interface Props {
+  /** Sin la clínica el backend responde 400 y el selector queda en "Cerrado". */
+  clinicSlug: string;
   service?: string;
   doctorFilter?: string;
   preferredDate?: string;
@@ -48,7 +50,7 @@ function weekOffsetForDate(targetDate: string): number {
   return Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
 }
 
-export function AvailabilityPicker({ service, doctorFilter, preferredDate, color = "#0891B2", onSelect, onDismiss }: Props) {
+export function AvailabilityPicker({ clinicSlug, service, doctorFilter, preferredDate, color = "#0891B2", onSelect, onDismiss }: Props) {
   const initialOffset = preferredDate ? weekOffsetForDate(preferredDate) : 0;
   const [weekOffset, setWeekOffset] = useState(Math.max(0, initialOffset));
   const [days, setDays] = useState<DayAvailability[]>([]);
@@ -65,7 +67,7 @@ export function AvailabilityPicker({ service, doctorFilter, preferredDate, color
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setSelectedSlot(null);
-    const params = new URLSearchParams({ weekStart });
+    const params = new URLSearchParams({ slug: clinicSlug, weekStart });
     if (service) params.set("service", service);
     if (doctorFilter) params.set("doctor", doctorFilter);
 
@@ -90,7 +92,7 @@ export function AvailabilityPicker({ service, doctorFilter, preferredDate, color
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
 
     return () => controller.abort();
-  }, [weekStart, service, doctorFilter, preferredDate]);
+  }, [clinicSlug, weekStart, service, doctorFilter, preferredDate]);
 
   const currentDay = days[selectedDay];
 

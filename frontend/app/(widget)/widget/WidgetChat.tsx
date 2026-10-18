@@ -164,6 +164,7 @@ export function WidgetChat() {
             {msg.showPicker && msg.role === "assistant" && (
               <div style={{ marginTop: 6 }}>
                 <AvailabilityPicker
+                  clinicSlug={clinicSlug}
                   service={context?.serviceInterest}
                   color={color}
                   onSelect={handleSlotSelected}
