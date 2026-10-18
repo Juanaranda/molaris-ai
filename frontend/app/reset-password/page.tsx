@@ -15,10 +15,10 @@ function PasswordInput({ value, onChange, placeholder, style }: {
     <div className="relative">
       <input type={show ? "text" : "password"} value={value} onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder} required
-        className="w-full px-4 py-3 pr-16 rounded-xl text-sm outline-none" style={style} />
+        className="w-full px-4 py-3 pr-20 rounded-xl text-sm outline-none" style={style} />
       <button type="button" onClick={() => setShow((s) => !s)}
         aria-label={show ? "Ocultar contraseña" : "Mostrar contraseña"}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold hover:opacity-70 transition"
+        className="absolute right-0 top-1/2 -translate-y-1/2 min-h-11 px-3 text-xs font-semibold hover:opacity-70 transition"
         style={{ color: "#607281" }}>
         {show ? "Ocultar" : "Mostrar"}
       </button>
@@ -63,7 +63,7 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F7F5F1" }}>
       <nav className="flex items-center justify-between px-8 py-5 border-b" style={{ backgroundColor: "#FDFCFB", borderColor: "#E5E0D9" }}>
         <Link href="/"><Image src="/logo.svg" alt="molari.ai" width={140} height={49} style={{ height: "auto" }} preload /></Link>
-        <Link href="/login" className="text-sm font-medium" style={{ color: "#607281" }}>Iniciar sesión</Link>
+        <Link href="/login" className="inline-flex items-center min-h-11 text-sm font-medium" style={{ color: "#607281" }}>Iniciar sesión</Link>
       </nav>
 
       <div className="flex-1 flex items-center justify-center px-4 py-12">

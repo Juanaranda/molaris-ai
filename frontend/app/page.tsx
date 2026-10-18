@@ -1032,8 +1032,8 @@ export default function Home() {
         <div className="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <span>© {new Date().getFullYear()} molari.ai — Santiago, Chile</span>
           <div className="flex items-center gap-4">
-            <Link href="/legal/terminos" className="hover:text-gray-900 transition-colors">Términos y condiciones</Link>
-            <Link href="/legal/privacidad" className="hover:text-gray-900 transition-colors">Privacidad</Link>
+            <Link href="/legal/terminos" className="inline-flex items-center min-h-11 hover:text-gray-900 transition-colors">Términos y condiciones</Link>
+            <Link href="/legal/privacidad" className="inline-flex items-center min-h-11 hover:text-gray-900 transition-colors">Privacidad</Link>
           </div>
         </div>
       </footer>

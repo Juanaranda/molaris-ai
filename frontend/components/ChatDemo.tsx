@@ -230,12 +230,12 @@ export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica 
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
             placeholder="Escribe tu consulta..."
-            className="flex-1 text-sm border border-gray-200 rounded-full px-4 py-2 focus:outline-none focus:border-sky-400"
+            className="flex-1 min-h-11 text-base border border-gray-200 rounded-full px-4 py-2 focus:outline-none focus:border-sky-400"
           />
           <button
             onClick={() => sendMessage()}
             disabled={loading || !input.trim()}
-            className="bg-sky-600 text-white text-sm font-medium px-4 py-2 rounded-full hover:bg-sky-700 disabled:opacity-40 transition-colors"
+            className="min-h-11 bg-sky-600 text-white text-sm font-medium px-4 py-2 rounded-full hover:bg-sky-700 disabled:opacity-40 transition-colors"
           >
             Enviar
           </button>

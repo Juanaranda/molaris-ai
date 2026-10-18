@@ -30,8 +30,8 @@ export default function PrivacidadPage() {
         <PrivacyContent />
 
         <div className="mt-12 pt-8 border-t flex flex-wrap gap-4 text-sm" style={{ borderColor: "#E5E0D9", color: "var(--ink-muted, #607281)" }}>
-          <Link href="/legal/terminos" className="underline underline-offset-2 hover:opacity-70">Términos y Condiciones</Link>
-          <Link href="/" className="underline underline-offset-2 hover:opacity-70">Volver al inicio</Link>
+          <Link href="/legal/terminos" className="inline-flex items-center min-h-11 underline underline-offset-2 hover:opacity-70">Términos y Condiciones</Link>
+          <Link href="/" className="inline-flex items-center min-h-11 underline underline-offset-2 hover:opacity-70">Volver al inicio</Link>
         </div>
       </div>
     </div>

@@ -214,16 +214,17 @@ export function WidgetChat() {
           onKeyDown={(e) => e.key === "Enter" && sendMessage()}
           placeholder="Escribe tu consulta..."
           style={{
-            flex: 1, border: "1px solid #e2e8f0", borderRadius: 20, padding: "8px 14px",
-            fontSize: 13, outline: "none", fontFamily: "inherit"
+            // 44px de alto y 16px de letra: con menos, el iPhone hace zoom al escribir.
+            flex: 1, minHeight: 44, border: "1px solid #e2e8f0", borderRadius: 22, padding: "8px 14px",
+            fontSize: 16, outline: "none", fontFamily: "inherit"
           }}
         />
         <button
           onClick={sendMessage}
           disabled={loading || !input.trim()}
           style={{
-            background: color, color: "#fff", border: "none", borderRadius: 20,
-            padding: "8px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+            background: color, color: "#fff", border: "none", borderRadius: 22,
+            minHeight: 44, padding: "8px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
             opacity: loading || !input.trim() ? 0.4 : 1
           }}
         >

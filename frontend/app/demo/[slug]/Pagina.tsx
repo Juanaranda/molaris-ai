@@ -33,7 +33,7 @@ export default function DemoPage({ params }: { params: Promise<{ slug: string }>
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "var(--surface, #F7F5F1)" }}>
       <nav className="bg-white border-b px-6 py-4 flex items-center justify-between" style={{ borderColor: "#E5E0D9" }}>
-        <Link href="/" className="text-sm font-semibold hover:opacity-70 transition-opacity" style={{ color: "var(--teal-dark, #0B2F42)" }}>
+        <Link href="/" className="inline-flex items-center min-h-11 text-sm font-semibold hover:opacity-70 transition-opacity" style={{ color: "var(--teal-dark, #0B2F42)" }}>
           molari.ai
         </Link>
         <div className="flex items-center gap-4">
@@ -41,7 +41,7 @@ export default function DemoPage({ params }: { params: Promise<{ slug: string }>
             Demo en vivo
           </span>
           <Link href="/partners/dashboard"
-            className="text-xs font-semibold px-3 py-1.5 rounded-full transition-colors hover:opacity-80"
+            className="inline-flex items-center min-h-11 text-xs font-semibold px-4 rounded-full transition-colors hover:opacity-80"
             style={{ backgroundColor: "var(--teal-dark, #0B2F42)", color: "white" }}>
             Mi panel
           </Link>
