@@ -1,29 +1,18 @@
-import crypto from "crypto";
 import prisma from "../../config/prisma";
-import { config } from "../../config/env";
 import { sendMolariEmail } from "../email/molariEmails";
+import {
+  CODE_TTL_MIN, MAX_ATTEMPTS, RESEND_COOLDOWN_SEC,
+  generarCodigo, hashCodigo, codigoCoincide, esperaParaReenviar,
+} from "./codigoVerificacion";
+import { marcarContactoVerificado } from "./contactoVerificado";
 
 /**
- * Verificación de correo por código de 6 dígitos (#66).
- *
- * El código nunca se guarda en claro: se almacena un HMAC-SHA256 con el
- * jwtSecret. Con solo un millón de combinaciones posibles, lo que protege la
- * cuenta no es el largo del código sino el límite de intentos y la expiración
- * — por eso ambos son parte del contrato, no un extra.
+ * Verificación de correo por código de 6 dígitos (#66). Lo común con la
+ * verificación por teléfono (hash, intentos, expiración) vive en
+ * codigoVerificacion.ts.
  */
 
-export const CODE_TTL_MIN = 15;
-export const MAX_ATTEMPTS = 5;
-export const RESEND_COOLDOWN_SEC = 60;
-
-function hashCode(code: string): string {
-  return crypto.createHmac("sha256", config.jwtSecret).update(code).digest("hex");
-}
-
-function generateCode(): string {
-  // randomInt es criptográficamente seguro; Math.random() no serviría acá.
-  return String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
-}
+export { CODE_TTL_MIN, MAX_ATTEMPTS, RESEND_COOLDOWN_SEC };
 
 export type IssueResult =
   | { ok: true; expiresAt: Date }
@@ -41,20 +30,16 @@ export async function issueVerificationCode(userId: string): Promise<IssueResult
   if (!user || !user.active) return { ok: false, reason: "not_found" };
   if (user.emailVerifiedAt) return { ok: false, reason: "already_verified" };
 
-  if (user.emailVerifySentAt) {
-    const elapsedSec = (Date.now() - user.emailVerifySentAt.getTime()) / 1000;
-    if (elapsedSec < RESEND_COOLDOWN_SEC) {
-      return { ok: false, reason: "cooldown", retryInSec: Math.ceil(RESEND_COOLDOWN_SEC - elapsedSec) };
-    }
-  }
+  const espera = esperaParaReenviar(user.emailVerifySentAt);
+  if (espera > 0) return { ok: false, reason: "cooldown", retryInSec: espera };
 
-  const code = generateCode();
+  const code = generarCodigo();
   const expiresAt = new Date(Date.now() + CODE_TTL_MIN * 60_000);
 
   await prisma.partnerUser.update({
     where: { id: user.id },
     data: {
-      emailVerifyCodeHash: hashCode(code),
+      emailVerifyCodeHash: hashCodigo(code),
       emailVerifyExpiresAt: expiresAt,
       emailVerifyAttempts: 0,
       emailVerifySentAt: new Date(),
@@ -98,13 +83,7 @@ export async function verifyEmailCode(userId: string, code: string): Promise<Ver
   if (user.emailVerifyExpiresAt.getTime() < Date.now()) return { ok: false, reason: "expired" };
   if (user.emailVerifyAttempts >= MAX_ATTEMPTS) return { ok: false, reason: "too_many_attempts" };
 
-  const given = hashCode(code.trim());
-  const expected = user.emailVerifyCodeHash;
-  // timingSafeEqual exige buffers del mismo largo; ambos son hex de sha256, así
-  // que el largo siempre calza — pero se compara igual para no filtrar por tiempo.
-  const match =
-    given.length === expected.length &&
-    crypto.timingSafeEqual(Buffer.from(given, "hex"), Buffer.from(expected, "hex"));
+  const match = codigoCoincide(code, user.emailVerifyCodeHash);
 
   if (!match) {
     const updated = await prisma.partnerUser.update({
@@ -127,6 +106,7 @@ export async function verifyEmailCode(userId: string, code: string): Promise<Ver
       emailVerifyAttempts: 0,
     },
   });
+  await marcarContactoVerificado(user.id);
 
   return { ok: true };
 }

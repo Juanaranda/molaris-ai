@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
 import { config } from "../config/env";
+import { verificacionPendiente, RESPUESTA_VERIFICACION_PENDIENTE } from "../services/auth/contactoVerificado";
 
 /**
  * Endpoints de configuración de integraciones externas por clínica.
@@ -311,6 +312,12 @@ export async function integrationRoutes(app: FastifyInstance) {
     if (!g.ok) return reply.status(g.status).send({ error: g.error });
 
     const { phoneId, token } = req.body ?? {};
+
+    // Conectar exige la cuenta verificada (MOL-52); desconectar, no.
+    const conecta = (phoneId !== undefined && phoneId !== null) || (token !== undefined && token !== null);
+    if (conecta && g.payload.role !== "SUPERADMIN" && await verificacionPendiente(req.params.id)) {
+      return reply.status(403).send(RESPUESTA_VERIFICACION_PENDIENTE);
+    }
 
     if (phoneId !== undefined && phoneId !== null) {
       if (typeof phoneId !== "string" || !/^\d{6,}$/.test(phoneId.trim())) {

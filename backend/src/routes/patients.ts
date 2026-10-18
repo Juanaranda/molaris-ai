@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import Papa from "papaparse";
 import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
+import { verificacionPendiente, RESPUESTA_VERIFICACION_PENDIENTE } from "../services/auth/contactoVerificado";
 
 /* ── CSV parser (papaparse) ──────────────────────────────────────────── */
 // Devuelve filas como Record<headerLowercased, valor>, descartando filas vacías.
@@ -394,6 +395,7 @@ export async function patientsRoutes(app: FastifyInstance) {
     try { payload = verifyToken(req.headers.authorization); }
     catch { return reply.status(401).send({ error: "No autorizado" }); }
     if (!payload.clinicId) return reply.status(403).send({ error: "Sin clínica asignada" });
+    if (await verificacionPendiente(payload.clinicId)) return reply.status(403).send(RESPUESTA_VERIFICACION_PENDIENTE);
 
     const { name, rut, phone, email } = req.body ?? {};
     if (!name || typeof name !== "string" || !name.trim())
@@ -433,6 +435,7 @@ export async function patientsRoutes(app: FastifyInstance) {
     try { payload = verifyToken(req.headers.authorization); }
     catch { return reply.status(401).send({ error: "No autorizado" }); }
     if (!payload.clinicId) return reply.status(403).send({ error: "Sin clínica asignada" });
+    if (await verificacionPendiente(payload.clinicId)) return reply.status(403).send(RESPUESTA_VERIFICACION_PENDIENTE);
 
     const { csv } = req.body ?? {};
     if (!csv || typeof csv !== "string") return reply.status(400).send({ error: "csv requerido" });
