@@ -3,6 +3,7 @@ import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
 import { sendBookingNotification } from "../services/notifications/whatsappService";
 import { canonicalDoctorName } from "../lib/doctorName";
+import { verificacionPendiente, RESPUESTA_VERIFICACION_PENDIENTE } from "../services/auth/contactoVerificado";
 import {
   decidirCambioDeEstado, resolverSolicitud, quienDecide, mensajeConflicto,
   avisarListaDeEsperaSiSeLibera,
@@ -162,6 +163,10 @@ export async function agendaRoutes(app: FastifyInstance) {
 
     if (!payload.clinicId) {
       return reply.status(403).send({ error: "Sin clínica asignada" });
+    }
+    // Agendar a mano también carga datos de un paciente (MOL-52).
+    if (await verificacionPendiente(payload.clinicId)) {
+      return reply.status(403).send(RESPUESTA_VERIFICACION_PENDIENTE);
     }
 
     const { doctor: doctorRaw, date, time, box, sede, patientName, patientRut, patientPhone, patientEmail, service, notes } = req.body ?? {};

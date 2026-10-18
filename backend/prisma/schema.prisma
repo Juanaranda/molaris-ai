@@ -78,6 +78,11 @@ model Clinic {
   verifiedAt            DateTime?
   verifiedById          String? // PartnerUser SUPERADMIN que aprobó/rechazó
   rejectionReason       String?
+  // Cuándo un administrador de la clínica verificó su correo o su teléfono.
+  // Hasta entonces la clínica puede mirar y configurar, pero no cargar
+  // pacientes ni conectar WhatsApp. Las creadas antes de la regla no se
+  // bloquean (ver services/auth/contactoVerificado.ts).
+  contactoVerificadoAt  DateTime?
   // Kill switch del agente IA (Issue #49) — apagar/encender la IA al instante
   agentEnabled          Boolean                  @default(true)
   agentDisabledAt       DateTime?
@@ -139,6 +144,14 @@ model PartnerUser {
   emailVerifyExpiresAt DateTime?
   emailVerifyAttempts  Int           @default(0)
   emailVerifySentAt    DateTime?
+  // Verificación por teléfono (WhatsApp, o SMS si falla). Alternativa al correo:
+  // basta con uno de los dos para verificar la cuenta. Mismo esquema: el código
+  // va hasheado.
+  phoneVerifiedAt      DateTime?
+  phoneVerifyCodeHash  String?
+  phoneVerifyExpiresAt DateTime?
+  phoneVerifyAttempts  Int           @default(0)
+  phoneVerifySentAt    DateTime?
   // Segundo factor TOTP (#68). Opt-in: se activa desde Configuración.
   // El secreto no se puede hashear porque hay que recalcular el código con él;
   // los de respaldo sí, que son de un solo uso y se comparan como contraseñas.

@@ -103,6 +103,16 @@ export const config = {
     verifyToken: metaVerifyToken,
     appSecret:   process.env.META_APP_SECRET ?? "",
   },
+  // Códigos de verificación por teléfono (MOL-52). Salen del WhatsApp de
+  // molari, no del de una clínica, con una plantilla de autenticación que
+  // Meta tiene que aprobar. Si no hay WhatsApp o falla, van por SMS (Twilio).
+  codigosTelefono: {
+    waPhoneId:  process.env.MOLARI_WA_PHONE_ID ?? "",
+    waToken:    process.env.MOLARI_WA_TOKEN ?? "",
+    waTemplate: process.env.MOLARI_WA_OTP_TEMPLATE ?? "",
+    waIdioma:   process.env.MOLARI_WA_OTP_LANG ?? "es",
+    smsFrom:    process.env.TWILIO_SMS_FROM ?? "",
+  },
   groq: {
     apiKey: process.env.GROQ_API_KEY ?? "",
     model:  process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile",

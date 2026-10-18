@@ -155,7 +155,7 @@ export default function PartnersDashboard() {
           )}
         </div>
 
-        <EmailVerificationBanner user={user} />
+        <EmailVerificationBanner user={user} clinic={clinic} />
 
         {!clinic && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6 text-sm text-yellow-800">

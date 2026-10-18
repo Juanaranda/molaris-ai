@@ -20,6 +20,7 @@ export interface AuthUser {
   clinicId: string | null;
   mustChangePassword?: boolean;
   emailVerified?: boolean;
+  phoneVerified?: boolean;
   photoUrl?: string | null;
   occupation?: string | null;
   phone?: string | null;
@@ -40,6 +41,8 @@ export interface ClinicData {
   accountType?: "clinic" | "solo";
   verificationStatus?: "PENDING" | "AUTO_VERIFIED" | "MANUAL_APPROVED" | "REJECTED";
   rejectionReason?: string | null;
+  /** Quien la registró ya verificó correo o WhatsApp: puede cargar pacientes (MOL-52). */
+  contactoVerificado?: boolean;
 }
 
 /* ─── KYC (#66): verificación de clínicas — solo SUPERADMIN ───────────────── */
@@ -211,6 +214,37 @@ export async function sendVerificationCode(): Promise<void> {
  */
 export async function verifyEmailCode(code: string): Promise<void> {
   const res = await fetch(`${API}/api/auth/verify-email`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+    body: JSON.stringify({ code }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const e = new Error(err.error ?? "Código incorrecto") as Error & { needsNewCode?: boolean };
+    e.needsNewCode = Boolean(err.needsNewCode);
+    throw e;
+  }
+}
+
+export type CanalCodigo = "whatsapp" | "sms" | "log";
+
+/**
+ * Pide un código al celular (MOL-52): sale por WhatsApp y, si no se puede,
+ * por SMS. Devuelve por dónde salió y el número ya normalizado (+569…).
+ */
+export async function sendPhoneCode(phone: string): Promise<{ canal?: CanalCodigo; telefono?: string; alreadyVerified?: boolean }> {
+  const res = await fetch(`${API}/api/auth/send-phone-verification`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+    body: JSON.stringify({ phone }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? "No pudimos enviar el código");
+  return data;
+}
+
+export async function verifyPhoneCode(code: string): Promise<void> {
+  const res = await fetch(`${API}/api/auth/verify-phone`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
     body: JSON.stringify({ code }),

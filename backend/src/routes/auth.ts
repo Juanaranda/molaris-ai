@@ -6,6 +6,8 @@ import prisma from "../config/prisma";
 import { config } from "../config/env";
 import { sendEmail } from "../services/email/emailService";
 import { issueVerificationCode, verifyEmailCode } from "../services/auth/emailVerification";
+import { issuePhoneCode, verifyPhoneCode } from "../services/auth/phoneVerification";
+import { clinicaPuedeCargarDatos } from "../services/auth/contactoVerificado";
 import { emitirTokenPendiente, validarTokenPendiente, consumirCodigoRespaldo } from "../services/auth/twoFactor";
 import { verificarCodigo } from "../lib/totp";
 import { Prisma } from "@prisma/client";
@@ -124,6 +126,7 @@ function construirSesion(user: UsuarioConClinica) {
       clinicId: user.clinicId,
       mustChangePassword: user.mustChangePassword,
       emailVerified: user.emailVerifiedAt !== null,
+      phoneVerified: user.phoneVerifiedAt !== null,
       totpEnabled: user.totpEnabled,
     },
     clinic: user.clinic ? {
@@ -140,6 +143,8 @@ function construirSesion(user: UsuarioConClinica) {
       accountType: user.clinic.accountType,
       verificationStatus: user.clinic.verificationStatus,
       rejectionReason:    user.clinic.rejectionReason,
+      // Puede cargar pacientes y conectar WhatsApp (MOL-52).
+      contactoVerificado: clinicaPuedeCargarDatos(user.clinic),
     } : null,
   };
 }
@@ -365,6 +370,69 @@ export async function authRoutes(app: FastifyInstance) {
     }
   });
 
+  // POST /api/auth/send-phone-verification — código por WhatsApp (o SMS) al
+  // celular indicado: la alternativa a verificar por correo (MOL-52).
+  app.post<{ Body: { phone?: string } }>("/auth/send-phone-verification", async (req, reply) => {
+    let payload: JwtPayload;
+    try { payload = verifyToken(req.headers.authorization); }
+    catch { return reply.status(401).send({ error: "No autorizado" }); }
+
+    const phone = typeof req.body?.phone === "string" ? req.body.phone.slice(0, 40) : "";
+    const result = await issuePhoneCode(payload.userId, phone);
+    if (result.ok) {
+      return reply.send({ ok: true, expiresAt: result.expiresAt, canal: result.canal, telefono: result.telefono });
+    }
+
+    switch (result.reason) {
+      case "invalid_phone":
+        return reply.status(400).send({ error: "Ingresa un celular válido, por ejemplo +56 9 1234 5678." });
+      case "already_verified":
+        return reply.send({ ok: true, alreadyVerified: true });
+      case "cooldown":
+        return reply.status(429).send({
+          error: `Espera ${result.retryInSec} segundos antes de pedir otro código.`,
+          retryInSec: result.retryInSec,
+        });
+      case "send_failed":
+        return reply.status(502).send({
+          error: "No pudimos enviar el código a tu celular. Prueba por correo o reintenta en un momento.",
+        });
+      case "not_found":
+        return reply.status(401).send({ error: "No autorizado" });
+    }
+  });
+
+  // POST /api/auth/verify-phone — confirma el código del celular
+  app.post<{ Body: { code: string } }>("/auth/verify-phone", async (req, reply) => {
+    let payload: JwtPayload;
+    try { payload = verifyToken(req.headers.authorization); }
+    catch { return reply.status(401).send({ error: "No autorizado" }); }
+
+    const code = typeof req.body?.code === "string" ? req.body.code.trim() : "";
+    if (!/^\d{6}$/.test(code)) {
+      return reply.status(400).send({ error: "Ingresa el código de 6 dígitos que te enviamos." });
+    }
+
+    const result = await verifyPhoneCode(payload.userId, code);
+    if (result.ok) return reply.send({ ok: true });
+
+    switch (result.reason) {
+      case "invalid":
+        return reply.status(400).send({
+          error: `Código incorrecto. Te quedan ${result.attemptsLeft} ${result.attemptsLeft === 1 ? "intento" : "intentos"}.`,
+          attemptsLeft: result.attemptsLeft,
+        });
+      case "expired":
+        return reply.status(400).send({ error: "El código expiró. Pide uno nuevo.", needsNewCode: true });
+      case "too_many_attempts":
+        return reply.status(429).send({ error: "Demasiados intentos fallidos. Pide un código nuevo.", needsNewCode: true });
+      case "no_code":
+        return reply.status(400).send({ error: "No hay un código pendiente. Pide uno nuevo.", needsNewCode: true });
+      case "not_found":
+        return reply.status(401).send({ error: "No autorizado" });
+    }
+  });
+
   // GET /api/auth/me
   app.get("/auth/me", async (req, reply) => {
     let payload: JwtPayload;
@@ -393,6 +461,7 @@ export async function authRoutes(app: FastifyInstance) {
         clinicId: user.clinicId,
         mustChangePassword: user.mustChangePassword,
         emailVerified: user.emailVerifiedAt !== null,
+        phoneVerified: user.phoneVerifiedAt !== null,
         photoUrl:   user.photoUrl,
         occupation: user.occupation,
         phone:      user.phone,
@@ -412,6 +481,8 @@ export async function authRoutes(app: FastifyInstance) {
         accountType: user.clinic.accountType,
         verificationStatus: user.clinic.verificationStatus,
         rejectionReason:    user.clinic.rejectionReason,
+        // Puede cargar pacientes y conectar WhatsApp (MOL-52).
+        contactoVerificado: clinicaPuedeCargarDatos(user.clinic),
       } : null,
     });
   });
