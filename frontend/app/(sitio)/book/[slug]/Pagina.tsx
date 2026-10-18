@@ -2,6 +2,7 @@
 
 import { useParams, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
+import { toLocalDateStr } from "@/lib/dateParser";
 import { getClinicBookingInfo, getAvailableSlots, getPrefillData, ClinicBookingInfo, DoctorSlots } from "@/lib/patient-auth";
 import { Check } from "lucide-react";
 
@@ -15,10 +16,6 @@ function formatRut(raw: string): string {
   const body = clean.slice(0, -1);
   const dv   = clean.slice(-1);
   return body.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "-" + dv;
-}
-
-function isoDate(d: Date): string {
-  return d.toISOString().split("T")[0];
 }
 
 function spanishWeekday(d: Date): string {
@@ -309,7 +306,7 @@ export default function BookPage() {
                 <p className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: "#1A5C7A" }}>Elige fecha</p>
                 <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
                   {dates.map((d) => {
-                    const iso = isoDate(d);
+                    const iso = toLocalDateStr(d);
                     const isSun = d.getDay() === 0;
                     return (
                       <button

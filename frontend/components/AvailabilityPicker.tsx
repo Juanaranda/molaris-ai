@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getMondayOf } from "@/lib/dateParser";
+import { getMondayOf, getMondayOfCurrentWeek } from "@/lib/dateParser";
 
 interface Slot {
   time: string;
@@ -30,22 +30,13 @@ interface Props {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-function getMondayOfWeek(offset = 0): string {
-  const now = new Date();
-  const day = now.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + diff + offset * 7);
-  return monday.toISOString().slice(0, 10);
-}
-
 function formatTabDate(date: string): string {
   return new Date(date + "T12:00:00").getDate().toString();
 }
 
 function weekOffsetForDate(targetDate: string): number {
   const targetMonday = getMondayOf(targetDate);
-  const currentMonday = getMondayOfWeek(0);
+  const currentMonday = getMondayOfCurrentWeek(0);
   const diffMs = new Date(targetMonday).getTime() - new Date(currentMonday).getTime();
   return Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
 }
@@ -58,7 +49,7 @@ export function AvailabilityPicker({ clinicSlug, service, doctorFilter, preferre
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const weekStart = getMondayOfWeek(weekOffset);
+  const weekStart = getMondayOfCurrentWeek(weekOffset);
 
   useEffect(() => {
     const controller = new AbortController();

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { getToken } from "@/lib/auth";
+import { toLocalDateStr } from "@/lib/dateParser";
 import type { AuthUser } from "@/lib/auth";
 import { DentalQuoteTab } from "./DentalQuoteTab";
 import { PatientAutocomplete } from "./PatientAutocomplete";
@@ -98,7 +99,7 @@ function getMondayOf(date: Date): Date {
   d.setHours(0, 0, 0, 0);
   return d;
 }
-function toDateStr(d: Date): string { return d.toISOString().slice(0, 10); }
+const toDateStr = toLocalDateStr;
 // Extract YYYY-MM-DD from any ISO format (handles full timestamps from Prisma/Fastify)
 function safeDateStr(s: string | null | undefined): string { return s ? String(s).slice(0, 10) : ""; }
 function formatDate(s: string | null | undefined): string {

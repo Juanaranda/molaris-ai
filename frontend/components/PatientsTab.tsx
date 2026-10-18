@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getToken, getMe } from "@/lib/auth";
+import { toLocalDateStr } from "@/lib/dateParser";
 import { ensurePatientId } from "@/lib/clinicalRecord";
 import { DentalQuoteTab } from "./DentalQuoteTab";
 import { PatientAutocomplete } from "./PatientAutocomplete";
@@ -255,7 +256,7 @@ function NewBookingFromPatientModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalDateStr(new Date());
   const [form, setForm] = useState({
     date: today, time: "10:00", doctor: "", service: "",
   });
