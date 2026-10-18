@@ -212,7 +212,7 @@ export default function PatientPortal() {
             <div className="flex gap-1 mb-5 border-b border-gray-100">
               {(["login","register"] as const).map((m) => (
                 <button key={m} onClick={() => { setMode(m); setAuthError(""); }}
-                  className={`px-4 py-2 text-sm font-bold border-b-2 -mb-px transition ${
+                  className={`min-h-11 px-4 py-2 text-sm font-bold border-b-2 -mb-px transition ${
                     mode === m ? "border-blue-600 text-blue-600" : "border-transparent text-gray-400 hover:text-gray-600"
                   }`}>
                   {m === "login" ? "Ingresar" : "Registrarme"}

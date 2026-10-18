@@ -55,7 +55,7 @@ export default function LoginPage() {
         <Link href="/">
           <Image src="/logo.svg" alt="molari.ai" width={140} height={49} style={{ height: "auto" }} preload />
         </Link>
-        <Link href="/" className="text-sm font-medium transition-colors" style={{ color: "#607281" }}>
+        <Link href="/" className="inline-flex items-center min-h-11 text-sm font-medium transition-colors" style={{ color: "#607281" }}>
           Volver al inicio
         </Link>
       </nav>
@@ -126,7 +126,7 @@ export default function LoginPage() {
                       Contraseña
                     </label>
                     <button type="button" onClick={() => { setMode("forgot"); setError(""); setNotice(""); }}
-                      className="text-xs font-semibold hover:underline" style={{ color: "#1A5C7A" }}>
+                      className="inline-flex items-center min-h-11 -my-3 px-1 -mx-1 text-xs font-semibold hover:underline" style={{ color: "#1A5C7A" }}>
                       ¿La olvidaste?
                     </button>
                   </div>
@@ -137,14 +137,14 @@ export default function LoginPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
                       required={!pendingToken}
-                      className="w-full px-4 py-3 pr-16 rounded-xl text-sm outline-none transition"
+                      className="w-full px-4 py-3 pr-20 rounded-xl text-sm outline-none transition"
                       style={{ border: "1px solid #E5E0D9", backgroundColor: "#F7F5F1", color: "#0C1B26" }}
                       onFocus={(e) => (e.currentTarget.style.borderColor = "#1A5C7A")}
                       onBlur={(e) => (e.currentTarget.style.borderColor = "#E5E0D9")}
                     />
                     <button type="button" onClick={() => setShowPassword((s) => !s)}
                       aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold hover:opacity-70 transition"
+                      className="absolute right-0 top-1/2 -translate-y-1/2 min-h-11 px-3 text-xs font-semibold hover:opacity-70 transition"
                       style={{ color: "#607281" }}>
                       {showPassword ? "Ocultar" : "Mostrar"}
                     </button>

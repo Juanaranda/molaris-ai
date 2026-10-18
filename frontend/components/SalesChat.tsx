@@ -120,13 +120,13 @@ export function SalesChat() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && send(input)}
             placeholder="Escribe tu consulta..."
-            className="flex-1 text-sm rounded-full px-4 py-2 focus:outline-none"
+            className="flex-1 min-h-11 text-base rounded-full px-4 py-2 focus:outline-none"
             style={{ border: "1px solid #E5E0D9", backgroundColor: "#F7F5F1" }}
           />
           <button
             onClick={() => send(input)}
             disabled={loading || !input.trim()}
-            className="text-sm font-semibold px-4 py-2 rounded-full transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="min-h-11 text-sm font-semibold px-4 py-2 rounded-full transition-opacity hover:opacity-90 disabled:opacity-40"
             style={{ backgroundColor: "#D95F45", color: "white" }}
           >
             Enviar
@@ -141,7 +141,7 @@ export function SalesChat() {
             <button
               key={p}
               onClick={() => send(p)}
-              className="text-xs font-medium px-3 py-1.5 rounded-full transition-colors"
+              className="min-h-11 text-sm font-medium px-4 py-2 rounded-full transition-colors"
               style={{ border: "1px solid rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.75)", backgroundColor: "rgba(255,255,255,0.06)" }}
             >
               {p}
@@ -154,7 +154,7 @@ export function SalesChat() {
       <div className="text-center">
         <Link
           href="/register"
-          className="inline-block text-sm font-semibold px-6 py-2.5 rounded-full transition-opacity hover:opacity-90"
+          className="inline-flex items-center min-h-11 text-sm font-semibold px-6 py-2.5 rounded-full transition-opacity hover:opacity-90"
           style={{ backgroundColor: "#D95F45", color: "white" }}
         >
           Prueba molari.ai gratis

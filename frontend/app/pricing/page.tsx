@@ -100,7 +100,7 @@ export default function PricingPage() {
       {/* Mismo problema que el nav de la landing: en 375px "Hablar con ventas"
           se partía en dos líneas. Menos margen, logo más chico y sin cortes en móvil. */}
       <nav className="flex items-center justify-between px-5 sm:px-8 py-5 border-b border-gray-100">
-        <Link href="/">
+        <Link href="/" className="inline-flex items-center min-h-11">
           <Image src="/logo.svg" alt="molari.ai" width={160} height={55} style={{ height: "auto" }} className="w-[112px] sm:w-[160px]" preload />
         </Link>
         <div className="flex items-center gap-3 sm:gap-6">

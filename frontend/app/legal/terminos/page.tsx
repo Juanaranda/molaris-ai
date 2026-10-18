@@ -30,8 +30,8 @@ export default function TerminosPage() {
         <LegalContent />
 
         <div className="mt-12 pt-8 border-t flex flex-wrap gap-4 text-sm" style={{ borderColor: "#E5E0D9", color: "var(--ink-muted, #607281)" }}>
-          <Link href="/legal/privacidad" className="underline underline-offset-2 hover:opacity-70">Política de Privacidad</Link>
-          <Link href="/" className="underline underline-offset-2 hover:opacity-70">Volver al inicio</Link>
+          <Link href="/legal/privacidad" className="inline-flex items-center min-h-11 underline underline-offset-2 hover:opacity-70">Política de Privacidad</Link>
+          <Link href="/" className="inline-flex items-center min-h-11 underline underline-offset-2 hover:opacity-70">Volver al inicio</Link>
         </div>
       </div>
     </div>

@@ -131,7 +131,7 @@ function LocationSelector({
               key={r.label}
               type="button"
               onClick={() => { onRegion(r.label); onCommune(""); setShowAllComunas(false); }}
-              className="px-3 py-1.5 rounded-xl text-xs font-medium border transition-all"
+              className="min-h-11 px-3 rounded-xl text-sm font-medium border transition-all"
               style={
                 region === r.label
                   ? { backgroundColor: "var(--teal-mid, #1A5C7A)", color: "white", borderColor: "var(--teal-mid, #1A5C7A)" }
@@ -145,7 +145,7 @@ function LocationSelector({
             <button
               type="button"
               onClick={() => setShowAllRegions(true)}
-              className="px-3 py-1.5 rounded-xl text-xs font-medium border transition-all"
+              className="min-h-11 px-3 rounded-xl text-sm font-medium border transition-all"
               style={{ backgroundColor: "transparent", color: "var(--ink-muted, #607281)", borderColor: "#E5E0D9", borderStyle: "dashed" }}
             >
               +{REGIONS.length - VISIBLE_REGIONS} más
@@ -167,7 +167,7 @@ function LocationSelector({
                 key={c}
                 type="button"
                 onClick={() => onCommune(c)}
-                className="px-3 py-1.5 rounded-xl text-xs font-medium border transition-all"
+                className="min-h-11 px-3 rounded-xl text-sm font-medium border transition-all"
                 style={
                   commune === c
                     ? { backgroundColor: "var(--teal-mid, #1A5C7A)", color: "white", borderColor: "var(--teal-mid, #1A5C7A)" }
@@ -181,7 +181,7 @@ function LocationSelector({
               <button
                 type="button"
                 onClick={() => setShowAllComunas(true)}
-                className="px-3 py-1.5 rounded-xl text-xs font-medium border transition-all"
+                className="min-h-11 px-3 rounded-xl text-sm font-medium border transition-all"
                 style={{ backgroundColor: "transparent", color: "var(--ink-muted, #607281)", borderColor: "#E5E0D9", borderStyle: "dashed" }}
               >
                 +{comunas.length - VISIBLE_COMUNAS} más
@@ -316,12 +316,12 @@ export default function RegisterPage() {
       {/* ── Panel derecho ─────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col">
         {/* Nav mobile */}
-        <nav className="lg:hidden flex items-center justify-between px-6 py-5 border-b"
+        <nav className="lg:hidden flex items-center justify-between px-6 py-3 border-b"
           style={{ borderColor: "#E5E0D9", backgroundColor: "white" }}>
-          <Link href="/" className="text-sm font-semibold" style={{ color: "var(--teal-dark, #0B2F42)" }}>
+          <Link href="/" className="inline-flex items-center min-h-11 text-sm font-semibold" style={{ color: "var(--teal-dark, #0B2F42)" }}>
             molari.ai
           </Link>
-          <Link href="/login" className="text-sm" style={{ color: "var(--ink-muted, #607281)" }}>
+          <Link href="/login" className="inline-flex items-center min-h-11 text-sm" style={{ color: "var(--ink-muted, #607281)" }}>
             Ya tengo cuenta
           </Link>
         </nav>
@@ -596,7 +596,7 @@ function Field({
           autoFocus={autoFocus}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className={`w-full px-4 py-3 rounded-xl border text-sm transition focus:outline-none focus:ring-2 ${isPassword ? "pr-11" : ""}`}
+          className={`w-full px-4 py-3 rounded-xl border text-sm transition focus:outline-none focus:ring-2 ${isPassword ? "pr-20" : ""}`}
           style={{
             borderColor: "#E5E0D9",
             backgroundColor: "var(--surface, #F7F5F1)",
@@ -614,7 +614,7 @@ function Field({
         {isPassword && (
           <button type="button" onClick={() => setShow((s) => !s)}
             aria-label={show ? "Ocultar contraseña" : "Mostrar contraseña"}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold hover:opacity-70 transition"
+            className="absolute right-0 top-1/2 -translate-y-1/2 min-h-11 px-3 text-xs font-semibold hover:opacity-70 transition"
             style={{ color: "#607281" }}>
             {show ? "Ocultar" : "Mostrar"}
           </button>
