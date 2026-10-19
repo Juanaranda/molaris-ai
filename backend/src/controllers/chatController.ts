@@ -11,6 +11,7 @@ import { calculateLeadScore } from "../lib/leadScoring";
 import { calcularPlazo, datosDeSolicitud } from "../services/booking/confirmation";
 import { avisarProfesional } from "../services/booking/notifyProfessional";
 import { triggerAlert } from "../services/alerts/alertService";
+import { fechaEnChile, sumarDias, diaDeSemana } from "../lib/fechaChile";
 
 const bodySchema = z.object({
   message: z.string().min(1),
@@ -38,10 +39,6 @@ function parseDoctorDays(schedule: string): number[] {
   return schedule.split("/").map((d) => DAY_MAP[d.trim()]).filter((d) => d != null);
 }
 
-function isoDate(d: Date): string {
-  return d.toISOString().split("T")[0];
-}
-
 function generateSlots(isSat: boolean): string[] {
   const slots: string[] = [];
   for (let h = 10; h < (isSat ? 14 : 18); h++) {
@@ -60,17 +57,19 @@ async function buildAvailabilityHint(clinicId: string, cfg: ClinicCfg): Promise<
 
   // BUG FIX #8: collect candidate days first, then fetch all booked slots in
   // parallel with Promise.all instead of N sequential awaits inside the loop.
-  type DayInfo = { d: Date; iso: string; jsDay: number; isSat: boolean; availDoctors: DoctorConfig[] };
+  type DayInfo = { iso: string; jsDay: number; isSat: boolean; availDoctors: DoctorConfig[] };
   const candidateDays: DayInfo[] = [];
 
+  // "Hoy" es el de Chile: el servidor corre en UTC y después de las 21:00
+  // se saltaba mañana y le ofrecía al agente desde pasado mañana.
+  const hoy = fechaEnChile();
   for (let i = 1; i <= 5; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    const jsDay = d.getDay();
+    const iso = sumarDias(hoy, i);
+    const jsDay = diaDeSemana(iso);
     if (jsDay === 0) continue;
     const availDoctors = doctors.filter((doc) => parseDoctorDays(doc.schedule).includes(jsDay));
     if (availDoctors.length === 0) continue;
-    candidateDays.push({ d, iso: isoDate(d), jsDay, isSat: jsDay === 6, availDoctors });
+    candidateDays.push({ iso, jsDay, isSat: jsDay === 6, availDoctors });
   }
 
   const bookingResults = await Promise.all(
@@ -87,7 +86,8 @@ async function buildAvailabilityHint(clinicId: string, cfg: ClinicCfg): Promise<
   );
 
   for (let i = 0; i < candidateDays.length; i++) {
-    const { d, jsDay, isSat, availDoctors } = candidateDays[i];
+    const { iso, jsDay, isSat, availDoctors } = candidateDays[i];
+    const [, mes, dia] = iso.split("-").map(Number);
     const dayLabel = DAY_NAMES_ES[jsDay];
     const allSlots = generateSlots(isSat);
     const booked = bookingResults[i];
@@ -98,7 +98,7 @@ async function buildAvailabilityHint(clinicId: string, cfg: ClinicCfg): Promise<
       bookedMap[b.doctor].add(b.time);
     }
 
-    lines.push(`\n${dayLabel} ${d.getDate()}/${d.getMonth() + 1}:`);
+    lines.push(`\n${dayLabel} ${dia}/${mes}:`);
     for (const doc of availDoctors) {
       const free = allSlots.filter((t) => !bookedMap[doc.name]?.has(t));
       if (free.length > 0) {

@@ -1,3 +1,5 @@
+import { fechaEnChile, instanteEnChile, sumarDias, diaDeSemana } from "../../lib/fechaChile";
+
 export interface Slot {
   time: string;
   doctor: string;
@@ -166,12 +168,9 @@ function seededRandom(seed: string): number {
   return Math.abs(h) / 2147483647;
 }
 
+/** El slot es hora de Chile: en Railway (UTC) `setHours` lo corría 3-4 h hacia atrás. */
 function isSlotInPast(dateStr: string, time: string): boolean {
-  const now = new Date();
-  const [hh, mm] = time.split(":").map(Number);
-  const slotDate = new Date(dateStr + "T12:00:00");
-  slotDate.setHours(hh, mm, 0, 0);
-  return slotDate.getTime() < now.getTime() + 30 * 60 * 1000;
+  return instanteEnChile(dateStr, time).getTime() < Date.now() + 30 * 60 * 1000;
 }
 
 export function getWeekAvailability(
@@ -179,7 +178,6 @@ export function getWeekAvailability(
   clinicConfig: ClinicAvailabilityConfig,
   service?: string
 ): DayAvailability[] {
-  const start = new Date(weekStart + "T12:00:00");
   const result: DayAvailability[] = [];
   const doctors = clinicConfig.doctors ?? [];
   // La duración sale del servicio pedido: una limpieza y un implante no
@@ -187,13 +185,11 @@ export function getWeekAvailability(
   const duration = duracionDeServicio(clinicConfig, service);
   const allBoxes = buildBoxPool(clinicConfig.boxes);
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = fechaEnChile();
 
   for (let i = 0; i < 7; i++) {
-    const date = new Date(start);
-    date.setDate(start.getDate() + i);
-    const dow = date.getDay();
-    const dateStr = date.toISOString().slice(0, 10);
+    const dateStr = sumarDias(weekStart, i);
+    const dow = diaDeSemana(dateStr);
     const abierta = horarioClinica(clinicConfig, dow) !== null;
 
     if (!abierta || dateStr < todayStr) {
