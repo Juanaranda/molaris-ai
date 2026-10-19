@@ -30,12 +30,13 @@ export function parsePreferredDate(text: string): string | null {
   const lower = text.toLowerCase();
   const now   = new Date();
 
-  if (/mañana/.test(lower)) {
-    const d = new Date(now); d.setDate(now.getDate() + 1);
-    return toLocalDateStr(d);
-  }
+  // "pasado mañana" va antes: también contiene "mañana".
   if (/pasado mañana|pasado manana/.test(lower)) {
     const d = new Date(now); d.setDate(now.getDate() + 2);
+    return toLocalDateStr(d);
+  }
+  if (/mañana/.test(lower)) {
+    const d = new Date(now); d.setDate(now.getDate() + 1);
     return toLocalDateStr(d);
   }
   if (/hoy/.test(lower)) {

@@ -65,4 +65,10 @@ describe("parsePreferredDate", () => {
     congelar(SABADO_NOCHE);
     expect(parsePreferredDate("el lunes")).toBe("2026-10-19");
   });
+
+  it("'pasado mañana' son dos días, no uno", () => {
+    congelar(SABADO_NOCHE);
+    expect(parsePreferredDate("¿tienen hora pasado mañana?")).toBe("2026-10-19");
+    expect(parsePreferredDate("y mañana?")).toBe("2026-10-18");
+  });
 });
