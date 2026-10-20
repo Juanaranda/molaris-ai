@@ -79,7 +79,7 @@ export const MOMENTOS: Momento[] = [
   {
     momento: "Antes de la cita",
     funciones: [
-      { nombre: "Recepción con IA", detalle: "Contesta por WhatsApp y en tu web, ofrece las horas libres y deja la solicitud para que la confirmes." },
+      { nombre: "Recepción con IA", detalle: "Contesta por WhatsApp a cualquier hora, ofrece las horas libres y deja la solicitud para que la confirmes." },
       { nombre: "Agenda por doctor y box", detalle: "Cada profesional con su columna. Lo que confirmas desde el chat aparece ahí al instante." },
       { nombre: "Recordatorios y lista de espera", detalle: "Recordatorio el día anterior y dos horas antes. Si alguien cancela, la lista de espera se entera." },
       { nombre: "Controles al día", detalle: "molari le recuerda a cada paciente su próximo control, según las reglas que definas." },
