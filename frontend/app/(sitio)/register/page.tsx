@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { login } from "@/lib/auth";
 import { Building2, Check, MapPin, Stethoscope, type LucideIcon } from "lucide-react";
 
@@ -214,13 +214,41 @@ function LocationSelector({
 }
 
 /* ─── Page ───────────────────────────────────────────────────────────────── */
+type Inicial = { clinica: string; nombre: string; tipo: AccountType };
+const SIN_DATOS: Inicial = { clinica: "", nombre: "", tipo: "clinic" };
+
+/**
+ * El cierre de la landing manda acá el nombre de la clínica y si atiende solo
+ * o, si atiende solo, su nombre (?nombre=…&tipo=solo), para no pedir dos
+ * veces lo que ya escribió.
+ * Mientras se leen los parámetros se muestra el formulario vacío, no una
+ * pantalla en blanco.
+ */
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={<Registro inicial={SIN_DATOS} />}>
+      <RegistroDesdeEnlace />
+    </Suspense>
+  );
+}
+
+function RegistroDesdeEnlace() {
+  const params = useSearchParams();
+  const inicial: Inicial = {
+    clinica: (params.get("clinica") ?? "").trim().slice(0, 80),
+    nombre: (params.get("nombre") ?? "").trim().slice(0, 80),
+    tipo: params.get("tipo") === "solo" ? "solo" : "clinic",
+  };
+  return <Registro inicial={inicial} />;
+}
+
+function Registro({ inicial }: { inicial: Inicial }) {
   const router = useRouter();
   const [step, setStep]   = useState<Step>(1);
-  const [accountType, setAccountType] = useState<AccountType>("clinic");
-  const [clinic, setClinic] = useState({ name: "", phone: "", region: "", commune: "", professionalRut: "", professionalRegNumber: "", specialty: "Odontología General" });
+  const [accountType, setAccountType] = useState<AccountType>(inicial.tipo);
+  const [clinic, setClinic] = useState({ name: inicial.clinica, phone: "", region: "", commune: "", professionalRut: "", professionalRegNumber: "", specialty: "Odontología General" });
   const isSolo = accountType === "solo";
-  const [admin, setAdmin]   = useState({ name: "", email: "", password: "", confirm: "" });
+  const [admin, setAdmin]   = useState({ name: inicial.nombre, email: "", password: "", confirm: "" });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError]   = useState("");
   const [loading, setLoading] = useState(false);
