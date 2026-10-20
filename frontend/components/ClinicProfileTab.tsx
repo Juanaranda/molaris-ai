@@ -192,9 +192,8 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
         <AgentFlowDiagram
           config={{
             ...(clinic.config as AgentFlowConfig),
-            // whatsapp e instagram viven en la clínica, no dentro de config.
+            // whatsapp vive en la clínica, no dentro de config.
             whatsapp: clinic.whatsapp,
-            instagram: clinic.instagram,
           }}
         />
       </section>
