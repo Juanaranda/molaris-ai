@@ -4,6 +4,7 @@ import { sendBookingNotification } from "../services/notifications/whatsappServi
 import { datosDeSolicitud } from "../services/booking/confirmation";
 import { avisarProfesional } from "../services/booking/notifyProfessional";
 import { verifyPatientToken } from "./patient-auth";
+import { doctoresPublicos } from "../lib/doctores";
 
 interface DoctorConfig {
   name: string;
@@ -106,7 +107,8 @@ export async function bookRoutes(app: FastifyInstance) {
         name: clinic.name,
         location: clinic.location,
         assistantName: cfg.assistantName ?? null,
-        doctors: cfg.doctors ?? [],
+        // Solo nombre, especialidad y días: esta ruta es pública.
+        doctors: doctoresPublicos(cfg.doctors),
         services: cfg.services ?? [],
         schedule: cfg.schedule ?? {},
       },
