@@ -101,10 +101,10 @@ export default function Home() {
               Cada mensaje pasa por estos pasos, con los datos de tu clínica. Ninguna hora entra a tu agenda sin que tú la confirmes.
             </p>
             <ul className={s.puntos}>
-              <li><b>El paciente sabe que habla con una IA.</b>Se lo avisamos antes de conversar.</li>
-              <li><b>Cada registro tiene autor y fecha.</b>Las fichas clínicas no se borran.</li>
-              <li><b>Cifrado en tránsito y en reposo.</b>Los datos viajan y se guardan cifrados.</li>
-              <li><b>Tus datos son tuyos.</b>Descarga tu lista de pacientes en CSV cuando quieras.</li>
+              <li><b>El paciente sabe que habla con una IA.</b>{" "}Se lo avisamos antes de conversar.</li>
+              <li><b>Cada registro tiene autor y fecha.</b>{" "}Las fichas clínicas no se borran.</li>
+              <li><b>Cifrado en tránsito y en reposo.</b>{" "}Los datos viajan y se guardan cifrados.</li>
+              <li><b>Tus datos son tuyos.</b>{" "}Descarga tu lista de pacientes en CSV cuando quieras.</li>
             </ul>
           </Aparece>
           <Aparece retraso={90} className={s.diagrama} ui>
