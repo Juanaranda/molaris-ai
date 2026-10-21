@@ -50,6 +50,7 @@ const SCORE_COLOR = (score: number) => {
 
 export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica Dental", isDemoMode = false, isSandbox = false }: Props = {}) {
   const [assistantName, setAssistantName] = useState<string | null>(isDemoMode ? "Juan" : null);
+  const [avisoIa, setAvisoIa] = useState<string | null>(null);
   const [displayClinicName, setDisplayClinicName] = useState(isDemoMode ? "molari.ai" : clinicName);
   const [slotBooked, setSlotBooked] = useState(false);
 
@@ -99,6 +100,7 @@ export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica 
         const aName: string | null = data?.clinic?.assistantName ?? null;
         const cName: string = data?.clinic?.name ?? clinicName;
         setAssistantName(aName);
+        setAvisoIa(data?.clinic?.avisoIa ?? null);
         setDisplayClinicName(cName);
         setMessages([{ role: "assistant", text: buildGreeting(aName, cName) }]);
       })
@@ -186,7 +188,7 @@ export function ChatDemo({ clinicSlug = "galana", clinicName = "Galana Clínica 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
           {/* Lo que se escribe acá también lo procesa la IA (MOL-11). */}
-          <AvisoPrivacidadChat nombreClinica={displayClinicName} />
+          <AvisoPrivacidadChat nombreClinica={displayClinicName} textoClinica={avisoIa} />
           {messages.map((msg, i) => (
             <div key={i}>
               <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>

@@ -37,7 +37,19 @@ export function WidgetChat() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [context, setContext] = useState<LeadContext | null>(null);
   const [slotBooked, setSlotBooked] = useState(false);
+  const [avisoIa, setAvisoIa] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // El texto propio de la clínica para el aviso de IA no viaja en la URL del
+  // iframe: se pide a la API, así lo que cambie en el panel llega a todos los
+  // sitios donde está pegado el widget. Si falla, queda el aviso fijo.
+  useEffect(() => {
+    if (!clinicSlug) return;
+    fetch(`${API_URL}/api/book/${encodeURIComponent(clinicSlug)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setAvisoIa(data?.clinic?.avisoIa ?? null))
+      .catch(() => {});
+  }, [clinicSlug]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -123,7 +135,7 @@ export function WidgetChat() {
       {/* Messages */}
       <div style={{ flex: 1, overflowY: "auto", padding: "12px 12px 0", display: "flex", flexDirection: "column", gap: 8 }}>
         {/* Antes del primer mensaje: que responde una IA y dónde se procesa (MOL-11). */}
-        <AvisoPrivacidadChat nombreClinica={clinicName || "la clínica"} />
+        <AvisoPrivacidadChat nombreClinica={clinicName || "la clínica"} textoClinica={avisoIa} />
         {messages.map((msg, i) => {
           // Separar texto del link de agendamiento si viene en el mensaje
           const bookingMatch = msg.role === "assistant"

@@ -16,6 +16,7 @@ import { sendMolariEmail } from "../services/email/molariEmails";
 import { issueVerificationCode } from "../services/auth/emailVerification";
 import { clinicaSinSecretos } from "../lib/clinicaSinSecretos";
 import { validarRutsDoctores, protegerDatosDelProfesional } from "../lib/doctores";
+import { validarAvisoClinica } from "../lib/avisoPrivacidad";
 
 // Claves válidas dentro de Clinic.config. Evita inyectar JSON arbitrario, pero
 // debe cubrir TODO lo que escribe el frontend: si falta una, el PATCH completo
@@ -39,6 +40,9 @@ export const ALLOWED_CONFIG_KEYS = new Set([
   // imposible configurarlo: intentar setearlo tiraba 400 y, como el PATCH
   // valida la config entera, se perdía todo el resto del guardado.
   "aiDailyBudgetUsd",
+  // Texto propio de la clínica antes del aviso de IA (MOL-11). Solo se suma
+  // al aviso fijo, no lo reemplaza: ver lib/avisoPrivacidad.ts.
+  "avisoIa",
 ]);
 
 // Tope de profesionales en cuentas "solo" (#69). Protege el pricing: evita que
@@ -517,6 +521,13 @@ export async function clinicRoutes(app: FastifyInstance) {
       const unknownKeys = Object.keys(config).filter((k) => !ALLOWED_CONFIG_KEYS.has(k));
       if (unknownKeys.length > 0) {
         return reply.status(400).send({ error: `Claves de config no permitidas: ${unknownKeys.join(", ")}` });
+      }
+
+      if ("avisoIa" in config) {
+        const aviso = validarAvisoClinica(config.avisoIa);
+        if (!aviso.ok) return reply.status(400).send({ error: aviso.error });
+        if (aviso.texto === undefined) delete config.avisoIa;
+        else config.avisoIa = aviso.texto;
       }
 
       // Cap de 1 profesional en cuentas "solo" (#69). Es el límite que protege

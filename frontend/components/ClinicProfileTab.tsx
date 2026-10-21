@@ -6,6 +6,7 @@ import { DoctorsEditor, DoctorRow } from "@/components/DoctorsEditor";
 import { ServicesEditor, ServiceRow } from "@/components/ServicesEditor";
 import { OpeningHoursEditor, OpeningHours, aScheduleTexto } from "@/components/OpeningHoursEditor";
 import { SedesEditor } from "@/components/SedesEditor";
+import { AvisoIaEditor } from "@/components/AvisoIaEditor";
 import { IntegrationsSection } from "@/components/IntegrationsSection";
 import { AgentControl } from "@/components/AgentControl";
 import { Building2, Camera, MapPin, MessageCircle, Phone, type LucideIcon } from "lucide-react";
@@ -25,6 +26,8 @@ interface ClinicConfig {
   schedule?: { weekdays?: string; saturday?: string; sunday?: string };
   /** Horario estructurado: lo usan la agenda y la disponibilidad. */
   openingHours?: OpeningHours;
+  /** Texto propio que va antes del aviso de IA (MOL-11). */
+  avisoIa?: string;
 }
 
 interface Props {
@@ -152,6 +155,12 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
 
   async function saveSedes(sedes: string[]) {
     const config = { ...(clinic.config as ClinicConfig), sedes };
+    const updated = await updateClinic(clinic.id, { config: config as Record<string, unknown> });
+    onUpdate(updated);
+  }
+
+  async function saveAvisoIa(avisoIa: string) {
+    const config = { ...(clinic.config as ClinicConfig), avisoIa };
     const updated = await updateClinic(clinic.id, { config: config as Record<string, unknown> });
     onUpdate(updated);
   }
@@ -377,6 +386,14 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
         services={(cfg.services as ServiceRow[]) ?? []}
         canEdit={canEdit}
         onSave={saveServices}
+      />
+
+      {/* ── Aviso de IA que ve el paciente ── */}
+      <AvisoIaEditor
+        nombreClinica={clinic.name}
+        texto={cfg.avisoIa ?? ""}
+        canEdit={canEdit}
+        onSave={saveAvisoIa}
       />
 
       {/* ── Link de auto-agendamiento ── */}

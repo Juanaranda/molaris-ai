@@ -18,7 +18,7 @@ import { getAIResponse } from "../services/ai/claudeService";
 import { sendMetaMessage, markMetaMessageRead } from "../services/whatsapp/metaService";
 import { recordAgentSuccess, recordAgentFailure } from "../services/agent/agentHealth";
 import { isDuplicateWebhookEvent } from "../lib/webhookDedup";
-import { avisoPrivacidadWhatsApp } from "../lib/avisoPrivacidad";
+import { avisoPrivacidadWhatsApp, textoAvisoDeLaClinica } from "../lib/avisoPrivacidad";
 
 interface MetaWebhookBody {
   object: string;
@@ -148,7 +148,7 @@ export async function webhookMetaRoutes(app: FastifyInstance) {
             // Todo dentro del try: si el aviso falla, el paciente igual recibe
             // su respuesta.
             try {
-              const aviso = avisoPrivacidadWhatsApp(clinic.name, config.frontendUrl);
+              const aviso = avisoPrivacidadWhatsApp(clinic.name, config.frontendUrl, textoAvisoDeLaClinica(clinic.config));
               await sendMetaMessage(phoneId, clinic.waToken, fromPhone, aviso);
               await prisma.message.create({ data: { sessionId: session.id, role: "assistant", content: aviso } });
             } catch (err: unknown) {

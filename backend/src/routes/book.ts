@@ -5,6 +5,7 @@ import { datosDeSolicitud } from "../services/booking/confirmation";
 import { avisarProfesional } from "../services/booking/notifyProfessional";
 import { verifyPatientToken } from "./patient-auth";
 import { doctoresActivos, doctoresPublicos, diasDelDoctor } from "../lib/doctores";
+import { textoAvisoDeLaClinica } from "../lib/avisoPrivacidad";
 
 interface DoctorConfig {
   name: string;
@@ -94,6 +95,8 @@ export async function bookRoutes(app: FastifyInstance) {
         name: clinic.name,
         location: clinic.location,
         assistantName: cfg.assistantName ?? null,
+        // Texto propio de la clínica que el chat muestra antes del aviso de IA.
+        avisoIa: textoAvisoDeLaClinica(cfg),
         // Solo nombre, especialidad y días: esta ruta es pública.
         doctors: doctoresPublicos(cfg.doctors),
         services: cfg.services ?? [],
