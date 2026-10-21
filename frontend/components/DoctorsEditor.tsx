@@ -1,9 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { CampoTelefono } from "@/components/ui/CampoTelefono";
+import { nombreCompleto, separarNombre, formatearRut, rutValido, sinPrefijo } from "@/lib/doctores";
 
 export interface DoctorRow {
+  /** Nombres + apellidos, sin "Dr.": lo usan la agenda, el agente y las citas. */
   name: string;
+  nombres?: string;
+  apellidos?: string;
+  rut?: string;
   specialty: string;
   schedule: string;
   days?: string[];
@@ -60,7 +66,7 @@ interface Props {
   onSave: (doctors: DoctorRow[], boxes: number) => Promise<void>;
 }
 
-const EMPTY: DoctorRow = { name: "", specialty: "", schedule: "", services: [] };
+const EMPTY: DoctorRow = { name: "", nombres: "", apellidos: "", rut: "", specialty: "", schedule: "", services: [] };
 
 const SPECIALTIES = ["General", "Ortodoncia", "Endodoncia", "Periodoncia", "Cirugía maxilofacial", "Implantología", "Odontopediatría", "Estética dental"];
 
@@ -73,21 +79,33 @@ export function DoctorsEditor({ doctors, boxes, canEdit, maxDoctors, onSave }: P
   const [servicesInput, setServicesInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [errorFila, setErrorFila] = useState("");
 
   function openAdd() {
     setForm({ ...EMPTY, services: [] });
     setServicesInput("");
+    setErrorFila("");
     setModalIdx(null);
   }
 
   function openEdit(i: number) {
-    setForm({ ...rows[i], services: rows[i].services ?? [] });
+    // Los guardados antes de separar nombres y apellidos se separan acá.
+    const sep = rows[i].nombres !== undefined
+      ? { nombres: rows[i].nombres ?? "", apellidos: rows[i].apellidos ?? "" }
+      : separarNombre(rows[i].name);
+    setForm({ ...rows[i], ...sep, rut: rows[i].rut ?? "", services: rows[i].services ?? [] });
+    setErrorFila("");
     setServicesInput((rows[i].services ?? []).join(", "));
     setModalIdx(i);
   }
 
   function saveRow() {
-    if (!form.name.trim()) return;
+    const nombres = sinPrefijo(form.nombres ?? "");
+    const apellidos = (form.apellidos ?? "").trim();
+    if (!nombres || !apellidos) { setErrorFila("Escribe los nombres y los apellidos."); return; }
+    const rut = (form.rut ?? "").trim();
+    if (rut && !rutValido(rut)) { setErrorFila("El RUT no es válido. Revisa el dígito verificador o déjalo en blanco."); return; }
+    setErrorFila("");
     // Un horario invertido dejaría al profesional sin ninguna hora disponible
     // y sin señal de por qué: se bloquea el guardado.
     if (form.hours?.from && form.hours?.to && form.hours.to <= form.hours.from) return;
@@ -95,7 +113,7 @@ export function DoctorsEditor({ doctors, boxes, canEdit, maxDoctors, onSave }: P
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-    const row: DoctorRow = { ...form, services };
+    const row: DoctorRow = { ...form, nombres, apellidos, rut: rut || undefined, name: nombreCompleto(nombres, apellidos), services };
     if (modalIdx === null) {
       setRows((r) => [...r, row]);
     } else if (modalIdx !== undefined) {
@@ -258,11 +276,32 @@ export function DoctorsEditor({ doctors, boxes, canEdit, maxDoctors, onSave }: P
           <p className="text-sm font-medium text-gray-700">{modalIdx === null ? "Nuevo doctor" : "Editar doctor"}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Nombre completo</label>
+              <label htmlFor="doctor-nombres" className="block text-xs text-gray-500 mb-1">Nombres</label>
               <input
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Dra. Ana García"
+                id="doctor-nombres"
+                value={form.nombres ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, nombres: e.target.value }))}
+                placeholder="Ana María"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label htmlFor="doctor-apellidos" className="block text-xs text-gray-500 mb-1">Apellidos</label>
+              <input
+                id="doctor-apellidos"
+                value={form.apellidos ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, apellidos: e.target.value }))}
+                placeholder="García Rojas"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label htmlFor="doctor-rut" className="block text-xs text-gray-500 mb-1">RUT <span className="text-gray-400 font-normal">(opcional)</span></label>
+              <input
+                id="doctor-rut"
+                value={form.rut ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, rut: formatearRut(e.target.value) }))}
+                placeholder="12.345.678-5"
                 className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -291,12 +330,7 @@ export function DoctorsEditor({ doctors, boxes, canEdit, maxDoctors, onSave }: P
               <label className="block text-xs text-gray-500 mb-1">
                 WhatsApp <span className="text-gray-400 font-normal">— para confirmar sus horas</span>
               </label>
-              <input
-                value={form.phone ?? ""}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                placeholder="+56 9 1234 5678"
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <CampoTelefono value={form.phone ?? ""} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} className="rounded-lg" />
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">
@@ -360,16 +394,17 @@ export function DoctorsEditor({ doctors, boxes, canEdit, maxDoctors, onSave }: P
               <p className="text-[10px] text-gray-400 mt-1">Separados por coma</p>
             </div>
           </div>
+          {errorFila && <p role="alert" className="text-sm font-semibold text-danger">{errorFila}</p>}
           <div className="flex gap-2 justify-end">
             <button
-              onClick={() => { setForm(EMPTY); setServicesInput(""); setModalIdx(undefined); }}
+              onClick={() => { setForm(EMPTY); setServicesInput(""); setModalIdx(undefined); setErrorFila(""); }}
               className="text-sm text-gray-500 hover:text-gray-700"
             >
               Cancelar
             </button>
             <button
               onClick={saveRow}
-              disabled={!form.name.trim()}
+              disabled={!(form.nombres ?? "").trim()}
               className="text-sm bg-gray-800 text-white font-medium px-4 py-1.5 rounded-full hover:bg-gray-900 disabled:opacity-40 transition-colors"
             >
               {modalIdx === null ? "Agregar" : "Actualizar"}

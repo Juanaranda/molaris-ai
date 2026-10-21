@@ -11,6 +11,7 @@ import { minutosDesdeInicioDeGrilla, esElTramoDeAhora } from "@/lib/agendaTime";
 import { restanteHasta } from "@/lib/plazos";
 import { X } from "lucide-react";
 import { esperaConfirmacion } from "@/lib/solicitudes";
+import { CampoTelefono } from "@/components/ui/CampoTelefono";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -636,9 +637,8 @@ function NewBookingModal({ doctors, initialDate, boxes, sedes = [], onClose, onC
             </div>
             <div>
               <label className={lbl}>Teléfono</label>
-              <input type="tel" value={form.patientPhone} onChange={set("patientPhone")} placeholder="+56 9..."
-                readOnly={pacienteExistente}
-                className={pacienteExistente ? `${inp} bg-gray-50 text-gray-500` : inp} />
+              <CampoTelefono value={form.patientPhone} onChange={(v) => setForm((f) => ({ ...f, patientPhone: v }))}
+                readOnly={pacienteExistente} className={pacienteExistente ? "rounded-lg bg-gray-50" : "rounded-lg"} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">

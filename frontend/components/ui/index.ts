@@ -5,3 +5,4 @@ export { Badge, type TonoBadge } from "./Badge";
 export { Card } from "./Card";
 export { Field } from "./Field";
 export { Tabs, type TabItem } from "./Tabs";
+export { CampoTelefono, BanderaChile } from "./CampoTelefono";

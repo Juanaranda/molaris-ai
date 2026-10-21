@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense, useState, FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { login } from "@/lib/auth";
+import { CampoTelefono } from "@/components/ui/CampoTelefono";
 import { Building2, Check, MapPin, Stethoscope, type LucideIcon } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -463,12 +464,14 @@ function Registro({ inicial }: { inicial: Inicial }) {
                         </select>
                       </div>
                     )}
-                    <Field
-                      label="Teléfono"
-                      value={clinic.phone}
-                      onChange={(v) => setClinic((c) => ({ ...c, phone: v }))}
-                      placeholder="+56 9 1234 5678"
-                    />
+                    <div>
+                      <label htmlFor="registro-telefono" className="block text-xs font-semibold uppercase tracking-wider mb-1.5"
+                        style={{ color: "var(--ink-muted, #607281)" }}>
+                        Teléfono
+                      </label>
+                      <CampoTelefono id="registro-telefono" value={clinic.phone}
+                        onChange={(v) => setClinic((c) => ({ ...c, phone: v }))} className="rounded-xl bg-ground" />
+                    </div>
                     <LocationSelector
                       region={clinic.region}
                       commune={clinic.commune}

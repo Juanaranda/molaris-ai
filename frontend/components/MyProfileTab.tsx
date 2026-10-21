@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { AuthUser, updateMe, CLINICAL_ROLE_LABELS } from "@/lib/auth";
 import { Stethoscope } from "lucide-react";
 import { TwoFactorSection } from "./TwoFactorSection";
+import { CampoTelefono } from "@/components/ui/CampoTelefono";
+import { mostrarTelefono } from "@/lib/telefono";
 
 interface Props {
   user: AuthUser;
@@ -221,7 +223,7 @@ export function MyProfileTab({ user, onUpdate }: Props) {
             value={editing ? form.phone : (user.phone ?? "")}
             editable={editing}
             onChange={(v) => setForm({ ...form, phone: v })}
-            placeholder="+56 9 1234 5678" />
+            telefono />
 
           <Field
             label="Email"
@@ -266,13 +268,17 @@ interface FieldProps {
   onChange: (v: string) => void;
   placeholder?: string;
   note?: string;
+  /** Campo de teléfono: +56 fijo al editar y formateado al mostrar. */
+  telefono?: boolean;
 }
 
-function Field({ label, value, editable, onChange, placeholder, note }: FieldProps) {
+function Field({ label, value, editable, onChange, placeholder, note, telefono }: FieldProps) {
   return (
     <div>
       <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">{label}</label>
-      {editable ? (
+      {editable && telefono ? (
+        <CampoTelefono value={value} onChange={onChange} className="rounded-xl" />
+      ) : editable ? (
         <input
           type="text"
           value={value}
@@ -282,7 +288,7 @@ function Field({ label, value, editable, onChange, placeholder, note }: FieldPro
         />
       ) : (
         <p className="text-sm text-gray-700 min-h-[1.5rem]">
-          {value || <span className="text-gray-300">—</span>}
+          {(telefono ? mostrarTelefono(value) : value) || <span className="text-gray-300">—</span>}
         </p>
       )}
       {note && <p className="text-[10px] text-gray-400 mt-1 italic">{note}</p>}

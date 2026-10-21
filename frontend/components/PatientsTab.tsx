@@ -10,6 +10,7 @@ import { PatientAutocomplete } from "./PatientAutocomplete";
 import { invalidatePatientsCache, haceCuanto, type PatientSuggestion } from "@/lib/patients";
 import { rutaPaciente } from "@/lib/rutasApp";
 import { CircleCheck, ClipboardList, FileText, Pencil, Stethoscope, User, X } from "lucide-react";
+import { CampoTelefono } from "@/components/ui/CampoTelefono";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -525,12 +526,7 @@ function PatientDetail({ patient: initialPatient, onClose }: { patient: Patient;
             <div>
               <p className="text-[10px] text-white/40 font-bold uppercase tracking-wide">Teléfono</p>
               {editMode ? (
-                <input
-                  value={editForm.phone}
-                  onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
-                  placeholder="+56 9 …"
-                  className="text-sm bg-white/10 text-white border border-white/30 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-white/40 w-full mt-0.5"
-                />
+                <CampoTelefono value={editForm.phone} onChange={(v) => setEditForm((f) => ({ ...f, phone: v }))} className="mt-0.5 rounded-lg" />
               ) : (
                 <p className="text-sm font-semibold text-white/90">{patient.phone || "—"}</p>
               )}
@@ -1111,7 +1107,7 @@ function NewPatientModal({ onClose, onCreated }: { onClose: () => void; onCreate
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={lbl}>Teléfono</label>
-              <input value={form.phone} onChange={set("phone")} placeholder="+56 9 1234 5678" className={inp} />
+              <CampoTelefono value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} className="rounded-lg" />
             </div>
             <div>
               <label className={lbl}>Email</label>

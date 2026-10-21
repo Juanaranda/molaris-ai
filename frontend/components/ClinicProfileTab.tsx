@@ -10,6 +10,8 @@ import { IntegrationsSection } from "@/components/IntegrationsSection";
 import { AgentControl } from "@/components/AgentControl";
 import { Building2, Camera, MapPin, MessageCircle, Phone, type LucideIcon } from "lucide-react";
 import { AgentFlowDiagram, type AgentFlowConfig } from "./AgentFlowDiagram";
+import { CampoTelefono } from "@/components/ui/CampoTelefono";
+import { mostrarTelefono } from "@/lib/telefono";
 
 interface ClinicConfig {
   assistantName?: string;
@@ -39,17 +41,27 @@ interface ContactFieldProps {
   icon: LucideIcon;
   placeholder?: string;
   prefix?: string;
+  /** Campo de teléfono: +56 fijo al editar y formateado al mostrar. */
+  telefono?: boolean;
 }
 
-function ContactField({ label, value, editable, onChange, icon, placeholder, prefix }: ContactFieldProps) {
+function ContactField({ label, value, editable, onChange, icon, placeholder, prefix, telefono }: ContactFieldProps) {
   if (!editable) {
     return (
       <div className="flex items-start gap-3">
         {(() => { const Icono = icon; return <Icono className="w-4 h-4 mt-0.5 shrink-0 text-gray-400" aria-hidden />; })()}
         <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</p>
-          <p className="text-sm text-gray-800 mt-0.5 break-words">{value || <span className="text-gray-300">—</span>}</p>
+          <p className="text-sm text-gray-800 mt-0.5 break-words">{(telefono ? mostrarTelefono(value) : value) || <span className="text-gray-300">—</span>}</p>
         </div>
+      </div>
+    );
+  }
+  if (telefono) {
+    return (
+      <div>
+        <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">{label}</label>
+        <CampoTelefono value={value} onChange={onChange} className="rounded-xl" />
       </div>
     );
   }
@@ -316,11 +328,11 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <ContactField label="Nombre de la clínica" value={form.name} editable={editing} icon={Building2}
-            onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Ej: Galana Clínica Dental" />
+            onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Ej: Clínica Dental Aurora" />
           <ContactField label="Teléfono" value={form.phone} editable={editing} icon={Phone}
-            onChange={(v) => setForm((f) => ({ ...f, phone: v }))} placeholder="+56 9 XXXX XXXX" />
+            onChange={(v) => setForm((f) => ({ ...f, phone: v }))} telefono />
           <ContactField label="WhatsApp" value={form.whatsapp} editable={editing} icon={MessageCircle}
-            onChange={(v) => setForm((f) => ({ ...f, whatsapp: v }))} placeholder="+56 9 XXXX XXXX" />
+            onChange={(v) => setForm((f) => ({ ...f, whatsapp: v }))} telefono />
           <ContactField label="Instagram" value={form.instagram} editable={editing} icon={Camera}
             onChange={(v) => setForm((f) => ({ ...f, instagram: v }))} placeholder="@clinica" prefix={form.instagram && !editing ? undefined : undefined} />
           <div className="sm:col-span-2">

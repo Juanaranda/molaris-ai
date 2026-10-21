@@ -1,3 +1,5 @@
+import { rutValido } from "./doctores";
+
 /**
  * Qué falta para poder avanzar en el onboarding.
  *
@@ -15,6 +17,10 @@
 
 export interface DoctorOnboarding {
   name: string;
+  /** Si la pantalla los pide por separado, se revisa que estén los dos. */
+  nombres?: string;
+  apellidos?: string;
+  rut?: string;
   days: string[];
   phone?: string;
   email?: string;
@@ -57,6 +63,14 @@ export function queFaltaEn(paso: number, d: DatosOnboarding): string | null {
     const conNombre = d.doctores.filter((x) => x.name.trim());
     if (conNombre.length === 0) {
       return "Agrega al menos un profesional: sin nadie en el equipo, el asistente no tiene con quién agendar.";
+    }
+    const sinApellido = conNombre.find((x) => x.nombres !== undefined && x.nombres.trim() && !x.apellidos?.trim());
+    if (sinApellido) {
+      return `Falta el apellido de ${sinApellido.nombres!.trim()}. El asistente lo usa para presentarlo a los pacientes.`;
+    }
+    const rutMalo = conNombre.find((x) => x.rut?.trim() && !rutValido(x.rut));
+    if (rutMalo) {
+      return `El RUT de ${rutMalo.name.trim()} no es válido. Revisa el dígito verificador o déjalo en blanco.`;
     }
     if (conNombre.some((x) => x.days.length === 0)) {
       return "Hay un profesional sin días de atención. Marca al menos uno o el asistente no le va a ofrecer horas.";

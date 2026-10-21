@@ -15,6 +15,7 @@ import { isValidRut, formatRut } from "../lib/rut";
 import { sendMolariEmail } from "../services/email/molariEmails";
 import { issueVerificationCode } from "../services/auth/emailVerification";
 import { clinicaSinSecretos } from "../lib/clinicaSinSecretos";
+import { validarRutsDoctores } from "../lib/doctores";
 
 // Claves válidas dentro de Clinic.config. Evita inyectar JSON arbitrario, pero
 // debe cubrir TODO lo que escribe el frontend: si falta una, el PATCH completo
@@ -533,6 +534,10 @@ export async function clinicRoutes(app: FastifyInstance) {
             error: `El plan Solo permite ${MAX_SOLO_DOCTORS} profesional. Para trabajar con un equipo, cambia al plan Clínica.`,
           });
         }
+        // El RUT del profesional es opcional, pero si viene tiene que ser válido.
+        const ruts = validarRutsDoctores(doctors);
+        if (!ruts.ok) return reply.status(400).send({ error: ruts.error });
+        (config as { doctors: unknown[] }).doctors = ruts.doctors;
       }
     }
 

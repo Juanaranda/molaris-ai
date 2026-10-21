@@ -8,6 +8,7 @@ import {
   type CanalCodigo,
 } from "@/lib/auth";
 import { Button, Field, Tabs } from "@/components/ui";
+import { CampoTelefono } from "@/components/ui/CampoTelefono";
 
 const CODE_LEN = 6;
 const RESEND_COOLDOWN = 60;
@@ -180,17 +181,13 @@ function PorWhatsApp({ telefonoInicial, onListo }: { telefonoInicial: string; on
   if (!enviado) {
     return (
       <form onSubmit={(e) => { e.preventDefault(); enviar(); }} className="flex flex-col gap-4">
-        <Field
-          label="Tu celular"
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          placeholder="+56 9 1234 5678"
-          value={telefono}
-          onChange={(e) => setTelefono(e.target.value)}
-          hint="Te llega por WhatsApp. Si tu número no tiene WhatsApp, por SMS."
-          error={error || undefined}
-        />
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="verificar-celular" className="text-sm font-semibold text-ink">Tu celular</label>
+          <CampoTelefono id="verificar-celular" value={telefono} onChange={setTelefono} invalido={!!error}
+            describedBy={error ? "verificar-celular-ayuda verificar-celular-error" : "verificar-celular-ayuda"} />
+          <p id="verificar-celular-ayuda" className="text-[13px] text-ink-muted">Te llega por WhatsApp. Si tu número no tiene WhatsApp, por SMS.</p>
+          {error && <p id="verificar-celular-error" className="text-[13px] font-semibold text-danger">{error}</p>}
+        </div>
         <Button type="submit" loading={enviando} disabled={!telefono.trim()} block>
           Enviarme el código
         </Button>

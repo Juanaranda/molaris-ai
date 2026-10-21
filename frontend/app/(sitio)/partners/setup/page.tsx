@@ -6,6 +6,8 @@ import { getMe, updateClinic } from "@/lib/auth";
 import { BetaWhatsappCard } from "@/components/BetaWhatsappCard";
 import { Building2, Calendar, Check, Globe, Hand, MessageCircle, Smartphone, Stethoscope, X, type LucideIcon } from "lucide-react";
 import { queFaltaEn } from "@/lib/onboardingValidation";
+import { nombreCompleto, separarNombre, formatearRut, sinPrefijo } from "@/lib/doctores";
+import { CampoTelefono } from "@/components/ui/CampoTelefono";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -26,6 +28,10 @@ const SPECIALTIES = [
 
 interface Doctor {
   _id: string;
+  /** Nombres y apellidos por separado, sin "Dr."; `name` se arma con ambos. */
+  nombres: string;
+  apellidos: string;
+  rut: string;
   name: string;
   specialty: string;
   days: DayKey[];
@@ -96,7 +102,7 @@ export default function SetupPage() {
   const [clinicLocation, setClinicLocation] = useState("");
   const [clinicSlug, setClinicSlug] = useState("");
   const [doctors, setDoctors] = useState<Doctor[]>([
-    { _id: uid(), name: "", specialty: "Odontología General", days: ["monday", "tuesday", "wednesday", "thursday", "friday"] },
+    { _id: uid(), nombres: "", apellidos: "", rut: "", name: "", specialty: "Odontología General", days: ["monday", "tuesday", "wednesday", "thursday", "friday"] },
   ]);
   const [schedule, setSchedule] = useState<Schedule>(DEFAULT_SCHEDULE);
   const [boxes, setBoxes] = useState(2);
@@ -124,14 +130,20 @@ export default function SetupPage() {
           // Se traen todos los campos, contacto incluido: este mismo asistente
           // reescribe config.doctors al guardar, así que lo que no se cargue
           // acá se borra en silencio al reabrirlo.
-          (cfg.doctors as { name: string; specialty?: string; days?: string[]; phone?: string; email?: string }[]).map((d) => ({
+          (cfg.doctors as { name: string; nombres?: string; apellidos?: string; rut?: string; specialty?: string; days?: string[]; phone?: string; email?: string }[]).map((d) => {
+            // Los guardados antes de separar nombres y apellidos se separan acá.
+            const sep = d.nombres !== undefined ? { nombres: d.nombres, apellidos: d.apellidos ?? "" } : separarNombre(d.name);
+            return {
             _id: uid(),
-            name: d.name,
+            ...sep,
+            rut: d.rut ?? "",
+            name: nombreCompleto(sep.nombres, sep.apellidos),
             specialty: d.specialty ?? "Odontología General",
             days: (d.days ?? ["monday", "tuesday", "wednesday", "thursday", "friday"]) as DayKey[],
             phone: d.phone,
             email: d.email,
-          }))
+          };
+          })
         );
       }
     });
@@ -152,7 +164,7 @@ export default function SetupPage() {
   function addDoctor() {
     setDoctors((ds) => [
       ...ds,
-      { _id: uid(), name: "", specialty: "Odontología General", days: ["monday", "tuesday", "wednesday", "thursday", "friday"] },
+      { _id: uid(), nombres: "", apellidos: "", rut: "", name: "", specialty: "Odontología General", days: ["monday", "tuesday", "wednesday", "thursday", "friday"] },
     ]);
   }
 
@@ -161,7 +173,11 @@ export default function SetupPage() {
   }
 
   function updateDoctor(id: string, field: keyof Omit<Doctor, "_id">, value: unknown) {
-    setDoctors((ds) => ds.map((d) => d._id === id ? { ...d, [field]: value } : d));
+    setDoctors((ds) => ds.map((d) => {
+      if (d._id !== id) return d;
+      const nuevo = { ...d, [field]: value };
+      return { ...nuevo, name: nombreCompleto(nuevo.nombres, nuevo.apellidos) };
+    }));
   }
 
   function toggleDay(doctorId: string, day: DayKey) {
@@ -204,8 +220,8 @@ export default function SetupPage() {
         config: {
           tone: "profesional pero cercano",
           schedule: scheduleConfig,
-          doctors: validDoctors.map(({ name, specialty, days, phone, email }) => ({
-            name, specialty, days,
+          doctors: validDoctors.map(({ name, nombres, apellidos, rut, specialty, days, phone, email }) => ({
+            name, nombres: sinPrefijo(nombres), apellidos: apellidos.trim(), rut: rut.trim() || undefined, specialty, days,
             phone: phone?.trim() || undefined,
             email: email?.trim() || undefined,
           })),
@@ -372,21 +388,15 @@ export default function SetupPage() {
                   <input
                     value={clinicName}
                     onChange={(e) => setClinicName(e.target.value)}
-                    placeholder={isSolo ? "Ej: Consulta Dr. Juan Garcés" : "Clínica Dental Sonrisa"}
+                    placeholder={isSolo ? "Ej: Consulta Camila Soto" : "Clínica Dental Sonrisa"}
                     className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                     style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
                   />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold mb-1" style={{ color: "#607281" }}>Teléfono</label>
-                    <input
-                      value={clinicPhone}
-                      onChange={(e) => setClinicPhone(e.target.value)}
-                      placeholder="+56 2 2345 6789"
-                      className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                      style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
-                    />
+                    <label htmlFor="setup-telefono" className="block text-xs font-semibold mb-1" style={{ color: "#607281" }}>Teléfono</label>
+                    <CampoTelefono id="setup-telefono" value={clinicPhone} onChange={setClinicPhone} placeholder="2 2345 6789" className="rounded-xl bg-gray-50" />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold mb-1" style={{ color: "#607281" }}>Ciudad / comuna</label>
@@ -439,11 +449,40 @@ export default function SetupPage() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs font-semibold mb-1" style={{ color: "#607281" }}>Nombre completo</label>
+                        <label htmlFor={`doc-nombres-${doc._id}`} className="block text-xs font-semibold mb-1" style={{ color: "#607281" }}>Nombres</label>
                         <input
-                          value={doc.name}
-                          onChange={(e) => updateDoctor(doc._id, "name", e.target.value)}
-                          placeholder="Dra. María González"
+                          id={`doc-nombres-${doc._id}`}
+                          value={doc.nombres}
+                          onChange={(e) => updateDoctor(doc._id, "nombres", e.target.value)}
+                          placeholder="María José"
+                          autoComplete="off"
+                          className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                          style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor={`doc-apellidos-${doc._id}`} className="block text-xs font-semibold mb-1" style={{ color: "#607281" }}>Apellidos</label>
+                        <input
+                          id={`doc-apellidos-${doc._id}`}
+                          value={doc.apellidos}
+                          onChange={(e) => updateDoctor(doc._id, "apellidos", e.target.value)}
+                          placeholder="González Pérez"
+                          autoComplete="off"
+                          className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                          style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor={`doc-rut-${doc._id}`} className="block text-xs font-semibold mb-1" style={{ color: "#607281" }}>
+                          RUT <span className="font-normal">(opcional)</span>
+                        </label>
+                        <input
+                          id={`doc-rut-${doc._id}`}
+                          value={doc.rut}
+                          onChange={(e) => updateDoctor(doc._id, "rut", formatearRut(e.target.value))}
+                          placeholder="12.345.678-5"
+                          inputMode="text"
+                          autoComplete="off"
                           className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                           style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
                         />
@@ -499,14 +538,8 @@ export default function SetupPage() {
                         )}
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <input
-                          value={doc.phone ?? ""}
-                          onChange={(e) => updateDoctor(doc._id, "phone", e.target.value)}
-                          placeholder="WhatsApp: +56 9 1234 5678"
-                          inputMode="tel"
-                          className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                          style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
-                        />
+                        <CampoTelefono value={doc.phone ?? ""} onChange={(v) => updateDoctor(doc._id, "phone", v)}
+                          placeholder="9 1234 5678" className="rounded-xl bg-gray-50" />
                         <input
                           type="email"
                           value={doc.email ?? ""}
@@ -664,13 +697,7 @@ export default function SetupPage() {
                     <p className="text-xs" style={{ color: "#607281" }}>El asistente responderá aquí 24/7</p>
                   </div>
                 </div>
-                <input
-                  value={whatsapp}
-                  onChange={(e) => setWhatsapp(e.target.value)}
-                  placeholder="+56 9 1234 5678"
-                  className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                  style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
-                />
+                <CampoTelefono value={whatsapp} onChange={setWhatsapp} className="rounded-xl bg-gray-50" />
               </div>
 
               {/* Número de prueba (beta): solo aparece si está configurado */}

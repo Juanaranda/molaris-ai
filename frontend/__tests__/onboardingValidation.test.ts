@@ -81,6 +81,22 @@ describe("paso 3 — equipo", () => {
   });
 });
 
+describe("paso 3 — nombre y RUT por separado", () => {
+  const base = { days: ["monday"], phone: "+56911111111" };
+
+  it("pide el apellido si solo pusieron el nombre", () => {
+    const r = queFaltaEn(3, { ...COMPLETO, doctores: [{ ...base, name: "Camila", nombres: "Camila", apellidos: "" }] });
+    expect(r).toMatch(/apellido de Camila/);
+  });
+
+  it("el RUT es opcional, pero si viene tiene que ser válido", () => {
+    const ok = { ...base, name: "Camila Soto", nombres: "Camila", apellidos: "Soto" };
+    expect(queFaltaEn(3, { ...COMPLETO, doctores: [{ ...ok, rut: "" }] })).toBeNull();
+    expect(queFaltaEn(3, { ...COMPLETO, doctores: [{ ...ok, rut: "12.345.678-5" }] })).toBeNull();
+    expect(queFaltaEn(3, { ...COMPLETO, doctores: [{ ...ok, rut: "12.345.678-9" }] })).toMatch(/RUT de Camila Soto/);
+  });
+});
+
 describe("paso 4 — horario", () => {
   it("exige al menos un día abierto", () => {
     const cerrado = COMPLETO.horario.map((d) => ({ ...d, open: false }));

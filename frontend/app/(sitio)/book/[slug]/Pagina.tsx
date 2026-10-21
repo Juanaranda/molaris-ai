@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { toLocalDateStr } from "@/lib/dateParser";
 import { getClinicBookingInfo, getAvailableSlots, getPrefillData, ClinicBookingInfo, DoctorSlots } from "@/lib/patient-auth";
 import { Check } from "lucide-react";
+import { CampoTelefono } from "@/components/ui/CampoTelefono";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -388,7 +389,7 @@ export default function BookPage() {
                     <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: "#607281" }}>
                       Teléfono <span className="font-normal normal-case" style={{ color: "#A0B0BC" }}>(opcional)</span>
                     </label>
-                    <input type="tel" placeholder="+56 9 1234 5678" value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls} style={inputStyle} />
+                    <CampoTelefono value={phone} onChange={setPhone} className="rounded-xl" />
                   </div>
 
                   <div>

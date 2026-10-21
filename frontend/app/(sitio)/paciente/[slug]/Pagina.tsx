@@ -9,6 +9,7 @@ import {
   downloadMyData, requestMyDataDeletion, getPurposes,
   PatientData, MyBooking, PatientBoleta, DataPurpose,
 } from "@/lib/patient-auth";
+import { CampoTelefono } from "@/components/ui/CampoTelefono";
 
 function formatRut(raw: string): string {
   const clean = raw.replace(/[^0-9kK]/g, "").toUpperCase();
@@ -245,7 +246,7 @@ export default function PatientPortal() {
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Teléfono</label>
-                    <input type="tel" placeholder="+56 9 1234 5678" value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls} />
+                    <CampoTelefono value={phone} onChange={setPhone} className="rounded-xl" />
                   </div>
                 </>
               )}
