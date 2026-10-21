@@ -18,8 +18,51 @@ export function doctoresPublicos(doctors: unknown): DoctorPublico[] {
     .map((d) => ({
       name: String(d.name),
       specialty: typeof d.specialty === "string" ? d.specialty : "",
-      schedule: typeof d.schedule === "string" ? d.schedule : "",
+      schedule: typeof d.schedule === "string" && d.schedule.trim() ? d.schedule : horarioLegible(diasDelDoctor(d)),
     }));
+}
+
+// Día JS: 0 = domingo … 6 = sábado.
+const ABREVIATURAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const DIA_POR_ABREVIATURA: Record<string, number> = Object.fromEntries(ABREVIATURAS.map((a, i) => [a, i]));
+const DIA_POR_CLAVE: Record<string, number> = {
+  sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6,
+};
+
+/** Formato de texto de los primeros profesionales: "Lun-Vie" o "Lun/Mié/Vie". */
+export function diasDesdeHorario(schedule: string): number[] {
+  if (schedule.includes("-")) {
+    const [start, end] = schedule.split("-").map((s) => s.trim());
+    const s = DIA_POR_ABREVIATURA[start];
+    const e = DIA_POR_ABREVIATURA[end];
+    if (s == null || e == null) return [];
+    return Array.from({ length: e - s + 1 }, (_, i) => s + i);
+  }
+  return schedule.split("/").map((d) => DIA_POR_ABREVIATURA[d.trim()]).filter((d) => d != null);
+}
+
+/**
+ * Días que atiende un profesional. El onboarding los guarda en `days`
+ * (["monday", …]) y sin `schedule`; los profesionales sembrados a mano traen
+ * solo `schedule`. Se lee `days` primero y, si no dice nada, el texto.
+ */
+export function diasDelDoctor(doc: { days?: unknown; schedule?: unknown }): number[] {
+  if (Array.isArray(doc.days)) {
+    const dias = doc.days
+      .map((k) => (typeof k === "string" ? DIA_POR_CLAVE[k.trim().toLowerCase()] : undefined))
+      .filter((d): d is number => d != null);
+    if (dias.length > 0) return [...new Set(dias)].sort((a, b) => a - b);
+  }
+  return typeof doc.schedule === "string" ? diasDesdeHorario(doc.schedule) : [];
+}
+
+/** [1, 3, 5] → "Lun/Mié/Vie", con la semana partiendo el lunes. */
+export function horarioLegible(dias: number[]): string {
+  const desdeLunes = (d: number) => (d + 6) % 7;
+  return [...new Set(dias)]
+    .sort((a, b) => desdeLunes(a) - desdeLunes(b))
+    .map((d) => ABREVIATURAS[d])
+    .join("/");
 }
 
 /**
