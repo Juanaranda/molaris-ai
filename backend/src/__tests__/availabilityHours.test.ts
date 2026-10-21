@@ -138,3 +138,30 @@ describe("getWeekAvailability con horarios por doctor", () => {
     expect(dia.slots).toHaveLength(0);
   });
 });
+
+/* El onboarding guarda los días como `days: ["monday", …]` y sin `schedule`:
+   antes esos profesionales no aparecían en ningún día y el agente no tenía
+   horas que ofrecer. */
+describe("días de los profesionales del onboarding", () => {
+  const cfg: ClinicAvailabilityConfig = {
+    ...base,
+    doctors: [
+      { name: "Ana Rojas", days: ["monday", "wednesday"] },
+      { name: "Pedro Soto", schedule: "Mar/Jue" },
+    ],
+  };
+  const doctoresDel = (fecha: string) => {
+    const dia = getWeekAvailability(LUNES, cfg, "Control").find((d) => d.date === fecha)!;
+    return [...new Set(dia.slots.map((s) => s.doctor))];
+  };
+
+  it("ofrece horas a quien solo tiene `days`, los días que atiende", () => {
+    expect(doctoresDel("2026-08-03")).toEqual(["Ana Rojas"]);  // lunes
+    expect(doctoresDel("2026-08-05")).toEqual(["Ana Rojas"]);  // miércoles
+  });
+
+  it("sigue leyendo `schedule` y no mezcla los días de uno con el otro", () => {
+    expect(doctoresDel("2026-08-04")).toEqual(["Pedro Soto"]); // martes
+    expect(doctoresDel("2026-08-07")).toEqual([]);             // viernes
+  });
+});

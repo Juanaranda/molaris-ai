@@ -1,4 +1,5 @@
 import { fechaEnChile, instanteEnChile, sumarDias, diaDeSemana } from "../../lib/fechaChile";
+import { diasDelDoctor } from "../../lib/doctores";
 
 export interface Slot {
   time: string;
@@ -21,6 +22,7 @@ export interface AvailabilityDoctor {
   name: string;
   specialty?: string;
   schedule?: string;    // "Lun-Vie" o "Lun/Mié/Vie"
+  days?: string[];      // como lo guarda el onboarding: ["monday", …]
   workDays?: number[];  // alternativa pre-parseada
   services?: string[];
   box?: string | null;
@@ -121,25 +123,9 @@ export function duracionDeServicio(
 
 const DAY_NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
-const DAY_MAP: Record<string, number> = {
-  Dom: 0, Lun: 1, Mar: 2, "Mié": 3, Jue: 4, Vie: 5, "Sáb": 6,
-};
-
-function parseDoctorDays(schedule: string): number[] {
-  if (schedule.includes("-")) {
-    const [start, end] = schedule.split("-").map((s) => s.trim());
-    const s = DAY_MAP[start];
-    const e = DAY_MAP[end];
-    if (s == null || e == null) return [];
-    return Array.from({ length: e - s + 1 }, (_, i) => s + i);
-  }
-  return schedule.split("/").map((d) => DAY_MAP[d.trim()]).filter((d) => d != null);
-}
-
 function getWorkDays(doc: AvailabilityDoctor): number[] {
   if (doc.workDays && doc.workDays.length > 0) return doc.workDays;
-  if (doc.schedule) return parseDoctorDays(doc.schedule);
-  return [];
+  return diasDelDoctor(doc);
 }
 
 function buildBoxPool(boxes: ClinicAvailabilityConfig["boxes"]): string[] {

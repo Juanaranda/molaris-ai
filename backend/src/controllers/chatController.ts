@@ -12,6 +12,7 @@ import { calcularPlazo, datosDeSolicitud } from "../services/booking/confirmatio
 import { avisarProfesional } from "../services/booking/notifyProfessional";
 import { triggerAlert } from "../services/alerts/alertService";
 import { fechaEnChile, sumarDias, diaDeSemana } from "../lib/fechaChile";
+import { diasDelDoctor } from "../lib/doctores";
 
 const bodySchema = z.object({
   message: z.string().min(1),
@@ -24,20 +25,7 @@ const bodySchema = z.object({
 
 // ─── Helpers de disponibilidad ────────────────────────────────────────────────
 
-const DAY_MAP: Record<string, number> = {
-  Dom: 0, Lun: 1, Mar: 2, "Mié": 3, Jue: 4, Vie: 5, "Sáb": 6,
-};
 const DAY_NAMES_ES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-
-function parseDoctorDays(schedule: string): number[] {
-  if (schedule.includes("-")) {
-    const [start, end] = schedule.split("-").map((s) => s.trim());
-    const s = DAY_MAP[start]; const e = DAY_MAP[end];
-    if (s == null || e == null) return [];
-    return Array.from({ length: e - s + 1 }, (_, i) => s + i);
-  }
-  return schedule.split("/").map((d) => DAY_MAP[d.trim()]).filter((d) => d != null);
-}
 
 function generateSlots(isSat: boolean): string[] {
   const slots: string[] = [];
@@ -48,10 +36,10 @@ function generateSlots(isSat: boolean): string[] {
   return slots;
 }
 
-interface DoctorConfig { name: string; specialty: string; schedule: string; }
+interface DoctorConfig { name: string; specialty: string; schedule?: string; days?: string[]; }
 interface ClinicCfg { doctors?: DoctorConfig[]; }
 
-async function buildAvailabilityHint(clinicId: string, cfg: ClinicCfg): Promise<string> {
+export async function buildAvailabilityHint(clinicId: string, cfg: ClinicCfg): Promise<string> {
   const doctors = cfg.doctors ?? [];
   const lines: string[] = ["## DISPONIBILIDAD PRÓXIMOS 5 DÍAS (usa SOLO estos horarios)"];
 
@@ -67,7 +55,7 @@ async function buildAvailabilityHint(clinicId: string, cfg: ClinicCfg): Promise<
     const iso = sumarDias(hoy, i);
     const jsDay = diaDeSemana(iso);
     if (jsDay === 0) continue;
-    const availDoctors = doctors.filter((doc) => parseDoctorDays(doc.schedule).includes(jsDay));
+    const availDoctors = doctors.filter((doc) => diasDelDoctor(doc).includes(jsDay));
     if (availDoctors.length === 0) continue;
     candidateDays.push({ iso, jsDay, isSat: jsDay === 6, availDoctors });
   }
