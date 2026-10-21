@@ -4,7 +4,7 @@ import { sendBookingNotification } from "../services/notifications/whatsappServi
 import { datosDeSolicitud } from "../services/booking/confirmation";
 import { avisarProfesional } from "../services/booking/notifyProfessional";
 import { verifyPatientToken } from "./patient-auth";
-import { doctoresPublicos, diasDelDoctor } from "../lib/doctores";
+import { doctoresActivos, doctoresPublicos, diasDelDoctor } from "../lib/doctores";
 
 interface DoctorConfig {
   name: string;
@@ -125,7 +125,7 @@ export async function bookRoutes(app: FastifyInstance) {
     if (isSunday) return reply.send({ slots: [] });
 
     const cfg = clinic.config as ClinicConfig;
-    const doctors = cfg.doctors ?? [];
+    const doctors = doctoresActivos(cfg.doctors);
 
     // Filtrar doctors que trabajan ese día
     const availableDoctors = doctorName

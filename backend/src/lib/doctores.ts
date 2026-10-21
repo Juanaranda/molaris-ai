@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { isValidRut, formatRut } from "./rut";
 
 /**
@@ -14,7 +15,8 @@ export type DoctorPublico = { name: string; specialty: string; schedule: string 
 export function doctoresPublicos(doctors: unknown): DoctorPublico[] {
   if (!Array.isArray(doctors)) return [];
   return doctors
-    .filter((d): d is Record<string, unknown> => !!d && typeof d === "object" && typeof (d as { name?: unknown }).name === "string")
+    // Sin nombre es una invitación pendiente (MOL-54): todavía no se muestra.
+    .filter((d): d is Record<string, unknown> => !!d && typeof d === "object" && typeof (d as { name?: unknown }).name === "string" && !!(d as { name: string }).name.trim())
     .map((d) => ({
       name: String(d.name),
       specialty: typeof d.specialty === "string" ? d.specialty : "",
@@ -91,4 +93,59 @@ export function validarRutsDoctores(doctors: unknown[]):
     salida.push({ ...doc, rut: formatRut(rut) });
   }
   return { ok: true, doctors: salida };
+}
+
+/* ── Profesionales invitados (MOL-54) ─────────────────────────────────────── */
+
+type Obj = Record<string, unknown>;
+const esObj = (d: unknown): d is Obj => !!d && typeof d === "object" && !Array.isArray(d);
+
+/**
+ * Los que el agente, la agenda y las reservas pueden usar: los que tienen
+ * nombre. Un profesional sin nombre es una invitación pendiente: el admin lo
+ * agregó sin datos y todavía no completa su perfil.
+ */
+export function doctoresActivos<T>(doctors: T[] | null | undefined): T[] {
+  return (doctors ?? []).filter((d) => esObj(d) && typeof d.name === "string" && d.name.trim() !== "");
+}
+
+/** Datos que pone el propio profesional, no el admin de la clínica. */
+export const CAMPOS_DEL_PROFESIONAL = ["rut", "phone", "userId"] as const;
+
+/**
+ * Al guardar la lista de profesionales desde el panel o el onboarding:
+ *
+ * - Cada profesional queda con un `id` estable (las invitaciones lo usan). Los
+ *   guardados antes de existir el id se reconocen por su nombre.
+ * - El RUT y el WhatsApp los pone el profesional: el admin no los cambia. De
+ *   uno que ya existía se conservan los guardados; a uno nuevo no se le
+ *   aceptan. `userId` (la cuenta unida) nunca se cambia por esta vía.
+ * - Excepción: en una cuenta "solo" el admin ES el profesional, y quien edita
+ *   su propio perfil (userId igual al suyo) también puede.
+ */
+export function protegerDatosDelProfesional(
+  entrantes: unknown[],
+  guardados: unknown[] | null | undefined,
+  quien: { userId: string; esSolo: boolean },
+  nuevoId: () => string = randomUUID,
+): Obj[] {
+  const previos = (guardados ?? []).filter(esObj);
+  const usados = new Set<Obj>();
+  return entrantes.filter(esObj).map((d) => {
+    const idEntrante = typeof d.id === "string" && d.id ? d.id : undefined;
+    const previo = idEntrante
+      ? previos.find((p) => p.id === idEntrante)
+      : previos.find((p) => !usados.has(p) && !p.id && typeof p.name === "string" && p.name.trim() !== "" && p.name === d.name);
+    if (previo) usados.add(previo);
+
+    const id = idEntrante ?? (typeof previo?.id === "string" && previo.id ? previo.id : nuevoId());
+    const puedeDatosPersonales = quien.esSolo || (!!previo && previo.userId === quien.userId);
+    const salida: Obj = { ...d, id };
+    for (const campo of CAMPOS_DEL_PROFESIONAL) {
+      if (campo !== "userId" && puedeDatosPersonales) continue;
+      if (previo && previo[campo] !== undefined) salida[campo] = previo[campo];
+      else delete salida[campo];
+    }
+    return salida;
+  });
 }

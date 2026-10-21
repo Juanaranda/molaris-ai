@@ -27,7 +27,10 @@ export type AuditResourceType =
   | "Payment"
   // Baja de una clínica (MOL-17): se registra quién la desactivó y cuántos
   // registros clínicos tenía, porque eso decidió que no se borrara.
-  | "Clinic";
+  | "Clinic"
+  // Invitación a un profesional y la cuenta que crea al aceptarla (MOL-54).
+  | "InvitacionProfesional"
+  | "PartnerUser";
 
 interface AuditInput {
   req:            FastifyRequest;

@@ -1,3 +1,5 @@
+import { doctoresActivos } from "../../lib/doctores";
+
 /**
  * contextInjector.ts
  *
@@ -59,12 +61,13 @@ function getDayString(doc: Doctor): string {
  */
 export function buildContextHint(message: string, clinicConfig: unknown): string | null {
   const cfg = clinicConfig as ClinicConfig;
-  if (!cfg.doctors || cfg.doctors.length === 0) return null;
+  const doctores = doctoresActivos(cfg.doctors);
+  if (doctores.length === 0) return null;
 
   const serviceKey = detectService(message);
   if (!serviceKey) return null;
 
-  const matched = findDoctorsForService(cfg.doctors, serviceKey);
+  const matched = findDoctorsForService(doctores, serviceKey);
   if (matched.length === 0) return null;
 
   // Si hay exactamente un especialista → hint directo y obligatorio

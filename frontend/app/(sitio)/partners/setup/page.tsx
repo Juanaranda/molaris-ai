@@ -6,8 +6,9 @@ import { getMe, updateClinic } from "@/lib/auth";
 import { BetaWhatsappCard } from "@/components/BetaWhatsappCard";
 import { Building2, Calendar, Check, Globe, Hand, MessageCircle, Smartphone, Stethoscope, X, type LucideIcon } from "lucide-react";
 import { queFaltaEn } from "@/lib/onboardingValidation";
-import { nombreCompleto, separarNombre, formatearRut, sinPrefijo } from "@/lib/doctores";
+import { nombreCompleto, separarNombre, sinPrefijo, ESPECIALIDADES } from "@/lib/doctores";
 import { CampoTelefono } from "@/components/ui/CampoTelefono";
+import { invitarProfesional } from "@/lib/invitaciones";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -15,23 +16,15 @@ const DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"] as const;
 const DAY_KEYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
 type DayKey = (typeof DAY_KEYS)[number];
 
-const SPECIALTIES = [
-  "Odontología General",
-  "Ortodoncia",
-  "Endodoncia",
-  "Implantología",
-  "Periodoncia",
-  "Cirugía Oral",
-  "Blanqueamiento",
-  "Odontopediatría",
-];
+const SPECIALTIES = ESPECIALIDADES;
 
 interface Doctor {
   _id: string;
+  /** Lo guardado tal cual (id, userId, RUT, WhatsApp…): se devuelve intacto al guardar. */
+  original?: Record<string, unknown>;
   /** Nombres y apellidos por separado, sin "Dr."; `name` se arma con ambos. */
   nombres: string;
   apellidos: string;
-  rut: string;
   name: string;
   specialty: string;
   days: DayKey[];
@@ -102,7 +95,7 @@ export default function SetupPage() {
   const [clinicLocation, setClinicLocation] = useState("");
   const [clinicSlug, setClinicSlug] = useState("");
   const [doctors, setDoctors] = useState<Doctor[]>([
-    { _id: uid(), nombres: "", apellidos: "", rut: "", name: "", specialty: "Odontología General", days: ["monday", "tuesday", "wednesday", "thursday", "friday"] },
+    { _id: uid(), nombres: "", apellidos: "", name: "", specialty: "Odontología General", days: ["monday", "tuesday", "wednesday", "thursday", "friday"] },
   ]);
   const [schedule, setSchedule] = useState<Schedule>(DEFAULT_SCHEDULE);
   const [boxes, setBoxes] = useState(2);
@@ -130,13 +123,13 @@ export default function SetupPage() {
           // Se traen todos los campos, contacto incluido: este mismo asistente
           // reescribe config.doctors al guardar, así que lo que no se cargue
           // acá se borra en silencio al reabrirlo.
-          (cfg.doctors as { name: string; nombres?: string; apellidos?: string; rut?: string; specialty?: string; days?: string[]; phone?: string; email?: string }[]).map((d) => {
+          (cfg.doctors as ({ name: string; nombres?: string; apellidos?: string; specialty?: string; days?: string[]; phone?: string; email?: string } & Record<string, unknown>)[]).map((d) => {
             // Los guardados antes de separar nombres y apellidos se separan acá.
             const sep = d.nombres !== undefined ? { nombres: d.nombres, apellidos: d.apellidos ?? "" } : separarNombre(d.name);
             return {
             _id: uid(),
+            original: d,
             ...sep,
-            rut: d.rut ?? "",
             name: nombreCompleto(sep.nombres, sep.apellidos),
             specialty: d.specialty ?? "Odontología General",
             days: (d.days ?? ["monday", "tuesday", "wednesday", "thursday", "friday"]) as DayKey[],
@@ -164,7 +157,7 @@ export default function SetupPage() {
   function addDoctor() {
     setDoctors((ds) => [
       ...ds,
-      { _id: uid(), nombres: "", apellidos: "", rut: "", name: "", specialty: "Odontología General", days: ["monday", "tuesday", "wednesday", "thursday", "friday"] },
+      { _id: uid(), nombres: "", apellidos: "", name: "", specialty: "Odontología General", days: ["monday", "tuesday", "wednesday", "thursday", "friday"] },
     ]);
   }
 
@@ -201,7 +194,8 @@ export default function SetupPage() {
     setSaving(true);
     setError("");
     try {
-      const validDoctors = doctors.filter((d) => d.name.trim());
+      // Una fila sin nombre ni correo está vacía; con correo es una invitación.
+      const validDoctors = doctors.filter((d) => d.name.trim() || d.email?.trim());
       const scheduleConfig: Record<string, string> = {};
       const dayNames: Record<keyof Schedule, string> = {
         monday: "Lunes", tuesday: "Martes", wednesday: "Miércoles",
@@ -211,7 +205,7 @@ export default function SetupPage() {
         scheduleConfig[key] = val.open ? `${dayNames[key as keyof Schedule]}: ${val.from} - ${val.to}` : `${dayNames[key as keyof Schedule]}: cerrado`;
       });
 
-      await updateClinic(clinicId, {
+      const guardada = await updateClinic(clinicId, {
         name: clinicName.trim() || undefined,
         phone: clinicPhone.trim() || undefined,
         location: clinicLocation.trim() || undefined,
@@ -220,16 +214,22 @@ export default function SetupPage() {
         config: {
           tone: "profesional pero cercano",
           schedule: scheduleConfig,
-          doctors: validDoctors.map(({ name, nombres, apellidos, rut, specialty, days, phone, email }) => ({
-            name, nombres: sinPrefijo(nombres), apellidos: apellidos.trim(), rut: rut.trim() || undefined, specialty, days,
-            phone: phone?.trim() || undefined,
-            email: email?.trim() || undefined,
+          doctors: validDoctors.map(({ original, name, nombres, apellidos, specialty, days, email }) => ({
+            ...original,
+            name, nombres: sinPrefijo(nombres), apellidos: apellidos.trim(), specialty, days,
+            email: email?.trim().toLowerCase() || undefined,
           })),
           services: validDoctors.flatMap((d) => [d.specialty]).filter((v, i, a) => a.indexOf(v) === i),
           boxes,
           onboardingDone: true,
         },
       });
+      // A cada profesional con correo y sin cuenta le sale su invitación para que
+      // complete su perfil. Si alguna falla, se puede reenviar desde Equipo.
+      const guardados = ((guardada.config as { doctors?: { id?: string; email?: string; userId?: string }[] })?.doctors ?? []);
+      await Promise.allSettled(
+        guardados.filter((d) => d.id && d.email && !d.userId).map((d) => invitarProfesional(clinicId, d.id!)),
+      );
       router.push("/partners/dashboard");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al guardar");
@@ -430,7 +430,8 @@ export default function SetupPage() {
                 </button>
                 <h2 className="text-2xl font-black mb-1" style={{ color: "#0C1B26" }}>Agrega tus doctores</h2>
                 <p className="text-sm" style={{ color: "#607281" }}>
-                  El asistente usará esta información para guiar a los pacientes.
+                  Pon lo que sepas, todo es opcional. A cada uno le mandamos un link a su correo para que
+                  complete su perfil (su RUT y su WhatsApp) y cree su cuenta.
                 </p>
               </div>
 
@@ -473,15 +474,13 @@ export default function SetupPage() {
                         />
                       </div>
                       <div>
-                        <label htmlFor={`doc-rut-${doc._id}`} className="block text-xs font-semibold mb-1" style={{ color: "#607281" }}>
-                          RUT <span className="font-normal">(opcional)</span>
-                        </label>
+                        <label htmlFor={`doc-correo-${doc._id}`} className="block text-xs font-semibold mb-1" style={{ color: "#607281" }}>Correo</label>
                         <input
-                          id={`doc-rut-${doc._id}`}
-                          value={doc.rut}
-                          onChange={(e) => updateDoctor(doc._id, "rut", formatearRut(e.target.value))}
-                          placeholder="12.345.678-5"
-                          inputMode="text"
+                          id={`doc-correo-${doc._id}`}
+                          type="email"
+                          value={doc.email ?? ""}
+                          onChange={(e) => updateDoctor(doc._id, "email", e.target.value)}
+                          placeholder="doctora@clinica.cl"
                           autoComplete="off"
                           className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                           style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
@@ -520,39 +519,6 @@ export default function SetupPage() {
                       </div>
                     </div>
 
-                    {/* Contacto. No es un dato administrativo: es por donde el
-                        profesional recibe el link para confirmar una hora. */}
-                    <div>
-                      <div className="flex items-baseline justify-between mb-2 gap-3">
-                        <label className="block text-xs font-semibold" style={{ color: "#607281" }}>
-                          Dónde le avisamos
-                        </label>
-                        {clinicPhone.trim() && doc.phone?.trim() !== clinicPhone.trim() && (
-                          <button
-                            type="button"
-                            onClick={() => updateDoctor(doc._id, "phone", clinicPhone.trim())}
-                            className="text-[11px] font-semibold underline underline-offset-2"
-                            style={{ color: "#1A5C7A" }}>
-                            usar el de la clínica
-                          </button>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <CampoTelefono value={doc.phone ?? ""} onChange={(v) => updateDoctor(doc._id, "phone", v)}
-                          placeholder="9 1234 5678" className="rounded-xl bg-gray-50" />
-                        <input
-                          type="email"
-                          value={doc.email ?? ""}
-                          onChange={(e) => updateDoctor(doc._id, "email", e.target.value)}
-                          placeholder="Correo: doctora@clinica.cl"
-                          className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                          style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
-                        />
-                      </div>
-                      <p className="text-[11px] mt-1.5" style={{ color: "#8A9AA6" }}>
-                        Cuando un paciente pida hora, le llega un link para confirmarla. Basta con uno de los dos.
-                      </p>
-                    </div>
                   </div>
                 ))}
 

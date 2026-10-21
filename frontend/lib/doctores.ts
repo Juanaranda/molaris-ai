@@ -59,3 +59,22 @@ export function formatearRut(rut: string): string {
   const cuerpo = limpio.slice(0, -1).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   return `${cuerpo}-${limpio.slice(-1)}`;
 }
+
+/* ── Especialidades y días (onboarding, invitación) ─────────────────────── */
+
+export const ESPECIALIDADES = [
+  "Odontología General",
+  "Ortodoncia",
+  "Endodoncia",
+  "Implantología",
+  "Periodoncia",
+  "Cirugía Oral",
+  "Blanqueamiento",
+  "Odontopediatría",
+];
+
+export const DIAS_SEMANA = [
+  { clave: "monday", corto: "Lun" }, { clave: "tuesday", corto: "Mar" }, { clave: "wednesday", corto: "Mié" },
+  { clave: "thursday", corto: "Jue" }, { clave: "friday", corto: "Vie" }, { clave: "saturday", corto: "Sáb" },
+  { clave: "sunday", corto: "Dom" },
+] as const;

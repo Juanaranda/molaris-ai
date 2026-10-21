@@ -1,5 +1,3 @@
-import { rutValido } from "./doctores";
-
 /**
  * Qué falta para poder avanzar en el onboarding.
  *
@@ -17,10 +15,6 @@ import { rutValido } from "./doctores";
 
 export interface DoctorOnboarding {
   name: string;
-  /** Si la pantalla los pide por separado, se revisa que estén los dos. */
-  nombres?: string;
-  apellidos?: string;
-  rut?: string;
   days: string[];
   phone?: string;
   email?: string;
@@ -60,28 +54,16 @@ export function queFaltaEn(paso: number, d: DatosOnboarding): string | null {
   }
 
   if (paso === 3) {
-    const conNombre = d.doctores.filter((x) => x.name.trim());
-    if (conNombre.length === 0) {
-      return "Agrega al menos un profesional: sin nadie en el equipo, el asistente no tiene con quién agendar.";
+    // Todo lo del profesional es opcional (MOL-54): basta su nombre o su correo,
+    // y él completa el resto con el link de invitación. Una fila sin ninguno de
+    // los dos está vacía y se ignora.
+    const considerados = d.doctores.filter((x) => x.name.trim() || x.email?.trim());
+    if (considerados.length === 0) {
+      return "Agrega al menos un profesional: su nombre, o su correo para mandarle la invitación.";
     }
-    const sinApellido = conNombre.find((x) => x.nombres !== undefined && x.nombres.trim() && !x.apellidos?.trim());
-    if (sinApellido) {
-      return `Falta el apellido de ${sinApellido.nombres!.trim()}. El asistente lo usa para presentarlo a los pacientes.`;
-    }
-    const rutMalo = conNombre.find((x) => x.rut?.trim() && !rutValido(x.rut));
-    if (rutMalo) {
-      return `El RUT de ${rutMalo.name.trim()} no es válido. Revisa el dígito verificador o déjalo en blanco.`;
-    }
-    if (conNombre.some((x) => x.days.length === 0)) {
-      return "Hay un profesional sin días de atención. Marca al menos uno o el asistente no le va a ofrecer horas.";
-    }
-    // Una hora pedida por el agente queda esperando el visto bueno del
-    // profesional, y el aviso sale por WhatsApp o correo. Sin ninguno de los
-    // dos no hay a dónde mandarlo: la solicitud caduca sola a las 24 horas y al
-    // paciente le llega una disculpa sin que la clínica se entere de por qué.
-    const sinContacto = conNombre.find((x) => !x.phone?.trim() && !x.email?.trim());
-    if (sinContacto) {
-      return `Falta el WhatsApp o el correo de ${sinContacto.name.trim()}. Ahí le avisamos cuando un paciente pida hora, y sin eso la solicitud caduca sin que nadie la vea.`;
+    const correoMalo = considerados.find((x) => x.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x.email.trim()));
+    if (correoMalo) {
+      return `El correo ${correoMalo.email!.trim()} no es válido. Revísalo o déjalo en blanco.`;
     }
     return null;
   }

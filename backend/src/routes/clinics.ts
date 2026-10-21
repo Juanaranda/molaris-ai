@@ -15,7 +15,7 @@ import { isValidRut, formatRut } from "../lib/rut";
 import { sendMolariEmail } from "../services/email/molariEmails";
 import { issueVerificationCode } from "../services/auth/emailVerification";
 import { clinicaSinSecretos } from "../lib/clinicaSinSecretos";
-import { validarRutsDoctores } from "../lib/doctores";
+import { validarRutsDoctores, protegerDatosDelProfesional } from "../lib/doctores";
 
 // Claves válidas dentro de Clinic.config. Evita inyectar JSON arbitrario, pero
 // debe cubrir TODO lo que escribe el frontend: si falta una, el PATCH completo
@@ -526,9 +526,15 @@ export async function clinicRoutes(app: FastifyInstance) {
       if (Array.isArray((config as { doctors?: unknown[] }).doctors)) {
         const clinic = await prisma.clinic.findUnique({
           where: { id: req.params.id },
-          select: { accountType: true },
+          select: { accountType: true, config: true },
         });
-        const doctors = (config as { doctors: unknown[] }).doctors;
+        // Cada profesional con su id, y su RUT y WhatsApp los pone él, no el
+        // admin (MOL-54): se conservan los que ya había guardado.
+        const doctors = protegerDatosDelProfesional(
+          (config as { doctors: unknown[] }).doctors,
+          (clinic?.config as { doctors?: unknown[] } | null)?.doctors,
+          { userId: payload.userId, esSolo: clinic?.accountType === "solo" },
+        );
         if (clinic?.accountType === "solo" && doctors.length > MAX_SOLO_DOCTORS) {
           return reply.status(400).send({
             error: `El plan Solo permite ${MAX_SOLO_DOCTORS} profesional. Para trabajar con un equipo, cambia al plan Clínica.`,

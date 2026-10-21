@@ -1,5 +1,5 @@
 import { fechaEnChile, instanteEnChile, sumarDias, diaDeSemana } from "../../lib/fechaChile";
-import { diasDelDoctor } from "../../lib/doctores";
+import { diasDelDoctor, doctoresActivos } from "../../lib/doctores";
 
 export interface Slot {
   time: string;
@@ -165,7 +165,8 @@ export function getWeekAvailability(
   service?: string
 ): DayAvailability[] {
   const result: DayAvailability[] = [];
-  const doctors = clinicConfig.doctors ?? [];
+  // Las invitaciones pendientes (sin nombre) no tienen horas.
+  const doctors = doctoresActivos(clinicConfig.doctors);
   // La duración sale del servicio pedido: una limpieza y un implante no
   // pueden ocupar el mismo bloque. Sin servicio, cae al valor de la clínica.
   const duration = duracionDeServicio(clinicConfig, service);

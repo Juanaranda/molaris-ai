@@ -350,12 +350,16 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
       />
 
       {/* ── Equipo médico ── */}
+      {/* La key cambia cuando el servidor les da id a los nuevos (MOL-54): así
+          el editor toma la lista guardada y se puede invitar sin recargar. */}
       <DoctorsEditor
+        key={(cfg.doctors ?? []).map((d) => d.id ?? "").join(",")}
         doctors={cfg.doctors ?? []}
         boxes={cfg.boxes ?? 1}
         canEdit={canEdit}
         maxDoctors={clinic.accountType === "solo" ? 1 : undefined}
         onSave={saveDoctors}
+        clinicId={clinic.id}
       />
 
       {/* ── Sedes (solo doctor independiente: la clínica con equipo ya tiene

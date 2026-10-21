@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { AuthUser, updateMe, CLINICAL_ROLE_LABELS } from "@/lib/auth";
 import { Stethoscope } from "lucide-react";
 import { TwoFactorSection } from "./TwoFactorSection";
+import { PerfilProfesional } from "./PerfilProfesional";
 import { CampoTelefono } from "@/components/ui/CampoTelefono";
 import { mostrarTelefono } from "@/lib/telefono";
 
@@ -256,6 +257,8 @@ export function MyProfileTab({ user, onUpdate }: Props) {
 
       {/* Seguridad de la cuenta (#68). Va acá y no en Configuración porque es
           de la persona: dos admins de la misma clínica lo deciden por separado. */}
+      <PerfilProfesional />
+
       <TwoFactorSection />
     </div>
   );
