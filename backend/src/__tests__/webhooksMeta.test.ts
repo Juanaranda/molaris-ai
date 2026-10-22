@@ -193,6 +193,7 @@ describe("POST /webhooks/meta — validación HMAC", () => {
 
     mockPrisma.clinic.findUnique.mockResolvedValue({
       id: "c-1", active: true, name: "Test Clinic", waToken: "TOKEN_X", waPhoneId: "PHONE_123",
+      config: { avisoIa: "Hola, soy Sofía." },
     });
     mockPrisma.patient.findFirst.mockResolvedValue(null);
     mockPrisma.patient.create.mockResolvedValue({ id: "p-1" });
@@ -218,6 +219,8 @@ describe("POST /webhooks/meta — validación HMAC", () => {
     // Conversación nueva: primero el aviso de que responde una IA (MOL-11),
     // después la respuesta.
     expect(mockSendMeta).toHaveBeenCalledTimes(2);
+    // El texto propio de la clínica va antes del aviso fijo, sin reemplazarlo.
+    expect(mockSendMeta.mock.calls[0][3].startsWith("Hola, soy Sofía.\n\n")).toBe(true);
     expect(mockSendMeta.mock.calls[0][3]).toContain("asistente de inteligencia artificial de Test Clinic");
     expect(mockSendMeta.mock.calls[0][3]).toContain("https://beta.molari.test/legal/privacidad");
     expect(mockSendMeta.mock.calls[1][3]).not.toContain("inteligencia artificial");

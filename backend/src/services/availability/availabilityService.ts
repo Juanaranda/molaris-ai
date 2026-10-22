@@ -1,3 +1,6 @@
+import { fechaEnChile, instanteEnChile, sumarDias, diaDeSemana } from "../../lib/fechaChile";
+import { diasDelDoctor, doctoresActivos } from "../../lib/doctores";
+
 export interface Slot {
   time: string;
   doctor: string;
@@ -19,6 +22,7 @@ export interface AvailabilityDoctor {
   name: string;
   specialty?: string;
   schedule?: string;    // "Lun-Vie" o "Lun/Mié/Vie"
+  days?: string[];      // como lo guarda el onboarding: ["monday", …]
   workDays?: number[];  // alternativa pre-parseada
   services?: string[];
   box?: string | null;
@@ -119,25 +123,9 @@ export function duracionDeServicio(
 
 const DAY_NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
-const DAY_MAP: Record<string, number> = {
-  Dom: 0, Lun: 1, Mar: 2, "Mié": 3, Jue: 4, Vie: 5, "Sáb": 6,
-};
-
-function parseDoctorDays(schedule: string): number[] {
-  if (schedule.includes("-")) {
-    const [start, end] = schedule.split("-").map((s) => s.trim());
-    const s = DAY_MAP[start];
-    const e = DAY_MAP[end];
-    if (s == null || e == null) return [];
-    return Array.from({ length: e - s + 1 }, (_, i) => s + i);
-  }
-  return schedule.split("/").map((d) => DAY_MAP[d.trim()]).filter((d) => d != null);
-}
-
 function getWorkDays(doc: AvailabilityDoctor): number[] {
   if (doc.workDays && doc.workDays.length > 0) return doc.workDays;
-  if (doc.schedule) return parseDoctorDays(doc.schedule);
-  return [];
+  return diasDelDoctor(doc);
 }
 
 function buildBoxPool(boxes: ClinicAvailabilityConfig["boxes"]): string[] {
@@ -166,12 +154,9 @@ function seededRandom(seed: string): number {
   return Math.abs(h) / 2147483647;
 }
 
+/** El slot es hora de Chile: en Railway (UTC) `setHours` lo corría 3-4 h hacia atrás. */
 function isSlotInPast(dateStr: string, time: string): boolean {
-  const now = new Date();
-  const [hh, mm] = time.split(":").map(Number);
-  const slotDate = new Date(dateStr + "T12:00:00");
-  slotDate.setHours(hh, mm, 0, 0);
-  return slotDate.getTime() < now.getTime() + 30 * 60 * 1000;
+  return instanteEnChile(dateStr, time).getTime() < Date.now() + 30 * 60 * 1000;
 }
 
 export function getWeekAvailability(
@@ -179,21 +164,19 @@ export function getWeekAvailability(
   clinicConfig: ClinicAvailabilityConfig,
   service?: string
 ): DayAvailability[] {
-  const start = new Date(weekStart + "T12:00:00");
   const result: DayAvailability[] = [];
-  const doctors = clinicConfig.doctors ?? [];
+  // Las invitaciones pendientes (sin nombre) no tienen horas.
+  const doctors = doctoresActivos(clinicConfig.doctors);
   // La duración sale del servicio pedido: una limpieza y un implante no
   // pueden ocupar el mismo bloque. Sin servicio, cae al valor de la clínica.
   const duration = duracionDeServicio(clinicConfig, service);
   const allBoxes = buildBoxPool(clinicConfig.boxes);
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = fechaEnChile();
 
   for (let i = 0; i < 7; i++) {
-    const date = new Date(start);
-    date.setDate(start.getDate() + i);
-    const dow = date.getDay();
-    const dateStr = date.toISOString().slice(0, 10);
+    const dateStr = sumarDias(weekStart, i);
+    const dow = diaDeSemana(dateStr);
     const abierta = horarioClinica(clinicConfig, dow) !== null;
 
     if (!abierta || dateStr < todayStr) {

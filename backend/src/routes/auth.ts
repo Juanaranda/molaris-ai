@@ -109,7 +109,7 @@ type UsuarioConClinica = Prisma.PartnerUserGetPayload<{ include: { clinic: true 
  * mismo: si se escriben por separado, el front termina viendo una sesión a
  * medias según por dónde entró.
  */
-function construirSesion(user: UsuarioConClinica) {
+export function construirSesion(user: UsuarioConClinica) {
   const token = jwt.sign(
     { userId: user.id, role: user.role, clinicId: user.clinicId },
     config.jwtSecret,

@@ -26,7 +26,8 @@ export type MolariEmail =
   | { type: "welcome"; accountType?: "solo" | "clinic"; clinicName?: string }
   | { type: "verify_email"; code: string; minutes: number }
   | { type: "birthday" }
-  | { type: "announcement"; title: string; bodyHtml: string; ctaLabel?: string; ctaUrl?: string };
+  | { type: "announcement"; title: string; bodyHtml: string; ctaLabel?: string; ctaUrl?: string }
+  | { type: "invitacion_profesional"; clinicName: string; link: string; dias: number };
 
 export type MolariEmailType = MolariEmail["type"];
 
@@ -128,6 +129,24 @@ function render(msg: MolariEmail, toName: string): { subject: string; html: stri
             p("Que tengas un gran año, personal y profesional. 🦷"),
         }),
         text: `${saludo}\n\n¡Feliz cumpleaños! Todo el equipo de molari.ai te desea un excelente día. 🎉`,
+      };
+    }
+    case "invitacion_profesional": {
+      // El nombre de la clínica lo escribe su admin: se escapa antes de ir al HTML.
+      const clinica = msg.clinicName.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+      return {
+        subject: `${msg.clinicName} te invita a molari.ai`,
+        html: layout({
+          preview: `Completa tu perfil de profesional en ${msg.clinicName}.`,
+          heading: "Te invitaron a molari.ai",
+          bodyHtml:
+            p(saludo) +
+            p(`<strong>${clinica}</strong> te agregó a su equipo en molari.ai. Completa tu perfil y crea tu cuenta: tus datos, tu RUT y el WhatsApp donde te avisamos cuando un paciente pida hora contigo.`) +
+            p(`El link sirve una vez y dura ${msg.dias} días.`),
+          ctaLabel: "Completar mi perfil",
+          ctaUrl: msg.link,
+        }),
+        text: `${saludo}\n\n${msg.clinicName} te agregó a su equipo en molari.ai. Completa tu perfil y crea tu cuenta aquí:\n${msg.link}\n\nEl link sirve una vez y dura ${msg.dias} días.`,
       };
     }
     case "announcement": {

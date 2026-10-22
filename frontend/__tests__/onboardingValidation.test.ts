@@ -41,42 +41,29 @@ describe("paso 2 — datos de la clínica", () => {
   });
 });
 
-describe("paso 3 — equipo", () => {
-  it("exige al menos un profesional con nombre", () => {
+describe("paso 3 — equipo (todo opcional, MOL-54)", () => {
+  it("pide al menos un profesional, con nombre o con correo", () => {
     expect(queFaltaEn(3, { ...COMPLETO, doctores: [] })).toMatch(/al menos un profesional/i);
     // Una fila en blanco no cuenta como profesional.
-    expect(queFaltaEn(3, { ...COMPLETO, doctores: [{ name: "  ", days: ["monday"] }] })).toMatch(/al menos un profesional/i);
+    expect(queFaltaEn(3, { ...COMPLETO, doctores: [{ name: "  ", days: ["monday"], email: " " }] })).toMatch(/al menos un profesional/i);
   });
 
-  it("exige días de atención: sin ellos el asistente no le ofrece horas", () => {
-    expect(queFaltaEn(3, { ...COMPLETO, doctores: [{ name: "Dr. Rojas", days: [] }] })).toMatch(/días de atención/i);
+  it("basta el correo: el resto lo completa el profesional con su invitación", () => {
+    expect(queFaltaEn(3, { ...COMPLETO, doctores: [{ name: "", days: [], email: "rojas@clinica.cl" }] })).toBeNull();
   });
 
-  it("exige un canal de aviso: sin él la hora caduca sin que nadie la vea", () => {
-    const sinContacto = [{ name: "Dr. Rojas", days: ["monday"] }];
-    expect(queFaltaEn(3, { ...COMPLETO, doctores: sinContacto })).toMatch(/WhatsApp o el correo/i);
-    // El mensaje nombra a quién le falta: con seis profesionales en pantalla,
-    // "falta un contacto" obliga a revisarlos uno por uno.
-    expect(queFaltaEn(3, { ...COMPLETO, doctores: sinContacto })).toContain("Dr. Rojas");
+  it("basta el nombre: el WhatsApp y los días los puede poner él después", () => {
+    expect(queFaltaEn(3, { ...COMPLETO, doctores: [{ name: "Camila Soto", days: [] }] })).toBeNull();
   });
 
-  it("basta con uno de los dos canales", () => {
-    const base = { name: "Dr. Rojas", days: ["monday"] };
-    expect(queFaltaEn(3, { ...COMPLETO, doctores: [{ ...base, phone: "+56 9 1111 1111" }] })).toBeNull();
-    expect(queFaltaEn(3, { ...COMPLETO, doctores: [{ ...base, email: "rojas@clinica.cl" }] })).toBeNull();
+  it("si ponen un correo, tiene que ser válido", () => {
+    expect(queFaltaEn(3, { ...COMPLETO, doctores: [{ name: "Ana", days: ["monday"], email: "ana@" }] })).toMatch(/no es válido/);
   });
 
-  it("un contacto en blanco no cuenta como contacto", () => {
+  it("ignora las filas vacías si hay al menos una con datos", () => {
     expect(queFaltaEn(3, {
       ...COMPLETO,
-      doctores: [{ name: "Dr. Rojas", days: ["monday"], phone: "   ", email: "  " }],
-    })).toMatch(/WhatsApp o el correo/i);
-  });
-
-  it("ignora las filas vacías si hay al menos una completa", () => {
-    expect(queFaltaEn(3, {
-      ...COMPLETO,
-      doctores: [{ name: "Dr. Rojas", days: ["monday"], phone: "+56 9 1111 1111" }, { name: "", days: [] }],
+      doctores: [{ name: "Dr. Rojas", days: ["monday"] }, { name: "", days: [] }],
     })).toBeNull();
   });
 });

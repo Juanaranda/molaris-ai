@@ -4,7 +4,7 @@ import { getAIResponse } from "../services/ai/claudeService";
 import { config } from "../config/env";
 import { datosDeSolicitud } from "../services/booking/confirmation";
 import { avisarProfesional } from "../services/booking/notifyProfessional";
-import { avisoPrivacidadWhatsApp } from "../lib/avisoPrivacidad";
+import { avisoPrivacidadWhatsApp, textoAvisoDeLaClinica } from "../lib/avisoPrivacidad";
 
 // Varios mensajes en una respuesta: Twilio los envía en orden (aviso de
 // privacidad + respuesta en una conversación nueva).
@@ -116,7 +116,7 @@ export async function webhookRoutes(app: FastifyInstance) {
         });
         // Si el aviso falla, el paciente igual recibe su respuesta.
         try {
-          aviso = avisoPrivacidadWhatsApp(clinic.name, config.frontendUrl);
+          aviso = avisoPrivacidadWhatsApp(clinic.name, config.frontendUrl, textoAvisoDeLaClinica(clinic.config));
           await prisma.message.create({ data: { sessionId: session.id, role: "assistant", content: aviso } });
         } catch (err) {
           console.error("[Twilio webhook] Error preparando aviso de privacidad:", err);

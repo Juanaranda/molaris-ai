@@ -29,7 +29,6 @@ export interface AgentFlowConfig {
   services?: unknown[];
   schedule?: { weekdays?: string; saturday?: string; sunday?: string };
   whatsapp?: string | null;
-  instagram?: string | null;
 }
 
 /** El tipo de nodo se muestra en la cabecera, como en cualquier editor de flujo. */
@@ -60,10 +59,12 @@ function construirNodos(cfg: AgentFlowConfig): Nodo[] {
   const asistente = cfg.assistantName?.trim() || "Tu asistente";
   const horario = cfg.schedule?.weekdays?.trim();
 
+  // Solo los canales que el agente de verdad contesta. El Instagram de la
+  // clínica es un dato de perfil: no hay webhook que reciba esos mensajes, así
+  // que nombrarlo acá le promete a la clínica algo que no pasa.
   const canales = [
     cfg.whatsapp ? "WhatsApp" : null,
     "sitio web",
-    cfg.instagram ? "Instagram" : null,
   ].filter(Boolean) as string[];
 
   return [

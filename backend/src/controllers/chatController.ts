@@ -11,6 +11,8 @@ import { calculateLeadScore } from "../lib/leadScoring";
 import { calcularPlazo, datosDeSolicitud } from "../services/booking/confirmation";
 import { avisarProfesional } from "../services/booking/notifyProfessional";
 import { triggerAlert } from "../services/alerts/alertService";
+import { fechaEnChile, sumarDias, diaDeSemana } from "../lib/fechaChile";
+import { diasDelDoctor } from "../lib/doctores";
 
 const bodySchema = z.object({
   message: z.string().min(1),
@@ -23,24 +25,7 @@ const bodySchema = z.object({
 
 // ─── Helpers de disponibilidad ────────────────────────────────────────────────
 
-const DAY_MAP: Record<string, number> = {
-  Dom: 0, Lun: 1, Mar: 2, "Mié": 3, Jue: 4, Vie: 5, "Sáb": 6,
-};
 const DAY_NAMES_ES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-
-function parseDoctorDays(schedule: string): number[] {
-  if (schedule.includes("-")) {
-    const [start, end] = schedule.split("-").map((s) => s.trim());
-    const s = DAY_MAP[start]; const e = DAY_MAP[end];
-    if (s == null || e == null) return [];
-    return Array.from({ length: e - s + 1 }, (_, i) => s + i);
-  }
-  return schedule.split("/").map((d) => DAY_MAP[d.trim()]).filter((d) => d != null);
-}
-
-function isoDate(d: Date): string {
-  return d.toISOString().split("T")[0];
-}
 
 function generateSlots(isSat: boolean): string[] {
   const slots: string[] = [];
@@ -51,26 +36,28 @@ function generateSlots(isSat: boolean): string[] {
   return slots;
 }
 
-interface DoctorConfig { name: string; specialty: string; schedule: string; }
+interface DoctorConfig { name: string; specialty: string; schedule?: string; days?: string[]; }
 interface ClinicCfg { doctors?: DoctorConfig[]; }
 
-async function buildAvailabilityHint(clinicId: string, cfg: ClinicCfg): Promise<string> {
+export async function buildAvailabilityHint(clinicId: string, cfg: ClinicCfg): Promise<string> {
   const doctors = cfg.doctors ?? [];
   const lines: string[] = ["## DISPONIBILIDAD PRÓXIMOS 5 DÍAS (usa SOLO estos horarios)"];
 
   // BUG FIX #8: collect candidate days first, then fetch all booked slots in
   // parallel with Promise.all instead of N sequential awaits inside the loop.
-  type DayInfo = { d: Date; iso: string; jsDay: number; isSat: boolean; availDoctors: DoctorConfig[] };
+  type DayInfo = { iso: string; jsDay: number; isSat: boolean; availDoctors: DoctorConfig[] };
   const candidateDays: DayInfo[] = [];
 
+  // "Hoy" es el de Chile: el servidor corre en UTC y después de las 21:00
+  // se saltaba mañana y le ofrecía al agente desde pasado mañana.
+  const hoy = fechaEnChile();
   for (let i = 1; i <= 5; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    const jsDay = d.getDay();
+    const iso = sumarDias(hoy, i);
+    const jsDay = diaDeSemana(iso);
     if (jsDay === 0) continue;
-    const availDoctors = doctors.filter((doc) => parseDoctorDays(doc.schedule).includes(jsDay));
+    const availDoctors = doctors.filter((doc) => diasDelDoctor(doc).includes(jsDay));
     if (availDoctors.length === 0) continue;
-    candidateDays.push({ d, iso: isoDate(d), jsDay, isSat: jsDay === 6, availDoctors });
+    candidateDays.push({ iso, jsDay, isSat: jsDay === 6, availDoctors });
   }
 
   const bookingResults = await Promise.all(
@@ -87,7 +74,8 @@ async function buildAvailabilityHint(clinicId: string, cfg: ClinicCfg): Promise<
   );
 
   for (let i = 0; i < candidateDays.length; i++) {
-    const { d, jsDay, isSat, availDoctors } = candidateDays[i];
+    const { iso, jsDay, isSat, availDoctors } = candidateDays[i];
+    const [, mes, dia] = iso.split("-").map(Number);
     const dayLabel = DAY_NAMES_ES[jsDay];
     const allSlots = generateSlots(isSat);
     const booked = bookingResults[i];
@@ -98,7 +86,7 @@ async function buildAvailabilityHint(clinicId: string, cfg: ClinicCfg): Promise<
       bookedMap[b.doctor].add(b.time);
     }
 
-    lines.push(`\n${dayLabel} ${d.getDate()}/${d.getMonth() + 1}:`);
+    lines.push(`\n${dayLabel} ${dia}/${mes}:`);
     for (const doc of availDoctors) {
       const free = allSlots.filter((t) => !bookedMap[doc.name]?.has(t));
       if (free.length > 0) {

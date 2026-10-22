@@ -7,6 +7,7 @@ import { computeScore } from "./leadScoring";
 import { callGroqDirect, isGroqConfigured } from "./groqDirectService";
 import { triggerAlert } from "../alerts/alertService";
 import type { Clinic } from "@prisma/client";
+import { doctoresActivos } from "../../lib/doctores";
 
 const OPENROUTER_BASE = "https://openrouter.ai/api/v1/chat/completions";
 const STATIC_FALLBACK = "En este momento estamos con alta demanda. Por favor escríbenos directamente al WhatsApp y te atendemos de inmediato. 🦷";
@@ -486,7 +487,7 @@ export async function getAIResponse({
 
   // Guardia post-LLM: eliminar doctores alucinados
   const cfg = clinic.config as unknown as { doctors?: Array<{ name: string }> };
-  const validDoctors = cfg.doctors?.map((d) => d.name) ?? [];
+  const validDoctors = doctoresActivos(cfg.doctors).map((d) => d.name);
   replyText = sanitizeDoctorMentions(replyText, validDoctors);
 
   // Eliminar markdown del reply (asteriscos, negritas, etc.)

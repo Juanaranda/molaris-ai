@@ -3,6 +3,7 @@ import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
 import { sendBookingNotification } from "../services/notifications/whatsappService";
 import { canonicalDoctorName } from "../lib/doctorName";
+import { doctoresActivos } from "../lib/doctores";
 import { verificacionPendiente, RESPUESTA_VERIFICACION_PENDIENTE } from "../services/auth/contactoVerificado";
 import {
   decidirCambioDeEstado, resolverSolicitud, quienDecide, mensajeConflicto,
@@ -185,8 +186,9 @@ export async function agendaRoutes(app: FastifyInstance) {
     const equipo = ((await prisma.clinic.findUnique({
       where: { id: payload.clinicId },
       select: { config: true },
-    }))?.config as { doctors?: { name: string }[] } | null)?.doctors?.map((d) => d.name) ?? [];
-    const doctor = canonicalDoctorName(doctorRaw, equipo);
+    }))?.config as { doctors?: { name: string }[] } | null)?.doctors;
+    const nombresEquipo = doctoresActivos(equipo).map((d) => d.name);
+    const doctor = canonicalDoctorName(doctorRaw, nombresEquipo);
 
     // Check slot conflict
     const dayStart = new Date(`${date}T00:00:00`);

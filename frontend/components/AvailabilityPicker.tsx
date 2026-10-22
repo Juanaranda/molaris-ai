@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getMondayOf } from "@/lib/dateParser";
+import { getMondayOf, getMondayOfCurrentWeek } from "@/lib/dateParser";
 
 interface Slot {
   time: string;
@@ -18,6 +18,8 @@ interface DayAvailability {
 }
 
 interface Props {
+  /** Sin la clínica el backend responde 400 y el selector queda en "Cerrado". */
+  clinicSlug: string;
   service?: string;
   doctorFilter?: string;
   preferredDate?: string;
@@ -28,27 +30,18 @@ interface Props {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-function getMondayOfWeek(offset = 0): string {
-  const now = new Date();
-  const day = now.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + diff + offset * 7);
-  return monday.toISOString().slice(0, 10);
-}
-
 function formatTabDate(date: string): string {
   return new Date(date + "T12:00:00").getDate().toString();
 }
 
 function weekOffsetForDate(targetDate: string): number {
   const targetMonday = getMondayOf(targetDate);
-  const currentMonday = getMondayOfWeek(0);
+  const currentMonday = getMondayOfCurrentWeek(0);
   const diffMs = new Date(targetMonday).getTime() - new Date(currentMonday).getTime();
   return Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
 }
 
-export function AvailabilityPicker({ service, doctorFilter, preferredDate, color = "#0891B2", onSelect, onDismiss }: Props) {
+export function AvailabilityPicker({ clinicSlug, service, doctorFilter, preferredDate, color = "#0891B2", onSelect, onDismiss }: Props) {
   const initialOffset = preferredDate ? weekOffsetForDate(preferredDate) : 0;
   const [weekOffset, setWeekOffset] = useState(Math.max(0, initialOffset));
   const [days, setDays] = useState<DayAvailability[]>([]);
@@ -56,7 +49,7 @@ export function AvailabilityPicker({ service, doctorFilter, preferredDate, color
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const weekStart = getMondayOfWeek(weekOffset);
+  const weekStart = getMondayOfCurrentWeek(weekOffset);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -65,7 +58,7 @@ export function AvailabilityPicker({ service, doctorFilter, preferredDate, color
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setSelectedSlot(null);
-    const params = new URLSearchParams({ weekStart });
+    const params = new URLSearchParams({ slug: clinicSlug, weekStart });
     if (service) params.set("service", service);
     if (doctorFilter) params.set("doctor", doctorFilter);
 
@@ -90,7 +83,7 @@ export function AvailabilityPicker({ service, doctorFilter, preferredDate, color
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
 
     return () => controller.abort();
-  }, [weekStart, service, doctorFilter, preferredDate]);
+  }, [clinicSlug, weekStart, service, doctorFilter, preferredDate]);
 
   const currentDay = days[selectedDay];
 

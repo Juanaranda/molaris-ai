@@ -6,10 +6,13 @@ import { DoctorsEditor, DoctorRow } from "@/components/DoctorsEditor";
 import { ServicesEditor, ServiceRow } from "@/components/ServicesEditor";
 import { OpeningHoursEditor, OpeningHours, aScheduleTexto } from "@/components/OpeningHoursEditor";
 import { SedesEditor } from "@/components/SedesEditor";
+import { AvisoIaEditor } from "@/components/AvisoIaEditor";
 import { IntegrationsSection } from "@/components/IntegrationsSection";
 import { AgentControl } from "@/components/AgentControl";
 import { Building2, Camera, MapPin, MessageCircle, Phone, type LucideIcon } from "lucide-react";
 import { AgentFlowDiagram, type AgentFlowConfig } from "./AgentFlowDiagram";
+import { CampoTelefono } from "@/components/ui/CampoTelefono";
+import { mostrarTelefono } from "@/lib/telefono";
 
 interface ClinicConfig {
   assistantName?: string;
@@ -23,6 +26,8 @@ interface ClinicConfig {
   schedule?: { weekdays?: string; saturday?: string; sunday?: string };
   /** Horario estructurado: lo usan la agenda y la disponibilidad. */
   openingHours?: OpeningHours;
+  /** Texto propio que va antes del aviso de IA (MOL-11). */
+  avisoIa?: string;
 }
 
 interface Props {
@@ -39,17 +44,27 @@ interface ContactFieldProps {
   icon: LucideIcon;
   placeholder?: string;
   prefix?: string;
+  /** Campo de teléfono: +56 fijo al editar y formateado al mostrar. */
+  telefono?: boolean;
 }
 
-function ContactField({ label, value, editable, onChange, icon, placeholder, prefix }: ContactFieldProps) {
+function ContactField({ label, value, editable, onChange, icon, placeholder, prefix, telefono }: ContactFieldProps) {
   if (!editable) {
     return (
       <div className="flex items-start gap-3">
         {(() => { const Icono = icon; return <Icono className="w-4 h-4 mt-0.5 shrink-0 text-gray-400" aria-hidden />; })()}
         <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</p>
-          <p className="text-sm text-gray-800 mt-0.5 break-words">{value || <span className="text-gray-300">—</span>}</p>
+          <p className="text-sm text-gray-800 mt-0.5 break-words">{(telefono ? mostrarTelefono(value) : value) || <span className="text-gray-300">—</span>}</p>
         </div>
+      </div>
+    );
+  }
+  if (telefono) {
+    return (
+      <div>
+        <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">{label}</label>
+        <CampoTelefono value={value} onChange={onChange} className="rounded-xl" />
       </div>
     );
   }
@@ -144,6 +159,12 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
     onUpdate(updated);
   }
 
+  async function saveAvisoIa(avisoIa: string) {
+    const config = { ...(clinic.config as ClinicConfig), avisoIa };
+    const updated = await updateClinic(clinic.id, { config: config as Record<string, unknown> });
+    onUpdate(updated);
+  }
+
   async function saveServices(services: ServiceRow[]) {
     const config = { ...(clinic.config as ClinicConfig), services };
     const updated = await updateClinic(clinic.id, { config: config as Record<string, unknown> });
@@ -192,9 +213,8 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
         <AgentFlowDiagram
           config={{
             ...(clinic.config as AgentFlowConfig),
-            // whatsapp e instagram viven en la clínica, no dentro de config.
+            // whatsapp vive en la clínica, no dentro de config.
             whatsapp: clinic.whatsapp,
-            instagram: clinic.instagram,
           }}
         />
       </section>
@@ -317,11 +337,11 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <ContactField label="Nombre de la clínica" value={form.name} editable={editing} icon={Building2}
-            onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Ej: Galana Clínica Dental" />
+            onChange={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="Ej: Clínica Dental Aurora" />
           <ContactField label="Teléfono" value={form.phone} editable={editing} icon={Phone}
-            onChange={(v) => setForm((f) => ({ ...f, phone: v }))} placeholder="+56 9 XXXX XXXX" />
+            onChange={(v) => setForm((f) => ({ ...f, phone: v }))} telefono />
           <ContactField label="WhatsApp" value={form.whatsapp} editable={editing} icon={MessageCircle}
-            onChange={(v) => setForm((f) => ({ ...f, whatsapp: v }))} placeholder="+56 9 XXXX XXXX" />
+            onChange={(v) => setForm((f) => ({ ...f, whatsapp: v }))} telefono />
           <ContactField label="Instagram" value={form.instagram} editable={editing} icon={Camera}
             onChange={(v) => setForm((f) => ({ ...f, instagram: v }))} placeholder="@clinica" prefix={form.instagram && !editing ? undefined : undefined} />
           <div className="sm:col-span-2">
@@ -339,12 +359,16 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
       />
 
       {/* ── Equipo médico ── */}
+      {/* La key cambia cuando el servidor les da id a los nuevos (MOL-54): así
+          el editor toma la lista guardada y se puede invitar sin recargar. */}
       <DoctorsEditor
+        key={(cfg.doctors ?? []).map((d) => d.id ?? "").join(",")}
         doctors={cfg.doctors ?? []}
         boxes={cfg.boxes ?? 1}
         canEdit={canEdit}
         maxDoctors={clinic.accountType === "solo" ? 1 : undefined}
         onSave={saveDoctors}
+        clinicId={clinic.id}
       />
 
       {/* ── Sedes (solo doctor independiente: la clínica con equipo ya tiene
@@ -362,6 +386,14 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
         services={(cfg.services as ServiceRow[]) ?? []}
         canEdit={canEdit}
         onSave={saveServices}
+      />
+
+      {/* ── Aviso de IA que ve el paciente ── */}
+      <AvisoIaEditor
+        nombreClinica={clinic.name}
+        texto={cfg.avisoIa ?? ""}
+        canEdit={canEdit}
+        onSave={saveAvisoIa}
       />
 
       {/* ── Link de auto-agendamiento ── */}

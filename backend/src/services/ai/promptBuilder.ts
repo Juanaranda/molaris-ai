@@ -1,4 +1,5 @@
 import type { Clinic } from "@prisma/client";
+import { doctoresActivos } from "../../lib/doctores";
 
 /* ─── Prompt de Juan — agente de ventas de molari.ai ─────────────────────── */
 export function buildJuanPrompt(): string {
@@ -109,9 +110,11 @@ export function buildSystemPrompt(clinic: Clinic): string {
   const variable = services.filter((s) => s.pricingType === "variable");
 
   // Lista exacta de nombres de doctores para que el AI no alucine
-  const doctorNames = cfg.doctors?.map((d) => d.name) ?? [];
-  const doctorBlock = cfg.doctors && cfg.doctors.length > 0
-    ? cfg.doctors
+  // Las invitaciones pendientes (sin nombre) no se ofrecen a los pacientes.
+  const doctores = doctoresActivos(cfg.doctors);
+  const doctorNames = doctores.map((d) => d.name);
+  const doctorBlock = doctores.length > 0
+    ? doctores
         .map((d) => {
           const scheduleStr = d.schedule ?? (d.workDays ? d.workDays.map((n) => DAY_NAMES[n]).join(", ") : "");
           const servicesStr = d.services?.join(", ") ?? d.specialty;

@@ -1,9 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import { CampoTelefono } from "@/components/ui/CampoTelefono";
+import { nombreCompleto, separarNombre, formatearRut, rutValido, sinPrefijo } from "@/lib/doctores";
+import { invitarProfesional } from "@/lib/invitaciones";
 
 export interface DoctorRow {
+  /** Id estable (lo usan las invitaciones, MOL-54). */
+  id?: string;
+  /** La cuenta del profesional, si ya aceptó su invitación. */
+  userId?: string;
+  /** Nombres + apellidos, sin "Dr.": lo usan la agenda, el agente y las citas.
+      Vacío = invitación pendiente (no aparece en el agente ni la agenda). */
   name: string;
+  nombres?: string;
+  apellidos?: string;
+  rut?: string;
   specialty: string;
   schedule: string;
   days?: string[];
@@ -58,13 +70,31 @@ interface Props {
    *  valida — esto solo evita ofrecer un botón que terminaría en error. */
   maxDoctors?: number;
   onSave: (doctors: DoctorRow[], boxes: number) => Promise<void>;
+  /** Para invitar a cada profesional a completar su perfil (MOL-54). */
+  clinicId?: string;
 }
 
-const EMPTY: DoctorRow = { name: "", specialty: "", schedule: "", services: [] };
+const EMPTY: DoctorRow = { name: "", nombres: "", apellidos: "", rut: "", specialty: "", schedule: "", services: [] };
 
 const SPECIALTIES = ["General", "Ortodoncia", "Endodoncia", "Periodoncia", "Cirugía maxilofacial", "Implantología", "Odontopediatría", "Estética dental"];
 
-export function DoctorsEditor({ doctors, boxes, canEdit, maxDoctors, onSave }: Props) {
+export function DoctorsEditor({ doctors, boxes, canEdit, maxDoctors, onSave, clinicId }: Props) {
+  // En una cuenta "solo" el admin ES el profesional: él pone su RUT y WhatsApp.
+  const esSolo = maxDoctors === 1;
+  const [invitaciones, setInvitaciones] = useState<Record<string, { texto: string; link?: string; error?: boolean }>>({});
+
+  async function invitar(doc: DoctorRow) {
+    if (!clinicId || !doc.id) return;
+    const id = doc.id;
+    setInvitaciones((m) => ({ ...m, [id]: { texto: "Creando el link…" } }));
+    try {
+      const r = await invitarProfesional(clinicId, id);
+      const texto = r.enviadaA && !r.redirigidaA ? `Enviada a ${r.enviadaA}.` : "No salió por correo: copia el link y mándaselo tú.";
+      setInvitaciones((m) => ({ ...m, [id]: { texto, link: r.link } }));
+    } catch (e) {
+      setInvitaciones((m) => ({ ...m, [id]: { texto: e instanceof Error ? e.message : "No pudimos crear la invitación.", error: true } }));
+    }
+  }
   const [rows, setRows] = useState<DoctorRow[]>(doctors);
   const [boxCount, setBoxCount] = useState(boxes);
   const [editing, setEditing] = useState(false);
@@ -73,21 +103,34 @@ export function DoctorsEditor({ doctors, boxes, canEdit, maxDoctors, onSave }: P
   const [servicesInput, setServicesInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [errorFila, setErrorFila] = useState("");
 
   function openAdd() {
     setForm({ ...EMPTY, services: [] });
     setServicesInput("");
+    setErrorFila("");
     setModalIdx(null);
   }
 
   function openEdit(i: number) {
-    setForm({ ...rows[i], services: rows[i].services ?? [] });
+    // Los guardados antes de separar nombres y apellidos se separan acá.
+    const sep = rows[i].nombres !== undefined
+      ? { nombres: rows[i].nombres ?? "", apellidos: rows[i].apellidos ?? "" }
+      : separarNombre(rows[i].name);
+    setForm({ ...rows[i], ...sep, rut: rows[i].rut ?? "", services: rows[i].services ?? [] });
+    setErrorFila("");
     setServicesInput((rows[i].services ?? []).join(", "));
     setModalIdx(i);
   }
 
   function saveRow() {
-    if (!form.name.trim()) return;
+    const nombres = sinPrefijo(form.nombres ?? "");
+    const apellidos = (form.apellidos ?? "").trim();
+    const email = (form.email ?? "").trim().toLowerCase();
+    if (!nombres && !email) { setErrorFila("Pon al menos su nombre o su correo para mandarle la invitación."); return; }
+    const rut = (form.rut ?? "").trim();
+    if (rut && !rutValido(rut)) { setErrorFila("El RUT no es válido. Revisa el dígito verificador o déjalo en blanco."); return; }
+    setErrorFila("");
     // Un horario invertido dejaría al profesional sin ninguna hora disponible
     // y sin señal de por qué: se bloquea el guardado.
     if (form.hours?.from && form.hours?.to && form.hours.to <= form.hours.from) return;
@@ -95,7 +138,7 @@ export function DoctorsEditor({ doctors, boxes, canEdit, maxDoctors, onSave }: P
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-    const row: DoctorRow = { ...form, services };
+    const row: DoctorRow = { ...form, nombres, apellidos, email: email || undefined, rut: rut || undefined, name: nombreCompleto(nombres, apellidos), services };
     if (modalIdx === null) {
       setRows((r) => [...r, row]);
     } else if (modalIdx !== undefined) {
@@ -189,6 +232,7 @@ export function DoctorsEditor({ doctors, boxes, canEdit, maxDoctors, onSave }: P
               <th className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider pb-3">Especialidad</th>
               <th className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider pb-3 hidden sm:table-cell">Horario</th>
               <th className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider pb-3 hidden md:table-cell">Servicios</th>
+              {!esSolo && <th className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider pb-3">Cuenta</th>}
               {editing && <th className="pb-3" />}
             </tr>
           </thead>
@@ -196,7 +240,7 @@ export function DoctorsEditor({ doctors, boxes, canEdit, maxDoctors, onSave }: P
             {rows.map((doc, i) => (
               <tr key={i}>
                 <td className="py-3 font-medium text-gray-800">
-                  {doc.name}
+                  {doc.name || <span className="text-gray-400 font-normal">Sin nombre{doc.email ? ` · ${doc.email}` : ""}</span>}
                   {sinContacto(doc) && (
                     <span
                       title="Sin WhatsApp ni correo: no puede confirmar horas"
@@ -212,6 +256,35 @@ export function DoctorsEditor({ doctors, boxes, canEdit, maxDoctors, onSave }: P
                 <td className="py-3 text-gray-500 text-xs hidden md:table-cell max-w-[200px] truncate">
                   {doc.services && doc.services.length > 0 ? doc.services.join(", ") : "—"}
                 </td>
+                {!esSolo && (
+                  <td className="py-3 text-xs align-top">
+                    {doc.userId ? (
+                      <span className="inline-flex items-center rounded-full bg-ok-soft px-2.5 py-1 font-semibold text-ok">Cuenta activa</span>
+                    ) : (
+                      <div className="flex flex-col items-start gap-1">
+                        <span className="inline-flex items-center rounded-full bg-warn-soft px-2.5 py-1 font-semibold text-warn">Invitación pendiente</span>
+                        {canEdit && !editing && clinicId && (doc.id ? (
+                          <button type="button" onClick={() => invitar(doc)} className="min-h-9 font-semibold text-brand hover:underline">
+                            {invitaciones[doc.id] ? "Generar otro link" : "Invitar a completar su perfil"}
+                          </button>
+                        ) : (
+                          <span className="text-gray-400">Guarda los cambios para poder invitarlo.</span>
+                        ))}
+                        {doc.id && invitaciones[doc.id] && (
+                          <span className={invitaciones[doc.id].error ? "text-danger" : "text-gray-600"}>
+                            {invitaciones[doc.id].texto}{" "}
+                            {invitaciones[doc.id].link && (
+                              <button type="button" className="font-semibold text-brand underline"
+                                onClick={() => { void navigator.clipboard?.writeText(invitaciones[doc.id!].link!); setInvitaciones((m) => ({ ...m, [doc.id!]: { ...m[doc.id!], texto: "Link copiado. Dura 7 días y sirve una vez." } })); }}>
+                                Copiar link
+                              </button>
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                )}
                 {editing && (
                   <td className="py-3 text-right whitespace-nowrap">
                     <button onClick={() => openEdit(i)} className="text-xs text-blue-500 hover:text-blue-700 mr-3">Editar</button>
@@ -221,7 +294,7 @@ export function DoctorsEditor({ doctors, boxes, canEdit, maxDoctors, onSave }: P
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><td colSpan={editing ? 5 : 4} className="py-6 text-center text-sm text-gray-400">Sin doctores registrados</td></tr>
+              <tr><td colSpan={6} className="py-6 text-center text-sm text-gray-400">Sin doctores registrados</td></tr>
             )}
           </tbody>
         </table>
@@ -258,14 +331,35 @@ export function DoctorsEditor({ doctors, boxes, canEdit, maxDoctors, onSave }: P
           <p className="text-sm font-medium text-gray-700">{modalIdx === null ? "Nuevo doctor" : "Editar doctor"}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Nombre completo</label>
+              <label htmlFor="doctor-nombres" className="block text-xs text-gray-500 mb-1">Nombres</label>
               <input
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Dra. Ana García"
+                id="doctor-nombres"
+                value={form.nombres ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, nombres: e.target.value }))}
+                placeholder="Ana María"
                 className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+            <div>
+              <label htmlFor="doctor-apellidos" className="block text-xs text-gray-500 mb-1">Apellidos</label>
+              <input
+                id="doctor-apellidos"
+                value={form.apellidos ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, apellidos: e.target.value }))}
+                placeholder="García Rojas"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            {esSolo && <div>
+              <label htmlFor="doctor-rut" className="block text-xs text-gray-500 mb-1">RUT <span className="text-gray-400 font-normal">(opcional)</span></label>
+              <input
+                id="doctor-rut"
+                value={form.rut ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, rut: formatearRut(e.target.value) }))}
+                placeholder="12.345.678-5"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>}
             <div>
               <label className="block text-xs text-gray-500 mb-1">Especialidad</label>
               <select
@@ -287,20 +381,15 @@ export function DoctorsEditor({ doctors, boxes, canEdit, maxDoctors, onSave }: P
               />
               <p className="text-[10px] text-gray-400 mt-1">Usa / para días sueltos o - para rango. Ej: Lun/Mié/Vie o Lun-Vie</p>
             </div>
-            <div>
+            {esSolo && <div>
               <label className="block text-xs text-gray-500 mb-1">
-                WhatsApp <span className="text-gray-400 font-normal">— para confirmar sus horas</span>
+                WhatsApp <span className="text-gray-400 font-normal">— para confirmar tus horas</span>
               </label>
-              <input
-                value={form.phone ?? ""}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                placeholder="+56 9 1234 5678"
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+              <CampoTelefono value={form.phone ?? ""} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} className="rounded-lg" />
+            </div>}
             <div>
               <label className="block text-xs text-gray-500 mb-1">
-                Correo <span className="text-gray-400 font-normal">— alternativa al WhatsApp</span>
+                Correo <span className="text-gray-400 font-normal">— {esSolo ? "alternativa al WhatsApp" : "ahí le llega la invitación"}</span>
               </label>
               <input
                 type="email"
@@ -360,16 +449,17 @@ export function DoctorsEditor({ doctors, boxes, canEdit, maxDoctors, onSave }: P
               <p className="text-[10px] text-gray-400 mt-1">Separados por coma</p>
             </div>
           </div>
+          {errorFila && <p role="alert" className="text-sm font-semibold text-danger">{errorFila}</p>}
           <div className="flex gap-2 justify-end">
             <button
-              onClick={() => { setForm(EMPTY); setServicesInput(""); setModalIdx(undefined); }}
+              onClick={() => { setForm(EMPTY); setServicesInput(""); setModalIdx(undefined); setErrorFila(""); }}
               className="text-sm text-gray-500 hover:text-gray-700"
             >
               Cancelar
             </button>
             <button
               onClick={saveRow}
-              disabled={!form.name.trim()}
+              disabled={!(form.nombres ?? "").trim() && !(form.email ?? "").trim()}
               className="text-sm bg-gray-800 text-white font-medium px-4 py-1.5 rounded-full hover:bg-gray-900 disabled:opacity-40 transition-colors"
             >
               {modalIdx === null ? "Agregar" : "Actualizar"}

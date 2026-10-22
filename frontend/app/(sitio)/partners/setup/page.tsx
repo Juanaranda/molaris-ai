@@ -1,0 +1,721 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { getMe, updateClinic } from "@/lib/auth";
+import { BetaWhatsappCard } from "@/components/BetaWhatsappCard";
+import { Building2, Calendar, Check, Globe, Hand, MessageCircle, Smartphone, Stethoscope, X, type LucideIcon } from "lucide-react";
+import { queFaltaEn } from "@/lib/onboardingValidation";
+import { nombreCompleto, separarNombre, sinPrefijo, ESPECIALIDADES } from "@/lib/doctores";
+import { CampoTelefono } from "@/components/ui/CampoTelefono";
+import { invitarProfesional } from "@/lib/invitaciones";
+
+type Step = 1 | 2 | 3 | 4 | 5;
+
+const DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"] as const;
+const DAY_KEYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
+type DayKey = (typeof DAY_KEYS)[number];
+
+const SPECIALTIES = ESPECIALIDADES;
+
+interface Doctor {
+  _id: string;
+  /** Lo guardado tal cual (id, userId, RUT, WhatsApp…): se devuelve intacto al guardar. */
+  original?: Record<string, unknown>;
+  /** Nombres y apellidos por separado, sin "Dr."; `name` se arma con ambos. */
+  nombres: string;
+  apellidos: string;
+  name: string;
+  specialty: string;
+  days: DayKey[];
+  /** Por acá le llega el aviso de una hora esperando su confirmación. */
+  phone?: string;
+  email?: string;
+}
+
+interface ScheduleDay {
+  open: boolean;
+  from: string;
+  to: string;
+}
+
+interface Schedule {
+  monday: ScheduleDay;
+  tuesday: ScheduleDay;
+  wednesday: ScheduleDay;
+  thursday: ScheduleDay;
+  friday: ScheduleDay;
+  saturday: ScheduleDay;
+  sunday: ScheduleDay;
+}
+
+const DEFAULT_SCHEDULE: Schedule = {
+  monday:    { open: true,  from: "09:00", to: "18:00" },
+  tuesday:   { open: true,  from: "09:00", to: "18:00" },
+  wednesday: { open: true,  from: "09:00", to: "18:00" },
+  thursday:  { open: true,  from: "09:00", to: "18:00" },
+  friday:    { open: true,  from: "09:00", to: "18:00" },
+  saturday:  { open: false, from: "09:00", to: "13:00" },
+  sunday:    { open: false, from: "09:00", to: "13:00" },
+};
+
+function uid() {
+  return Math.random().toString(36).slice(2, 9);
+}
+
+/* ─── Time slot select (07:00–22:00, every 30 min) ──────────────────────── */
+const TIME_SLOTS: string[] = [];
+for (let h = 7; h <= 22; h++) {
+  TIME_SLOTS.push(`${String(h).padStart(2, "0")}:00`);
+  if (h < 22) TIME_SLOTS.push(`${String(h).padStart(2, "0")}:30`);
+}
+
+function TimeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="px-3 py-2 rounded-xl border text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+      style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
+    >
+      {TIME_SLOTS.map((t) => (
+        <option key={t} value={t}>{t}</option>
+      ))}
+    </select>
+  );
+}
+
+export default function SetupPage() {
+  const router = useRouter();
+  const [step, setStep] = useState<Step>(1);
+  const [isSolo, setIsSolo] = useState(false);
+  const [clinicId, setClinicId] = useState<string | null>(null);
+  const [clinicName, setClinicName] = useState("");
+  const [clinicPhone, setClinicPhone] = useState("");
+  const [clinicLocation, setClinicLocation] = useState("");
+  const [clinicSlug, setClinicSlug] = useState("");
+  const [doctors, setDoctors] = useState<Doctor[]>([
+    { _id: uid(), nombres: "", apellidos: "", name: "", specialty: "Odontología General", days: ["monday", "tuesday", "wednesday", "thursday", "friday"] },
+  ]);
+  const [schedule, setSchedule] = useState<Schedule>(DEFAULT_SCHEDULE);
+  const [boxes, setBoxes] = useState(2);
+  const [boxesCustom, setBoxesCustom] = useState(false);
+  const [whatsapp, setWhatsapp] = useState("");
+  const [instagram, setInstagram] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    getMe().then((data) => {
+      if (!data?.clinic) { router.replace("/login"); return; }
+      setClinicId(data.clinic.id);
+      setIsSolo(data.clinic.accountType === "solo");
+      setClinicName(data.clinic.name);
+      setClinicSlug(data.clinic.slug);
+      if (data.clinic.phone) setClinicPhone(data.clinic.phone);
+      if (data.clinic.location) setClinicLocation(data.clinic.location);
+      if (data.clinic.whatsapp) setWhatsapp(data.clinic.whatsapp);
+      if (data.clinic.instagram) setInstagram(data.clinic.instagram);
+      const cfg = data.clinic.config as Record<string, unknown>;
+      if (Array.isArray(cfg.doctors) && cfg.doctors.length > 0) {
+        setDoctors(
+          // Se traen todos los campos, contacto incluido: este mismo asistente
+          // reescribe config.doctors al guardar, así que lo que no se cargue
+          // acá se borra en silencio al reabrirlo.
+          (cfg.doctors as ({ name: string; nombres?: string; apellidos?: string; specialty?: string; days?: string[]; phone?: string; email?: string } & Record<string, unknown>)[]).map((d) => {
+            // Los guardados antes de separar nombres y apellidos se separan acá.
+            const sep = d.nombres !== undefined ? { nombres: d.nombres, apellidos: d.apellidos ?? "" } : separarNombre(d.name);
+            return {
+            _id: uid(),
+            original: d,
+            ...sep,
+            name: nombreCompleto(sep.nombres, sep.apellidos),
+            specialty: d.specialty ?? "Odontología General",
+            days: (d.days ?? ["monday", "tuesday", "wednesday", "thursday", "friday"]) as DayKey[],
+            phone: d.phone,
+            email: d.email,
+          };
+          })
+        );
+      }
+    });
+  }, [router]);
+
+  /** Avanza si el paso está completo; si no, dice qué falta. */
+  function avanzar(desde: Step, hacia: Step) {
+    const falta = queFaltaEn(desde, {
+      esSolo: isSolo, nombreClinica: clinicName, telefono: clinicPhone,
+      ubicacion: clinicLocation, doctores: doctors, horario: Object.values(schedule),
+    });
+    if (falta) { setError(falta); return; }
+    setError("");
+    setStep(hacia);
+  }
+
+  /* ── Doctor helpers ────────────────────────────────────────────────────── */
+  function addDoctor() {
+    setDoctors((ds) => [
+      ...ds,
+      { _id: uid(), nombres: "", apellidos: "", name: "", specialty: "Odontología General", days: ["monday", "tuesday", "wednesday", "thursday", "friday"] },
+    ]);
+  }
+
+  function removeDoctor(id: string) {
+    setDoctors((ds) => ds.filter((d) => d._id !== id));
+  }
+
+  function updateDoctor(id: string, field: keyof Omit<Doctor, "_id">, value: unknown) {
+    setDoctors((ds) => ds.map((d) => {
+      if (d._id !== id) return d;
+      const nuevo = { ...d, [field]: value };
+      return { ...nuevo, name: nombreCompleto(nuevo.nombres, nuevo.apellidos) };
+    }));
+  }
+
+  function toggleDay(doctorId: string, day: DayKey) {
+    setDoctors((ds) =>
+      ds.map((d) => {
+        if (d._id !== doctorId) return d;
+        const has = d.days.includes(day);
+        return { ...d, days: has ? d.days.filter((x) => x !== day) : [...d.days, day] };
+      })
+    );
+  }
+
+  /* ── Schedule helpers ──────────────────────────────────────────────────── */
+  function updateScheduleDay(key: keyof Schedule, field: keyof ScheduleDay, value: string | boolean) {
+    setSchedule((s) => ({ ...s, [key]: { ...s[key], [field]: value } }));
+  }
+
+  /* ── Finish ────────────────────────────────────────────────────────────── */
+  async function finish() {
+    if (!clinicId) return;
+    setSaving(true);
+    setError("");
+    try {
+      // Una fila sin nombre ni correo está vacía; con correo es una invitación.
+      const validDoctors = doctors.filter((d) => d.name.trim() || d.email?.trim());
+      const scheduleConfig: Record<string, string> = {};
+      const dayNames: Record<keyof Schedule, string> = {
+        monday: "Lunes", tuesday: "Martes", wednesday: "Miércoles",
+        thursday: "Jueves", friday: "Viernes", saturday: "Sábado", sunday: "Domingo",
+      };
+      Object.entries(schedule).forEach(([key, val]) => {
+        scheduleConfig[key] = val.open ? `${dayNames[key as keyof Schedule]}: ${val.from} - ${val.to}` : `${dayNames[key as keyof Schedule]}: cerrado`;
+      });
+
+      const guardada = await updateClinic(clinicId, {
+        name: clinicName.trim() || undefined,
+        phone: clinicPhone.trim() || undefined,
+        location: clinicLocation.trim() || undefined,
+        whatsapp: whatsapp.trim() || undefined,
+        instagram: instagram.trim() || undefined,
+        config: {
+          tone: "profesional pero cercano",
+          schedule: scheduleConfig,
+          doctors: validDoctors.map(({ original, name, nombres, apellidos, specialty, days, email }) => ({
+            ...original,
+            name, nombres: sinPrefijo(nombres), apellidos: apellidos.trim(), specialty, days,
+            email: email?.trim().toLowerCase() || undefined,
+          })),
+          services: validDoctors.flatMap((d) => [d.specialty]).filter((v, i, a) => a.indexOf(v) === i),
+          boxes,
+          onboardingDone: true,
+        },
+      });
+      // A cada profesional con correo y sin cuenta le sale su invitación para que
+      // complete su perfil. Si alguna falla, se puede reenviar desde Equipo.
+      const guardados = ((guardada.config as { doctors?: { id?: string; email?: string; userId?: string }[] })?.doctors ?? []);
+      await Promise.allSettled(
+        guardados.filter((d) => d.id && d.email && !d.userId).map((d) => invitarProfesional(clinicId, d.id!)),
+      );
+      router.push("/partners/dashboard");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error al guardar");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const embedCode = `<script src="https://molari.ai/widget.js" data-clinic="${clinicSlug}" defer></script>`;
+
+  // Pasos del onboarding. El doctor independiente (#69) no configura "Doctores"
+  // (ya es el único profesional) → flujo express de 4 pasos.
+  const stepList: { n: Step; label: string }[] = isSolo
+    ? [{ n: 1, label: "Bienvenida" }, { n: 2, label: "Tu consulta" }, { n: 4, label: "Horario" }, { n: 5, label: "Canales" }]
+    : [{ n: 1, label: "Bienvenida" }, { n: 2, label: "Tu clínica" }, { n: 3, label: "Doctores" }, { n: 4, label: "Horario" }, { n: 5, label: "Canales" }];
+
+  /* ── Render ────────────────────────────────────────────────────────────── */
+  return (
+    <div className="min-h-screen flex" style={{ backgroundColor: "#F7F5F1" }}>
+      {/* Left panel */}
+      <div className="hidden lg:flex lg:w-[38%] flex-col justify-between p-12 text-white"
+        style={{ backgroundColor: "#0B2F42" }}>
+        <div className="text-sm font-semibold tracking-tight opacity-70">molari.ai</div>
+
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest mb-5" style={{ color: "#D95F45" }}>
+            Configuración inicial
+          </p>
+          <h1 className="text-3xl font-bold leading-tight mb-10">
+            Tu clínica lista<br />en 3 minutos.
+          </h1>
+
+          {/* Stepper vertical */}
+          <div className="flex flex-col gap-0">
+            {stepList.map((s, i) => {
+              const done = step > s.n;
+              const active = step === s.n;
+              return (
+                <div key={s.n} className="flex items-start gap-4">
+                  <div className="flex flex-col items-center">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all ${
+                      done ? "bg-emerald-500 text-white" : active ? "bg-white text-[#0B2F42]" : "bg-white/10 text-white/40"
+                    }`}>
+                      {done ? <Check className="w-3.5 h-3.5" aria-hidden /> : i + 1}
+                    </div>
+                    {i < stepList.length - 1 && (
+                      <div className={`w-px flex-1 my-1 ${done ? "bg-emerald-400/50" : "bg-white/10"}`} style={{ height: 28 }} />
+                    )}
+                  </div>
+                  <div className="pt-1 pb-8">
+                    <p className={`text-sm font-semibold ${active ? "text-white" : done ? "text-emerald-300" : "text-white/40"}`}>
+                      {s.label}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
+          © {new Date().getFullYear()} molari.ai
+        </p>
+      </div>
+
+      {/* Right panel */}
+      <div className="flex-1 flex items-start justify-center px-6 py-12 overflow-y-auto">
+        <div className="w-full max-w-xl">
+
+          {/* Mobile stepper */}
+          <div className="flex items-center gap-2 mb-8 lg:hidden">
+            {stepList.map((s, i) => {
+              const done = step > s.n;
+              const active = step === s.n;
+              return (
+                <div key={s.n} className="flex items-center gap-1.5 flex-1">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
+                    done ? "bg-emerald-500 text-white" : active ? "text-white" : "bg-gray-100 text-gray-400"
+                  }`} style={active ? { backgroundColor: "#0B2F42" } : {}}>
+                    {done ? <Check className="w-3.5 h-3.5" aria-hidden /> : i + 1}
+                  </div>
+                  {i < stepList.length - 1 && (
+                    <div className={`flex-1 h-px ${done ? "bg-emerald-400" : "bg-gray-200"}`} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── Step 1: Welcome ── */}
+          {step === 1 && (
+            <div className="flex flex-col gap-6">
+              <div>
+                <p className="text-4xl mb-4"><Hand className="w-4 h-4" aria-hidden /></p>
+                <h2 className="text-3xl font-black mb-2" style={{ color: "#0C1B26" }}>
+                  {clinicName ? `Bienvenido, ${clinicName}` : "Bienvenido a molari.ai"}
+                </h2>
+                <p className="text-base" style={{ color: "#607281" }}>
+                  Configuremos tu asistente paso a paso.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {(isSolo
+                  ? [
+                      { Icono: Stethoscope, title: "Tu consulta", desc: "Tus datos, especialidad y ubicación" },
+                      { Icono: Calendar, title: "Tu horario", desc: "Cuándo atiendes a tus pacientes" },
+                      { Icono: Smartphone, title: "Tus canales", desc: "WhatsApp y web donde te escriben" },
+                    ]
+                  : [
+                      { Icono: Building2, title: "Tu clínica", desc: "Nombre, teléfono y ubicación de tu consulta" },
+                      { Icono: Stethoscope, title: "Tus doctores", desc: "El equipo con sus especialidades y disponibilidad" },
+                      { Icono: Smartphone, title: "Horario y canales", desc: "Cuándo atiendes y dónde te escriben los pacientes" },
+                    ]
+                ).map((card) => (
+                  <div key={card.title} className="bg-white rounded-2xl border p-5 flex flex-col gap-2" style={{ borderColor: "#E5E0D9" }}>
+                    <card.Icono className="w-6 h-6" aria-hidden />
+                    <p className="text-sm font-bold" style={{ color: "#0C1B26" }}>{card.title}</p>
+                    <p className="text-xs leading-relaxed" style={{ color: "#607281" }}>{card.desc}</p>
+                  </div>
+                ))}
+              </div>
+
+              <button onClick={() => setStep(2)}
+                className="w-full py-4 rounded-2xl text-sm font-bold text-white transition hover:opacity-90"
+                style={{ backgroundColor: "#0B2F42" }}>
+                Comenzar configuración
+              </button>
+              <button onClick={() => router.push("/partners/dashboard")}
+                className="text-center text-xs hover:opacity-70 transition" style={{ color: "#607281" }}>
+                Saltar por ahora
+              </button>
+            </div>
+          )}
+
+          {/* ── Step 2: Clinic ── */}
+          {step === 2 && (
+            <div className="flex flex-col gap-6">
+              <div>
+                <button onClick={() => setStep(1)} className="text-xs mb-4 hover:opacity-70 transition flex items-center gap-1" style={{ color: "#607281" }}>
+                  Volver
+                </button>
+                <h2 className="text-2xl font-black mb-1" style={{ color: "#0C1B26" }}>
+                  {isSolo ? "Datos de tu consulta" : "Datos de tu clínica"}
+                </h2>
+                <p className="text-sm" style={{ color: "#607281" }}>
+                  El asistente usará estos datos al atender a tus pacientes.
+                </p>
+              </div>
+
+              <div className="bg-white rounded-2xl border p-5 flex flex-col gap-4" style={{ borderColor: "#E5E0D9" }}>
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: "#607281" }}>
+                    {isSolo ? "Nombre de tu consulta" : "Nombre de la clínica"}
+                  </label>
+                  <input
+                    value={clinicName}
+                    onChange={(e) => setClinicName(e.target.value)}
+                    placeholder={isSolo ? "Ej: Consulta Camila Soto" : "Clínica Dental Sonrisa"}
+                    className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                    style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="setup-telefono" className="block text-xs font-semibold mb-1" style={{ color: "#607281" }}>Teléfono</label>
+                    <CampoTelefono id="setup-telefono" value={clinicPhone} onChange={setClinicPhone} placeholder="2 2345 6789" className="rounded-xl bg-gray-50" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1" style={{ color: "#607281" }}>Ciudad / comuna</label>
+                    <input
+                      value={clinicLocation}
+                      onChange={(e) => setClinicLocation(e.target.value)}
+                      placeholder="Providencia, Santiago"
+                      className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                      style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => avanzar(2, isSolo ? 4 : 3)}
+                className="w-full py-4 rounded-2xl text-sm font-bold text-white transition hover:opacity-90"
+                style={{ backgroundColor: "#0B2F42" }}>
+                Continuar
+              </button>
+              {error && <p className="text-xs text-red-600 text-center">{error}</p>}
+            </div>
+          )}
+
+          {/* ── Step 3: Doctors ── */}
+          {step === 3 && (
+            <div className="flex flex-col gap-6">
+              <div>
+                <button onClick={() => setStep(2)} className="text-xs mb-4 hover:opacity-70 transition flex items-center gap-1" style={{ color: "#607281" }}>
+                  Volver
+                </button>
+                <h2 className="text-2xl font-black mb-1" style={{ color: "#0C1B26" }}>Agrega tus doctores</h2>
+                <p className="text-sm" style={{ color: "#607281" }}>
+                  Pon lo que sepas, todo es opcional. A cada uno le mandamos un link a su correo para que
+                  complete su perfil (su RUT y su WhatsApp) y cree su cuenta.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-4">
+                {doctors.map((doc, idx) => (
+                  <div key={doc._id} className="bg-white rounded-2xl border p-5 flex flex-col gap-4" style={{ borderColor: "#E5E0D9" }}>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "#607281" }}>
+                        Doctor {idx + 1}
+                      </p>
+                      {doctors.length > 1 && (
+                        <button onClick={() => removeDoctor(doc._id)}
+                          className="w-11 h-11 rounded-xl bg-gray-100 hover:bg-red-50 hover:text-red-500 transition text-gray-500 text-sm flex items-center justify-center shrink-0 -m-2"><X className="w-4 h-4" aria-hidden /></button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label htmlFor={`doc-nombres-${doc._id}`} className="block text-xs font-semibold mb-1" style={{ color: "#607281" }}>Nombres</label>
+                        <input
+                          id={`doc-nombres-${doc._id}`}
+                          value={doc.nombres}
+                          onChange={(e) => updateDoctor(doc._id, "nombres", e.target.value)}
+                          placeholder="María José"
+                          autoComplete="off"
+                          className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                          style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor={`doc-apellidos-${doc._id}`} className="block text-xs font-semibold mb-1" style={{ color: "#607281" }}>Apellidos</label>
+                        <input
+                          id={`doc-apellidos-${doc._id}`}
+                          value={doc.apellidos}
+                          onChange={(e) => updateDoctor(doc._id, "apellidos", e.target.value)}
+                          placeholder="González Pérez"
+                          autoComplete="off"
+                          className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                          style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor={`doc-correo-${doc._id}`} className="block text-xs font-semibold mb-1" style={{ color: "#607281" }}>Correo</label>
+                        <input
+                          id={`doc-correo-${doc._id}`}
+                          type="email"
+                          value={doc.email ?? ""}
+                          onChange={(e) => updateDoctor(doc._id, "email", e.target.value)}
+                          placeholder="doctora@clinica.cl"
+                          autoComplete="off"
+                          className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                          style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold mb-1" style={{ color: "#607281" }}>Especialidad</label>
+                        <select
+                          value={doc.specialty}
+                          onChange={(e) => updateDoctor(doc._id, "specialty", e.target.value)}
+                          className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 appearance-none"
+                          style={{ borderColor: "#E5E0D9", color: "#0C1B26" }}>
+                          {SPECIALTIES.map((s) => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold mb-2" style={{ color: "#607281" }}>Días disponibles</label>
+                      <div className="flex gap-2 flex-wrap">
+                        {DAY_KEYS.map((key, i) => {
+                          const active = doc.days.includes(key);
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => toggleDay(doc._id, key)}
+                              className={`h-11 w-11 rounded-xl text-xs font-bold transition ${
+                                active ? "text-white" : "text-gray-400 bg-gray-100 hover:bg-gray-200"
+                              }`}
+                              style={active ? { backgroundColor: "#1A5C7A", color: "white" } : {}}>
+                              {DAYS[i]}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                  </div>
+                ))}
+
+                <button onClick={addDoctor}
+                  className="flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed text-sm font-semibold transition hover:border-blue-300 hover:text-blue-600"
+                  style={{ borderColor: "#E5E0D9", color: "#607281" }}>
+                  <span className="text-lg leading-none">+</span> Agregar otro doctor
+                </button>
+              </div>
+
+              <button
+                onClick={() => avanzar(3, 4)}
+                className="w-full py-4 rounded-2xl text-sm font-bold text-white transition hover:opacity-90"
+                style={{ backgroundColor: "#0B2F42" }}>
+                Continuar
+              </button>
+              {error && <p className="text-xs text-red-600 text-center">{error}</p>}
+            </div>
+          )}
+
+          {/* ── Step 4: Schedule ── */}
+          {step === 4 && (
+            <div className="flex flex-col gap-6">
+              <div>
+                <button onClick={() => setStep(isSolo ? 2 : 3)} className="text-xs mb-4 hover:opacity-70 transition flex items-center gap-1" style={{ color: "#607281" }}>
+                  Volver
+                </button>
+                <h2 className="text-2xl font-black mb-1" style={{ color: "#0C1B26" }}>Horario y capacidad</h2>
+                <p className="text-sm" style={{ color: "#607281" }}>
+                  El asistente ofrecerá citas solo en los horarios que definas.
+                </p>
+              </div>
+
+              <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: "#E5E0D9" }}>
+                <div className="px-5 py-3 border-b bg-gray-50" style={{ borderColor: "#E5E0D9" }}>
+                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "#607281" }}>Horario semanal</p>
+                </div>
+                <div className="divide-y" style={{ borderColor: "#F0EDE8" }}>
+                  {(["monday","tuesday","wednesday","thursday","friday","saturday","sunday"] as const).map((key) => {
+                    const labels: Record<string, string> = {
+                      monday: "Lunes", tuesday: "Martes", wednesday: "Miércoles",
+                      thursday: "Jueves", friday: "Viernes", saturday: "Sábado", sunday: "Domingo",
+                    };
+                    const day = schedule[key];
+                    return (
+                      <div key={key} className="px-5 py-3 flex items-center gap-4">
+                        <button
+                          type="button"
+                          onClick={() => updateScheduleDay(key, "open", !day.open)}
+                          className={`w-10 h-6 rounded-full transition relative shrink-0 ${day.open ? "" : "bg-gray-200"}`}
+                          style={day.open ? { backgroundColor: "#1A5C7A" } : {}}>
+                          <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${day.open ? "right-1" : "left-1"}`} />
+                        </button>
+                        <span className={`text-sm font-semibold w-24 shrink-0 ${day.open ? "" : "text-gray-400"}`}
+                          style={day.open ? { color: "#0C1B26" } : {}}>
+                          {labels[key]}
+                        </span>
+                        {day.open ? (
+                          <div className="flex items-center gap-2">
+                            <TimeSelect value={day.from} onChange={(v) => updateScheduleDay(key, "from", v)} />
+                            <span className="text-gray-400 text-xs">a</span>
+                            <TimeSelect value={day.to} onChange={(v) => updateScheduleDay(key, "to", v)} />
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">Cerrado</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Boxes — no aplica para doctor independiente (#69) */}
+              {!isSolo && (
+              <div className="bg-white rounded-2xl border p-5" style={{ borderColor: "#E5E0D9" }}>
+                <label className="block text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#607281" }}>
+                  Número de boxes / sillones
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                    <button key={n} type="button"
+                      onClick={() => { setBoxes(n); setBoxesCustom(false); }}
+                      className={`w-12 h-12 rounded-xl text-sm font-bold transition ${!boxesCustom && boxes === n ? "text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+                      style={!boxesCustom && boxes === n ? { backgroundColor: "#1A5C7A", color: "white" } : {}}>
+                      {n}
+                    </button>
+                  ))}
+                  <button type="button"
+                    onClick={() => { setBoxesCustom(true); setBoxes(11); }}
+                    className={`px-3 h-12 rounded-xl text-xs font-bold transition ${boxesCustom ? "text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+                    style={boxesCustom ? { backgroundColor: "#1A5C7A", color: "white" } : {}}>
+                    +10
+                  </button>
+                </div>
+                {boxesCustom && (
+                  <div className="mt-3 flex items-center gap-3">
+                    <input
+                      type="number"
+                      min={11}
+                      value={boxes}
+                      onChange={(e) => setBoxes(Math.max(11, parseInt(e.target.value) || 11))}
+                      placeholder="Ej: 15"
+                      className="w-28 px-3 py-2 rounded-xl border text-sm font-bold focus:outline-none focus:ring-2"
+                      style={{ borderColor: "#1A5C7A", color: "#1A5C7A" }}
+                      autoFocus
+                    />
+                    <span className="text-xs text-gray-400">boxes / sillones</span>
+                  </div>
+                )}
+              </div>
+              )}
+
+              <button onClick={() => avanzar(4, 5)}
+                className="w-full py-4 rounded-2xl text-sm font-bold text-white transition hover:opacity-90"
+                style={{ backgroundColor: "#0B2F42" }}>
+                Continuar
+              </button>
+              {error && <p className="text-xs text-red-600 text-center">{error}</p>}
+            </div>
+          )}
+
+          {/* ── Step 5: Channels ── */}
+          {step === 5 && (
+            <div className="flex flex-col gap-6">
+              <div>
+                <button onClick={() => setStep(4)} className="text-xs mb-4 hover:opacity-70 transition flex items-center gap-1" style={{ color: "#607281" }}>
+                  Volver
+                </button>
+                <h2 className="text-2xl font-black mb-1" style={{ color: "#0C1B26" }}>Conecta tus canales</h2>
+                <p className="text-sm" style={{ color: "#607281" }}>
+                  Puedes conectar ahora o configurarlo más tarde desde el panel.
+                </p>
+              </div>
+
+              {/* WhatsApp */}
+              <div className="bg-white rounded-2xl border p-5 flex flex-col gap-3" style={{ borderColor: "#E5E0D9" }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                    style={{ backgroundColor: "#E9F5EC" }}><MessageCircle className="w-4 h-4" aria-hidden /></div>
+                  <div>
+                    <p className="text-sm font-bold" style={{ color: "#0C1B26" }}>WhatsApp Business</p>
+                    <p className="text-xs" style={{ color: "#607281" }}>El asistente responderá aquí 24/7</p>
+                  </div>
+                </div>
+                <CampoTelefono value={whatsapp} onChange={setWhatsapp} className="rounded-xl bg-gray-50" />
+              </div>
+
+              {/* Número de prueba (beta): solo aparece si está configurado */}
+              <BetaWhatsappCard />
+
+              {/* Widget embed */}
+              <div className="bg-white rounded-2xl border p-5 flex flex-col gap-3" style={{ borderColor: "#E5E0D9" }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                    style={{ backgroundColor: "#EEF3F8" }}><Globe className="w-4 h-4" aria-hidden /></div>
+                  <div>
+                    <p className="text-sm font-bold" style={{ color: "#0C1B26" }}>Widget web</p>
+                    <p className="text-xs" style={{ color: "#607281" }}>Pega este código en el {"<head>"} de tu sitio</p>
+                  </div>
+                </div>
+                <div className="relative">
+                  <pre className="text-xs bg-slate-900 text-emerald-300 rounded-xl p-4 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
+                    {embedCode}
+                  </pre>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(embedCode);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    className="absolute top-3 right-3 px-2.5 py-1 rounded-lg text-[11px] font-bold transition"
+                    style={{
+                      backgroundColor: copied ? "#10B981" : "rgba(255,255,255,0.1)",
+                      color: copied ? "white" : "#9CA3AF",
+                    }}>
+                    {copied ? "¡Copiado!" : "Copiar"}
+                  </button>
+                </div>
+              </div>
+
+              {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
+
+              <button
+                onClick={finish}
+                disabled={saving}
+                className="w-full py-4 rounded-2xl text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+                style={{ backgroundColor: "#D95F45" }}>
+                {saving ? "Guardando…" : "Finalizar configuración"}
+              </button>
+              <button onClick={() => router.push("/partners/dashboard")}
+                className="text-center text-xs hover:opacity-70 transition" style={{ color: "#607281" }}>
+                Terminar más tarde
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -117,6 +117,7 @@ model Clinic {
   consentSignatures  ConsentSignature[]
   labOrders          LabOrder[]
   accountEntries     AccountEntry[]
+  invitaciones       InvitacionProfesional[]
   inventoryItems     InventoryItem[]
   inventoryMovements InventoryMovement[]
 
@@ -940,4 +941,24 @@ model InventoryMovement {
 
   @@index([clinicId, itemId])
   @@map("inventory_movements")
+}
+
+/// Invitación para que un profesional complete su perfil y cree su cuenta
+/// (MOL-54). El admin la genera; el link lleva un token que se guarda
+/// hasheado, dura 7 días y sirve una vez. `doctorId` es el id del profesional
+/// dentro de clinic.config.doctors.
+model InvitacionProfesional {
+  id               String    @id @default(cuid())
+  clinicId         String
+  clinic           Clinic    @relation(fields: [clinicId], references: [id])
+  doctorId         String
+  email            String?
+  enviadaPorCorreo Boolean   @default(false)
+  tokenHash        String    @unique
+  expiresAt        DateTime
+  usadaAt          DateTime?
+  creadaPor        String
+  createdAt        DateTime  @default(now())
+
+  @@index([clinicId, doctorId])
 }

@@ -7,6 +7,7 @@ import {
 } from "@/lib/waitlist";
 import { PatientAutocomplete } from "./PatientAutocomplete";
 import { Check, ClipboardList, Phone, Stethoscope, X } from "lucide-react";
+import { CampoTelefono } from "@/components/ui/CampoTelefono";
 
 interface Props {
   clinicId: string;
@@ -223,8 +224,7 @@ function AddModal({ clinicId, onClose, onAdded }: {
           </div>
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Teléfono *</label>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+56912345678"
-              className={inputCls} />
+            <CampoTelefono value={phone} onChange={setPhone} className="rounded-xl" />
             {pacienteExistente && !phone.trim() && (
               // Sin teléfono el aviso de cupo no llega a ninguna parte, así que
               // conviene decirlo acá y no al apretar guardar.

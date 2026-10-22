@@ -4,11 +4,16 @@ import { sendBookingNotification } from "../services/notifications/whatsappServi
 import { datosDeSolicitud } from "../services/booking/confirmation";
 import { avisarProfesional } from "../services/booking/notifyProfessional";
 import { verifyPatientToken } from "./patient-auth";
+import { doctoresActivos, doctoresPublicos, diasDelDoctor } from "../lib/doctores";
+import { textoAvisoDeLaClinica } from "../lib/avisoPrivacidad";
 
 interface DoctorConfig {
   name: string;
   specialty: string;
-  schedule: string;
+  /** Formato viejo: "Lun-Vie" o "Lun/Mié/Vie". */
+  schedule?: string;
+  /** Formato del onboarding: ["monday", "tuesday", …]. */
+  days?: string[];
 }
 
 interface ClinicConfig {
@@ -17,22 +22,6 @@ interface ClinicConfig {
   schedule?: { weekdays?: string; saturday?: string; sunday?: string };
   boxes?: number;
   assistantName?: string;
-}
-
-// Mapeo de abreviaciones españolas a día JS (0=Dom, 1=Lun, ..., 6=Sáb)
-const DAY_MAP: Record<string, number> = {
-  Dom: 0, Lun: 1, Mar: 2, "Mié": 3, Jue: 4, Vie: 5, "Sáb": 6,
-};
-
-function parseDoctorDays(schedule: string): number[] {
-  if (schedule.includes("-")) {
-    const [start, end] = schedule.split("-").map((s) => s.trim());
-    const s = DAY_MAP[start];
-    const e = DAY_MAP[end];
-    if (s == null || e == null) return [];
-    return Array.from({ length: e - s + 1 }, (_, i) => s + i);
-  }
-  return schedule.split("/").map((d) => DAY_MAP[d.trim()]).filter((d) => d != null);
 }
 
 function generateTimeSlots(isSaturday: boolean): string[] {
@@ -106,7 +95,10 @@ export async function bookRoutes(app: FastifyInstance) {
         name: clinic.name,
         location: clinic.location,
         assistantName: cfg.assistantName ?? null,
-        doctors: cfg.doctors ?? [],
+        // Texto propio de la clínica que el chat muestra antes del aviso de IA.
+        avisoIa: textoAvisoDeLaClinica(cfg),
+        // Solo nombre, especialidad y días: esta ruta es pública.
+        doctors: doctoresPublicos(cfg.doctors),
         services: cfg.services ?? [],
         schedule: cfg.schedule ?? {},
       },
@@ -136,12 +128,12 @@ export async function bookRoutes(app: FastifyInstance) {
     if (isSunday) return reply.send({ slots: [] });
 
     const cfg = clinic.config as ClinicConfig;
-    const doctors = cfg.doctors ?? [];
+    const doctors = doctoresActivos(cfg.doctors);
 
     // Filtrar doctors que trabajan ese día
     const availableDoctors = doctorName
-      ? doctors.filter((d) => d.name === doctorName && parseDoctorDays(d.schedule).includes(jsDay))
-      : doctors.filter((d) => parseDoctorDays(d.schedule).includes(jsDay));
+      ? doctors.filter((d) => d.name === doctorName && diasDelDoctor(d).includes(jsDay))
+      : doctors.filter((d) => diasDelDoctor(d).includes(jsDay));
 
     if (availableDoctors.length === 0) return reply.send({ slots: [] });
 

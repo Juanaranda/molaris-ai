@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { getToken } from "@/lib/auth";
+import { toLocalDateStr } from "@/lib/dateParser";
 import { DentalQuoteTab } from "./DentalQuoteTab";
 import { PatientAutocomplete } from "./PatientAutocomplete";
 import { Button } from "./ui";
@@ -550,7 +551,7 @@ export function DashboardTab({
       if (analyticsRes.ok) setAnalytics(await analyticsRes.json());
       if (agendaRes.ok) {
         const data = await agendaRes.json();
-        const todayStr = new Date().toISOString().slice(0, 10);
+        const todayStr = toLocalDateStr(new Date());
         const todayDay = (data.days ?? []).find((d: { date: string; bookings: TodayBooking[] }) =>
           String(d.date).slice(0, 10) === todayStr
         );
@@ -642,5 +643,5 @@ function getMondayStr(): string {
   const d = new Date();
   const day = d.getDay();
   d.setDate(d.getDate() + (day === 0 ? 1 : 1 - day));
-  return d.toISOString().slice(0, 10);
+  return toLocalDateStr(d);
 }

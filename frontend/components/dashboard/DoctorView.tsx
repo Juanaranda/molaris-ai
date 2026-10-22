@@ -14,6 +14,7 @@ import {
 } from "@/lib/doctorView";
 import { Button, Card } from "@/components/ui";
 import { RoleBadge, StatusPill } from "./widgets";
+import { PerfilProfesional } from "@/components/PerfilProfesional";
 
 /**
  * Vista reducida para quien tiene rol USER: ve sus propias citas y poco más.
@@ -123,6 +124,9 @@ export function DoctorView({ user, clinic, onShowFull }: { user: AuthUser; clini
         </Card>
 
         <Button variant="secondary" block onClick={onShowFull}>Ver agenda completa</Button>
+
+        {/* Sus datos (RUT, WhatsApp, días) los mantiene él (MOL-54). */}
+        <PerfilProfesional />
       </main>
     </div>
   );

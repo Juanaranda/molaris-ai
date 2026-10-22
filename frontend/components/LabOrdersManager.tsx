@@ -5,6 +5,7 @@ import {
   LabOrder, LabOrderStatus, LabOrderType, ORDER_TYPE_LABELS,
   listLabOrders, createLabOrder, updateLabOrder, deleteLabOrder,
 } from "@/lib/labOrders";
+import { toLocalDateStr } from "@/lib/dateParser";
 import { Check, DollarSign, Factory, Package, Send, Smile, User, X } from "lucide-react";
 
 interface Props {
@@ -227,7 +228,7 @@ function AddModal({ clinicId, patientId, onClose, onAdded }: {
   const [orderType, setOrderType] = useState<LabOrderType>("corona");
   const [toothFDI,  setToothFDI]  = useState("");
   const [description, setDescription] = useState("");
-  const [sentAt,    setSentAt]    = useState<string>(new Date().toISOString().slice(0, 10));
+  const [sentAt,    setSentAt]    = useState<string>(toLocalDateStr(new Date()));
   const [expected,  setExpected]  = useState<string>("");
   const [cost,      setCost]      = useState<string>("");
   const [notes,     setNotes]     = useState<string>("");
