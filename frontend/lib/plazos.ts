@@ -51,3 +51,20 @@ export function restanteHasta(deadline: string | null | undefined, ahora: Date =
   const dias = Math.floor(ms / DIA);
   return { texto: `en ${dias} ${dias === 1 ? "día" : "días"}`, urgente: false, vencida: false };
 }
+
+/**
+ * Peldaño de la escalera coral de la agenda: cuánto tinte lleva una solicitud.
+ * 3 = vence en menos de una hora (o ya venció), 2 = en menos de tres horas
+ * (el mismo umbral de `urgente`), 1 = el resto. Null si no tiene plazo.
+ */
+export type Peldano = 1 | 2 | 3;
+
+export function peldanoDeUrgencia(deadline: string | null | undefined, ahora: Date = new Date()): Peldano | null {
+  if (!deadline) return null;
+  const fin = new Date(deadline).getTime();
+  if (Number.isNaN(fin)) return null;
+  const ms = fin - ahora.getTime();
+  if (ms < HORA) return 3;
+  if (ms < UMBRAL_URGENTE_MS) return 2;
+  return 1;
+}

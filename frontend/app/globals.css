@@ -56,6 +56,11 @@
   --color-accent:       #D95F45;  /* coral: lo que espera respuesta */
   --color-accent-soft:  #FBEAE5;
   --color-accent-ink:   #9A3A25;  /* texto sobre accent-soft (4,5:1) */
+  /* Escalera de urgencia de la agenda: el mismo coral en tres tintes pálidos,
+     más intenso mientras menos falta para que una solicitud venza
+     (accent-50 → accent-soft → accent-200). accent-ink da 6,6:1 sobre el 200. */
+  --color-accent-50:    #FDF6F3;
+  --color-accent-200:   #F6D5CB;
 
   --color-ok:           #1F6B4B;
   --color-ok-soft:      #E7F3EC;
