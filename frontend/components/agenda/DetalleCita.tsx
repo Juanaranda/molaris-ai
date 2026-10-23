@@ -1,6 +1,5 @@
-import { useEffect, useId, useRef, useState } from "react";
-import { X } from "lucide-react";
-import { Badge, Button, Field, Tabs } from "@/components/ui";
+import { useId, useState } from "react";
+import { Badge, BotonCerrar, Button, CLASE_CAMPO, CLASE_ETIQUETA, Field, Tabs, useDialogo } from "@/components/ui";
 import { getToken } from "@/lib/auth";
 import { cx } from "@/lib/cx";
 import { peldanoDeUrgencia, restanteHasta } from "@/lib/plazos";
@@ -12,42 +11,10 @@ import type { Booking } from "./tipos";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-/** Clases de un select o campo suelto: las mismas de components/ui/Field. */
-export const CAMPO =
-  "w-full min-h-11 rounded-control border border-line bg-surface px-3 text-base text-ink " +
-  "focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand";
-export const ETIQUETA = "text-sm font-semibold text-ink";
-
-/**
- * Lo mínimo de un diálogo: Escape lo cierra y el foco entra al abrirlo
- * (si no, el teclado y el lector de pantalla quedan en la agenda de atrás).
- */
-export function useDialogo(onClose: () => void) {
-  const ref = useRef<HTMLDivElement>(null);
-  const cerrar = useRef(onClose);
-  useEffect(() => { cerrar.current = onClose; });
-  useEffect(() => {
-    ref.current?.focus();
-    const tecla = (e: KeyboardEvent) => {
-      // Si el Escape es para cerrar una lista desplegada (el buscador de
-      // pacientes), se queda en eso y no cierra el diálogo entero.
-      if (e.key !== "Escape" || (e.target as HTMLElement | null)?.getAttribute?.("aria-expanded") === "true") return;
-      cerrar.current();
-    };
-    document.addEventListener("keydown", tecla);
-    return () => document.removeEventListener("keydown", tecla);
-  }, []);
-  return ref;
-}
-
-export function BotonCerrar({ onClick }: { onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} aria-label="Cerrar"
-      className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink-muted transition-colors hover:bg-gray-100 hover:text-ink focus-visible:outline-2 focus-visible:outline-brand">
-      <X className="h-5 w-5" aria-hidden />
-    </button>
-  );
-}
+// Reexportados para los otros archivos de la agenda (antes vivían acá).
+export { BotonCerrar, useDialogo };
+export const CAMPO = CLASE_CAMPO;
+export const ETIQUETA = CLASE_ETIQUETA;
 
 /* ── Presupuesto rápido ─────────────────────────────────────────────── */
 export function QuickQuoteModal({ patient, onClose }: {
