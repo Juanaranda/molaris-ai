@@ -26,11 +26,15 @@ export function conditionLabel(code: string): string {
   return CONDITION_LABELS[code] ?? code.replace(/_/g, " ");
 }
 
+/* Una extracción solo llega como condición activa cuando está INDICADA (la
+   realizada deja la pieza con isExtracted): es algo pendiente, no una pieza
+   ausente. */
 export const CONDITION_TO_STATE: Record<string, StateKey> = {
   caries: "pending",  fractura: "pending",  movilidad: "pending",  periodontal_bolsa: "pending",
+  extraccion: "pending",
   obturacion: "treated",  endodoncia: "treated",  sellante: "treated",  limpieza: "treated",  ortodoncia: "treated",
   corona: "prosthetic",  implante: "prosthetic",  perno: "prosthetic",
-  extraccion: "extracted",  ausente: "extracted",
+  ausente: "extracted",
   sano: "healthy",
 };
 

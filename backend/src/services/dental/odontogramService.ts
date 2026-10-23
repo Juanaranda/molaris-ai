@@ -168,46 +168,70 @@ export interface ToothProjection {
     severity:       number | null;
     professionalId: string;
   }[];
-  isExtracted:     boolean;                  // si tiene un evento de extracción
+  isExtracted:     boolean;                  // la pieza ya no está (extraída o ausente)
+}
+
+/**
+ * ¿Este evento dice que la pieza ya no está?
+ * Una extracción registrada como DIAGNOSIS es una extracción INDICADA: la
+ * pieza sigue en boca, con sus otros hallazgos, hasta que se registre la
+ * extracción como TREATMENT.
+ */
+function marcaPiezaAusente(e: EventWithSurfaces): boolean {
+  if (e.conditionCode === "ausente") return e.eventType !== "OBSERVATION";
+  return e.conditionCode === "extraccion" && e.eventType === "TREATMENT";
 }
 
 /**
  * Resolución de "estado actual" por diente:
- *  - Si hay evento "extraccion" → marcar isExtracted=true; activeConditions vacío
+ *  - Si la pieza se extrajo (tratamiento) o está ausente → isExtracted=true; activeConditions vacío
  *  - Si hay evento "sano" más reciente que cualquier hallazgo previo → vacío
- *  - En otro caso → tomar la condición más reciente por cada conditionCode + superficie
- *    (esto permite ver "implante + corona" al mismo tiempo)
+ *  - En otro caso → la condición más reciente por cada conditionCode + cara.
+ *    Así conviven "implante + corona", y una caries nueva en M no tapa la
+ *    caries anterior en O de la misma pieza. Las condiciones sin cara (de
+ *    pieza completa) se resuelven solo por conditionCode.
  */
 export function projectTooth(toothFDI: string, events: EventWithSurfaces[]): ToothProjection {
   // Eventos vienen ordenados desc por occurredAt (responsabilidad del caller)
-  const extraction = events.find((e) => e.conditionCode === "extraccion");
-  if (extraction) {
+  if (events.some(marcaPiezaAusente)) {
     return { toothFDI, events, activeConditions: [], isExtracted: true };
   }
 
   const latestSano = events.find((e) => e.conditionCode === "sano");
   const latestSanoTime = latestSano?.occurredAt.getTime() ?? 0;
 
-  // Tomar último evento por conditionCode (excepto observation y sano)
-  const latestByCondition = new Map<string, EventWithSurfaces>();
+  // Por cada conditionCode + cara, el evento más reciente se queda con esa cara.
+  const caraTomada = new Set<string>();
+  const activos: { e: EventWithSurfaces; surfaces: DentalSurface[] }[] = [];
   for (const e of events) {
     if (e.eventType === "OBSERVATION") continue;
     if (e.conditionCode === "sano") continue;
     if (e.occurredAt.getTime() < latestSanoTime) continue;  // limpiado por un "sano" posterior
-    if (!latestByCondition.has(e.conditionCode)) {
-      latestByCondition.set(e.conditionCode, e);
+
+    if (e.surfaces.length === 0) {
+      const clave = `${e.conditionCode}|*`;
+      if (caraTomada.has(clave)) continue;
+      caraTomada.add(clave);
+      activos.push({ e, surfaces: [] });
+      continue;
     }
+    const propias = e.surfaces
+      .map((s) => s.surface)
+      .filter((s) => !caraTomada.has(`${e.conditionCode}|${s}`));
+    if (propias.length === 0) continue;  // todas sus caras tienen un registro más nuevo
+    for (const s of propias) caraTomada.add(`${e.conditionCode}|${s}`);
+    activos.push({ e, surfaces: propias });
   }
 
   return {
     toothFDI,
     events,
     isExtracted: false,
-    activeConditions: Array.from(latestByCondition.values()).map((e) => ({
+    activeConditions: activos.map(({ e, surfaces }) => ({
       conditionCode:  e.conditionCode,
       eventId:        e.id,
       occurredAt:     e.occurredAt,
-      surfaces:       e.surfaces.map((s) => s.surface),
+      surfaces,
       severity:       e.severity,
       professionalId: e.professionalId,
     })),

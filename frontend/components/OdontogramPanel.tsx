@@ -51,7 +51,8 @@ function conditionChipColor(code: string): string {
     case "endodoncia":        return "bg-amber-100 text-amber-800";
     case "corona":            return "bg-blue-100 text-blue-800";
     case "implante":          return "bg-violet-100 text-violet-800";
-    case "extraccion":        return "bg-gray-200 text-gray-700 line-through";
+    // Sin tachar: en la ficha, tachado se lee como "anulado".
+    case "extraccion":        return "bg-gray-200 text-gray-800";
     case "ortodoncia":        return "bg-pink-100 text-pink-800";
     case "fractura":          return "bg-orange-100 text-orange-800";
     case "perno":             return "bg-cyan-100 text-cyan-800";
@@ -419,7 +420,8 @@ function FindingsTable({
       if (proj.isExtracted) {
         // La extracción se muestra como hallazgo aunque ya no tenga condiciones
         // activas: es el dato más relevante de esa pieza.
-        const ev = proj.events.find((e) => e.conditionCode === "extraccion" || e.conditionCode === "ausente");
+        const ev = proj.events.find((e) =>
+          (e.conditionCode === "extraccion" && e.eventType === "TREATMENT") || e.conditionCode === "ausente");
         out.push({
           fdi: proj.toothFDI, conditionCode: ev?.conditionCode ?? "ausente",
           surfaces: [], occurredAt: ev?.occurredAt ?? "", severity: null, isExtracted: true,
@@ -435,7 +437,7 @@ function FindingsTable({
       }
     }
     const visibles = soloPendientes
-      ? out.filter((f) => CONDITION_STATE[f.conditionCode] === "pendiente")
+      ? out.filter((f) => !f.isExtracted && CONDITION_STATE[f.conditionCode] === "pendiente")
       : out;
     return visibles.sort((a, b) =>
       orden === "pieza"
@@ -538,12 +540,14 @@ function FindingsTable({
   );
 }
 
-/* Estado clínico por condición — el mismo criterio de color del diagrama. */
+/* Estado clínico por condición — el mismo criterio de color del diagrama.
+   Una extracción activa es una extracción indicada: pendiente. */
 const CONDITION_STATE: Record<string, "pendiente" | "tratado" | "protesis" | "extraido"> = {
   caries: "pendiente", fractura: "pendiente", movilidad: "pendiente", periodontal_bolsa: "pendiente",
+  extraccion: "pendiente",
   obturacion: "tratado", endodoncia: "tratado", sellante: "tratado", limpieza: "tratado", ortodoncia: "tratado",
   corona: "protesis", implante: "protesis", perno: "protesis",
-  extraccion: "extraido", ausente: "extraido",
+  ausente: "extraido",
 };
 
 const ESTADO_TEXTO: Record<string, { label: string; cls: string }> = {
