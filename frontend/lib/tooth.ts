@@ -128,7 +128,9 @@ export function carasEnPantalla(fdi: string): {
  * blanco puro, así que la misma pieza cambiaba de material al abrirla.
  */
 export const ESMALTE = "#FBF6EC";
-export const CONTORNO = "#94A3B8";
+// Contorno cálido a 3,5:1 sobre el esmalte: las caras se pueden tocar y su
+// borde tiene que verse (WCAG 1.4.11 pide 3:1). El gris anterior daba 2,4:1.
+export const CONTORNO = "#8A8378";
 
 /**
  * Proporciones del círculo de superficies, como fracción del lado del dibujo.

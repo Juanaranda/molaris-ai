@@ -69,6 +69,19 @@
   --color-danger:       #B3261E;
   --color-danger-soft:  #FDECEA;
 
+  /* Estados clínicos del odontograma. Los mismos valores viven en
+     STATE_META (lib/odontogramPaint.ts), porque los SVG del diente necesitan
+     el hex; un test revisa que coincidan. Tratado es un azul distinto del
+     teal de la marca: el teal es selección, nunca el estado de una cara. */
+  --color-clinical-pending:         #B3261E;
+  --color-clinical-pending-soft:    #FDECEA;
+  --color-clinical-treated:         #1D4ED8;
+  --color-clinical-treated-soft:    #E8EEFC;
+  --color-clinical-prosthetic:      #6B3FA0;
+  --color-clinical-prosthetic-soft: #F1EBF8;
+  --color-clinical-absent:          #56656F;
+  --color-clinical-absent-soft:     #F0ECE6;
+
   /* Radios: controles (botones, campos) y contenedores (tarjetas). */
   --radius-control: 10px;
   --radius-card:    16px;

@@ -38,11 +38,48 @@ export const CONDITION_TO_STATE: Record<string, StateKey> = {
   sano: "healthy",
 };
 
+/**
+ * Cómo se ve cada estado, en un solo lugar: la cara pintada del diagrama, el
+ * punto de la pieza, la leyenda, la tabla y los chips leen de acá. Antes había
+ * tres fuentes que no coincidían ("Tratado" salía en tres azules distintos).
+ *
+ * `color` es el hex para los SVG; las clases usan los tokens clinical-* de
+ * globals.css, que tienen los mismos valores (lo revisa un test). "healthy"
+ * no se dibuja: un diente sin marca es un diente sin hallazgos.
+ */
+export const STATE_META: Record<Exclude<StateKey, "healthy">, {
+  label: string; color: string; soft: string;
+  text: string; dot: string; bgSoft: string;
+}> = {
+  pending: {
+    label: "Pendiente", color: "#B3261E", soft: "#FDECEA",
+    text: "text-clinical-pending", dot: "bg-clinical-pending", bgSoft: "bg-clinical-pending-soft",
+  },
+  treated: {
+    label: "Tratado", color: "#1D4ED8", soft: "#E8EEFC",
+    text: "text-clinical-treated", dot: "bg-clinical-treated", bgSoft: "bg-clinical-treated-soft",
+  },
+  prosthetic: {
+    label: "Prótesis", color: "#6B3FA0", soft: "#F1EBF8",
+    text: "text-clinical-prosthetic", dot: "bg-clinical-prosthetic", bgSoft: "bg-clinical-prosthetic-soft",
+  },
+  extracted: {
+    label: "Extraído", color: "#56656F", soft: "#F0ECE6",
+    text: "text-clinical-absent", dot: "bg-clinical-absent", bgSoft: "bg-clinical-absent-soft",
+  },
+};
+
+/** Estado de una condición activa; lo que no está en el mapa se trata como tratado. */
+export function stateOf(conditionCode: string): Exclude<StateKey, "healthy"> {
+  const s = CONDITION_TO_STATE[conditionCode];
+  return !s || s === "healthy" ? "treated" : s;
+}
+
 /* Color con que se pinta cada superficie según el estado de su hallazgo. */
 export const SURFACE_PAINT: Partial<Record<StateKey, string>> = {
-  pending:    "#DC2626",
-  treated:    "#2563EB",
-  prosthetic: "#6D28D9",
+  pending:    STATE_META.pending.color,
+  treated:    STATE_META.treated.color,
+  prosthetic: STATE_META.prosthetic.color,
 };
 
 // Si dos hallazgos caen en la misma cara, gana el más grave.
