@@ -31,9 +31,10 @@ describe("choquesDeBox", () => {
 });
 
 describe("nombreCorto", () => {
-  it("deja el título y el apellido", () => {
-    expect(nombreCorto("Dr. Ivonne Poblete")).toBe("Dr. Poblete");
-    expect(nombreCorto("Dra. Ana María Pérez")).toBe("Dra. Pérez");
+  it("no muestra el título: no es parte del nombre", () => {
+    expect(nombreCorto("Dr. Ivonne Poblete")).toBe("Ivonne Poblete");
+    expect(nombreCorto("Dra. Ana María Pérez")).toBe("Ana María Pérez");
+    expect(nombreCorto("Ivonne Poblete")).toBe("Ivonne Poblete");
   });
   it("sin título se deja igual", () => {
     expect(nombreCorto("Sin asignar")).toBe("Sin asignar");

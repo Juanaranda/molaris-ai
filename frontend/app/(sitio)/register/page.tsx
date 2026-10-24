@@ -445,7 +445,7 @@ function Registro({ inicial }: { inicial: Inicial }) {
                       label={isSolo ? "Nombre de tu consulta (opcional)" : "Nombre de la clínica *"}
                       value={clinic.name}
                       onChange={(v) => setClinic((c) => ({ ...c, name: v }))}
-                      placeholder={isSolo ? "Ej: Consulta Dr. Juan Garcés" : "Clínica Dental Las Condes"}
+                      placeholder={isSolo ? "Ej: Consulta Dental Ana Rojas" : "Clínica Dental Las Condes"}
                       autoFocus
                     />
                     {isSolo && (

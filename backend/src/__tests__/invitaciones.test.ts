@@ -29,6 +29,16 @@ describe("al guardar la lista desde el panel", () => {
     expect(r[1].id).toMatch(/^nuevo-/);
   });
 
+  it("guarda el nombre sin \"Dr.\" ni \"Dra.\"", () => {
+    const r = protegerDatosDelProfesional([{ name: "Dr. Ana Rojas" }, { name: "dra Paz Soto" }, { name: "Drago Pérez" }], [], admin, id);
+    expect(r.map((d) => d.name)).toEqual(["Ana Rojas", "Paz Soto", "Drago Pérez"]);
+  });
+
+  it("reconoce a uno guardado con \"Dr.\" aunque ahora llegue sin él", () => {
+    const r = protegerDatosDelProfesional([{ name: "Ana Rojas" }], [{ name: "Dr. Ana Rojas", phone: "+56911111111" }], admin, id);
+    expect(r[0]).toMatchObject({ name: "Ana Rojas", phone: "+56911111111" });
+  });
+
   it("reconoce por nombre a los guardados antes de tener id", () => {
     const r = protegerDatosDelProfesional([{ name: "Ana Rojas", specialty: "Endodoncia" }], [{ name: "Ana Rojas", phone: "+56911111111" }], admin, id);
     expect(r[0].phone).toBe("+56911111111");

@@ -5,6 +5,8 @@
  * cita. Viven fuera del componente para probar los bordes sin montar la agenda.
  */
 
+import { sinPrefijo } from "@/lib/doctores";
+
 /** Media hora a la que pertenece una hora: "10:40" → "10:30", "9:05" → "09:00". */
 export function tramoDe(hora: string): string {
   const [h, m] = hora.split(":").map(Number);
@@ -40,14 +42,13 @@ export function choquesDeBox<T extends CitaEnBox>(citas: T[]): Map<string, T> {
 }
 
 /**
- * Nombre corto del profesional para una agenda angosta: "Dr. Ivonne Poblete"
- * → "Dr. Poblete". Sin "Dr."/"Dra." al inicio se deja tal cual ("Sin asignar").
+ * Nombre del profesional para la agenda. Los nombres se guardan sin "Dr." ni
+ * "Dra." (el tratamiento no es parte del nombre y adivinarlo es equivocarse);
+ * si llega uno antiguo con título, se le quita: "Dr. Ivonne Poblete" →
+ * "Ivonne Poblete". "Sin asignar" se deja igual.
  */
 export function nombreCorto(nombre: string): string {
-  const m = /^(Dra?\.)\s+(.+)$/.exec(nombre.trim());
-  if (!m) return nombre.trim();
-  const apellido = m[2].split(/\s+/).pop();
-  return `${m[1]} ${apellido}`;
+  return sinPrefijo(nombre);
 }
 
 /**

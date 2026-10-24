@@ -101,6 +101,15 @@ type Obj = Record<string, unknown>;
 const esObj = (d: unknown): d is Obj => !!d && typeof d === "object" && !Array.isArray(d);
 
 /**
+ * "Dr. Juan Pérez" → "Juan Pérez". El tratamiento no es parte del nombre: no
+ * se guarda en ningún lado (equipo, citas, cuentas). Adivinar "Dr." o "Dra."
+ * desde el nombre es equivocarse, y la agenda compara nombres exactos.
+ */
+export function sinPrefijo(nombre: string): string {
+  return nombre.replace(/^\s*(dr|dra|doctor|doctora)\.?\s+/i, "").trim();
+}
+
+/**
  * Los que el agente, la agenda y las reservas pueden usar: los que tienen
  * nombre. Un profesional sin nombre es una invitación pendiente: el admin lo
  * agregó sin datos y todavía no completa su perfil.
@@ -135,12 +144,14 @@ export function protegerDatosDelProfesional(
     const idEntrante = typeof d.id === "string" && d.id ? d.id : undefined;
     const previo = idEntrante
       ? previos.find((p) => p.id === idEntrante)
-      : previos.find((p) => !usados.has(p) && !p.id && typeof p.name === "string" && p.name.trim() !== "" && p.name === d.name);
+      : previos.find((p) => !usados.has(p) && !p.id && typeof p.name === "string" && p.name.trim() !== ""
+          && typeof d.name === "string" && sinPrefijo(p.name) === sinPrefijo(d.name));
     if (previo) usados.add(previo);
 
     const id = idEntrante ?? (typeof previo?.id === "string" && previo.id ? previo.id : nuevoId());
     const puedeDatosPersonales = quien.esSolo || (!!previo && previo.userId === quien.userId);
     const salida: Obj = { ...d, id };
+    if (typeof d.name === "string") salida.name = sinPrefijo(d.name);
     for (const campo of CAMPOS_DEL_PROFESIONAL) {
       if (campo !== "userId" && puedeDatosPersonales) continue;
       if (previo && previo[campo] !== undefined) salida[campo] = previo[campo];

@@ -31,12 +31,14 @@ está deprecado desde la 16.
 Equipo y horarios confirmados por la clínica (ago 2026). Se ajustan desde el
 editor de equipo cuando cambien.
 
-El prefijo va "Dr." parejo para no deducir el género desde el nombre; cuando
-la clínica confirme quién lleva "Dra.", se corrige.
+Los nombres van sin "Dr." ni "Dra." en todas las clínicas: el tratamiento no
+es parte del nombre y adivinarlo desde el nombre es equivocarse. El backend lo
+quita al guardar (`sinPrefijo` en `backend/src/lib/doctores.ts`) y el agente
+nombra al profesional sin título.
 
-Dr. Ivonne Poblete (Cirujano Dentista) · Dr. Juan Garcés (Endodoncia)
-Dr. Javiera Paimilla (Cirujano Dentista) · Dr. Nicolás Rojas (Cirujano Dentista)
-Dr. Yamileth Zerpa (Ortodoncia) · 2 boxes, rotación libre
+Ivonne Poblete (Cirujano Dentista) · Juan Garcés (Endodoncia)
+Javiera Paimilla (Cirujano Dentista) · Nicolás Rojas (Cirujano Dentista)
+Yamileth Zerpa (Ortodoncia) · 2 boxes, rotación libre
 
 ---
 

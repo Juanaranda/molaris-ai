@@ -5,6 +5,7 @@ import prisma from "../../config/prisma";
 import { config } from "../../config/env";
 import { isValidRut, formatRut } from "../../lib/rut";
 import { telefonoE164 } from "../../lib/telefono";
+import { sinPrefijo } from "../../lib/doctores";
 import { sendMolariEmail } from "../email/molariEmails";
 
 /**
@@ -51,7 +52,6 @@ export type PerfilProfesional = {
   days?: string[];
 };
 
-const sinPrefijo = (n: string) => n.replace(/^\s*(dr|dra|doctor|doctora)\.?\s+/i, "").trim();
 
 export function validarPerfil(body: unknown): { ok: true; perfil: PerfilProfesional } | { ok: false; error: string } {
   const b = esObj(body) ? body : {};

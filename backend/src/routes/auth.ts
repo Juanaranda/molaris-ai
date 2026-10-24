@@ -10,6 +10,7 @@ import { issuePhoneCode, verifyPhoneCode } from "../services/auth/phoneVerificat
 import { clinicaPuedeCargarDatos } from "../services/auth/contactoVerificado";
 import { emitirTokenPendiente, validarTokenPendiente, consumirCodigoRespaldo } from "../services/auth/twoFactor";
 import { verificarCodigo } from "../lib/totp";
+import { sinPrefijo } from "../lib/doctores";
 import { Prisma } from "@prisma/client";
 
 interface JwtPayload {
@@ -520,7 +521,7 @@ export async function authRoutes(app: FastifyInstance) {
     const updated = await prisma.partnerUser.update({
       where: { id: payload.userId },
       data: {
-        ...(name       !== undefined && { name: name.trim() }),
+        ...(name       !== undefined && { name: sinPrefijo(name) }),
         ...(photoUrl   !== undefined && { photoUrl }),
         ...(occupation !== undefined && { occupation }),
         ...(phone      !== undefined && { phone }),

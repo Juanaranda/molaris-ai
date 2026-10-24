@@ -15,31 +15,31 @@ const galanaConfig = {
   // clínica (ago 2026). Se ajusta desde el editor de equipo cuando cambie.
   doctors: [
     {
-      name: "Dr. Ivonne Poblete",
+      name: "Ivonne Poblete",
       specialty: "General",
       schedule: "Lun/Mié/Vie/Sáb",
       services: ["Limpieza dental", "Blanqueamiento dental", "Carillas dentales"],
     },
     {
-      name: "Dr. Juan Garcés",
+      name: "Juan Garcés",
       specialty: "Endodoncia",
       schedule: "Mar/Jue",
       services: ["Endodoncia (tratamiento de conducto)"],
     },
     {
-      name: "Dr. Javiera Paimilla",
+      name: "Javiera Paimilla",
       specialty: "General",
       schedule: "Lun-Vie",
       services: ["Limpieza dental", "Blanqueamiento dental", "Carillas dentales", "Urgencias dentales"],
     },
     {
-      name: "Dr. Nicolás Rojas",
+      name: "Nicolás Rojas",
       specialty: "General",
       schedule: "Lun-Vie",
       services: ["Limpieza dental", "Extracción de muela del juicio", "Urgencias dentales"],
     },
     {
-      name: "Dr. Yamileth Zerpa",
+      name: "Yamileth Zerpa",
       specialty: "Ortodoncia",
       schedule: "Lun/Mié/Vie",
       services: ["Ortodoncia (brackets / alineadores)"],

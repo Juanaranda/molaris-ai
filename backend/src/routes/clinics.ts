@@ -15,7 +15,7 @@ import { isValidRut, formatRut } from "../lib/rut";
 import { sendMolariEmail } from "../services/email/molariEmails";
 import { issueVerificationCode } from "../services/auth/emailVerification";
 import { clinicaSinSecretos } from "../lib/clinicaSinSecretos";
-import { validarRutsDoctores, protegerDatosDelProfesional } from "../lib/doctores";
+import { validarRutsDoctores, protegerDatosDelProfesional, sinPrefijo } from "../lib/doctores";
 import { validarAvisoClinica } from "../lib/avisoPrivacidad";
 
 // Claves válidas dentro de Clinic.config. Evita inyectar JSON arbitrario, pero
@@ -78,7 +78,7 @@ export function construirDoctorSolo(datos: {
   phone?: string;
 }): DoctorSolo {
   return {
-    name: datos.adminName,
+    name: sinPrefijo(datos.adminName),
     specialty: datos.specialty?.trim() || "Odontología General",
     days: ["monday", "tuesday", "wednesday", "thursday", "friday"],
     phone: datos.whatsapp?.trim() || datos.phone?.trim() || undefined,
@@ -827,7 +827,8 @@ export async function clinicRoutes(app: FastifyInstance) {
         },
         partnerUsers: {
           create: {
-            name: admin.name,
+            // Sin "Dr.": la agenda cruza este nombre con el del equipo.
+            name: sinPrefijo(admin.name),
             email: admin.email.toLowerCase().trim(),
             passwordHash,
             role: "ADMIN",
@@ -1135,7 +1136,7 @@ export async function clinicRoutes(app: FastifyInstance) {
     const created = await prisma.partnerUser.create({
       data: {
         clinicId: req.params.id,
-        name:     name.trim(),
+        name:     sinPrefijo(name),
         email:    normalizedEmail,
         passwordHash,
         mustChangePassword: true,
