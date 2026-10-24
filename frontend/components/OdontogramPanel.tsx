@@ -232,7 +232,9 @@ export function OdontogramPanel({ patientId }: Props) {
               queda en la ficha con el motivo y quién lo anuló
             </p>
           </div>
-          <div className="overflow-x-auto">
+          {/* relative: sin esto el "Acciones" oculto del encabezado (sr-only,
+              absoluto) se sale del scroll y la página se ensancha en el celular. */}
+          <div className="relative overflow-x-auto">
             <table className="w-full text-[13px]">
               <thead>
                 <tr className="text-left text-xs font-bold text-ink-muted border-b border-line-soft">
