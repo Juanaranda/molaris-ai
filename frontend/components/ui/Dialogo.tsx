@@ -19,7 +19,8 @@ export function useDialogo(onClose: () => void) {
   useEffect(() => {
     const yo = Symbol("dialogo");
     abiertos.push(yo);
-    ref.current?.focus();
+    // Si un campo de adentro ya tomó el foco (autoFocus), se respeta.
+    if (!ref.current?.contains(document.activeElement)) ref.current?.focus();
     const tecla = (e: KeyboardEvent) => {
       if (abiertos[abiertos.length - 1] !== yo) return;
       // Si el Escape es para cerrar una lista desplegada (el buscador de

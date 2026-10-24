@@ -3,38 +3,18 @@
 import { useEffect, useState, useCallback } from "react";
 import { getToken } from "@/lib/auth";
 import { toLocalDateStr } from "@/lib/dateParser";
+import { cx } from "@/lib/cx";
+import { peldanoDeUrgencia, restanteHasta } from "@/lib/plazos";
+import { esperaConfirmacion } from "@/lib/solicitudes";
 import { DentalQuoteTab } from "./DentalQuoteTab";
 import { PatientAutocomplete } from "./PatientAutocomplete";
-import { Button } from "./ui";
+import { BotonCerrar, Button, CLASE_CAMPO, CLASE_ETIQUETA, Field, useDialogo } from "./ui";
 import {
-  Bot, Calendar, Camera, Circle, ClipboardList, DollarSign, FlaskConical, Globe,
-  Hourglass, MessageCircle, Stethoscope, TrendingUp, Users, X, type LucideIcon,
-} from "lucide-react";
+  DoctorsWidget, IncomeChartWidget, LeadsWidget, PatientsWidget, PendingWidget, RevenueWidget,
+  ServicesWidget, TodayWidget, type Analytics, type TodayBooking,
+} from "./inicio/Widgets";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-
-/* ─── Types ─────────────────────────────────────────────────────────────── */
-interface Analytics {
-  totals?: { sessions: number; leads: number; readyToBook: number; slotBooked: number; bookings: number; avgScore: number };
-  conversionRate?: number;
-  bookingRate?: number;
-  payments?: {
-    thisMonth: { income: number; count: number };
-    lastMonth: { income: number; count: number };
-    byStatus: { status: string | null; count: number; totalCharged: number; totalPaid: number }[];
-    incomeByMonth?: { month: string; income: number; count: number }[];
-  };
-  doctors?: { doctor: string; bookings: number; cancelled: number; income: number }[];
-  operations?: { cancellationRate: number; avgTicket: number; paidBookings: number };
-  patients?: { total: number; newThisMonth: number; retentionRate: number };
-  services?: { service: string; count: number; income: number }[];
-  channels?: { channel: string; sessions: number; leads: number; booked: number; conversionRate: number }[];
-}
-
-interface TodayBooking {
-  id: string; time: string; patientName: string | null;
-  doctor: string; service: string | null; status: string;
-}
 
 type WidgetId = "today" | "revenue" | "patients" | "pending" | "doctors" | "services" | "income-chart" | "leads";
 type WidgetSize = "half" | "full";
@@ -52,365 +32,56 @@ const DEFAULT_WIDGETS: WidgetCfg[] = [
   { id: "services",     size: "half", order: 7, hidden: false },
 ];
 
-// El icono se guarda como componente, no como texto: así hereda color y
-// tamaño del contenedor y se ve igual en todos los sistemas — un emoji lo
-// dibuja cada sistema operativo a su manera.
-const WIDGET_META: Record<WidgetId, { title: string; icon: LucideIcon }> = {
-  today:          { title: "Citas de hoy",          icon: Calendar },
-  revenue:        { title: "Ingresos del mes",       icon: DollarSign },
-  leads:          { title: "Leads del agente IA",    icon: Bot },
-  "income-chart": { title: "Ingresos últimos 6 meses", icon: TrendingUp },
-  patients:       { title: "Pacientes",              icon: Users },
-  pending:        { title: "Cobros pendientes",      icon: Hourglass },
-  doctors:        { title: "Actividad por doctor",   icon: Stethoscope },
-  services:       { title: "Servicios más pedidos",  icon: ClipboardList },
+const WIDGET_TITULO: Record<WidgetId, string> = {
+  today:          "Citas de hoy",
+  revenue:        "Ingresos del mes",
+  leads:          "Asistente de IA",
+  "income-chart": "Cobrado en los últimos 6 meses",
+  patients:       "Pacientes",
+  pending:        "Por cobrar",
+  doctors:        "Citas por profesional",
+  services:       "Servicios más pedidos",
 };
 
-const CHANNEL_LABELS: Record<string, { name: string; icon: LucideIcon; color: string }> = {
-  web:       { name: "Web",       icon: Globe,         color: "#3B82F6" },
-  whatsapp:  { name: "WhatsApp",  icon: MessageCircle, color: "#10B981" },
-  instagram: { name: "Instagram", icon: Camera,        color: "#EC4899" },
-  sandbox:   { name: "Pruebas",   icon: FlaskConical,  color: "#94A3B8" },
-};
-
-const fmtCLP = (n: number) =>
-  n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : `$${Math.round(n / 1_000)}k`;
-
-const COLORS = ["#10B981","#3B82F6","#8B5CF6","#F59E0B","#EC4899","#EF4444","#14B8A6","#F97316"];
-
-/* ─── Helpers ─────────────────────────────────────────────────────────── */
-function Bar({ value, max, color }: { value: number; max: number; color: string }) {
-  const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
-      </div>
-      <span className="text-[10px] text-gray-400 w-8 text-right tabular-nums">{pct}%</span>
-    </div>
-  );
-}
-
-function Kpi({ label, value, sub, trend }: { label: string; value: string; sub?: string; trend?: "up" | "down" | "flat" }) {
-  return (
-    <div>
-      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">{label}</p>
-      <p className="text-2xl font-black text-gray-900 leading-none">{value}</p>
-      {sub && (
-        <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
-          {trend === "up" && <span className="text-emerald-500">↑</span>}
-          {trend === "down" && <span className="text-red-400">↓</span>}
-          {sub}
-        </p>
-      )}
-    </div>
-  );
-}
-
-/* ─── Widget cards ───────────────────────────────────────────────────── */
-function TodayWidget({ bookings }: { bookings: TodayBooking[] }) {
-  const active = bookings.filter((b) => b.status !== "cancelled");
-  return (
-    <div className="flex flex-col gap-2">
-      {active.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-4">Sin citas programadas hoy</p>
-      ) : (
-        <div className="flex flex-col divide-y divide-gray-50">
-          {active.slice(0, 6).map((b, i) => (
-            <div key={b.id} className="flex items-center gap-3 py-2">
-              <span className="text-xs font-black tabular-nums text-gray-700 w-12 shrink-0">{b.time}</span>
-              <div className="w-2 h-2 rounded-full shrink-0" style={{ background: COLORS[i % COLORS.length] }} />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-gray-800 truncate">{b.patientName ?? "—"}</p>
-                <p className="text-[10px] text-gray-400 truncate">{b.doctor.replace(/Dra?\. /, "")}{b.service ? ` · ${b.service}` : ""}</p>
-              </div>
-            </div>
-          ))}
-          {active.length > 6 && (
-            <p className="text-[10px] text-gray-400 pt-2 text-center">+{active.length - 6} más</p>
-          )}
-        </div>
-      )}
-      <div className="mt-auto pt-2 border-t border-gray-50 flex items-center justify-between">
-        <span className="text-[10px] text-gray-400">{active.length} cita{active.length !== 1 ? "s" : ""} activa{active.length !== 1 ? "s" : ""}</span>
-        <span className="text-[10px] font-bold text-[#1A5C7A]">{new Date().toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" })}</span>
-      </div>
-    </div>
-  );
-}
-
-function RevenueWidget({ analytics }: { analytics: Analytics | null }) {
-  const thisMonth = analytics?.payments?.thisMonth;
-  const lastMonth = analytics?.payments?.lastMonth;
-  const trend = thisMonth && lastMonth && lastMonth.income > 0
-    ? thisMonth.income >= lastMonth.income ? "up" : "down"
-    : undefined;
-  const trendPct = thisMonth && lastMonth && lastMonth.income > 0
-    ? Math.round(((thisMonth.income - lastMonth.income) / lastMonth.income) * 100)
-    : null;
-  return (
-    <div className="flex flex-col gap-4">
-      <Kpi label="Ingresos este mes" value={thisMonth ? fmtCLP(thisMonth.income) : "—"}
-        sub={trendPct != null ? `${trendPct > 0 ? "+" : ""}${trendPct}% vs mes anterior` : undefined}
-        trend={trend} />
-      <div className="grid grid-cols-2 gap-3">
-        <Kpi label="Citas cobradas" value={String(thisMonth?.count ?? "—")} />
-        <Kpi label="Ticket promedio" value={analytics?.operations?.avgTicket ? fmtCLP(analytics.operations.avgTicket) : "—"} />
-      </div>
-      {lastMonth && (
-        <div className="flex items-center gap-2 text-[10px] text-gray-400 border-t border-gray-50 pt-3">
-          <span>Mes anterior:</span>
-          <span className="font-bold text-gray-600">{fmtCLP(lastMonth.income)}</span>
-          <span>·</span>
-          <span>{lastMonth.count} citas</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PatientsWidget({ analytics }: { analytics: Analytics | null }) {
-  const p = analytics?.patients;
-  return (
-    <div className="flex flex-col gap-4">
-      <Kpi label="Pacientes totales" value={String(p?.total ?? "—")} />
-      <Kpi label="Nuevos este mes" value={String(p?.newThisMonth ?? "—")}
-        sub={p && p.total > 0 ? `${Math.round((p.newThisMonth / p.total) * 100)}% del total` : undefined} />
-      {p && (
-        <div className="border-t border-gray-50 pt-3">
-          <p className="text-[10px] text-gray-400 mb-1">Tasa de retención</p>
-          <Bar value={p.retentionRate} max={100} color="#10B981" />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PendingWidget({ analytics }: { analytics: Analytics | null }) {
-  const byStatus = analytics?.payments?.byStatus ?? [];
-  const pending = byStatus.find((s) => !s.status || s.status === "pending");
-  const partial = byStatus.find((s) => s.status === "partial");
-  const pendingAmount = (pending?.totalCharged ?? 0) - (pending?.totalPaid ?? 0);
-  const partialAmount = (partial?.totalCharged ?? 0) - (partial?.totalPaid ?? 0);
-  const total = pendingAmount + partialAmount;
-  const count = (pending?.count ?? 0) + (partial?.count ?? 0);
-  return (
-    <div className="flex flex-col gap-4">
-      <Kpi label="Monto pendiente" value={total > 0 ? fmtCLP(total) : "$0"} />
-      <Kpi label="Citas sin cobrar" value={String(count)} />
-      {count > 0 && (
-        <div className="space-y-2 border-t border-gray-50 pt-3">
-          {pending && pending.count > 0 && (
-            <div className="flex justify-between text-[10px]">
-              <span className="text-gray-400">Sin pago ({pending.count})</span>
-              <span className="font-bold text-red-500">{fmtCLP(pendingAmount)}</span>
-            </div>
-          )}
-          {partial && partial.count > 0 && (
-            <div className="flex justify-between text-[10px]">
-              <span className="text-gray-400">Parcial ({partial.count})</span>
-              <span className="font-bold text-amber-500">{fmtCLP(partialAmount)}</span>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function DoctorsWidget({ analytics }: { analytics: Analytics | null }) {
-  const docs = analytics?.doctors ?? [];
-  const maxBookings = Math.max(...docs.map((d) => d.bookings), 1);
-  const noShowRate = analytics?.operations?.cancellationRate;
-  if (docs.length === 0) return <p className="text-sm text-gray-400 text-center py-4">Sin datos</p>;
-  return (
-    <div className="flex flex-col gap-4">
-      {noShowRate != null && (
-        <div className="flex items-center justify-between text-xs bg-gray-50 rounded-xl px-3 py-2">
-          <span className="text-gray-500">Tasa de cancelación / no-show</span>
-          <span className={`font-bold ${noShowRate > 20 ? "text-red-600" : noShowRate > 10 ? "text-amber-600" : "text-emerald-600"}`}>
-            {noShowRate}%
-          </span>
-        </div>
-      )}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      {docs.map((d, i) => (
-        <div key={d.doctor} className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-700 truncate">{d.doctor.replace(/Dra?\. /, "")}</span>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-[10px] text-gray-400">{d.bookings} citas</span>
-              {d.income > 0 && <span className="text-[10px] font-bold text-emerald-600">{fmtCLP(d.income)}</span>}
-            </div>
-          </div>
-          <Bar value={d.bookings} max={maxBookings} color={COLORS[i % COLORS.length]} />
-          {d.cancelled > 0 && (
-            <p className="text-[10px] text-gray-400">{d.cancelled} cancelada{d.cancelled !== 1 ? "s" : ""}</p>
-          )}
-        </div>
-      ))}
-      </div>
-    </div>
-  );
-}
-
-function IncomeChartWidget({ analytics }: { analytics: Analytics | null }) {
-  const data = analytics?.payments?.incomeByMonth ?? [];
-  if (data.length === 0) {
-    return <p className="text-sm text-gray-400 text-center py-4">Sin datos de ingresos</p>;
-  }
-  const max = Math.max(...data.map((d) => d.income), 1);
-  const chartH = 80;
-  const barW = Math.floor(360 / data.length) - 6;
-  const MONTH_SHORT = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
-  return (
-    <div className="flex flex-col gap-3">
-      <svg viewBox={`0 0 360 ${chartH + 28}`} className="w-full" style={{ overflow: "visible" }}>
-        {data.map((d, i) => {
-          const barH = Math.max(4, Math.round((d.income / max) * chartH));
-          const x = i * (barW + 6) + 2;
-          const y = chartH - barH;
-          const color = COLORS[i % COLORS.length];
-          const [yr, mo] = d.month.split("-");
-          const label = MONTH_SHORT[parseInt(mo, 10) - 1] + (yr !== String(new Date().getFullYear()) ? ` '${yr.slice(2)}` : "");
-          return (
-            <g key={d.month}>
-              <rect x={x} y={y} width={barW} height={barH} rx={3} fill={color} fillOpacity={0.85} />
-              <text x={x + barW / 2} y={chartH + 14} textAnchor="middle" fontSize={9} fill="#9CA3AF">{label}</text>
-              {d.income > 0 && (
-                <text x={x + barW / 2} y={y - 4} textAnchor="middle" fontSize={8} fill={color} fontWeight="700">
-                  {d.income >= 1_000_000 ? `$${(d.income / 1_000_000).toFixed(1)}M` : `$${Math.round(d.income / 1_000)}k`}
-                </text>
-              )}
-            </g>
-          );
-        })}
-      </svg>
-      <div className="flex justify-between text-[10px] text-gray-400 border-t border-gray-50 pt-2">
-        <span>Total 6 meses: <span className="font-bold text-gray-700">{fmtCLP(data.reduce((s, d) => s + d.income, 0))}</span></span>
-        <span>{data.reduce((s, d) => s + d.count, 0)} citas cobradas</span>
-      </div>
-    </div>
-  );
-}
-
-function LeadsWidget({ analytics }: { analytics: Analytics | null }) {
-  const totals    = analytics?.totals;
-  const channels  = (analytics?.channels ?? []).filter((c) => c.sessions > 0);
-  const sessions  = totals?.sessions ?? 0;
-  const leads     = totals?.leads ?? 0;
-  const booked    = totals?.slotBooked ?? 0;
-  const convRate  = sessions > 0 ? Math.round((leads / sessions) * 100) : 0;
-  const bookRate  = leads    > 0 ? Math.round((booked / leads) * 100) : 0;
-  const maxCh     = Math.max(...channels.map((c) => c.sessions), 1);
-
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-6">
-      {/* KPIs */}
-      <div className="flex flex-col gap-3">
-        <Kpi label="Conversaciones" value={sessions.toLocaleString("es-CL")} />
-        <Kpi label="Leads capturados" value={leads.toLocaleString("es-CL")}
-          sub={sessions > 0 ? `${convRate}% de las conversaciones` : undefined}
-          trend={convRate >= 40 ? "up" : convRate >= 20 ? "flat" : "down"} />
-        <Kpi label="Reservaron desde el chat" value={booked.toLocaleString("es-CL")}
-          sub={leads > 0 ? `${bookRate}% de los leads` : undefined}
-          trend={bookRate >= 30 ? "up" : bookRate >= 15 ? "flat" : "down"} />
-      </div>
-
-      {/* Channel breakdown */}
-      <div className="flex flex-col gap-3">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Por canal</p>
-        {channels.length === 0 ? (
-          <p className="text-xs text-gray-400 text-center py-4">Sin conversaciones aún</p>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {channels.map((c) => {
-              const meta = CHANNEL_LABELS[c.channel] ?? { name: c.channel, icon: Circle, color: "#64748B" };
-              return (
-                <div key={c.channel} className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <meta.icon className="w-4 h-4 shrink-0" aria-hidden />
-                      <span className="text-xs font-semibold text-gray-700">{meta.name}</span>
-                      <span className="text-[10px] text-gray-400">· {c.sessions} conv.</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-[10px] text-gray-400">{c.leads} leads</span>
-                      {c.booked > 0 && (
-                        <span className="text-[10px] font-bold text-emerald-600">{c.booked} reservas</span>
-                      )}
-                    </div>
-                  </div>
-                  <Bar value={c.sessions} max={maxCh} color={meta.color} />
-                  {c.conversionRate > 0 && (
-                    <p className="text-[10px] text-gray-400">Conversión a reserva: <span className="font-bold text-gray-600">{c.conversionRate}%</span></p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ServicesWidget({ analytics }: { analytics: Analytics | null }) {
-  const svcs = (analytics?.services ?? []).slice(0, 6);
-  const maxCount = Math.max(...svcs.map((s) => s.count), 1);
-  if (svcs.length === 0) return <p className="text-sm text-gray-400 text-center py-4">Sin datos</p>;
-  return (
-    <div className="flex flex-col gap-2.5">
-      {svcs.map((s, i) => (
-        <div key={s.service} className="flex flex-col gap-1">
-          <div className="flex justify-between items-center">
-            <span className="text-xs text-gray-700 truncate flex-1 mr-2">{s.service}</span>
-            <span className="text-[10px] text-gray-400 shrink-0">{s.count}x</span>
-          </div>
-          <Bar value={s.count} max={maxCount} color={COLORS[i % COLORS.length]} />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ─── Widget card wrapper ────────────────────────────────────────────── */
-function WidgetCard({ cfg, editMode, onMoveUp, onMoveDown, onToggleSize, onToggleHidden, children }: {
-  cfg: WidgetCfg; editMode: boolean;
+/* ─── Tarjeta de un widget, con sus controles al personalizar ──────────── */
+function WidgetCard({ cfg, editMode, primero, ultimo, onMoveUp, onMoveDown, onToggleSize, onToggleHidden, loading, children }: {
+  cfg: WidgetCfg; editMode: boolean; primero: boolean; ultimo: boolean;
   onMoveUp: () => void; onMoveDown: () => void;
   onToggleSize: () => void; onToggleHidden: () => void;
+  loading: boolean;
   children: React.ReactNode;
 }) {
-  const meta = WIDGET_META[cfg.id];
+  const titulo = WIDGET_TITULO[cfg.id];
+  const ctrl = "min-h-11 rounded-control border border-line px-2.5 text-[13px] font-semibold text-ink transition-colors hover:border-brand focus-visible:outline-2 focus-visible:outline-brand disabled:opacity-40 sm:min-h-8";
   return (
-    <div className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${
-      cfg.size === "full" ? "col-span-2" : "col-span-2 sm:col-span-1"
-    } ${editMode ? "border-blue-200 ring-1 ring-blue-100" : "border-gray-100"}`}>
-      <div className="flex items-center justify-between px-5 py-3 border-b border-gray-50">
-        <div className="flex items-center gap-2">
-          <meta.icon className="w-4 h-4 shrink-0" aria-hidden />
-          <h3 className="text-xs font-bold text-gray-700">{meta.title}</h3>
-        </div>
+    <section aria-label={titulo}
+      className={cx("flex flex-col rounded-card border bg-surface", cfg.size === "full" ? "col-span-2" : "col-span-2 sm:col-span-1",
+        editMode ? "border-brand border-dashed" : "border-line")}>
+      <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-4 pb-2">
+        <h3 className="text-base font-bold text-brand-strong">{titulo}</h3>
         {editMode && (
-          <div className="flex items-center gap-1">
-            <button onClick={onMoveUp} className="w-6 h-6 rounded text-gray-400 hover:bg-gray-100 text-xs flex items-center justify-center" title="Subir">↑</button>
-            <button onClick={onMoveDown} className="w-6 h-6 rounded text-gray-400 hover:bg-gray-100 text-xs flex items-center justify-center" title="Bajar">↓</button>
-            <button onClick={onToggleSize}
-              className="px-2 py-0.5 rounded text-[10px] font-bold border border-gray-200 text-gray-500 hover:bg-gray-100 transition">
-              {cfg.size === "half" ? "Ancho completo" : "Mitad"}
-            </button>
-            <button onClick={onToggleHidden}
-              className="w-6 h-6 rounded text-gray-400 hover:bg-red-50 hover:text-red-400 text-xs flex items-center justify-center" title="Ocultar"><X className="w-4 h-4" aria-hidden /></button>
+          <div className="flex flex-wrap items-center gap-1">
+            <button type="button" onClick={onMoveUp} disabled={primero} aria-label={`Subir ${titulo}`} className={ctrl}>↑</button>
+            <button type="button" onClick={onMoveDown} disabled={ultimo} aria-label={`Bajar ${titulo}`} className={ctrl}>↓</button>
+            <button type="button" onClick={onToggleSize} className={cx(ctrl, "max-sm:hidden")}>{cfg.size === "half" ? "Ancho completo" : "Media columna"}</button>
+            <button type="button" onClick={onToggleHidden} className={ctrl}>Ocultar</button>
           </div>
         )}
       </div>
-      <div className="px-5 py-4">{children}</div>
-    </div>
+      <div className="flex-1 px-5 pb-5">
+        {loading ? (
+          <div className="flex flex-col gap-2" aria-hidden>
+            <div className="h-8 w-1/2 rounded-control bg-gray-100" /><div className="h-4 rounded-control bg-gray-100" /><div className="h-4 w-3/4 rounded-control bg-gray-100" />
+          </div>
+        ) : children}
+      </div>
+    </section>
   );
 }
 
-/* ─── Quick Quote Modal ──────────────────────────────────────────────── */
+/* ─── Presupuesto rápido ─────────────────────────────────────────────── */
 function QuickQuoteModal({ onClose }: { onClose: () => void }) {
+  const ref = useDialogo(onClose);
   const [step, setStep] = useState<"form" | "quote">("form");
   const [name, setName] = useState("");
   const [rut,  setRut]  = useState("");
@@ -426,48 +97,31 @@ function QuickQuoteModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-white overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 shrink-0">
-        <h2 className="text-sm font-bold text-gray-800">
-          {step === "form" ? "Nuevo presupuesto" : name}
-        </h2>
-        <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition text-lg leading-none"><X className="w-4 h-4" aria-hidden /></button>
+    <div ref={ref} tabIndex={-1} className="fixed inset-0 z-[60] flex flex-col overflow-hidden bg-surface outline-none" role="dialog" aria-modal="true" aria-label="Nuevo presupuesto">
+      <div className="flex shrink-0 items-center justify-between border-b border-line py-2 pr-2 pl-5">
+        <h2 className="text-lg font-bold text-brand-strong">{step === "form" ? "Nuevo presupuesto" : name}</h2>
+        <BotonCerrar onClick={onClose} />
       </div>
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto overscroll-contain p-4">
         {step === "form" ? (
-          <form onSubmit={submit} className="max-w-sm mx-auto flex flex-col gap-4 mt-6">
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5">Nombre del paciente *</label>
+          <form onSubmit={submit} className="mx-auto mt-6 flex max-w-sm flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <span className={CLASE_ETIQUETA}>Nombre del paciente</span>
               <PatientAutocomplete
                 value={name}
                 seleccionado={pacienteExistente}
-                inputClassName="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                inputClassName={CLASE_CAMPO}
                 autoFocus
                 onChange={setName}
                 onSelect={(p) => { setName(p.name); setRut(p.rut ?? ""); setPacienteExistente(true); }}
                 onClear={() => { setName(""); setRut(""); setPacienteExistente(false); }}
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5">RUT (opcional)</label>
-              <input
-                value={rut} onChange={(e) => setRut(e.target.value)}
-                placeholder="12.345.678-9"
-                readOnly={pacienteExistente}
-                className={`w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${
-                  pacienteExistente ? "bg-gray-50 text-gray-500" : ""
-                }`}
-              />
-              {pacienteExistente && !rut && (
-                <p className="text-[11px] text-amber-700 mt-1">
-                  Este paciente no tiene RUT guardado: el presupuesto no va a quedar enlazado a su ficha.
-                </p>
-              )}
-            </div>
-            <button type="submit" disabled={!name.trim()}
-              className="w-full py-2.5 rounded-xl bg-[#1A5C7A] text-white text-sm font-bold hover:bg-[#0e4560] transition disabled:opacity-40">
-              Continuar
-            </button>
+            <Field label="RUT (opcional)" value={rut} onChange={(e) => setRut(e.target.value)} placeholder="12.345.678-9"
+              readOnly={pacienteExistente} autoComplete="off" spellCheck={false}
+              className={pacienteExistente ? "bg-ground text-ink-muted" : undefined}
+              hint={pacienteExistente && !rut ? "Este paciente no tiene RUT guardado: el presupuesto no va a quedar enlazado a su ficha." : undefined} />
+            <Button type="submit" block disabled={!name.trim()}>Continuar</Button>
           </form>
         ) : (
           <DentalQuoteTab patient={{ name: name.trim(), rut: rut.trim() || null }} />
@@ -477,19 +131,26 @@ function QuickQuoteModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-/* ─── Main component ─────────────────────────────────────────────────── */
+/* ─── Inicio ─────────────────────────────────────────────────────────── */
 export function DashboardTab({
   clinicId,
   onNewBooking,
   onNewPatient,
+  onVerAgenda,
 }: {
   clinicId: string;
   onNewBooking?: () => void;
   onNewPatient?: () => void;
+  /** Lleva a la agenda (para responder lo que espera confirmación). */
+  onVerAgenda?: () => void;
 }) {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [todayBookings, setTodayBookings] = useState<TodayBooking[]>([]);
+  const [porConfirmar, setPorConfirmar] = useState<{ deadline: string | null }[]>([]);
+  // Sin esto, una agenda que no cargó se leía como "0 citas hoy".
+  const [agendaCargada, setAgendaCargada] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [showQuote, setShowQuote] = useState(false);
 
@@ -501,7 +162,6 @@ export function DashboardTab({
       const raw = localStorage.getItem(storageKey);
       if (raw) {
         const saved: WidgetCfg[] = JSON.parse(raw);
-        const ids = DEFAULT_WIDGETS.map((w) => w.id);
         const merged = DEFAULT_WIDGETS.map((def) => saved.find((s) => s.id === def.id) ?? def);
         return merged.sort((a, b) => a.order - b.order);
       }
@@ -515,28 +175,25 @@ export function DashboardTab({
     try { localStorage.setItem(storageKey, JSON.stringify(ordered)); } catch { /* ignore */ }
   }
 
-  function moveUp(idx: number) {
-    if (idx === 0) return;
+  // Mover entre los visibles: con widgets ocultos de por medio, "subir" no
+  // debe intercambiar con uno que no se ve.
+  function mover(id: WidgetId, paso: -1 | 1) {
+    const vis = widgets.filter((w) => !w.hidden);
+    const i = vis.findIndex((w) => w.id === id);
+    const otro = vis[i + paso];
+    if (!otro) return;
+    const a = widgets.findIndex((w) => w.id === id), b = widgets.findIndex((w) => w.id === otro.id);
     const next = [...widgets];
-    [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+    [next[a], next[b]] = [next[b], next[a]];
     saveWidgets(next);
   }
 
-  function moveDown(idx: number) {
-    if (idx >= widgets.length - 1) return;
-    const next = [...widgets];
-    [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
-    saveWidgets(next);
+  function toggleSize(id: WidgetId) {
+    saveWidgets(widgets.map((w) => w.id === id ? { ...w, size: w.size === "half" ? "full" : "half" as WidgetSize } : w));
   }
 
-  function toggleSize(idx: number) {
-    const next = widgets.map((w, i) => i === idx ? { ...w, size: w.size === "half" ? "full" : "half" as WidgetSize } : w);
-    saveWidgets(next);
-  }
-
-  function toggleHidden(idx: number) {
-    const next = widgets.map((w, i) => i === idx ? { ...w, hidden: !w.hidden } : w);
-    saveWidgets(next);
+  function toggleHidden(id: WidgetId) {
+    saveWidgets(widgets.map((w) => w.id === id ? { ...w, hidden: !w.hidden } : w));
   }
 
   const fetchData = useCallback(async () => {
@@ -552,13 +209,18 @@ export function DashboardTab({
       if (agendaRes.ok) {
         const data = await agendaRes.json();
         const todayStr = toLocalDateStr(new Date());
-        const todayDay = (data.days ?? []).find((d: { date: string; bookings: TodayBooking[] }) =>
-          String(d.date).slice(0, 10) === todayStr
-        );
-        setTodayBookings((todayDay?.bookings ?? []).sort((a: TodayBooking, b: TodayBooking) =>
-          a.time.localeCompare(b.time)
-        ));
+        const days: { date: string; bookings: (TodayBooking & { confirmDeadline?: string | null })[] }[] = data.days ?? [];
+        const todayDay = days.find((d) => String(d.date).slice(0, 10) === todayStr);
+        setTodayBookings((todayDay?.bookings ?? []).sort((a, b) => a.time.localeCompare(b.time)));
+        // Lo que el asistente dejó pedido esta semana y nadie ha respondido.
+        setPorConfirmar(days.flatMap((d) => d.bookings).filter((b) => esperaConfirmacion({ status: b.status, requestedVia: b.requestedVia }))
+          .map((b) => ({ deadline: b.confirmDeadline ?? null }))
+          .sort((a, b) => (a.deadline ?? "").localeCompare(b.deadline ?? "")));
+        setAgendaCargada(true);
       }
+      setError(!analyticsRes.ok && !agendaRes.ok);
+    } catch {
+      setError(true);
     } finally { setLoading(false); }
   }, [clinicId]);
 
@@ -566,73 +228,95 @@ export function DashboardTab({
 
   const visible = widgets.filter((w) => !w.hidden);
   const hidden  = widgets.filter((w) => w.hidden);
+  const hoy = new Date().toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
+  const citasHoy = todayBookings.filter((b) => b.status !== "cancelled").length;
+  const masApurada = porConfirmar[0];
+  const queda = masApurada ? restanteHasta(masApurada.deadline) : null;
+  const peldano = masApurada ? peldanoDeUrgencia(masApurada.deadline) ?? 1 : 1;
+  const sinDatos = loading && !analytics;
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Acciones rápidas. Eran tres tarjetas con degradados (morado, azul,
-          verde) que se leían como plantilla y empujaban hacia abajo lo del día
-          (MOL-46). Ahora son botones normales: una acción principal y dos
-          secundarias. */}
-      <div className="flex flex-wrap gap-2">
-        <Button onClick={onNewBooking} disabled={!onNewBooking}>+ Agendar hora</Button>
-        <Button variant="secondary" onClick={onNewPatient} disabled={!onNewPatient}>Registrar paciente</Button>
-        <Button variant="secondary" onClick={() => setShowQuote(true)}>Hacer presupuesto</Button>
-      </div>
-
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Qué día es y qué hay, con las acciones del día al lado */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h2 className="text-base font-black text-gray-900">Resumen del día</h2>
-          <p className="text-xs text-gray-400 mt-0.5">
-            {new Date().toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+          <h2 className="text-2xl font-bold text-brand-strong">Hoy</h2>
+          <p className="text-sm text-ink-muted tabular-nums">
+            {hoy.charAt(0).toUpperCase() + hoy.slice(1)}{agendaCargada && ` · ${citasHoy} ${citasHoy === 1 ? "cita" : "citas"}`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {loading && <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />}
-          <button
-            onClick={() => setEditMode((v) => !v)}
-            className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition ${
-              editMode ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
-            }`}>
-            {editMode ? "Listo" : "⊞ Personalizar"}
-          </button>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" className="max-sm:min-h-11" onClick={onNewBooking} disabled={!onNewBooking}>+ Agendar hora</Button>
+          <Button size="sm" variant="secondary" className="max-sm:min-h-11" onClick={onNewPatient} disabled={!onNewPatient}>Registrar paciente</Button>
+          <Button size="sm" variant="secondary" className="max-sm:min-h-11" onClick={() => setShowQuote(true)}>Hacer presupuesto</Button>
         </div>
       </div>
 
-      {/* Widget grid */}
+      {/* Lo que espera respuesta va primero: si nadie responde, se libera solo. */}
+      {porConfirmar.length > 0 && (
+        <div role="status" className={cx("flex flex-wrap items-center justify-between gap-3 rounded-card border border-dashed border-accent px-5 py-3",
+          peldano === 3 ? "bg-accent-200" : peldano === 2 ? "bg-accent-soft" : "bg-accent-50")}>
+          <p className="text-sm text-ink">
+            <span className="inline-flex items-center gap-1.5 font-bold text-accent-ink">
+              <span className="h-2 w-2 rounded-full bg-accent" aria-hidden />
+              {porConfirmar.length === 1 ? "1 hora espera tu respuesta" : `${porConfirmar.length} horas esperan tu respuesta`}
+            </span>
+            {queda && <> · {queda.vencida ? "la primera ya venció" : <>la más apurada vence {queda.texto}</>}</>}
+          </p>
+          {onVerAgenda && <Button size="sm" variant="secondary" className="max-sm:min-h-11" onClick={onVerAgenda}>Responder en la agenda</Button>}
+        </div>
+      )}
+
+      {error && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-line bg-surface px-5 py-4 text-sm text-ink">
+          <p className="font-semibold">No pudimos cargar el resumen. Revisa tu conexión e inténtalo de nuevo.</p>
+          <Button size="sm" variant="secondary" className="max-sm:min-h-11" loading={loading} onClick={fetchData}>Reintentar</Button>
+        </div>
+      )}
+
+      {/* Si no llegó nada, no se muestran ceros que parecen datos reales. */}
+      {!(error && !analytics && !agendaCargada) && <>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-base font-bold text-brand-strong">Resumen</h2>
+        <Button size="sm" variant={editMode ? "primary" : "ghost"} className="max-sm:min-h-11" onClick={() => setEditMode((v) => !v)}>
+          {editMode ? "Listo" : "Personalizar"}
+        </Button>
+      </div>
+      {editMode && <p className="-mt-3 text-[13px] text-ink-muted">Ordena, agranda u oculta cada bloque. Se guarda en este navegador.</p>}
+
       <div className="grid grid-cols-2 gap-4">
         {visible.map((cfg, idx) => (
-          <WidgetCard key={cfg.id} cfg={cfg} editMode={editMode}
-            onMoveUp={() => moveUp(idx)} onMoveDown={() => moveDown(idx)}
-            onToggleSize={() => toggleSize(idx)} onToggleHidden={() => toggleHidden(idx)}>
-            {cfg.id === "today"    && <TodayWidget bookings={todayBookings} />}
-            {cfg.id === "revenue"  && <RevenueWidget analytics={analytics} />}
-            {cfg.id === "leads"    && <LeadsWidget analytics={analytics} />}
-            {cfg.id === "patients" && <PatientsWidget analytics={analytics} />}
-            {cfg.id === "pending"  && <PendingWidget analytics={analytics} />}
-            {cfg.id === "doctors"       && <DoctorsWidget analytics={analytics} />}
-            {cfg.id === "services"      && <ServicesWidget analytics={analytics} />}
-            {cfg.id === "income-chart"  && <IncomeChartWidget analytics={analytics} />}
+          <WidgetCard key={cfg.id} cfg={cfg} editMode={editMode} primero={idx === 0} ultimo={idx === visible.length - 1}
+            loading={sinDatos}
+            onMoveUp={() => mover(cfg.id, -1)} onMoveDown={() => mover(cfg.id, 1)}
+            onToggleSize={() => toggleSize(cfg.id)} onToggleHidden={() => toggleHidden(cfg.id)}>
+            {cfg.id === "today"        && (agendaCargada || sinDatos
+              ? <TodayWidget bookings={todayBookings} onVerAgenda={onVerAgenda} />
+              : <p className="text-sm text-ink-muted">No pudimos cargar las citas de hoy.</p>)}
+            {cfg.id === "revenue"      && <RevenueWidget analytics={analytics} />}
+            {cfg.id === "leads"        && <LeadsWidget analytics={analytics} />}
+            {cfg.id === "patients"     && <PatientsWidget analytics={analytics} />}
+            {cfg.id === "pending"      && <PendingWidget analytics={analytics} />}
+            {cfg.id === "doctors"      && <DoctorsWidget analytics={analytics} />}
+            {cfg.id === "services"     && <ServicesWidget analytics={analytics} />}
+            {cfg.id === "income-chart" && <IncomeChartWidget analytics={analytics} />}
           </WidgetCard>
         ))}
       </div>
 
-      {/* Hidden widgets — shown only in edit mode */}
       {editMode && hidden.length > 0 && (
-        <div className="border border-dashed border-gray-200 rounded-2xl p-4">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3">Widgets ocultos</p>
+        <div className="rounded-card border border-dashed border-line p-4">
+          <p className="mb-3 text-sm font-semibold text-ink">Bloques ocultos</p>
           <div className="flex flex-wrap gap-2">
             {hidden.map((cfg) => (
-              <button key={cfg.id} onClick={() => toggleHidden(widgets.indexOf(cfg))}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 bg-white text-xs text-gray-500 hover:border-blue-300 hover:text-blue-600 transition">
-                {(() => { const Icono = WIDGET_META[cfg.id].icon; return <Icono className="w-4 h-4 shrink-0" aria-hidden />; })()}
-                <span>{WIDGET_META[cfg.id].title}</span>
-                <span className="text-gray-300">+</span>
-              </button>
+              <Button key={cfg.id} size="sm" variant="secondary" className="max-sm:min-h-11" onClick={() => toggleHidden(cfg.id)}>
+                + {WIDGET_TITULO[cfg.id]}
+              </Button>
             ))}
           </div>
         </div>
       )}
+      </>}
 
       {showQuote && <QuickQuoteModal onClose={() => setShowQuote(false)} />}
     </div>

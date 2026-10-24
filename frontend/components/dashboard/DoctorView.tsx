@@ -31,7 +31,8 @@ export function DoctorView({ user, clinic, onShowFull }: { user: AuthUser; clini
   const [loadingBookings, setLoadingBookings] = useState(true);
 
   const todayStr = fechaLocal();
-  const firstName = user.name?.split(" ")[0] ?? user.name ?? "";
+  // Sin el título: con "Dr. Ivonne Poblete" saludaba "Buenas noches, Dr.".
+  const firstName = (user.name ?? "").replace(/^Dra?\.\s*/, "").split(" ")[0] ?? "";
 
   // Solo la primera letra en mayúscula: con la clase `capitalize` salía
   // "Sábado, 17 De Octubre".
