@@ -8,3 +8,4 @@ export { Tabs, type TabItem } from "./Tabs";
 export { Select, CLASE_CAMPO, CLASE_ETIQUETA } from "./Select";
 export { Dialogo, BotonCerrar, useDialogo } from "./Dialogo";
 export { CampoTelefono, BanderaChile } from "./CampoTelefono";
+export { Interruptor } from "./Interruptor";
