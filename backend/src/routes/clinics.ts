@@ -18,6 +18,7 @@ import { clinicaSinSecretos } from "../lib/clinicaSinSecretos";
 import { validarRutsDoctores, protegerDatosDelProfesional, sinPrefijo } from "../lib/doctores";
 import { validarAvisoClinica } from "../lib/avisoPrivacidad";
 import { validarPortada } from "../lib/portada";
+import { validarCampanaInactivos, validarEncuesta } from "../lib/mensajesAutomaticos";
 
 // Claves válidas dentro de Clinic.config. Evita inyectar JSON arbitrario, pero
 // debe cubrir TODO lo que escribe el frontend: si falta una, el PATCH completo
@@ -46,6 +47,10 @@ export const ALLOWED_CONFIG_KEYS = new Set([
   "avisoIa",
   // Color de la portada de "Mi clínica": una predefinida o "#RRGGBB" (lib/portada.ts).
   "portada",
+  // Encuesta después de la cita y campaña a pacientes que no han vuelto, las
+  // escribe Configuración (lib/mensajesAutomaticos.ts). Faltaban: guardar
+  // cualquiera de las dos respondía 400 y no se guardaba nada.
+  "postApptSurvey", "recallCampaign",
 ]);
 
 // Tope de profesionales en cuentas "solo" (#69). Protege el pricing: evita que
@@ -524,6 +529,18 @@ export async function clinicRoutes(app: FastifyInstance) {
       const unknownKeys = Object.keys(config).filter((k) => !ALLOWED_CONFIG_KEYS.has(k));
       if (unknownKeys.length > 0) {
         return reply.status(400).send({ error: `Claves de config no permitidas: ${unknownKeys.join(", ")}` });
+      }
+
+      if ("postApptSurvey" in config) {
+        const encuesta = validarEncuesta(config.postApptSurvey);
+        if (!encuesta.ok) return reply.status(400).send({ error: encuesta.error });
+        config.postApptSurvey = encuesta.valor;
+      }
+
+      if ("recallCampaign" in config) {
+        const campana = validarCampanaInactivos(config.recallCampaign);
+        if (!campana.ok) return reply.status(400).send({ error: campana.error });
+        config.recallCampaign = campana.valor;
       }
 
       if ("portada" in config) {
