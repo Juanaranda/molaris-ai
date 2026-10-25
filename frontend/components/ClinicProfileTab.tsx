@@ -13,6 +13,8 @@ import { Building2, Camera, MapPin, MessageCircle, Phone, type LucideIcon } from
 import { AgentFlowDiagram, type AgentFlowConfig } from "./AgentFlowDiagram";
 import { CampoTelefono } from "@/components/ui/CampoTelefono";
 import { mostrarTelefono } from "@/lib/telefono";
+import { fondoPortada } from "@/lib/portada";
+import { ElegirPortada } from "@/components/miclinica/ElegirPortada";
 
 interface ClinicConfig {
   assistantName?: string;
@@ -28,6 +30,8 @@ interface ClinicConfig {
   openingHours?: OpeningHours;
   /** Texto propio que va antes del aviso de IA (MOL-11). */
   avisoIa?: string;
+  /** Color de la portada: una predefinida o "#RRGGBB" (lib/portada.ts). */
+  portada?: string;
 }
 
 interface Props {
@@ -118,6 +122,7 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
   });
 
   const [logoUploading, setLogoUploading] = useState(false);
+  const [portadaAbierta, setPortadaAbierta] = useState(false);
   const [logoErr, setLogoErr]             = useState("");
   const logoInputRef = useRef<HTMLInputElement>(null);
 
@@ -155,6 +160,12 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
 
   async function saveSedes(sedes: string[]) {
     const config = { ...(clinic.config as ClinicConfig), sedes };
+    const updated = await updateClinic(clinic.id, { config: config as Record<string, unknown> });
+    onUpdate(updated);
+  }
+
+  async function savePortada(portada: string) {
+    const config = { ...(clinic.config as ClinicConfig), portada };
     const updated = await updateClinic(clinic.id, { config: config as Record<string, unknown> });
     onUpdate(updated);
   }
@@ -202,19 +213,25 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
     <div className="flex flex-col gap-6">
       {/* ── Header card ── */}
       <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div
-          className="h-28 relative"
-          style={{ background: "linear-gradient(130deg, #0B2F42 0%, #1A5C7A 55%, #2B87A8 100%)" }}
-        >
+        <div className="h-28 relative" style={{ background: fondoPortada(cfg.portada) }}>
+          {/* Solo un brillo blanco: un tinte de color chocaba con portadas de otro tono. */}
           <div className="absolute inset-0" style={{
-            backgroundImage: "radial-gradient(ellipse at 20% 60%, rgba(255,255,255,0.12) 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, rgba(43,135,168,0.4) 0%, transparent 50%)",
+            backgroundImage: "radial-gradient(ellipse at 20% 60%, rgba(255,255,255,0.12) 0%, transparent 60%)",
           }} />
+          {canEdit && (
+            <button type="button" onClick={() => setPortadaAbierta(true)}
+              className="absolute top-3 right-3 inline-flex min-h-9 items-center rounded-full bg-white/90 px-3.5 text-[13px] font-semibold text-ink shadow-sm transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-white max-sm:min-h-11">
+              Cambiar color
+            </button>
+          )}
         </div>
 
         <div className="px-6 pb-6">
-          <div className="flex items-end gap-4 -mt-12">
+          {/* Solo el logo sube sobre la portada: con toda la fila arriba, el
+              nombre quedaba tapado por ella. */}
+          <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
             {/* Logo */}
-            <div className="relative shrink-0 group">
+            <div className="relative shrink-0 group -mt-12">
               <div
                 className="w-24 h-24 rounded-2xl border-4 border-white shadow-xl overflow-hidden"
                 style={{ background: "linear-gradient(135deg, #1A5C7A, #2B87A8)" }}
@@ -252,19 +269,19 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
               )}
             </div>
 
-            <div className="flex-1 min-w-0 pb-2">
-              <h2 className="text-2xl font-black text-gray-900 leading-tight truncate">{clinic.name}</h2>
+            <div className="flex-1 min-w-0 pt-3">
+              <h2 className="text-2xl font-black text-gray-900 leading-tight">{clinic.name}</h2>
               {clinic.location && (
                 <p className="text-sm text-gray-500 mt-0.5 flex items-center gap-1.5">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5 shrink-0">
                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" /><circle cx="12" cy="10" r="3" />
                   </svg>
-                  <span className="truncate">{clinic.location}</span>
+                  <span className="min-w-0 break-words">{clinic.location}</span>
                 </p>
               )}
             </div>
 
-            <span className="shrink-0 mb-2 text-xs font-bold px-3 py-1 rounded-full capitalize"
+            <span className="shrink-0 mt-4 text-xs font-bold px-3 py-1 rounded-full capitalize"
               style={{ backgroundColor: "#EFF6FF", color: "#1D4ED8" }}>
               {clinic.plan}
             </span>
@@ -286,25 +303,6 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
             ))}
           </div>
         </div>
-      </section>
-
-      {canEdit && <AgentControl clinicId={clinic.id} />}
-
-      {/* ── Cómo piensa el agente ──────────────────────────────────────────
-          Va después de quién es la clínica (nombre y logo) y antes de los
-          campos: primero se entiende para qué sirve lo que se va a llenar. */}
-      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <h3 className="text-sm font-bold text-gray-900 mb-1">Cómo funciona tu asistente</h3>
-        <p className="text-xs text-gray-500 mb-5">
-          Cada mensaje que llega a tu clínica pasa por estos pasos. Los marcados en azul usan lo que configuras más abajo.
-        </p>
-        <AgentFlowDiagram
-          config={{
-            ...(clinic.config as AgentFlowConfig),
-            // whatsapp vive en la clínica, no dentro de config.
-            whatsapp: clinic.whatsapp,
-          }}
-        />
       </section>
 
       {/* ── Información de contacto ── */}
@@ -388,14 +386,6 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
         onSave={saveServices}
       />
 
-      {/* ── Aviso de IA que ve el paciente ── */}
-      <AvisoIaEditor
-        nombreClinica={clinic.name}
-        texto={cfg.avisoIa ?? ""}
-        canEdit={canEdit}
-        onSave={saveAvisoIa}
-      />
-
       {/* ── Link de auto-agendamiento ── */}
       <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
         <h2 className="font-semibold text-gray-900 mb-1">Página pública de agendamiento</h2>
@@ -433,6 +423,38 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
         </section>
       )}
 
+      {/* ── El asistente, al final: primero los datos de la clínica, que es lo
+             que se revisa y cambia; el asistente se configura una vez. ── */}
+      <h2 id="asistente" className="mt-4 text-lg font-bold text-brand-strong">Asistente</h2>
+      {canEdit && <AgentControl clinicId={clinic.id} />}
+
+      {/* ── Cómo piensa el agente ── */}
+      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <h3 className="text-sm font-bold text-gray-900 mb-1">Cómo funciona tu asistente</h3>
+        <p className="text-xs text-gray-500 mb-5">
+          Cada mensaje que llega a tu clínica pasa por estos pasos. Los marcados en azul usan lo que configuraste más arriba.
+        </p>
+        <AgentFlowDiagram
+          config={{
+            ...(clinic.config as AgentFlowConfig),
+            // whatsapp vive en la clínica, no dentro de config.
+            whatsapp: clinic.whatsapp,
+          }}
+        />
+      </section>
+
+      {/* ── Aviso de IA que ve el paciente ── */}
+      <AvisoIaEditor
+        nombreClinica={clinic.name}
+        texto={cfg.avisoIa ?? ""}
+        canEdit={canEdit}
+        onSave={saveAvisoIa}
+      />
+
+
+      {portadaAbierta && (
+        <ElegirPortada actual={cfg.portada} onGuardar={savePortada} onClose={() => setPortadaAbierta(false)} />
+      )}
     </div>
   );
 }

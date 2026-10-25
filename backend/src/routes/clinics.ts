@@ -17,6 +17,7 @@ import { issueVerificationCode } from "../services/auth/emailVerification";
 import { clinicaSinSecretos } from "../lib/clinicaSinSecretos";
 import { validarRutsDoctores, protegerDatosDelProfesional, sinPrefijo } from "../lib/doctores";
 import { validarAvisoClinica } from "../lib/avisoPrivacidad";
+import { validarPortada } from "../lib/portada";
 
 // Claves válidas dentro de Clinic.config. Evita inyectar JSON arbitrario, pero
 // debe cubrir TODO lo que escribe el frontend: si falta una, el PATCH completo
@@ -43,6 +44,8 @@ export const ALLOWED_CONFIG_KEYS = new Set([
   // Texto propio de la clínica antes del aviso de IA (MOL-11). Solo se suma
   // al aviso fijo, no lo reemplaza: ver lib/avisoPrivacidad.ts.
   "avisoIa",
+  // Color de la portada de "Mi clínica": una predefinida o "#RRGGBB" (lib/portada.ts).
+  "portada",
 ]);
 
 // Tope de profesionales en cuentas "solo" (#69). Protege el pricing: evita que
@@ -521,6 +524,13 @@ export async function clinicRoutes(app: FastifyInstance) {
       const unknownKeys = Object.keys(config).filter((k) => !ALLOWED_CONFIG_KEYS.has(k));
       if (unknownKeys.length > 0) {
         return reply.status(400).send({ error: `Claves de config no permitidas: ${unknownKeys.join(", ")}` });
+      }
+
+      if ("portada" in config) {
+        const portada = validarPortada(config.portada);
+        if (!portada.ok) return reply.status(400).send({ error: portada.error });
+        if (portada.valor === undefined) delete config.portada;
+        else config.portada = portada.valor;
       }
 
       if ("avisoIa" in config) {
