@@ -58,7 +58,7 @@ export function Tabs({ items, value, onChange, label, className }: {
 
   return (
     <div role="tablist" aria-label={label}
-      className={cx("relative flex gap-1 overflow-x-auto border-b border-line", className)}>
+      className={cx("relative flex gap-0.5 overflow-x-auto border-b border-line", className)}>
       {items.map((t, i) => {
         const activa = t.id === value;
         return (
@@ -72,7 +72,7 @@ export function Tabs({ items, value, onChange, label, className }: {
             onClick={() => onChange(t.id)}
             onKeyDown={(e) => mover(e, i)}
             className={cx(
-              "inline-flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-3 text-sm font-semibold whitespace-nowrap transition-colors",
+              "inline-flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-2.5 text-sm font-semibold whitespace-nowrap transition-colors",
               "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand",
               activa ? "border-brand text-brand-strong" : "border-transparent text-ink-muted hover:text-brand",
             )}

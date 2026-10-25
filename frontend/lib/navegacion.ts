@@ -25,19 +25,22 @@ export function seccionesDelPanel({ rol, tipoCuenta }: {
   tipoCuenta: string | undefined;
 }): Seccion[] {
   const solo = tipoCuenta === "solo";
+  // Ordenadas por cuánto se usan en un día de clínica (recepción, admin y
+  // doctor con el panel completo): lo de todos los días a la izquierda, lo
+  // que se ajusta una vez al mes al final, y el perfil propio al último.
   return [
     { id: "inicio", label: "Inicio", corto: "Hoy" },
-    { id: "conversaciones", label: "Conversaciones", corto: "Mensajes" },
     { id: "agenda", label: "Agenda" },
-    { id: "analytics", label: "Analítica" },
     { id: "patients", label: "Pacientes" },
     { id: "bookings", label: "Citas" },
-    { id: "perfil", label: "Mi Perfil" },
+    { id: "conversaciones", label: "Conversaciones", corto: "Mensajes" },
+    { id: "analytics", label: "Analítica" },
     // Modo solo (#69): un doctor independiente no tiene equipo ni inventario de clínica.
-    ...(rol && rol !== "USER" && !solo ? [{ id: "equipo" as Tab, label: "Equipo" }] : []),
     ...(!solo ? [{ id: "inventario" as Tab, label: "Inventario" }] : []),
+    ...(rol && rol !== "USER" && !solo ? [{ id: "equipo" as Tab, label: "Equipo" }] : []),
     { id: "clinica", label: solo ? "Mi consulta" : "Mi Clínica" },
     { id: "config", label: "Configuración" },
+    { id: "perfil", label: "Mi Perfil" },
   ];
 }
 
