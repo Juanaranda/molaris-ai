@@ -200,25 +200,6 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
-      {canEdit && <AgentControl clinicId={clinic.id} />}
-
-      {/* ── Cómo piensa el agente ──────────────────────────────────────────
-          Va arriba de los campos a propósito: primero se entiende para qué
-          sirve lo que se va a llenar, y recién después se llena. */}
-      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <h3 className="text-sm font-bold text-gray-900 mb-1">Cómo funciona tu asistente</h3>
-        <p className="text-xs text-gray-500 mb-5">
-          Cada mensaje que llega a tu clínica pasa por estos pasos. Los marcados en azul usan lo que configuras más abajo.
-        </p>
-        <AgentFlowDiagram
-          config={{
-            ...(clinic.config as AgentFlowConfig),
-            // whatsapp vive en la clínica, no dentro de config.
-            whatsapp: clinic.whatsapp,
-          }}
-        />
-      </section>
-
       {/* ── Header card ── */}
       <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div
@@ -305,6 +286,25 @@ export function ClinicProfileTab({ clinic, canEdit, onUpdate }: Props) {
             ))}
           </div>
         </div>
+      </section>
+
+      {canEdit && <AgentControl clinicId={clinic.id} />}
+
+      {/* ── Cómo piensa el agente ──────────────────────────────────────────
+          Va después de quién es la clínica (nombre y logo) y antes de los
+          campos: primero se entiende para qué sirve lo que se va a llenar. */}
+      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <h3 className="text-sm font-bold text-gray-900 mb-1">Cómo funciona tu asistente</h3>
+        <p className="text-xs text-gray-500 mb-5">
+          Cada mensaje que llega a tu clínica pasa por estos pasos. Los marcados en azul usan lo que configuras más abajo.
+        </p>
+        <AgentFlowDiagram
+          config={{
+            ...(clinic.config as AgentFlowConfig),
+            // whatsapp vive en la clínica, no dentro de config.
+            whatsapp: clinic.whatsapp,
+          }}
+        />
       </section>
 
       {/* ── Información de contacto ── */}
