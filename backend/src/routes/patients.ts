@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import Papa from "papaparse";
 import prisma from "../config/prisma";
+import { medioDePago } from "../services/finanzas/caja";
 import { verifyToken } from "./auth";
 import { verificacionPendiente, RESPUESTA_VERIFICACION_PENDIENTE } from "../services/auth/contactoVerificado";
 
@@ -202,12 +203,13 @@ export async function patientsRoutes(app: FastifyInstance) {
   });
 
   /**
-   * POST /api/patients/uno  { rut } o { nombre } si la cita no trae RUT.
+   * POST /api/patients/uno  { rut } · o { nombre, telefono } si no hay RUT.
    * Un paciente, con la misma forma que la lista: lo usa el detalle del
-   * paciente cuando se abre desde la agenda, Citas o el inicio. Va por POST
-   * para que el nombre y el RUT no queden en la URL ni en los logs.
+   * paciente cuando se abre desde la agenda, Citas, el inicio, la lista de
+   * espera o las conversaciones. Va por POST para que el nombre y el RUT no
+   * queden en la URL ni en los logs.
    */
-  app.post<{ Body: { rut?: unknown; nombre?: unknown } }>("/patients/uno", async (req, reply) => {
+  app.post<{ Body: { rut?: unknown; nombre?: unknown; telefono?: unknown } }>("/patients/uno", async (req, reply) => {
     let payload;
     try { payload = verifyToken(req.headers.authorization); }
     catch { return reply.status(401).send({ error: "No autorizado" }); }
@@ -216,9 +218,26 @@ export async function patientsRoutes(app: FastifyInstance) {
     const texto = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "") || undefined;
     const rut = texto(req.body?.rut, 20);
     const nombre = texto(req.body?.nombre, 200);
-    if (!rut && !nombre) return reply.status(400).send({ error: "Falta el RUT o el nombre del paciente" });
+    const telefono = texto(req.body?.telefono, 30);
+    if (!rut && !nombre && !telefono) return reply.status(400).send({ error: "Falta el RUT, el nombre o el teléfono del paciente" });
 
-    const [paciente] = await buildPatientList(payload.clinicId, { rut, nombre });
+    const clinicId = payload.clinicId;
+    let [paciente] = rut ? await buildPatientList(clinicId, { rut }) : [];
+    if (!paciente && !rut && nombre) [paciente] = await buildPatientList(clinicId, { nombre });
+    if (!paciente && !rut) {
+      // Sin RUT: si el nombre o el teléfono corresponden a UNA sola persona con
+      // RUT, es ella. Si calzan dos, no se adivina: abrir la ficha de otro
+      // paciente sería peor que no abrir ninguna.
+      const ruts = await prisma.booking.findMany({
+        where: {
+          clinicId, patientRut: { not: null },
+          ...(nombre ? { patientName: { equals: nombre, mode: "insensitive" as const } } : {}),
+          ...(telefono ? { patientPhone: telefono } : {}),
+        },
+        distinct: ["patientRut"], select: { patientRut: true }, take: 2,
+      });
+      if (ruts.length === 1) [paciente] = await buildPatientList(clinicId, { rut: ruts[0].patientRut! });
+    }
     if (!paciente) return reply.status(404).send({ error: "No encontramos ese paciente" });
     return reply.send(paciente);
   });
@@ -408,12 +427,33 @@ export async function patientsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "El monto debe ser mayor a 0" });
     }
 
-    const entry = await prisma.accountEntry.create({
-      data: {
-        clinicId: payload.clinicId, patientRut: rut, kind: "payment",
-        amount, method: method ?? null, description: description ?? null,
-        bookingId: bookingId ?? null, createdBy: payload.userId,
-      },
+    const clinicId = payload.clinicId;
+    // Si el abono va ligado a una cita, solo si es de esta clínica.
+    const cita = typeof bookingId === "string" && bookingId
+      ? await prisma.booking.findFirst({
+          where: { id: bookingId, clinicId },
+          select: { id: true, patientName: true, doctorId: true, doctor: true },
+        })
+      : null;
+
+    // El abono y su movimiento de caja, juntos.
+    const entry = await prisma.$transaction(async (tx) => {
+      const e = await tx.accountEntry.create({
+        data: {
+          clinicId, patientRut: rut, kind: "payment",
+          amount, method: method ?? null, description: description ?? null,
+          bookingId: cita?.id ?? null, createdBy: payload.userId,
+        },
+      });
+      await tx.movimientoCaja.create({
+        data: {
+          clinicId, monto: amount, origen: "abono", medio: medioDePago(method),
+          accountEntryId: e.id, bookingId: cita?.id ?? null, patientRut: rut,
+          patientName: cita?.patientName ?? null, doctorId: cita?.doctorId ?? null, doctor: cita?.doctor ?? null,
+          registradoPor: payload.userId,
+        },
+      });
+      return e;
     });
     return reply.status(201).send({ ok: true, entry });
   });

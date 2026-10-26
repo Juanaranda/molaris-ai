@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import type { Analytics } from "../types";
 import { IntentBadge, MONTH_LABELS, MiniBar, ScoreBadge, StatCard, UrgencyDot, fmtCLP } from "../widgets";
+import { NombrePaciente } from "@/components/pacientes/AbrirPaciente";
 
 /** Los números que mira el dueño primero: conversión, ingresos y leads recientes. */
 export function AnaliticaResumen({ analytics }: { analytics: Analytics }) {
@@ -152,7 +153,9 @@ export function AnaliticaResumen({ analytics }: { analytics: Analytics }) {
                   {(urgencyFilter ? analytics.recentLeads.filter((l) => l.urgency === urgencyFilter) : analytics.recentLeads).map((lead) => (
                     <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
                       <td className="py-2.5 px-2 font-medium text-gray-800">
-                        {lead.patientName ?? <span className="text-gray-300 font-normal">Anónimo</span>}
+                        {lead.patientName
+                          ? <NombrePaciente paciente={{ name: lead.patientName, rut: null }} />
+                          : <span className="text-gray-300 font-normal">Anónimo</span>}
                         {lead.slotBooked && <span className="ml-1.5 text-[10px] bg-green-50 text-green-700 border border-green-100 px-1.5 py-0.5 rounded-full">agendado</span>}
                       </td>
                       <td className="py-2.5 px-2 text-gray-600 max-w-[140px] truncate">{lead.serviceInterest ?? "—"}</td>

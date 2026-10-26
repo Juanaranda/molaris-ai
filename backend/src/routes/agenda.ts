@@ -5,6 +5,7 @@ import { sendBookingNotification } from "../services/notifications/whatsappServi
 import { canonicalDoctorName } from "../lib/doctorName";
 import { doctoresActivos } from "../lib/doctores";
 import { verificacionPendiente, RESPUESTA_VERIFICACION_PENDIENTE } from "../services/auth/contactoVerificado";
+import { diferenciaDePago, medioDePago } from "../services/finanzas/caja";
 import {
   decidirCambioDeEstado, resolverSolicitud, quienDecide, mensajeConflicto,
   avisarListaDeEsperaSiSeLibera,
@@ -306,7 +307,10 @@ export async function agendaRoutes(app: FastifyInstance) {
       }
     }
 
-    const updated = await prisma.booking.update({
+    // Lo que entró ahora (la diferencia con lo ya pagado) va al libro de caja,
+    // en la misma transacción: la cita solo guarda el total pagado.
+    const entro = diferenciaDePago(existing.amountPaid, amountPaid);
+    const [updated] = await prisma.$transaction([prisma.booking.update({
       where: { id },
       data: {
         ...(status !== undefined && cambio === "directo" ? { status } : {}),
@@ -319,7 +323,14 @@ export async function agendaRoutes(app: FastifyInstance) {
         ...(isPaid && !existing.paidAt ? { paidAt: new Date() } : {}),
       },
       select: bookingSelect(),
-    });
+    }), ...(entro !== 0 ? [prisma.movimientoCaja.create({
+      data: {
+        clinicId: existing.clinicId, monto: entro, origen: "cita",
+        medio: medioDePago(paymentMethod ?? existing.paymentMethod),
+        bookingId: existing.id, patientRut: existing.patientRut, patientName: existing.patientName,
+        doctorId: existing.doctorId, doctor: existing.doctor, registradoPor: payload.userId,
+      },
+    })] : [])]);
 
     // Si se canceló (directo o como rechazo), el cupo quedó libre (MOL-36)
     avisarListaDeEsperaSiSeLibera(id, existing.status, status);

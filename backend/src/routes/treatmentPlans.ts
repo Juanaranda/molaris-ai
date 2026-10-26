@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import prisma from "../config/prisma";
+import { diferenciaDePago } from "../services/finanzas/caja";
 import { verifyToken } from "./auth";
 
 interface CreatePlanBody {
@@ -110,7 +111,14 @@ export async function treatmentPlansRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Status inválido" });
     }
 
-    const updated = await prisma.treatmentPlan.update({
+    if (amountPaid !== undefined && (typeof amountPaid !== "number" || !isFinite(amountPaid) || amountPaid < 0)) {
+      return reply.status(400).send({ error: "amountPaid debe ser un número no negativo" });
+    }
+
+    // Lo que se abonó ahora al plan va al libro de caja (el plan guarda solo el
+    // total pagado). Los planes no guardan el medio de pago: queda como "otro".
+    const entro = diferenciaDePago(existing.amountPaid, amountPaid);
+    const [updated] = await prisma.$transaction([prisma.treatmentPlan.update({
       where: { id },
       data: {
         ...(status !== undefined ? { status } : {}),
@@ -120,7 +128,13 @@ export async function treatmentPlansRoutes(app: FastifyInstance) {
         ...(endDate !== undefined ? { endDate: new Date(endDate) } : {}),
       },
       select: planSelect(),
-    });
+    }), ...(entro !== 0 ? [prisma.movimientoCaja.create({
+      data: {
+        clinicId: existing.clinicId, monto: entro, origen: "plan", medio: "other",
+        planId: existing.id, patientRut: existing.patientRut, patientName: existing.patientName,
+        doctor: existing.doctor, registradoPor: payload.userId,
+      },
+    })] : [])]);
     return reply.send(updated);
   });
 

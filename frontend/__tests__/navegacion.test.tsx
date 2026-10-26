@@ -16,7 +16,8 @@ describe("seccionesDelPanel", () => {
     const ids = seccionesDelPanel({ rol: "ADMIN", tipoCuenta: "clinic" }).map((s) => s.id);
     expect(ids).toContain("equipo");
     expect(ids).toContain("inventario");
-    expect(ids).toHaveLength(11);
+    expect(ids).toContain("finanzas");
+    expect(ids).toHaveLength(12);
   });
 
   it("el doctor independiente (plan Solo) no ve equipo ni inventario, y su clínica se llama consulta", () => {
@@ -28,13 +29,15 @@ describe("seccionesDelPanel", () => {
 
   it("van por uso: lo de todos los días primero y el perfil propio al final", () => {
     expect(seccionesDelPanel({ rol: "ADMIN", tipoCuenta: "clinic" }).map((s) => s.id)).toEqual([
-      "inicio", "agenda", "patients", "bookings", "conversaciones", "analytics",
+      "inicio", "agenda", "patients", "bookings", "conversaciones", "analytics", "finanzas",
       "inventario", "equipo", "clinica", "config", "perfil",
     ]);
   });
 
-  it("un usuario sin rol de admin no ve Equipo", () => {
-    expect(seccionesDelPanel({ rol: "USER", tipoCuenta: "clinic" }).map((s) => s.id)).not.toContain("equipo");
+  it("un usuario sin rol de admin no ve Equipo ni Finanzas", () => {
+    const ids = seccionesDelPanel({ rol: "USER", tipoCuenta: "clinic" }).map((s) => s.id);
+    expect(ids).not.toContain("equipo");
+    expect(ids).not.toContain("finanzas");
   });
 });
 

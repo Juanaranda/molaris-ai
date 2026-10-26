@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { doctoresPublicos, validarRutsDoctores, diasDelDoctor, horarioLegible } from "../lib/doctores";
+import { doctoresPublicos, validarRutsDoctores, diasDelDoctor, horarioLegible, idDelProfesional } from "../lib/doctores";
 
 /**
  * La página de reservas es pública: de un profesional solo puede mostrar su
@@ -77,5 +77,31 @@ describe("RUT del profesional al guardar", () => {
     const r = validarRutsDoctores([{ name: "Ana Rojas", rut: "12.345.678-9" }]);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toContain("Ana Rojas");
+  });
+});
+
+describe("idDelProfesional (MOL-55)", () => {
+  const equipo = [
+    { id: "a", name: "Nicolás Rojas" },
+    { id: "b", name: "Ivonne Poblete" },
+    { id: "c", name: "Ana Pérez" },
+    { id: "d", name: "Ana Pérez" },
+    { name: "Sin id" },
+  ];
+
+  it("encuentra al profesional aunque la cita traiga \"Dr.\", sin tildes o en minúsculas", () => {
+    expect(idDelProfesional(equipo, "Dr. Nicolás Rojas")).toBe("a");
+    expect(idDelProfesional(equipo, "nicolas rojas")).toBe("a");
+  });
+
+  it("si dos profesionales se llaman igual, no adivina", () => {
+    expect(idDelProfesional(equipo, "Ana Pérez")).toBeNull();
+  });
+
+  it("sin match, sin nombre o sin equipo, no hay id", () => {
+    expect(idDelProfesional(equipo, "Sin asignar")).toBeNull();
+    expect(idDelProfesional(equipo, "Sin id")).toBeNull();
+    expect(idDelProfesional(equipo, "")).toBeNull();
+    expect(idDelProfesional(undefined, "Nicolás Rojas")).toBeNull();
   });
 });

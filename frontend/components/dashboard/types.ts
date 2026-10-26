@@ -74,4 +74,4 @@ export interface Analytics {
 /** Pestañas del panel. */
 export type Tab =
   | "inicio" | "conversaciones" | "agenda" | "analytics" | "patients"
-  | "bookings" | "perfil" | "equipo" | "inventario" | "clinica" | "config";
+  | "bookings" | "perfil" | "equipo" | "inventario" | "clinica" | "config" | "finanzas";

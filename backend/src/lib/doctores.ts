@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { isValidRut, formatRut } from "./rut";
+import { normalizeDoctorName } from "./doctorName";
 
 /**
  * Lo que se puede decir de un profesional en una página pública.
@@ -159,4 +160,19 @@ export function protegerDatosDelProfesional(
     }
     return salida;
   });
+}
+
+/**
+ * El id del profesional del equipo con ese nombre (MOL-55). Compara sin "Dr.",
+ * sin tildes ni mayúsculas, y solo responde si calza con UNO: con dos
+ * profesionales del mismo nombre no se adivina, y la cita queda sin id.
+ */
+export function idDelProfesional(doctors: unknown, nombre: string | null | undefined): string | null {
+  if (!nombre || !Array.isArray(doctors)) return null;
+  const clave = normalizeDoctorName(nombre);
+  if (!clave) return null;
+  const calzan = doctors.filter(
+    (d): d is Obj => esObj(d) && typeof d.id === "string" && !!d.id && typeof d.name === "string" && normalizeDoctorName(d.name) === clave,
+  );
+  return calzan.length === 1 ? (calzan[0].id as string) : null;
 }

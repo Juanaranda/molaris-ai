@@ -5,7 +5,7 @@ import { cx } from "@/lib/cx";
 import { peldanoDeUrgencia, restanteHasta } from "@/lib/plazos";
 import { esperaConfirmacion } from "@/lib/solicitudes";
 import { DentalQuoteTab } from "../DentalQuoteTab";
-import { useAbrirPaciente } from "../pacientes/AbrirPaciente";
+import { useAbrirFicha, useAbrirPaciente } from "../pacientes/AbrirPaciente";
 import { formatDate } from "./fechas";
 import { MarcaEstado, TINTE, textoPago } from "./Marcas";
 import type { Booking } from "./tipos";
@@ -72,6 +72,8 @@ export function BookingModal({ booking, onClose, onSave, onCancel, onNewQuote, o
   const idEstado = useId(), idMetodo = useId(), idTitulo = useId();
   const dialogo = useDialogo(onClose);
   const abrirPaciente = useAbrirPaciente();
+  const ficha = useAbrirFicha();
+  const refPaciente = { name: booking.patientName, rut: booking.patientRut, phone: booking.patientPhone, email: booking.patientEmail };
 
   async function decidir(accion: "confirmar" | "rechazar") {
     setDecidiendo(true); setDecisionError("");
@@ -127,14 +129,20 @@ export function BookingModal({ booking, onClose, onSave, onCancel, onNewQuote, o
                 planes y presupuestos. Los doctores buscan por la agenda, no
                 por nombre o RUT. */}
             {abrirPaciente && booking.patientName && (
-              <Button size="sm" variant="secondary" className="mt-2 max-sm:min-h-11"
-                onClick={() => {
-                  onClose();
-                  abrirPaciente({ name: booking.patientName, rut: booking.patientRut, phone: booking.patientPhone, email: booking.patientEmail });
-                }}>
-                Ver paciente
-              </Button>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button size="sm" variant="secondary" className="max-sm:min-h-11"
+                  onClick={() => { onClose(); abrirPaciente(refPaciente); }}>
+                  Ver paciente
+                </Button>
+                {ficha.puede(refPaciente) && (
+                  <Button size="sm" variant="ghost" className="max-sm:min-h-11" loading={ficha.abriendo}
+                    onClick={() => ficha.abrir(refPaciente)}>
+                    {ficha.abriendo ? "Abriendo…" : "Ficha clínica"}
+                  </Button>
+                )}
+              </div>
             )}
+            {ficha.error && <p role="alert" className="mt-1 text-[13px] font-semibold text-danger">No pudimos abrir la ficha: {ficha.error}</p>}
           </div>
           <BotonCerrar onClick={onClose} />
         </div>

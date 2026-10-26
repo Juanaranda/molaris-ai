@@ -234,6 +234,27 @@ export async function paymentRoutes(app: FastifyInstance) {
         },
       });
 
+      // Al libro de caja, una sola vez por pago: Mercado Pago avisa varias
+      // veces el mismo pago y paymentId es único en MovimientoCaja.
+      if (paid) {
+        const cita = payment.bookingId
+          ? await prisma.booking.findUnique({
+              where: { id: payment.bookingId },
+              select: { patientRut: true, patientName: true, doctorId: true, doctor: true },
+            })
+          : null;
+        await prisma.movimientoCaja.createMany({
+          data: [{
+            clinicId: payment.clinicId, monto: payment.amount, origen: "mercadopago", medio: "mercadopago",
+            paymentId: payment.id, bookingId: payment.bookingId,
+            patientRut: cita?.patientRut ?? null, patientName: cita?.patientName ?? null,
+            doctorId: cita?.doctorId ?? null, doctor: cita?.doctor ?? null,
+            fecha: mp.date_approved ? new Date(mp.date_approved) : new Date(),
+          }],
+          skipDuplicates: true,
+        });
+      }
+
       // Sincronizar Booking si está vinculado
       if (paid && payment.bookingId) {
         const totalPaid = await prisma.payment.aggregate({
