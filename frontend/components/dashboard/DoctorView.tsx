@@ -15,6 +15,7 @@ import {
 import { Button, Card } from "@/components/ui";
 import { RoleBadge, StatusPill } from "./widgets";
 import { PerfilProfesional } from "@/components/PerfilProfesional";
+import { FilaPaciente } from "@/components/pacientes/AbrirPaciente";
 
 /**
  * Vista reducida para quien tiene rol USER: ve sus propias citas y poco más.
@@ -111,13 +112,17 @@ export function DoctorView({ user, clinic, onShowFull }: { user: AuthUser; clini
           {!loadingBookings && activeBookings.length > 0 && (
             <ul>
               {activeBookings.map((b) => (
-                <li key={b.id} className="grid grid-cols-[56px_minmax(0,1fr)_auto] items-center gap-3 border-t border-line-soft px-5 py-3.5">
+                <li key={b.id} className="border-t border-line-soft">
+                  {/* Tocar la cita abre al paciente: ficha, cuenta y planes. */}
+                  <FilaPaciente className="grid grid-cols-[56px_minmax(0,1fr)_auto] items-center gap-3 px-5 py-3.5"
+                    paciente={{ name: b.patientName, rut: b.patientRut ?? null, phone: b.patientPhone, email: b.patientEmail }}>
                   <span className="text-[15px] font-bold tabular-nums text-brand-strong">{b.time}</span>
                   <div className="min-w-0">
                     <p className="truncate text-[15px] font-semibold">{b.patientName ?? "Paciente"}</p>
                     {b.service && <p className="truncate text-sm text-ink-muted">{b.service}</p>}
                   </div>
                   <StatusPill status={b.status} requestedVia={b.requestedVia} />
+                  </FilaPaciente>
                 </li>
               ))}
             </ul>

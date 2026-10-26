@@ -22,6 +22,7 @@ import { AnalyticsPanel } from "@/components/dashboard/AnalyticsPanel";
 import { ConfigTab } from "@/components/dashboard/ConfigTab";
 import { DoctorView } from "@/components/dashboard/DoctorView";
 import { NavCelular } from "@/components/dashboard/NavCelular";
+import { ProveedorPaciente } from "@/components/pacientes/AbrirPaciente";
 import { Tabs } from "@/components/ui";
 import { seccionesDelPanel } from "@/lib/navegacion";
 import { InfoField, RoleBadge } from "@/components/dashboard/widgets";
@@ -115,14 +116,16 @@ export default function PartnersDashboard() {
 
   if (vista === "doctor" && user && clinic) {
     return (
-      <>
+      <ProveedorPaciente>
         {passwordGate}
         <DoctorView user={user} clinic={clinic} onShowFull={() => setForceFull(true)} />
-      </>
+      </ProveedorPaciente>
     );
   }
 
+  // ProveedorPaciente: tocar un paciente en cualquier pestaña abre su detalle.
   return (
+    <ProveedorPaciente>
     <div className="min-h-screen flex flex-col">
       {passwordGate}
 
@@ -359,5 +362,6 @@ export default function PartnersDashboard() {
         )}
       </div>
     </div>
+    </ProveedorPaciente>
   );
 }

@@ -6,18 +6,22 @@ import { peldanoDeUrgencia } from "@/lib/plazos";
 import { esperaConfirmacion } from "@/lib/solicitudes";
 import { DAY_SHORT, getMondayOf, toDateStr } from "./fechas";
 import { MarcaEstado, TINTE } from "./Marcas";
+import { Button } from "@/components/ui";
+import { FilaPaciente, useAbrirPaciente } from "../pacientes/AbrirPaciente";
 import type { BookingConDia, DayData } from "./tipos";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 const aMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
 
+/** Lo que el detalle del paciente necesita saber de la cita para encontrarlo. */
+const refDe = (b: BookingConDia) => ({ name: b.patientName, rut: b.patientRut, phone: b.patientPhone, email: b.patientEmail });
+
 function Fila({ b, ahora, conDia = false, pasada = false }: { b: BookingConDia; ahora: Date; conDia?: boolean; pasada?: boolean }) {
   const solicitud = esperaConfirmacion(b);
   return (
-    <li className={cx(
-      "grid min-h-14 grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2",
-      solicitud ? cx("rounded-control", TINTE[peldanoDeUrgencia(b.confirmDeadline, ahora) ?? 1]) : "border-t border-line-soft first:border-t-0",
-    )}>
+    <li className={solicitud ? cx("rounded-control", TINTE[peldanoDeUrgencia(b.confirmDeadline, ahora) ?? 1]) : "border-t border-line-soft first:border-t-0"}>
+      {/* Tocar la fila abre al paciente: su ficha, cuenta y planes. */}
+      <FilaPaciente paciente={refDe(b)} className="grid min-h-14 grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2">
       <span className={cx("text-sm font-semibold tabular-nums", pasada ? "text-ink-muted" : "text-ink")}>
         {conDia && <span className="block text-xs font-medium text-ink-muted">{DAY_SHORT[new Date(b.dateStr + "T12:00:00").getDay()]}</span>}
         {b.time}
@@ -31,6 +35,7 @@ function Fila({ b, ahora, conDia = false, pasada = false }: { b: BookingConDia; 
         {solicitud && <span className="mt-0.5 block"><MarcaEstado b={b} ahora={ahora} /></span>}
       </span>
       {!solicitud && <MarcaEstado b={b} ahora={ahora} />}
+      </FilaPaciente>
     </li>
   );
 }
@@ -56,6 +61,7 @@ const Vacio = ({ texto }: { texto: string }) => (
  * (o quién sigue), después lo que queda, lo que ya pasó y el resto de la semana.
  */
 export function DoctorAgenda({ user }: { user: AuthUser }) {
+  const abrirPaciente = useAbrirPaciente();
   const [days, setDays]       = useState<DayData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(false);
@@ -131,6 +137,13 @@ export function DoctorAgenda({ user }: { user: AuthUser }) {
                   {[lead.service, lead.box ? `Box ${lead.box}` : null].filter(Boolean).join(" · ")}
                 </p>
                 <p className="col-start-2 row-span-3 row-start-1 self-center text-xl font-bold text-ink tabular-nums">{lead.time}</p>
+                {abrirPaciente && lead.patientName && (
+                  <div className="col-start-1 mt-3">
+                    <Button size="sm" variant="secondary" className="max-sm:min-h-11" onClick={() => abrirPaciente(refDe(lead))}>
+                      Ver paciente
+                    </Button>
+                  </div>
+                )}
               </section>
             ) : (
               <Vacio texto={todayMine.length ? "No te quedan más citas hoy." : "No tienes citas para hoy."} />

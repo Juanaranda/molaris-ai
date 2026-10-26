@@ -22,6 +22,9 @@ export interface AgendaBooking {
   time: string;
   doctor: string;
   patientName: string | null;
+  patientRut?: string | null;
+  patientPhone?: string | null;
+  patientEmail?: string | null;
   service: string | null;
   status: string;
   requestedVia: string | null;

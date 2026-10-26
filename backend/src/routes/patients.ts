@@ -129,10 +129,19 @@ function csvField(value: unknown, sep: string): string {
 }
 
 export async function patientsRoutes(app: FastifyInstance) {
-  /** Pacientes únicos derivados de bookings (colapsados por RUT o nombre). */
-  async function buildPatientList(clinicId: string): Promise<PatientRow[]> {
+  /**
+   * Pacientes únicos derivados de bookings (colapsados por RUT o nombre).
+   * Con `solo`, arma únicamente el de ese RUT o ese nombre (abrirlo desde la
+   * agenda no debería recorrer todas las citas de la clínica).
+   */
+  async function buildPatientList(clinicId: string, solo?: { rut?: string; nombre?: string }): Promise<PatientRow[]> {
     const bookings = await prisma.booking.findMany({
-      where: { clinicId },
+      where: {
+        clinicId,
+        ...(solo?.rut ? { patientRut: solo.rut }
+          : solo?.nombre ? { patientRut: null, patientName: { equals: solo.nombre, mode: "insensitive" as const } }
+          : {}),
+      },
       select: {
         id: true, patientName: true, patientRut: true, patientPhone: true, patientEmail: true,
         service: true, doctor: true, date: true, time: true, status: true, createdAt: true,
@@ -169,7 +178,7 @@ export async function patientsRoutes(app: FastifyInstance) {
     // Sumar abonos manuales (cuenta corriente, #43) al total pagado por paciente
     const manualPayments = await prisma.accountEntry.groupBy({
       by: ["patientRut"],
-      where: { clinicId, kind: "payment" },
+      where: { clinicId, kind: "payment", ...(solo?.rut ? { patientRut: solo.rut } : {}) },
       _sum: { amount: true },
     });
     for (const mp of manualPayments) {
@@ -190,6 +199,28 @@ export async function patientsRoutes(app: FastifyInstance) {
     if (!payload.clinicId) return reply.status(403).send({ error: "Sin clínica asignada" });
 
     return reply.send(await buildPatientList(payload.clinicId));
+  });
+
+  /**
+   * POST /api/patients/uno  { rut } o { nombre } si la cita no trae RUT.
+   * Un paciente, con la misma forma que la lista: lo usa el detalle del
+   * paciente cuando se abre desde la agenda, Citas o el inicio. Va por POST
+   * para que el nombre y el RUT no queden en la URL ni en los logs.
+   */
+  app.post<{ Body: { rut?: unknown; nombre?: unknown } }>("/patients/uno", async (req, reply) => {
+    let payload;
+    try { payload = verifyToken(req.headers.authorization); }
+    catch { return reply.status(401).send({ error: "No autorizado" }); }
+    if (!payload.clinicId) return reply.status(403).send({ error: "Sin clínica asignada" });
+
+    const texto = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "") || undefined;
+    const rut = texto(req.body?.rut, 20);
+    const nombre = texto(req.body?.nombre, 200);
+    if (!rut && !nombre) return reply.status(400).send({ error: "Falta el RUT o el nombre del paciente" });
+
+    const [paciente] = await buildPatientList(payload.clinicId, { rut, nombre });
+    if (!paciente) return reply.status(404).send({ error: "No encontramos ese paciente" });
+    return reply.send(paciente);
   });
 
   /**

@@ -7,6 +7,7 @@ import { emitBoletaForBooking } from "@/lib/boletas";
 import { WaitlistManager } from "@/components/WaitlistManager";
 import { LabOrdersManager } from "@/components/LabOrdersManager";
 import { CircleCheck, CreditCard, Receipt, Smile, X } from "lucide-react";
+import { useAbrirPaciente } from "./pacientes/AbrirPaciente";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -15,6 +16,9 @@ type BookingStatus = "all" | "pending" | "confirmed" | "cancelled";
 interface BookingRow {
   id: string;
   patientName: string | null;
+  patientRut: string | null;
+  patientPhone: string | null;
+  patientEmail: string | null;
   service: string | null;
   date: string;
   time: string;
@@ -56,6 +60,7 @@ interface Props {
 }
 
 export function BookingsTab({ clinicId }: Props) {
+  const abrirPaciente = useAbrirPaciente();
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<BookingStatus>("all");
@@ -220,7 +225,14 @@ export function BookingsTab({ clinicId }: Props) {
                       <td className="px-4 py-3 pl-6 whitespace-nowrap text-gray-700 font-medium">{dateStr}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-gray-700">{b.time}</td>
                       <td className="px-4 py-3">
-                        <p className="font-medium text-gray-800">{name}</p>
+                        {/* El nombre abre el detalle del paciente: ficha, cuenta y planes. */}
+                        {abrirPaciente && b.patientName ? (
+                          <button type="button"
+                            onClick={() => abrirPaciente({ name: b.patientName, rut: b.patientRut, phone: b.patientPhone, email: b.patientEmail })}
+                            className="min-h-11 text-left font-medium text-brand underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-brand">
+                            {name}
+                          </button>
+                        ) : <p className="font-medium text-gray-800">{name}</p>}
                         {phone && <p className="text-xs text-gray-400">{phone}</p>}
                       </td>
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{b.doctor}</td>

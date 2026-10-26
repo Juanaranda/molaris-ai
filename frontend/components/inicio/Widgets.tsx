@@ -1,6 +1,7 @@
 import { cx } from "@/lib/cx";
 import { nombreCorto } from "@/lib/agendaVista";
 import { StatusPill } from "../dashboard/widgets";
+import { FilaPaciente } from "@/components/pacientes/AbrirPaciente";
 
 /* ─── Tipos ─────────────────────────────────────────────────────────────── */
 export interface Analytics {
@@ -22,6 +23,7 @@ export interface Analytics {
 
 export interface TodayBooking {
   id: string; time: string; patientName: string | null;
+  patientRut?: string | null; patientPhone?: string | null; patientEmail?: string | null;
   doctor: string; service: string | null; status: string;
   requestedVia?: string | null;
 }
@@ -81,7 +83,9 @@ export function TodayWidget({ bookings, onVerAgenda }: { bookings: TodayBooking[
       ) : (
         <ul>
           {active.slice(0, 6).map((b) => (
-            <li key={b.id} className="grid grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-3 border-t border-line-soft py-2.5 first:border-t-0">
+            <li key={b.id} className="border-t border-line-soft first:border-t-0">
+              <FilaPaciente className="grid grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-3 py-2.5"
+                paciente={{ name: b.patientName, rut: b.patientRut ?? null, phone: b.patientPhone, email: b.patientEmail }}>
               <span className="text-sm font-semibold text-ink tabular-nums">{b.time}</span>
               <span className="min-w-0">
                 <span className="block truncate text-sm font-semibold text-ink">{b.patientName ?? "Sin nombre"}</span>
@@ -89,6 +93,7 @@ export function TodayWidget({ bookings, onVerAgenda }: { bookings: TodayBooking[
               </span>
               {/* Solo se marca lo que no es una cita confirmada normal. */}
               {b.status !== "confirmed" ? <StatusPill status={b.status} requestedVia={b.requestedVia} /> : <span />}
+              </FilaPaciente>
             </li>
           ))}
         </ul>
