@@ -20,6 +20,7 @@ import { buildPatientOdontogram } from "../services/dental/odontogramService";
 import { audit } from "../services/audit/auditService";
 import { redFlagsToAlerts, AnamnesisQuestion } from "../services/anamnesis/anamnesisService";
 import { canPerform } from "../services/auth/clinicalPermissions";
+import { otraClinicaUsaIdentidad, ERROR_IDENTIDAD_COMPARTIDA } from "../services/pacientes/identidad";
 
 const REASON_CATEGORIES = ["urgencia", "dolor", "control", "estetica", "derivacion", "otro"] as const;
 const INSURANCE_PROVIDERS = ["fonasa", "isapre", "particular", "otro"] as const;
@@ -357,6 +358,10 @@ export async function clinicalRecordRoutes(app: FastifyInstance) {
     const g = await guardPatient(req, "write_clinical");
     if (!g.ok) return reply.status(g.status).send({ error: g.error });
     if (!g.patient.identityId) return reply.status(400).send({ error: "Paciente sin identidad enrolada" });
+    // MOL-37: la identidad es compartida entre clínicas; no se edita la de otra.
+    if (await otraClinicaUsaIdentidad(prisma, g.patient.identityId, g.patient.clinicId)) {
+      return reply.status(409).send({ error: ERROR_IDENTIDAD_COMPARTIDA });
+    }
 
     const body = req.body ?? {};
     const beforeIdentity = await prisma.identity.findUnique({ where: { id: g.patient.identityId } });
