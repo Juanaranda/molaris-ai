@@ -74,6 +74,6 @@ describe("abrir un paciente desde una cita", () => {
     fireEvent.click(screen.getByRole("button"));
     await waitFor(() => expect(llamadas.some((l) => l.url.endsWith("/api/patients/uno"))).toBe(true));
     const pedido = llamadas.find((l) => l.url.endsWith("/api/patients/uno"))!;
-    expect(JSON.parse(String(pedido.init?.body))).toEqual({ nombre: "Ana Rojas" });
+    expect(JSON.parse(String(pedido.init?.body))).toEqual({ nombre: "Ana Rojas" });  // sin teléfono no se manda
   });
 });

@@ -6,6 +6,7 @@ import {
   type ConversationSummary, type ConversationDetail,
 } from "@/lib/conversations";
 import { BetaWhatsappCard } from "@/components/BetaWhatsappCard";
+import { NombrePaciente } from "@/components/pacientes/AbrirPaciente";
 
 const CH: Record<string, { label: string; bg: string; fg: string }> = {
   web:      { label: "Web",      bg: "#EEF3F8", fg: "#185FA5" },
@@ -138,7 +139,9 @@ export function ConversationsTab() {
               {/* Cabecera con contexto del paciente */}
               <div className="px-5 py-3 border-b bg-white" style={{ borderColor: "#E5E0D9" }}>
                 <p className="text-sm font-bold" style={{ color: "#0C1B26" }}>
-                  {detail.context?.patientName || "Paciente sin identificar"}
+                  {detail.context?.patientName
+                    ? <NombrePaciente paciente={{ name: detail.context.patientName, rut: detail.context.rut, email: detail.context.email }} />
+                    : "Paciente sin identificar"}
                 </p>
                 <div className="flex items-center gap-2 flex-wrap mt-1">
                   {detail.context?.rut && <span className="text-[11px]" style={{ color: "#607281" }}>RUT {detail.context.rut}</span>}

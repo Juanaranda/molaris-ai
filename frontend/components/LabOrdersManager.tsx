@@ -7,6 +7,7 @@ import {
 } from "@/lib/labOrders";
 import { toLocalDateStr } from "@/lib/dateParser";
 import { Check, DollarSign, Factory, Package, Send, Smile, User, X } from "lucide-react";
+import { NombrePaciente } from "@/components/pacientes/AbrirPaciente";
 
 interface Props {
   clinicId:   string;
@@ -188,7 +189,10 @@ function OrderRow({ order, busy, onSetStatus, onRemove }: {
           )}
         </div>
         <p className="text-[11px] text-gray-500 truncate">
-          <User className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> {patientName} · <Factory className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> {order.labName}
+          <User className="w-4 h-4 inline-block align-[-3px]" aria-hidden />{" "}
+          {order.patient
+            ? <NombrePaciente paciente={{ name: patientName, rut: order.patient.identity?.rut ?? null }} />
+            : patientName} · <Factory className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> {order.labName}
           {order.cost != null && <span> · <DollarSign className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> ${order.cost.toLocaleString("es-CL")}</span>}
         </p>
         <div className="flex gap-3 mt-1 text-[10px] text-gray-400">

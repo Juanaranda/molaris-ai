@@ -10,6 +10,7 @@ import { Trash2 } from "lucide-react";
 import { Badge, Button, Dialogo, Field } from "@/components/ui";
 import { AYUDA_VARIABLES, Seccion } from "@/components/configuracion/Piezas";
 import { cx } from "@/lib/cx";
+import { NombrePaciente } from "@/components/pacientes/AbrirPaciente";
 
 interface Props {
   clinicId: string;
@@ -113,7 +114,9 @@ export function RecallSection({ clinicId }: Props) {
         <ul className="max-h-72 divide-y divide-line-soft overflow-y-auto overscroll-contain rounded-control border border-line">
           {events.map((e) => (
             <li key={e.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 px-3 py-2.5 text-[13px]">
-              <p className="min-w-0 truncate font-semibold text-ink">{e.patientName ?? e.patientPhone}</p>
+              <p className="min-w-0 truncate font-semibold text-ink">
+                <NombrePaciente paciente={{ name: e.patientName, rut: e.patientRut, phone: e.patientPhone }} />
+              </p>
               {e.success ? <Badge tone="ok">Enviado</Badge> : <Badge tone="danger">No se envió</Badge>}
               <p className="col-span-2 text-ink-muted tabular-nums">
                 {new Date(e.sentAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" })},{" "}

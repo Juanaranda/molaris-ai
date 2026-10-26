@@ -202,12 +202,13 @@ export async function patientsRoutes(app: FastifyInstance) {
   });
 
   /**
-   * POST /api/patients/uno  { rut } o { nombre } si la cita no trae RUT.
+   * POST /api/patients/uno  { rut } · o { nombre, telefono } si no hay RUT.
    * Un paciente, con la misma forma que la lista: lo usa el detalle del
-   * paciente cuando se abre desde la agenda, Citas o el inicio. Va por POST
-   * para que el nombre y el RUT no queden en la URL ni en los logs.
+   * paciente cuando se abre desde la agenda, Citas, el inicio, la lista de
+   * espera o las conversaciones. Va por POST para que el nombre y el RUT no
+   * queden en la URL ni en los logs.
    */
-  app.post<{ Body: { rut?: unknown; nombre?: unknown } }>("/patients/uno", async (req, reply) => {
+  app.post<{ Body: { rut?: unknown; nombre?: unknown; telefono?: unknown } }>("/patients/uno", async (req, reply) => {
     let payload;
     try { payload = verifyToken(req.headers.authorization); }
     catch { return reply.status(401).send({ error: "No autorizado" }); }
@@ -216,9 +217,26 @@ export async function patientsRoutes(app: FastifyInstance) {
     const texto = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "") || undefined;
     const rut = texto(req.body?.rut, 20);
     const nombre = texto(req.body?.nombre, 200);
-    if (!rut && !nombre) return reply.status(400).send({ error: "Falta el RUT o el nombre del paciente" });
+    const telefono = texto(req.body?.telefono, 30);
+    if (!rut && !nombre && !telefono) return reply.status(400).send({ error: "Falta el RUT, el nombre o el teléfono del paciente" });
 
-    const [paciente] = await buildPatientList(payload.clinicId, { rut, nombre });
+    const clinicId = payload.clinicId;
+    let [paciente] = rut ? await buildPatientList(clinicId, { rut }) : [];
+    if (!paciente && !rut && nombre) [paciente] = await buildPatientList(clinicId, { nombre });
+    if (!paciente && !rut) {
+      // Sin RUT: si el nombre o el teléfono corresponden a UNA sola persona con
+      // RUT, es ella. Si calzan dos, no se adivina: abrir la ficha de otro
+      // paciente sería peor que no abrir ninguna.
+      const ruts = await prisma.booking.findMany({
+        where: {
+          clinicId, patientRut: { not: null },
+          ...(nombre ? { patientName: { equals: nombre, mode: "insensitive" as const } } : {}),
+          ...(telefono ? { patientPhone: telefono } : {}),
+        },
+        distinct: ["patientRut"], select: { patientRut: true }, take: 2,
+      });
+      if (ruts.length === 1) [paciente] = await buildPatientList(clinicId, { rut: ruts[0].patientRut! });
+    }
     if (!paciente) return reply.status(404).send({ error: "No encontramos ese paciente" });
     return reply.send(paciente);
   });

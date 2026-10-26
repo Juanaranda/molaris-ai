@@ -8,6 +8,7 @@ import {
 import { PatientAutocomplete } from "./PatientAutocomplete";
 import { Check, ClipboardList, Phone, Stethoscope, X } from "lucide-react";
 import { CampoTelefono } from "@/components/ui/CampoTelefono";
+import { NombrePaciente } from "@/components/pacientes/AbrirPaciente";
 
 interface Props {
   clinicId: string;
@@ -118,7 +119,8 @@ function EntryRow({ entry, busy, onSetStatus, onRemove }: {
     <div className="bg-white rounded-2xl border border-gray-100 p-3 flex items-center gap-3">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-          <span className="text-sm font-bold text-gray-900 truncate">{entry.patientName}</span>
+          <NombrePaciente className="text-sm font-bold text-gray-900 truncate"
+            paciente={{ name: entry.patientName, rut: entry.patientRut, phone: entry.patientPhone }} />
           <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${meta.cls}`}>{meta.label}</span>
         </div>
         <p className="text-[11px] text-gray-500 truncate">
