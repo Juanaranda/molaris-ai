@@ -118,6 +118,8 @@ model Clinic {
   labOrders          LabOrder[]
   accountEntries     AccountEntry[]
   invitaciones       InvitacionProfesional[]
+  movimientosCaja    MovimientoCaja[]
+  cierresCaja        CierreCaja[]
   inventoryItems     InventoryItem[]
   inventoryMovements InventoryMovement[]
 
@@ -965,4 +967,51 @@ model InvitacionProfesional {
   createdAt        DateTime  @default(now())
 
   @@index([clinicId, doctorId])
+}
+
+/// Cada peso que entra a la clínica, en el momento en que se registra (MOL-58).
+/// Es lo que lee el cierre de caja: la cita y el plan guardan solo cuánto
+/// llevan pagado en total, así que un abono el lunes y otro el jueves no se
+/// podían separar por día. Un movimiento no se edita; una corrección es otro
+/// movimiento, negativo.
+model MovimientoCaja {
+  id          String   @id @default(cuid())
+  clinicId    String
+  clinic      Clinic   @relation(fields: [clinicId], references: [id])
+  monto       Float // CLP; negativo si corrige un pago registrado de más
+  medio       String // "cash" | "transfer" | "card" | "other" | "mercadopago"
+  origen      String // "cita" | "plan" | "abono" | "mercadopago"
+  bookingId   String?
+  planId      String?
+  // Un abono o un pago de Mercado Pago se registra una sola vez.
+  accountEntryId String? @unique
+  paymentId      String? @unique
+  patientRut  String?
+  patientName String?
+  doctorId    String?
+  doctor      String?
+  registradoPor String? // PartnerUser.id; null si llegó solo (Mercado Pago)
+  fecha       DateTime @default(now())
+
+  @@index([clinicId, fecha])
+  @@map("movimientos_caja")
+}
+
+/// El cierre de caja de un día: lo que el sistema esperaba por medio de pago,
+/// el efectivo contado y la diferencia. No se edita: es la constancia de
+/// quién cerró y con cuánto.
+model CierreCaja {
+  id              String   @id @default(cuid())
+  clinicId        String
+  clinic          Clinic   @relation(fields: [clinicId], references: [id])
+  dia             String // "AAAA-MM-DD", día en hora de Chile
+  esperado        Json // { cash, transfer, card, other, mercadopago, total }
+  efectivoContado Float
+  diferencia      Float // efectivoContado - esperado.cash
+  nota            String?
+  cerradoPor      String // PartnerUser.id
+  cerradoEn       DateTime @default(now())
+
+  @@unique([clinicId, dia])
+  @@map("cierres_caja")
 }

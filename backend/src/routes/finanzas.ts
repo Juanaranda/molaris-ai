@@ -3,6 +3,8 @@ import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
 import { doctoresActivos } from "../lib/doctores";
 import { calcularProduccion, type ProfesionalEquipo } from "../services/finanzas/produccion";
+import { diaChile, rangoDiaChile, resumirCaja } from "../services/finanzas/caja";
+import { audit } from "../services/audit/auditService";
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -62,5 +64,102 @@ export async function finanzasRoutes(app: FastifyInstance) {
       return reply.send({ desde, hasta, profesionales: produccion.profesionales.filter((p) => p.id === propio) });
     }
     return reply.send({ desde, hasta, ...produccion });
+  });
+
+  /** El admin de la clínica (la caja todavía no la ven los demás roles). */
+  function soloAdmin(authorization: string | undefined):
+    | { ok: true; clinicId: string; userId: string }
+    | { ok: false; status: number; error: string } {
+    let payload;
+    try { payload = verifyToken(authorization); }
+    catch { return { ok: false, status: 401, error: "No autorizado" }; }
+    if (!payload.clinicId) return { ok: false, status: 403, error: "Sin clínica asignada" };
+    if (payload.role !== "ADMIN" && payload.role !== "SUPERADMIN") return { ok: false, status: 403, error: "Sin permisos" };
+    return { ok: true, clinicId: payload.clinicId, userId: payload.userId };
+  }
+
+  async function movimientosDelDia(clinicId: string, dia: string) {
+    const { desde, hasta } = rangoDiaChile(dia);
+    return prisma.movimientoCaja.findMany({
+      where: { clinicId, fecha: { gte: desde, lt: hasta } },
+      orderBy: { fecha: "asc" },
+    });
+  }
+
+  /**
+   * GET /api/finanzas/caja?dia=2026-10-26 — lo que entró ese día (hora de
+   * Chile), por medio de pago, con quién lo registró, y su cierre si ya se hizo.
+   */
+  app.get<{ Querystring: { dia?: string } }>("/finanzas/caja", async (req, reply) => {
+    const g = soloAdmin(req.headers.authorization);
+    if (!g.ok) return reply.status(g.status).send({ error: g.error });
+    const dia = req.query.dia ?? diaChile(new Date());
+    if (!FECHA.test(dia)) return reply.status(400).send({ error: "Indica el día como AAAA-MM-DD" });
+
+    const [movimientos, cierre] = await Promise.all([
+      movimientosDelDia(g.clinicId, dia),
+      prisma.cierreCaja.findUnique({ where: { clinicId_dia: { clinicId: g.clinicId, dia } } }),
+    ]);
+    const quienes = [...new Set([...movimientos.map((m) => m.registradoPor), cierre?.cerradoPor].filter((x): x is string => !!x))];
+    const usuarios = quienes.length
+      ? await prisma.partnerUser.findMany({ where: { id: { in: quienes }, clinicId: g.clinicId }, select: { id: true, name: true } })
+      : [];
+    const nombre = (id: string | null | undefined) => usuarios.find((u) => u.id === id)?.name ?? null;
+
+    // Lo que entró después de cerrar no está en el cierre: se muestra aparte.
+    const despues = cierre ? movimientos.filter((m) => m.fecha > cierre.cerradoEn) : [];
+    return reply.send({
+      dia,
+      resumen: resumirCaja(movimientos),
+      movimientos: movimientos.map((m) => ({
+        id: m.id, fecha: m.fecha, monto: m.monto, medio: m.medio, origen: m.origen,
+        patientName: m.patientName, patientRut: m.patientRut, doctor: m.doctor,
+        registradoPor: m.registradoPor ? nombre(m.registradoPor) ?? "Otra persona" : null,
+      })),
+      cierre: cierre && {
+        cerradoEn: cierre.cerradoEn, cerradoPor: nombre(cierre.cerradoPor), esperado: cierre.esperado,
+        efectivoContado: cierre.efectivoContado, diferencia: cierre.diferencia, nota: cierre.nota,
+      },
+      despuesDelCierre: cierre ? resumirCaja(despues) : null,
+    });
+  });
+
+  /**
+   * POST /api/finanzas/caja/cierre  { dia, efectivoContado, nota? }
+   * Cierra la caja del día: guarda lo que el sistema esperaba por medio, el
+   * efectivo contado y la diferencia. Uno por día y no se edita.
+   */
+  app.post<{ Body: { dia?: unknown; efectivoContado?: unknown; nota?: unknown } }>("/finanzas/caja/cierre", async (req, reply) => {
+    const g = soloAdmin(req.headers.authorization);
+    if (!g.ok) return reply.status(g.status).send({ error: g.error });
+
+    const { dia, efectivoContado, nota } = req.body ?? {};
+    if (typeof dia !== "string" || !FECHA.test(dia)) return reply.status(400).send({ error: "Indica el día como AAAA-MM-DD" });
+    if (dia > diaChile(new Date())) return reply.status(400).send({ error: "No se puede cerrar un día que todavía no llega" });
+    if (typeof efectivoContado !== "number" || !isFinite(efectivoContado) || efectivoContado < 0) {
+      return reply.status(400).send({ error: "Indica el efectivo contado (0 o más)" });
+    }
+    const notaLimpia = typeof nota === "string" ? nota.trim().slice(0, 500) || null : null;
+
+    const { porMedio, total } = resumirCaja(await movimientosDelDia(g.clinicId, dia));
+    const esperado = { ...porMedio, total };
+    try {
+      const cierre = await prisma.cierreCaja.create({
+        data: {
+          clinicId: g.clinicId, dia, esperado, efectivoContado,
+          diferencia: efectivoContado - porMedio.cash, nota: notaLimpia, cerradoPor: g.userId,
+        },
+      });
+      audit({
+        req, actorId: g.userId, clinicId: g.clinicId, action: "create", resourceType: "CierreCaja",
+        resourceId: cierre.id, snapshotAfter: { dia, esperado, efectivoContado, diferencia: cierre.diferencia, nota: notaLimpia },
+      });
+      return reply.status(201).send({ ok: true });
+    } catch (e) {
+      if ((e as { code?: string }).code === "P2002") {
+        return reply.status(409).send({ error: "La caja de ese día ya está cerrada" });
+      }
+      throw e;
+    }
   });
 }

@@ -30,7 +30,9 @@ export type AuditResourceType =
   | "Clinic"
   // Invitación a un profesional y la cuenta que crea al aceptarla (MOL-54).
   | "InvitacionProfesional"
-  | "PartnerUser";
+  | "PartnerUser"
+  // Cierre de caja del día (MOL-58): quién cerró, con cuánto y la diferencia.
+  | "CierreCaja";
 
 interface AuditInput {
   req:            FastifyRequest;

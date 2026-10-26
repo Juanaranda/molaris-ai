@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Badge, Button, Card } from "@/components/ui";
+import { Badge, Button, Card, Tabs } from "@/components/ui";
+import { CajaDelDia } from "@/components/finanzas/CajaDelDia";
 import { fmtCLP } from "@/components/pacientes/formato";
 import { cx } from "@/lib/cx";
 import {
@@ -9,11 +10,23 @@ import {
 } from "@/lib/finanzas";
 
 /**
- * Finanzas (MOL-58): lo que produjo la clínica y cada profesional en el mes.
- * Es la base de las liquidaciones, que llegan cuando esté definido cómo paga
- * cada clínica (MOL-59).
+ * Finanzas (MOL-58): la producción del mes y la caja del día. Las
+ * liquidaciones llegan cuando esté definido cómo paga cada clínica (MOL-59).
  */
 export function FinanzasTab() {
+  const [vista, setVista] = useState<"produccion" | "caja">("produccion");
+  return (
+    <div className="flex flex-col gap-4">
+      <h2 className="text-xl font-bold text-brand-strong">Finanzas</h2>
+      <Tabs label="Finanzas" value={vista} onChange={(v) => setVista(v as "produccion" | "caja")}
+        items={[{ id: "produccion", label: "Producción del mes" }, { id: "caja", label: "Caja del día" }]} />
+      {vista === "produccion" ? <ProduccionDelMes /> : <CajaDelDia />}
+    </div>
+  );
+}
+
+/** Lo que produjo la clínica y cada profesional en el mes: la base de las liquidaciones. */
+function ProduccionDelMes() {
   const hoy = new Date();
   const [periodo, setPeriodo] = useState({ anio: hoy.getFullYear(), mes: hoy.getMonth() });
   const [datos, setDatos] = useState<Produccion | null>(null);
@@ -41,10 +54,7 @@ export function FinanzasTab() {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-brand-strong">Finanzas</h2>
-          <p className="text-[13px] text-ink-muted">Lo que se atendió, cobró y pagó en el mes, en total y por profesional.</p>
-        </div>
+        <p className="text-[13px] text-ink-muted">Lo que se atendió, cobró y pagó en el mes, en total y por profesional.</p>
         <div className="flex items-center gap-1" role="group" aria-label="Mes">
           <Button variant="secondary" size="sm" onClick={() => mover(-1)} aria-label="Mes anterior">‹</Button>
           <span className="min-w-36 text-center text-sm font-bold text-ink tabular-nums" aria-live="polite">{nombreMes}</span>

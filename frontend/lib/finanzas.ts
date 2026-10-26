@@ -61,3 +61,75 @@ export async function getProduccion(desde: string, hasta: string): Promise<Produ
   if (!res.ok) throw new Error(data.error ?? "No pudimos cargar las finanzas");
   return data;
 }
+
+/* ── Caja del día ───────────────────────────────────────────────────────── */
+
+export type Medio = "cash" | "transfer" | "card" | "other" | "mercadopago";
+export const MEDIOS: Medio[] = ["cash", "transfer", "card", "mercadopago", "other"];
+export const NOMBRE_MEDIO: Record<Medio, string> = {
+  cash: "Efectivo", transfer: "Transferencia", card: "Tarjeta", mercadopago: "Mercado Pago", other: "Otro",
+};
+export const NOMBRE_ORIGEN: Record<string, string> = {
+  cita: "Pago en cita", plan: "Abono a plan", abono: "Abono", mercadopago: "Pago en línea",
+};
+
+export interface ResumenCaja { porMedio: Record<Medio, number>; total: number; cantidad: number }
+
+export interface MovimientoCaja {
+  id: string; fecha: string; monto: number; medio: Medio; origen: string;
+  patientName: string | null; patientRut: string | null; doctor: string | null;
+  /** null si llegó solo (Mercado Pago). */
+  registradoPor: string | null;
+}
+
+export interface Caja {
+  dia: string;
+  resumen: ResumenCaja;
+  movimientos: MovimientoCaja[];
+  cierre: {
+    cerradoEn: string; cerradoPor: string | null; esperado: Record<Medio, number> & { total: number };
+    efectivoContado: number; diferencia: number; nota: string | null;
+  } | null;
+  despuesDelCierre: ResumenCaja | null;
+}
+
+/** "AAAA-MM-DD" del día local (el navegador está en Chile). */
+export function diaLocal(fecha = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${fecha.getFullYear()}-${pad(fecha.getMonth() + 1)}-${pad(fecha.getDate())}`;
+}
+
+/** Mueve un día "AAAA-MM-DD" hacia adelante o atrás. */
+export function moverDia(dia: string, delta: number): string {
+  const [a, m, d] = dia.split("-").map(Number);
+  return diaLocal(new Date(a, m - 1, d + delta));
+}
+
+export function nombreDelDia(dia: string): string {
+  const [a, m, d] = dia.split("-").map(Number);
+  const t = new Date(a, m - 1, d).toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
+  return t[0].toUpperCase() + t.slice(1);
+}
+
+/** "Faltan $2.000" / "Sobran $500" / "Cuadra" para la diferencia del cierre. */
+export function textoDiferencia(diferencia: number, fmt: (n: number) => string): string {
+  if (diferencia === 0) return "Cuadra";
+  return diferencia < 0 ? `Faltan ${fmt(-diferencia)}` : `Sobran ${fmt(diferencia)}`;
+}
+
+export async function getCaja(dia: string): Promise<Caja> {
+  const res = await fetch(`${API}/api/finanzas/caja?dia=${dia}`, { headers: { Authorization: `Bearer ${getToken()}` } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? "No pudimos cargar la caja");
+  return data;
+}
+
+export async function cerrarCaja(dia: string, efectivoContado: number, nota: string): Promise<void> {
+  const res = await fetch(`${API}/api/finanzas/caja/cierre`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+    body: JSON.stringify({ dia, efectivoContado, nota }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? "No pudimos cerrar la caja");
+}

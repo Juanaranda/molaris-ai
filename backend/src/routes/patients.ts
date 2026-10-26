@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import Papa from "papaparse";
 import prisma from "../config/prisma";
+import { medioDePago } from "../services/finanzas/caja";
 import { verifyToken } from "./auth";
 import { verificacionPendiente, RESPUESTA_VERIFICACION_PENDIENTE } from "../services/auth/contactoVerificado";
 
@@ -426,12 +427,33 @@ export async function patientsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "El monto debe ser mayor a 0" });
     }
 
-    const entry = await prisma.accountEntry.create({
-      data: {
-        clinicId: payload.clinicId, patientRut: rut, kind: "payment",
-        amount, method: method ?? null, description: description ?? null,
-        bookingId: bookingId ?? null, createdBy: payload.userId,
-      },
+    const clinicId = payload.clinicId;
+    // Si el abono va ligado a una cita, solo si es de esta clínica.
+    const cita = typeof bookingId === "string" && bookingId
+      ? await prisma.booking.findFirst({
+          where: { id: bookingId, clinicId },
+          select: { id: true, patientName: true, doctorId: true, doctor: true },
+        })
+      : null;
+
+    // El abono y su movimiento de caja, juntos.
+    const entry = await prisma.$transaction(async (tx) => {
+      const e = await tx.accountEntry.create({
+        data: {
+          clinicId, patientRut: rut, kind: "payment",
+          amount, method: method ?? null, description: description ?? null,
+          bookingId: cita?.id ?? null, createdBy: payload.userId,
+        },
+      });
+      await tx.movimientoCaja.create({
+        data: {
+          clinicId, monto: amount, origen: "abono", medio: medioDePago(method),
+          accountEntryId: e.id, bookingId: cita?.id ?? null, patientRut: rut,
+          patientName: cita?.patientName ?? null, doctorId: cita?.doctorId ?? null, doctor: cita?.doctor ?? null,
+          registradoPor: payload.userId,
+        },
+      });
+      return e;
     });
     return reply.status(201).send({ ok: true, entry });
   });
