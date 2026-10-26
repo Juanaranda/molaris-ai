@@ -10,6 +10,7 @@ import { BookingsTab } from "@/components/BookingsTab";
 import { SetupChecklist } from "@/components/SetupChecklist";
 import { AgendaTab } from "@/components/AgendaTab";
 import { PatientsTab } from "@/components/PatientsTab";
+import { FinanzasTab } from "@/components/FinanzasTab";
 import { DashboardTab } from "@/components/DashboardTab";
 import { ClinicProfileTab } from "@/components/ClinicProfileTab";
 import { MyProfileTab } from "@/components/MyProfileTab";
@@ -315,6 +316,9 @@ export default function PartnersDashboard() {
                 />
               </div>
             )}
+
+            {/* ══ TAB FINANZAS (MOL-58) ═══════════════════════════════════════ */}
+            {activeTab === "finanzas" && user && user.role !== "USER" && <FinanzasTab />}
 
             {/* ══ TAB PACIENTES ══════════════════════════════════════════════ */}
             {activeTab === "patients" && (

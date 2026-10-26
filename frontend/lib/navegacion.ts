@@ -35,6 +35,9 @@ export function seccionesDelPanel({ rol, tipoCuenta }: {
     { id: "bookings", label: "Citas" },
     { id: "conversaciones", label: "Conversaciones", corto: "Mensajes" },
     { id: "analytics", label: "Analítica" },
+    // Lo que ganó la clínica y cada profesional (MOL-58). Por ahora solo el
+    // admin; cada profesional verá lo suyo cuando lleguen las liquidaciones.
+    ...(rol && rol !== "USER" ? [{ id: "finanzas" as Tab, label: "Finanzas" }] : []),
     // Modo solo (#69): un doctor independiente no tiene equipo ni inventario de clínica.
     ...(!solo ? [{ id: "inventario" as Tab, label: "Inventario" }] : []),
     ...(rol && rol !== "USER" && !solo ? [{ id: "equipo" as Tab, label: "Equipo" }] : []),
