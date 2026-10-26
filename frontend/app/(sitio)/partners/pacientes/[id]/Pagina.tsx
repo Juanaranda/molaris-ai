@@ -31,28 +31,28 @@ export default function PatientPage() {
 
   if (!patientId) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F0EDE8]">
-        <p className="text-sm text-gray-400">Cargando…</p>
+      <div className="min-h-screen flex items-center justify-center bg-ground">
+        <p className="text-sm text-ink-muted">Cargando…</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F0EDE8]">
-      <header className="bg-white/80 backdrop-blur border-b border-[#E5E0D9] sticky top-0 z-40">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
+    <div className="min-h-screen bg-ground">
+      <header className="sticky top-0 z-40 border-b border-line bg-surface">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-2 flex items-center gap-3">
           {/* Botón de volver, no una flecha suelta: el "←" pegado al texto se
               leía como parte del nombre de la sección. */}
           <Link href="/partners/dashboard"
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-600 hover:text-[#1A5C7A] border border-[#E5E0D9] hover:border-[#1A5C7A] bg-white rounded-xl px-3 py-1.5 transition">
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-line bg-surface px-3 text-sm font-semibold text-brand-strong transition-colors hover:border-brand hover:text-brand focus-visible:outline-2 focus-visible:outline-brand sm:min-h-9">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2}
               strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 shrink-0">
               <path d="M15 18l-6-6 6-6" />
             </svg>
             Volver
           </Link>
-          <span className="text-gray-300">/</span>
-          <span className="text-sm text-gray-500">Ficha clínica</span>
+          <span className="text-line" aria-hidden>/</span>
+          <span className="text-sm text-ink-muted">Ficha clínica</span>
         </div>
       </header>
 

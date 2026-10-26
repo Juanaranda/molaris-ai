@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ToothProjection, DentalSurface } from "@/lib/odontogram";
 import { ToothSurfaceChart } from "@/components/ToothSurfaceChart";
 import { ToothFrontView } from "@/components/ToothFrontView";
 import { toothTypeOf, isUpperFdi, getArchRows, type DentitionType } from "@/lib/tooth";
-import { CONDITION_TO_STATE, surfacePaintFor, conditionLabel } from "@/lib/odontogramPaint";
+import { CONDITION_TO_STATE, STATE_META, surfacePaintFor, conditionLabel, resumenHallazgos } from "@/lib/odontogramPaint";
 import { Check } from "lucide-react";
 
 /**
@@ -36,12 +36,14 @@ interface ConditionSummary {
 
 type StateKey = "pending" | "treated" | "prosthetic" | "extracted" | "healthy";
 
+// Los colores salen de STATE_META: el mismo criterio en el diagrama, la
+// leyenda y la tabla.
 const STATE_STYLE: Record<StateKey, { cellBg: string; accent: string; ring: string; symbol?: string }> = {
-  healthy:    { cellBg: "bg-white",        accent: "bg-emerald-400",  ring: "border-gray-200" },
-  pending:    { cellBg: "bg-red-50",       accent: "bg-red-500",      ring: "border-red-200" },
-  treated:    { cellBg: "bg-blue-50",      accent: "bg-blue-500",     ring: "border-blue-200" },
-  prosthetic: { cellBg: "bg-violet-50",    accent: "bg-violet-500",   ring: "border-violet-200", symbol: "⌒" },
-  extracted:  { cellBg: "bg-gray-100",     accent: "bg-gray-400",     ring: "border-gray-200", symbol: "✕" },
+  healthy:    { cellBg: "bg-white",                         accent: "",                         ring: "border-line" },
+  pending:    { cellBg: STATE_META.pending.bgSoft,          accent: STATE_META.pending.dot,     ring: "border-clinical-pending/30" },
+  treated:    { cellBg: STATE_META.treated.bgSoft,          accent: STATE_META.treated.dot,     ring: "border-clinical-treated/30" },
+  prosthetic: { cellBg: STATE_META.prosthetic.bgSoft,       accent: STATE_META.prosthetic.dot,  ring: "border-clinical-prosthetic/30", symbol: "⌒" },
+  extracted:  { cellBg: STATE_META.extracted.bgSoft,        accent: STATE_META.extracted.dot,   ring: "border-line", symbol: "✕" },
 };
 
 function summarize(proj: ToothProjection | undefined): { state: StateKey; meta: ConditionSummary } {
@@ -185,34 +187,34 @@ export function StandardOdontogram({
       {/* Toolbar (oculta si el padre controla la vista) */}
       {showInternalToolbar && (
         <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mr-1.5">Vista:</span>
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted mr-1.5">Vista:</span>
             {(["all", "upper", "lower"] as ArchView[]).map((v) => (
-              <button key={v} onClick={() => setView(v)}
-                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition ${
+              <button key={v} onClick={() => setView(v)} aria-pressed={view === v}
+                className={`min-h-9 px-3 text-xs font-bold rounded-lg border transition ${
                   view === v
-                    ? "bg-[#1A5C7A] text-white border-[#1A5C7A]"
-                    : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                    ? "bg-brand text-white border-brand"
+                    : "bg-white text-ink-muted border-line hover:border-brand hover:text-brand"
                 }`}>
                 {v === "all" ? "Completa" : v === "upper" ? "Maxilar" : "Mandíbula"}
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mr-1.5">Dentición:</span>
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted mr-1.5">Dentición:</span>
             {(["definitiva", "mixta", "temporal"] as DentitionType[]).map((d) => (
-              <button key={d} onClick={() => changeDentition(d)}
-                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition ${
+              <button key={d} onClick={() => changeDentition(d)} aria-pressed={dentition === d}
+                className={`min-h-9 px-3 text-xs font-bold rounded-lg border transition ${
                   dentition === d
-                    ? "bg-[#1A5C7A] text-white border-[#1A5C7A]"
-                    : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                    ? "bg-brand text-white border-brand"
+                    : "bg-white text-ink-muted border-line hover:border-brand hover:text-brand"
                 }`}>
                 {DENTITION_LABEL[d]}
               </button>
             ))}
           </div>
           {mode === "multi" && selectedSet.size > 0 && (
-            <span className="text-[11px] font-bold text-[#1A5C7A]">{selectedSet.size} seleccionados</span>
+            <span className="text-xs font-bold text-brand">{selectedSet.size} seleccionados</span>
           )}
         </div>
       )}
@@ -220,16 +222,16 @@ export function StandardOdontogram({
       {/* Atajos de selección — presupuestar 16 piezas de a una es inviable */}
       {quickGroups && onSetTeeth && (
         <div className="flex items-center gap-1.5 mb-3 flex-wrap">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mr-1">Selección rápida:</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted mr-1">Selección rápida:</span>
           {grupos.map((g) => (
             <button key={g.key} onClick={() => onSetTeeth(new Set(g.fdis))}
-              className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-gray-200 bg-white text-gray-500 hover:border-[#1A5C7A] hover:text-[#1A5C7A] transition">
+              className="min-h-9 px-3 text-xs font-bold rounded-lg border border-line bg-white text-ink-muted hover:border-brand hover:text-brand transition">
               {g.label}
             </button>
           ))}
           {selectedSet.size > 0 && (
             <button onClick={() => onSetTeeth(new Set())}
-              className="text-[11px] font-semibold text-gray-400 hover:text-gray-600 transition px-1.5">
+              className="min-h-9 text-xs font-semibold text-ink-muted hover:text-ink transition px-1.5">
               Limpiar
             </button>
           )}
@@ -257,13 +259,9 @@ export function StandardOdontogram({
             labelPosition="bottom"
           />
         )}
-        {view === "all" && (
-          <div className="my-3 flex items-center gap-2">
-            <span className="flex-1 h-px bg-gray-200" />
-            <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400">línea media</span>
-            <span className="flex-1 h-px bg-gray-200" />
-          </div>
-        )}
+        {/* Separa las arcadas (plano oclusal). La línea media es la vertical
+            entre cuadrantes, dibujada en cada fila. */}
+        {view === "all" && <div className="my-3 h-px bg-line" />}
         {(view === "all" || view === "lower") && (
           <ArchRow
             label="Arcada inferior"
@@ -285,13 +283,14 @@ export function StandardOdontogram({
         )}
       </div>
 
+      {/* Sin "Sano": ningún diente se pinta de ese color. Sin marca = sin hallazgos. */}
       {showLegend && (
-        <div className="flex flex-wrap gap-3 mt-3 text-[10px] text-gray-500 justify-center">
-          <LegendDot color="bg-red-500" label="Pendiente" />
-          <LegendDot color="bg-blue-500" label="Tratado" />
-          <LegendDot color="bg-violet-500" label="Prótesis" />
-          <LegendDot color="bg-gray-400" label="Extraído" />
-          <LegendDot color="bg-emerald-400" label="Sano" />
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs text-ink-muted justify-center">
+          <LegendDot color={STATE_META.pending.dot} label={STATE_META.pending.label} />
+          <LegendDot color={STATE_META.treated.dot} label={STATE_META.treated.label} />
+          <LegendDot color={STATE_META.prosthetic.dot} label={`${STATE_META.prosthetic.label} ⌒`} />
+          <LegendDot color={STATE_META.extracted.dot} label={`${STATE_META.extracted.label} ✕`} />
+          <span className="basis-full sm:basis-auto text-center">Sin marca: sin hallazgos</span>
         </div>
       )}
     </div>
@@ -320,17 +319,40 @@ function ArchRow({
   label, quadrants, teeth, selectedSet, missingFdis, highlightFdis, mode,
   onSelectTooth, onSelectSurface, onSelectWholeTooth, itemCounts, onToggleMissing, cellSize, labelPosition, anatomical,
 }: ArchRowProps) {
+  // La línea media (vertical entre cuadrantes) solo tiene sentido si los dos
+  // cuadrantes quedan en la misma fila; en pantallas angostas se apilan.
+  const filaRef = useRef<HTMLDivElement>(null);
+  const [enLinea, setEnLinea] = useState(true);
+  useLayoutEffect(() => {
+    const fila = filaRef.current;
+    if (!fila) return;
+    const medir = () => {
+      const [a, b] = fila.children as unknown as HTMLElement[];
+      setEnLinea(!a || !b || a.offsetTop === b.offsetTop);
+    };
+    medir();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(medir);
+    ro.observe(fila);
+    return () => ro.disconnect();
+  }, []);
+
   const labelEl = (
-    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 text-center">
+    <p className="text-[11px] font-bold uppercase tracking-wider text-ink-muted mb-1.5 text-center">
       {label}
     </p>
   );
   return (
     <div>
       {labelPosition === "top" && labelEl}
-      <div className="flex justify-center gap-3 flex-wrap">
+      {/* justify-center-safe: centrado mientras cabe; si la fila es más ancha
+          que la pantalla, arranca a la izquierda y se alcanza con scroll. Con
+          justify-center a secas, en el celular las piezas del borde (1.8,
+          4.8…) quedaban fuera de alcance. La línea vertical entre cuadrantes
+          es la línea media. */}
+      <div ref={filaRef} className="flex justify-center-safe gap-3 flex-wrap">
         {quadrants.map((quadrant, idx) => (
-          <div key={idx} className="flex gap-1">
+          <div key={idx} className={`flex gap-1 ${idx === 1 && enLinea ? "border-l-2 border-line pl-3" : ""}`}>
             {quadrant.map((fdi) => anatomical ? (
               <AnatomicalToothColumn key={fdi}
                 fdi={fdi}
@@ -362,7 +384,7 @@ function ArchRow({
         ))}
       </div>
       {labelPosition === "bottom" && (
-        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mt-1.5 text-center">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-ink-muted mt-1.5 text-center">
           {label}
         </p>
       )}
@@ -391,7 +413,7 @@ function ToothCell({ fdi, proj, isMissing, isSelected, isHighlighted, onSelect, 
   // El resaltado (pieza con prestación) solo aplica si no está seleccionada ni ausente
   const showHighlight = Boolean(isHighlighted) && !isSelected && !isMissing;
   const cellClass = isMissing
-    ? "bg-gray-100 border-gray-200"
+    ? `${STATE_META.extracted.bgSoft} border-line`
     : showHighlight
     ? "bg-emerald-50 border-emerald-400"
     : `${style.cellBg} ${style.ring}`;
@@ -405,18 +427,20 @@ function ToothCell({ fdi, proj, isMissing, isSelected, isHighlighted, onSelect, 
     <button
       onClick={onSelect}
       title={`Pieza ${fdi}\n${isMissing ? "Ausente" : meta.tooltip}`}
+      aria-label={etiquetaPieza(fdi, proj, isMissing)}
+      aria-pressed={isSelected}
       style={{ width: cellW, height: cellH }}
       className={`relative flex flex-col items-center rounded-md border-2 transition-all p-0.5
         ${cellClass}
         ${isSelected
-          ? "border-[#1A5C7A] ring-2 ring-[#1A5C7A]/30 shadow-md scale-105 z-10"
-          : "hover:border-gray-400 hover:shadow"}
+          ? "border-brand ring-2 ring-brand/30 shadow-md motion-safe:scale-105 z-10"
+          : "hover:border-ink-muted hover:shadow"}
       `}>
       {/* Número FDI — arriba en superiores, abajo en inferiores */}
       {isUpper && (
-        <span className={`text-[10px] font-bold leading-none ${
-          isMissing ? "text-gray-400 line-through" :
-          isSelected ? "text-[#1A5C7A]" : "text-gray-600"
+        <span className={`text-[11px] font-bold leading-none ${
+          isMissing ? "text-ink-muted line-through" :
+          isSelected ? "text-brand" : "text-ink"
         }`}>{fdi}</span>
       )}
 
@@ -432,10 +456,11 @@ function ToothCell({ fdi, proj, isMissing, isSelected, isHighlighted, onSelect, 
         />
         {/* Símbolo overlay (X de extracción, ⌒ corona) */}
         {symbol && (
-          <span className={`absolute inset-0 flex items-center justify-center text-2xl font-black pointer-events-none ${
-            isMissing ? "text-red-500" :
-            state === "prosthetic" ? "text-violet-700" :
-            "text-gray-700"
+          // ✕ en el color de "Extraído", no en rojo: el rojo es lo pendiente.
+          <span aria-hidden className={`absolute inset-0 flex items-center justify-center text-2xl font-black pointer-events-none ${
+            isMissing || state === "extracted" ? STATE_META.extracted.text :
+            state === "prosthetic" ? STATE_META.prosthetic.text :
+            "text-ink"
           }`} style={{ textShadow: "0 0 4px rgba(255,255,255,0.9)" }}>{symbol}</span>
         )}
         {/* Punto de estado si hay condición pero no símbolo */}
@@ -451,9 +476,9 @@ function ToothCell({ fdi, proj, isMissing, isSelected, isHighlighted, onSelect, 
       </div>
 
       {!isUpper && (
-        <span className={`text-[10px] font-bold leading-none ${
-          isMissing ? "text-gray-400 line-through" :
-          isSelected ? "text-[#1A5C7A]" : "text-gray-600"
+        <span className={`text-[11px] font-bold leading-none ${
+          isMissing ? "text-ink-muted line-through" :
+          isSelected ? "text-brand" : "text-ink"
         }`}>{fdi}</span>
       )}
     </button>
@@ -491,9 +516,9 @@ function AnatomicalToothColumn({
   const innerSize = Math.round(size * 0.62);
 
   const numberEl = (
-    <span className={`text-[10px] font-bold leading-none tabular-nums ${
-      extracted ? "text-gray-300 line-through" :
-      isSelected ? "text-[#1A5C7A]" : "text-gray-500"
+    <span className={`text-xs font-bold leading-none tabular-nums ${
+      extracted ? "text-ink-muted line-through" :
+      isSelected ? "text-brand" : "text-ink"
     }`}>
       {fdi[0]}.{fdi[1]}
     </span>
@@ -526,12 +551,13 @@ function AnatomicalToothColumn({
           tint={paint.wholeTooth}
         />
       </div>
+      {/* ✕ en el color de "Extraído", no en rojo: el rojo es lo pendiente. */}
       {extracted && (
-        <span className="absolute inset-0 flex items-center justify-center text-xl font-black text-red-500 pointer-events-none"
+        <span aria-hidden className={`absolute inset-0 flex items-center justify-center text-xl font-black pointer-events-none ${STATE_META.extracted.text}`}
           style={{ textShadow: "0 0 4px rgba(255,255,255,0.9)" }}>✕</span>
       )}
       {meta.symbol && !extracted && (
-        <span className="absolute inset-0 flex items-center justify-center text-lg font-black text-violet-700 pointer-events-none"
+        <span aria-hidden className={`absolute inset-0 flex items-center justify-center text-lg font-black pointer-events-none ${STATE_META.prosthetic.text}`}
           style={{ textShadow: "0 0 4px rgba(255,255,255,0.9)" }}>{meta.symbol}</span>
       )}
     </div>
@@ -541,13 +567,15 @@ function AnatomicalToothColumn({
     <button
       onClick={onSelect}
       title={`Pieza ${fdi}\n${extracted ? "Ausente" : meta.tooltip}`}
+      aria-label={etiquetaPieza(fdi, proj, extracted)}
+      aria-pressed={isSelected}
       style={{ width: size }}
       className={`relative flex flex-col items-center gap-1 py-1.5 px-0.5 rounded-xl border-2 transition-all ${
         isSelected
-          ? "border-[#1A5C7A] bg-[#1A5C7A]/5 ring-2 ring-[#1A5C7A]/25 shadow-md z-10"
+          ? "border-brand bg-brand-soft ring-2 ring-brand/25 shadow-md z-10"
           : showHighlight
           ? "border-emerald-400 bg-emerald-50"
-          : "border-transparent hover:border-gray-200 hover:bg-white hover:shadow-sm"
+          : "border-transparent hover:border-line hover:bg-white hover:shadow-sm"
       }`}>
       {/* Superior: diente → caras → número (número hacia la línea media) */}
       {isUpper ? (<>{toothEl}{chartEl}{numberEl}</>) : (<>{numberEl}{chartEl}{toothEl}</>)}
@@ -557,7 +585,7 @@ function AnatomicalToothColumn({
       )}
       {/* Prestaciones ya agregadas a esta pieza en el presupuesto */}
       {itemCount > 0 ? (
-        <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-[#2563EB] text-white text-[9px] font-black ring-2 ring-white pointer-events-none">
+        <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-brand-strong text-white text-[10px] font-black ring-2 ring-white pointer-events-none">
           {itemCount}
         </span>
       ) : showHighlight && (
@@ -565,6 +593,14 @@ function AnatomicalToothColumn({
       )}
     </button>
   );
+}
+
+/** Lo que anuncia el lector de pantalla: el número solo no dice qué tiene la pieza. */
+function etiquetaPieza(fdi: string, proj: ToothProjection | undefined, ausente: boolean): string {
+  const nombre = `Pieza ${fdi[0]}.${fdi[1]}`;
+  if (ausente) return `${nombre}: ausente`;
+  const resumen = resumenHallazgos(proj);
+  return resumen ? `${nombre}: ${resumen}` : `${nombre}: sin hallazgos`;
 }
 
 function LegendDot({ color, label }: { color: string; label: string }) {

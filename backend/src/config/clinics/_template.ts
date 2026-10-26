@@ -37,7 +37,7 @@ export const templateConfig = {
   // ── DOCTORES ───────────────────────────────────────────────────────
   doctors: [
     {
-      name: "Dr. Nombre Apellido",
+      name: "Nombre Apellido",     // sin "Dr." ni "Dra."
       specialty: "Odontología General",
       // workDays: 1=Lun, 2=Mar, 3=Mié, 4=Jue, 5=Vie, 6=Sáb
       workDays: [1, 2, 3, 4, 5],
@@ -48,7 +48,7 @@ export const templateConfig = {
       ],
     },
     {
-      name: "Dra. Nombre Apellido",
+      name: "Nombre Apellido",
       specialty: "Ortodoncia",
       workDays: [1, 3, 5],
       box: "Box 2",

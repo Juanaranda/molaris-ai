@@ -56,6 +56,11 @@
   --color-accent:       #D95F45;  /* coral: lo que espera respuesta */
   --color-accent-soft:  #FBEAE5;
   --color-accent-ink:   #9A3A25;  /* texto sobre accent-soft (4,5:1) */
+  /* Escalera de urgencia de la agenda: el mismo coral en tres tintes pálidos,
+     más intenso mientras menos falta para que una solicitud venza
+     (accent-50 → accent-soft → accent-200). accent-ink da 6,6:1 sobre el 200. */
+  --color-accent-50:    #FDF6F3;
+  --color-accent-200:   #F6D5CB;
 
   --color-ok:           #1F6B4B;
   --color-ok-soft:      #E7F3EC;
@@ -63,6 +68,19 @@
   --color-warn-soft:    #FFF4E0;
   --color-danger:       #B3261E;
   --color-danger-soft:  #FDECEA;
+
+  /* Estados clínicos del odontograma. Los mismos valores viven en
+     STATE_META (lib/odontogramPaint.ts), porque los SVG del diente necesitan
+     el hex; un test revisa que coincidan. Tratado es un azul distinto del
+     teal de la marca: el teal es selección, nunca el estado de una cara. */
+  --color-clinical-pending:         #B3261E;
+  --color-clinical-pending-soft:    #FDECEA;
+  --color-clinical-treated:         #1D4ED8;
+  --color-clinical-treated-soft:    #E8EEFC;
+  --color-clinical-prosthetic:      #6B3FA0;
+  --color-clinical-prosthetic-soft: #F1EBF8;
+  --color-clinical-absent:          #56656F;
+  --color-clinical-absent-soft:     #F0ECE6;
 
   /* Radios: controles (botones, campos) y contenedores (tarjetas). */
   --radius-control: 10px;

@@ -26,6 +26,13 @@ describe("seccionesDelPanel", () => {
     expect(s.find((x) => x.id === "clinica")?.label).toBe("Mi consulta");
   });
 
+  it("van por uso: lo de todos los días primero y el perfil propio al final", () => {
+    expect(seccionesDelPanel({ rol: "ADMIN", tipoCuenta: "clinic" }).map((s) => s.id)).toEqual([
+      "inicio", "agenda", "patients", "bookings", "conversaciones", "analytics",
+      "inventario", "equipo", "clinica", "config", "perfil",
+    ]);
+  });
+
   it("un usuario sin rol de admin no ve Equipo", () => {
     expect(seccionesDelPanel({ rol: "USER", tipoCuenta: "clinic" }).map((s) => s.id)).not.toContain("equipo");
   });

@@ -92,15 +92,75 @@ describe("projectTooth — resolución de estado activo", () => {
     expect(codes).toEqual(["corona", "implante"]);
   });
 
-  it("extracción gana: marca isExtracted y vacía activeConditions", () => {
+  it("extracción realizada gana: marca isExtracted y vacía activeConditions", () => {
     const events = [
-      mkEvent({ conditionCode: "extraccion", occurredAt: new Date("2026-05-20") }),
+      mkEvent({ conditionCode: "extraccion", occurredAt: new Date("2026-05-20"), eventType: "TREATMENT" }),
       mkEvent({ conditionCode: "caries",     occurredAt: new Date("2026-05-10") }),
     ];
     const proj = projectTooth("11", events);
     expect(proj.isExtracted).toBe(true);
     expect(proj.activeConditions).toEqual([]);
     expect(proj.events).toHaveLength(2);  // historial completo se mantiene
+  });
+
+  it("extracción indicada: la pieza sigue en boca, con sus otros hallazgos", () => {
+    const events = [
+      mkEvent({ conditionCode: "extraccion", occurredAt: new Date("2026-05-20"), eventType: "DIAGNOSIS" }),
+      mkEvent({ conditionCode: "caries",     occurredAt: new Date("2026-05-10"), surfaces: ["O"] }),
+    ];
+    const proj = projectTooth("11", events);
+    expect(proj.isExtracted).toBe(false);
+    expect(proj.activeConditions.map((c) => c.conditionCode)).toEqual(["extraccion", "caries"]);
+  });
+
+  it("extracción indicada y después realizada: queda extraída", () => {
+    const events = [
+      mkEvent({ conditionCode: "extraccion", occurredAt: new Date("2026-06-01"), eventType: "TREATMENT" }),
+      mkEvent({ conditionCode: "extraccion", occurredAt: new Date("2026-05-20"), eventType: "DIAGNOSIS" }),
+    ];
+    expect(projectTooth("11", events).isExtracted).toBe(true);
+  });
+
+  it("una pieza registrada como ausente queda como extraída", () => {
+    const proj = projectTooth("11", [mkEvent({ conditionCode: "ausente", occurredAt: new Date("2026-05-20") })]);
+    expect(proj.isExtracted).toBe(true);
+  });
+
+  it("una caries nueva en otra cara no tapa la anterior", () => {
+    const events = [
+      mkEvent({ id: "nueva",   conditionCode: "caries", occurredAt: new Date("2026-05-20"), surfaces: ["M"] }),
+      mkEvent({ id: "antigua", conditionCode: "caries", occurredAt: new Date("2026-05-10"), surfaces: ["O"] }),
+    ];
+    const proj = projectTooth("11", events);
+    expect(proj.activeConditions.map((c) => [c.eventId, c.surfaces])).toEqual([["nueva", ["M"]], ["antigua", ["O"]]]);
+  });
+
+  it("en la misma cara manda el registro más reciente, y el anterior conserva solo sus otras caras", () => {
+    const events = [
+      mkEvent({ id: "nueva",   conditionCode: "caries", occurredAt: new Date("2026-05-20"), surfaces: ["M"], severity: 5 }),
+      mkEvent({ id: "antigua", conditionCode: "caries", occurredAt: new Date("2026-05-10"), surfaces: ["O", "M"], severity: 2 }),
+    ];
+    const proj = projectTooth("11", events);
+    expect(proj.activeConditions.map((c) => [c.eventId, c.surfaces, c.severity])).toEqual([
+      ["nueva", ["M"], 5],
+      ["antigua", ["O"], 2],
+    ]);
+  });
+
+  it("un registro con todas sus caras reemplazadas deja de estar activo", () => {
+    const events = [
+      mkEvent({ id: "nueva",   conditionCode: "caries", occurredAt: new Date("2026-05-20"), surfaces: ["O", "M"] }),
+      mkEvent({ id: "antigua", conditionCode: "caries", occurredAt: new Date("2026-05-10"), surfaces: ["O"] }),
+    ];
+    expect(projectTooth("11", events).activeConditions.map((c) => c.eventId)).toEqual(["nueva"]);
+  });
+
+  it("lo de pieza completa se resuelve por condición: queda el más reciente", () => {
+    const events = [
+      mkEvent({ id: "nueva",   conditionCode: "movilidad", occurredAt: new Date("2026-05-20"), severity: 2 }),
+      mkEvent({ id: "antigua", conditionCode: "movilidad", occurredAt: new Date("2026-05-10"), severity: 1 }),
+    ];
+    expect(projectTooth("11", events).activeConditions.map((c) => c.eventId)).toEqual(["nueva"]);
   });
 
   it("'sano' más reciente limpia condiciones previas", () => {

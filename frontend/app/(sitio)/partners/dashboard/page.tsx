@@ -233,6 +233,7 @@ export default function PartnersDashboard() {
                 clinicId={clinic.id}
                 onNewBooking={() => { setAgendaAutoOpen(true); setActiveTab("agenda"); }}
                 onNewPatient={() => setActiveTab("patients")}
+                onVerAgenda={() => setActiveTab("agenda")}
               />
             )}
 

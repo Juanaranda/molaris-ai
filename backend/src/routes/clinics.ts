@@ -15,8 +15,10 @@ import { isValidRut, formatRut } from "../lib/rut";
 import { sendMolariEmail } from "../services/email/molariEmails";
 import { issueVerificationCode } from "../services/auth/emailVerification";
 import { clinicaSinSecretos } from "../lib/clinicaSinSecretos";
-import { validarRutsDoctores, protegerDatosDelProfesional } from "../lib/doctores";
+import { validarRutsDoctores, protegerDatosDelProfesional, sinPrefijo } from "../lib/doctores";
 import { validarAvisoClinica } from "../lib/avisoPrivacidad";
+import { validarPortada } from "../lib/portada";
+import { validarCampanaInactivos, validarEncuesta } from "../lib/mensajesAutomaticos";
 
 // Claves válidas dentro de Clinic.config. Evita inyectar JSON arbitrario, pero
 // debe cubrir TODO lo que escribe el frontend: si falta una, el PATCH completo
@@ -43,6 +45,12 @@ export const ALLOWED_CONFIG_KEYS = new Set([
   // Texto propio de la clínica antes del aviso de IA (MOL-11). Solo se suma
   // al aviso fijo, no lo reemplaza: ver lib/avisoPrivacidad.ts.
   "avisoIa",
+  // Color de la portada de "Mi clínica": una predefinida o "#RRGGBB" (lib/portada.ts).
+  "portada",
+  // Encuesta después de la cita y campaña a pacientes que no han vuelto, las
+  // escribe Configuración (lib/mensajesAutomaticos.ts). Faltaban: guardar
+  // cualquiera de las dos respondía 400 y no se guardaba nada.
+  "postApptSurvey", "recallCampaign",
 ]);
 
 // Tope de profesionales en cuentas "solo" (#69). Protege el pricing: evita que
@@ -78,7 +86,7 @@ export function construirDoctorSolo(datos: {
   phone?: string;
 }): DoctorSolo {
   return {
-    name: datos.adminName,
+    name: sinPrefijo(datos.adminName),
     specialty: datos.specialty?.trim() || "Odontología General",
     days: ["monday", "tuesday", "wednesday", "thursday", "friday"],
     phone: datos.whatsapp?.trim() || datos.phone?.trim() || undefined,
@@ -523,6 +531,25 @@ export async function clinicRoutes(app: FastifyInstance) {
         return reply.status(400).send({ error: `Claves de config no permitidas: ${unknownKeys.join(", ")}` });
       }
 
+      if ("postApptSurvey" in config) {
+        const encuesta = validarEncuesta(config.postApptSurvey);
+        if (!encuesta.ok) return reply.status(400).send({ error: encuesta.error });
+        config.postApptSurvey = encuesta.valor;
+      }
+
+      if ("recallCampaign" in config) {
+        const campana = validarCampanaInactivos(config.recallCampaign);
+        if (!campana.ok) return reply.status(400).send({ error: campana.error });
+        config.recallCampaign = campana.valor;
+      }
+
+      if ("portada" in config) {
+        const portada = validarPortada(config.portada);
+        if (!portada.ok) return reply.status(400).send({ error: portada.error });
+        if (portada.valor === undefined) delete config.portada;
+        else config.portada = portada.valor;
+      }
+
       if ("avisoIa" in config) {
         const aviso = validarAvisoClinica(config.avisoIa);
         if (!aviso.ok) return reply.status(400).send({ error: aviso.error });
@@ -827,7 +854,8 @@ export async function clinicRoutes(app: FastifyInstance) {
         },
         partnerUsers: {
           create: {
-            name: admin.name,
+            // Sin "Dr.": la agenda cruza este nombre con el del equipo.
+            name: sinPrefijo(admin.name),
             email: admin.email.toLowerCase().trim(),
             passwordHash,
             role: "ADMIN",
@@ -1135,7 +1163,7 @@ export async function clinicRoutes(app: FastifyInstance) {
     const created = await prisma.partnerUser.create({
       data: {
         clinicId: req.params.id,
-        name:     name.trim(),
+        name:     sinPrefijo(name),
         email:    normalizedEmail,
         passwordHash,
         mustChangePassword: true,

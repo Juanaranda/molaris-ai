@@ -87,14 +87,14 @@ export function ToothSurfaceChart({
 
   // stopPropagation: la celda entera es un botón que selecciona la pieza. Sin
   // esto, clickear una cara dispararía además la selección del diente.
+  // Las caras no se anuncian como botones: van dentro del botón de la pieza
+  // (un botón dentro de otro confunde al lector de pantalla). Con teclado se
+  // elige la pieza y las caras se marcan en la rueda del registro.
   const zonaProps = (s: DentalSurface) =>
     clicable
       ? {
           onClick: (e: React.MouseEvent) => { e.stopPropagation(); onSurfaceClick!(s); },
           style: { cursor: "pointer" },
-          role: "button" as const,
-          tabIndex: -1,
-          "aria-label": `Cara ${s} de la pieza ${fdi}`,
         }
       : {};
 
@@ -107,7 +107,7 @@ export function ToothSurfaceChart({
   return (
     <svg viewBox="-1 -1 62 62" width={size} height={size} className={className}
       style={{ display: "block", opacity: isMissing ? 0.45 : 1 }}
-      aria-hidden={!clicable}>
+      aria-hidden>
       <path d={ZONE_PATHS.top}    fill={fillOf(layout.top)}    stroke={STROKE} strokeWidth={sw} strokeLinejoin="round" {...zonaProps(layout.top)} />
       <path d={ZONE_PATHS.right}  fill={fillOf(layout.right)}  stroke={STROKE} strokeWidth={sw} strokeLinejoin="round" {...zonaProps(layout.right)} />
       <path d={ZONE_PATHS.bottom} fill={fillOf(layout.bottom)} stroke={STROKE} strokeWidth={sw} strokeLinejoin="round" {...zonaProps(layout.bottom)} />

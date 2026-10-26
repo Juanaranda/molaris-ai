@@ -12,9 +12,9 @@ import { construirDoctorSolo } from "../routes/clinics";
 describe("construirDoctorSolo", () => {
   const BASE = { adminName: "Dr. Juan Garcés", adminEmail: "juan@consulta.cl" };
 
-  it("se registra a sí mismo como el único profesional", () => {
+  it("se registra a sí mismo como el único profesional, sin el \"Dr.\" en el nombre", () => {
     const doc = construirDoctorSolo({ ...BASE, specialty: "Endodoncia" });
-    expect(doc.name).toBe("Dr. Juan Garcés");
+    expect(doc.name).toBe("Juan Garcés");
     expect(doc.specialty).toBe("Endodoncia");
   });
 

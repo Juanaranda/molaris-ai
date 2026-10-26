@@ -4,13 +4,40 @@ import { useEffect, useState } from "react";
 import { getToken, updateClinic, type ClinicData } from "@/lib/auth";
 import { RecallSection } from "@/components/RecallSection";
 import { AuditLogSection } from "@/components/AuditLogSection";
-import { InfoField } from "./widgets";
+import { Badge, Button, Dialogo, Field, Interruptor, Select } from "@/components/ui";
+import { AYUDA_VARIABLES, Dato, Seccion, VistaPreviaWhatsApp } from "@/components/configuracion/Piezas";
+import { cx } from "@/lib/cx";
 import type { ClinicConfig, RecallConfig, ReminderConfig, SurveyConfig } from "./types";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 const DEFAULT_RECALL_MSG =
   "Hola {nombre}, te echamos de menos en {clinica}. ¿Qué tal si agendamos tu próximo control?";
+/** El valor se manda tal cual al asistente; la etiqueta es lo que lee la clínica. */
+const TONOS = [
+  { valor: "profesional pero cercano, lenguaje chileno natural", etiqueta: "Profesional y cercano (recomendado)" },
+  { valor: "muy amigable y cálido, tutea al paciente, usa expresiones coloquiales chilenas", etiqueta: "Amigable y cálido" },
+  { valor: "formal y técnico, trata de usted, lenguaje clínico preciso", etiqueta: "Formal y técnico" },
+  { valor: "empático y tranquilizador, prioriza que el paciente se sienta escuchado y sin miedo", etiqueta: "Empático y tranquilizador" },
+];
+
+const SECCIONES = [
+  { id: "asistente", titulo: "Asistente de IA" },
+  { id: "recordatorios", titulo: "Recordatorios de cita" },
+  { id: "encuesta", titulo: "Encuesta después de la cita" },
+  { id: "inactivos", titulo: "Pacientes que no han vuelto" },
+  { id: "controles", titulo: "Controles por tratamiento" },
+  { id: "whatsapp", titulo: "Conexión con WhatsApp" },
+  { id: "accesos", titulo: "Registro de accesos" },
+];
+
+function textoHoras(h: number): string {
+  if (h === 1) return "1 hora";
+  if (h < 24) return `${h} horas`;
+  if (h === 24) return "1 día";
+  return `${Math.round(h / 24 * 10) / 10} días`;
+}
+
 const DEFAULT_SURVEY_MSG =
   "Hola {nombre}, ¿cómo fue tu visita a {clinica}? Tu opinión nos ayuda a mejorar. ¿Nos dejarías una reseña? ⭐";
 
@@ -44,6 +71,8 @@ export function ConfigTab({ clinic, canEdit, onClinicUpdated }: {
   const [recallMsg, setRecallMsg] = useState("");
   const [recallTriggering, setRecallTriggering] = useState(false);
   const [recallEditing, setRecallEditing] = useState(false);
+  const [confirmarRecall, setConfirmarRecall] = useState(false);
+  const [copiado, setCopiado] = useState(false);
 
   const [surveyForm, setSurveyForm] = useState<SurveyConfig>({ enabled: false, hoursAfter: 2, message: DEFAULT_SURVEY_MSG });
   const [surveySaving, setSurveySaving] = useState(false);
@@ -102,7 +131,6 @@ export function ConfigTab({ clinic, canEdit, onClinicUpdated }: {
   // padre la actualiza.
   useEffect(() => {
     syncForm(clinic); syncRemForm(clinic); syncRecallForm(clinic); syncSurveyForm(clinic);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clinic]);
 
   async function guardar(parcial: Partial<ClinicConfig>, setMsg: (m: string) => void, setSaving: (b: boolean) => void, setEditing: (b: boolean) => void) {
@@ -123,6 +151,7 @@ export function ConfigTab({ clinic, canEdit, onClinicUpdated }: {
 
   /** Corrida manual de la campaña, desde el botón "Ejecutar ahora". */
   async function triggerRecall() {
+    setConfirmarRecall(false);
     setRecallTriggering(true);
     try {
       const r = await fetch(`${API}/api/clinics/${clinic.id}/recall/run`, {
@@ -131,322 +160,207 @@ export function ConfigTab({ clinic, canEdit, onClinicUpdated }: {
         body: JSON.stringify({ daysInactive: recallForm.daysInactive, message: recallForm.message }),
       });
       const data = await r.json();
-      setRecallMsg(`Enviado a ${data.sent} de ${data.total} pacientes inactivos.`);
+      // Sin esto, un error del servidor se leía "Enviado a undefined de undefined".
+      if (!r.ok) throw new Error();
+      setRecallMsg(`Enviado a ${data.sent} de ${data.total} pacientes que no han vuelto.`);
       setTimeout(() => setRecallMsg(""), 6000);
-    } catch { setRecallMsg("Error al ejecutar campaña"); }
+    } catch { setRecallMsg("No pudimos mandar los mensajes. Inténtalo de nuevo."); }
     finally { setRecallTriggering(false); }
   }
 
+  const tono = TONOS.find((t) => t.valor === form.tone);
+  const urlWebhook = `${typeof window !== "undefined" ? window.location.origin : "https://tu-dominio.com"}/api/webhooks/whatsapp/${clinic.slug}`;
+  const editarRem = remEditing && canEdit;
+
+  async function copiarWebhook() {
+    try {
+      await navigator.clipboard.writeText(urlWebhook);
+      setCopiado(true); setTimeout(() => setCopiado(false), 2500);
+    } catch { /* sin permiso de portapapeles: la dirección igual se puede seleccionar */ }
+  }
+
   return (
-  <div className="flex flex-col gap-6">
-    {/* Asistente IA */}
-    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h2 className="font-semibold text-gray-900">Asistente IA</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Personalidad y tono del chatbot de tu clínica</p>
-        </div>
-        {canEdit && !editing && <button onClick={() => setEditing(true)} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Editar</button>}
-        {canEdit && editing && (
-          <div className="flex gap-3">
-            <button onClick={() => { setEditing(false); syncForm(clinic); }} className="text-sm text-gray-500">Cancelar</button>
-            <button onClick={saveBasicInfo} disabled={saving}
-              className="text-sm bg-blue-600 text-white font-medium px-4 py-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">
-              {saving ? "Guardando..." : "Guardar"}
-            </button>
-          </div>
-        )}
-      </div>
-      {saveMsg && <p className={`text-xs mb-4 ${saveMsg === "Guardado" ? "text-green-600" : "text-red-600"}`}>{saveMsg}</p>}
-      <div className="flex flex-col gap-5">
-        <InfoField label="Nombre del asistente" value={form.assistantName} editable={editing} placeholder="Ej: Gala, Aria, Luna..." onChange={(v) => setForm((f) => ({ ...f, assistantName: v }))} />
-        <div>
-          <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Tono del asistente</label>
+  <div className="flex flex-col gap-5">
+    <div>
+      <h2 className="text-2xl font-bold text-brand-strong">Configuración</h2>
+      <p className="text-sm text-ink-muted">El asistente, los mensajes por WhatsApp y el registro de accesos de tu clínica.</p>
+    </div>
+
+    <div className="grid gap-5 lg:grid-cols-[200px_minmax(0,1fr)] lg:items-start">
+      {/* Índice: la página es larga y cada bloque es independiente */}
+      <nav aria-label="Secciones de configuración" className="hidden lg:sticky lg:top-24 lg:block">
+        <ul className="flex flex-col gap-0.5 border-l border-line">
+          {SECCIONES.filter((s) => canEdit || (s.id !== "controles" && s.id !== "accesos")).map((s) => (
+            <li key={s.id}>
+              <a href={`#${s.id}`} className="-ml-px block border-l-2 border-transparent py-1.5 pl-3 text-[13px] text-ink-muted hover:border-brand hover:text-brand">
+                {s.titulo}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      <div className="flex min-w-0 flex-col gap-5">
+        {/* ── Asistente ── */}
+        <Seccion id="asistente" titulo="Asistente de IA"
+          descripcion="Cómo se llama y cómo les habla a tus pacientes en el chat y en WhatsApp."
+          mensaje={saveMsg}
+          edicion={{ puede: canEdit, editando: editing, guardando: saving,
+            onEditar: () => setEditing(true), onCancelar: () => { setEditing(false); syncForm(clinic); }, onGuardar: saveBasicInfo }}>
           {editing ? (
-            <select value={form.tone} onChange={(e) => setForm((f) => ({ ...f, tone: e.target.value }))}
-              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
-              <option value="">Seleccionar tono...</option>
-              <option value="profesional pero cercano, lenguaje chileno natural">Profesional y cercano (recomendado)</option>
-              <option value="muy amigable y cálido, tutea al paciente, usa expresiones coloquiales chilenas">Amigable y cálido</option>
-              <option value="formal y técnico, trata de usted, lenguaje clínico preciso">Formal y técnico</option>
-              <option value="empático y tranquilizador, prioriza que el paciente se sienta escuchado y sin miedo">Empático y tranquilizador</option>
-            </select>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Nombre del asistente" value={form.assistantName} placeholder="Por ejemplo: Gala, Aria o Luna"
+                autoComplete="off" onChange={(e) => setForm((f) => ({ ...f, assistantName: e.target.value }))} />
+              <Select label="Tono" value={form.tone} onChange={(e) => setForm((f) => ({ ...f, tone: e.target.value }))}>
+                <option value="">Elige un tono</option>
+                {TONOS.map((t) => <option key={t.valor} value={t.valor}>{t.etiqueta}</option>)}
+                {form.tone && !tono && <option value={form.tone}>{form.tone}</option>}
+              </Select>
+            </div>
           ) : (
-            <p className="text-sm text-gray-800">{form.tone || "—"}</p>
+            <dl className="grid gap-4 sm:grid-cols-3">
+              <Dato etiqueta="Nombre del asistente">{form.assistantName || <span className="font-normal text-ink-muted">Sin nombre</span>}</Dato>
+              <Dato etiqueta="Tono">{tono?.etiqueta ?? (form.tone || <span className="font-normal text-ink-muted">Sin elegir</span>)}</Dato>
+              <Dato etiqueta="Plan"><Badge tone="brand" className="capitalize">{clinic.plan}</Badge></Dato>
+            </dl>
           )}
-        </div>
-        <div className="pt-2 border-t border-gray-50 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-gray-500">Plan actual</p>
-            <span className="inline-block mt-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 capitalize">{clinic.plan}</span>
+          <div className="mt-4 border-t border-line-soft pt-4">
+            <a href="/partners/preview" target="_blank" rel="noopener"
+              className="inline-flex min-h-11 items-center rounded-control border border-line px-4 text-sm font-semibold text-brand-strong transition-colors hover:border-brand hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+              Probar el asistente <span className="sr-only">(se abre en otra pestaña)</span>
+            </a>
           </div>
-          <a href="/partners/preview" target="_blank"
-            className="text-xs font-semibold px-4 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
-            Probar asistente
-          </a>
-        </div>
-      </div>
-    </section>
+        </Seccion>
 
-    {/* Recordatorios automáticos */}
-    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="font-semibold text-gray-900">Recordatorios automáticos</h2>
-        <div className="flex items-center gap-3">
-          {remMsg && <span className={`text-xs ${remMsg === "Guardado" ? "text-green-600" : "text-red-600"}`}>{remMsg}</span>}
-          {canEdit && !remEditing && <button onClick={() => setRemEditing(true)} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Editar</button>}
-          {canEdit && remEditing && (
-            <div className="flex gap-3">
-              <button onClick={() => { setRemEditing(false); if (clinic) syncRemForm(clinic); }} className="text-sm text-gray-500">Cancelar</button>
-              <button onClick={saveReminders} disabled={remSaving}
-                className="text-sm bg-blue-600 text-white font-medium px-4 py-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">
-                {remSaving ? "Guardando..." : "Guardar"}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-      <p className="text-xs text-gray-400 mb-4">Se envían por WhatsApp al paciente si tiene número registrado.</p>
-      <div className="flex flex-col gap-3">
-        {/* Parent toggle */}
-        {(() => {
-          const canToggle = remEditing && canEdit;
-          return (
-            <label className={`flex items-center justify-between gap-4 p-3 rounded-xl border transition-colors ${canToggle ? "cursor-pointer hover:bg-gray-50" : "opacity-70 cursor-default"}`}
-              style={{ borderColor: "#f1f5f9" }}>
-              <div>
-                <p className="text-sm font-medium text-gray-800">Recordatorios activos</p>
-                <p className="text-xs text-gray-400">Habilita o deshabilita todos los recordatorios</p>
-              </div>
-              <div onClick={() => canToggle && setRemForm((f) => ({ ...f, enabled: !f.enabled }))}
-                className={`w-10 h-6 rounded-full relative transition-colors ${remForm.enabled ? "bg-blue-600" : "bg-gray-200"}`}>
-                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${remForm.enabled ? "translate-x-5" : "translate-x-1"}`} />
-              </div>
-            </label>
-          );
-        })()}
-        {/* Child toggles — indented and disabled when parent is off */}
-        <div className={`flex flex-col gap-2 pl-4 border-l-2 transition-opacity ${remForm.enabled ? "opacity-100" : "opacity-40 pointer-events-none"}`}
-          style={{ borderColor: "#e2e8f0" }}>
-          {[
-            { key: "dayBefore", label: "Recordatorio día anterior",   desc: "Avisa al paciente la noche antes de su cita" },
-            { key: "twoHours",  label: "Recordatorio 2 horas antes",  desc: "Avisa al paciente 2 horas antes de su cita" },
-          ].map(({ key, label, desc }) => {
-            const canToggle = remEditing && canEdit && remForm.enabled;
-            return (
-              <label key={key} className={`flex items-center justify-between gap-4 p-3 rounded-xl border transition-colors ${canToggle ? "cursor-pointer hover:bg-gray-50" : "cursor-default"}`}
-                style={{ borderColor: "#f1f5f9" }}>
-                <div>
-                  <p className="text-sm font-medium text-gray-800">{label}</p>
-                  <p className="text-xs text-gray-400">{desc}</p>
+        <h3 className="mt-2 text-sm font-bold text-ink-muted">Mensajes por WhatsApp</h3>
+
+        {/* ── Recordatorios ── */}
+        <Seccion id="recordatorios" titulo="Recordatorios de cita"
+          descripcion="Le llegan al paciente que tiene su celular registrado."
+          estado={{ activo: remForm.enabled, si: "Activos", no: "Apagados" }}
+          mensaje={remMsg}
+          edicion={{ puede: canEdit, editando: remEditing, guardando: remSaving,
+            onEditar: () => setRemEditing(true), onCancelar: () => { setRemEditing(false); syncRemForm(clinic); }, onGuardar: saveReminders }}>
+          <div className="flex flex-col gap-1">
+            <Interruptor label="Mandar recordatorios" description="Apágalo para no mandar ninguno."
+              checked={remForm.enabled} disabled={!editarRem}
+              onChange={(v) => setRemForm((f) => ({ ...f, enabled: v }))} />
+            <div className={cx("ml-3 flex flex-col gap-1 border-l-2 border-line-soft pl-2", !remForm.enabled && "opacity-50")}>
+              <Interruptor label="El día anterior" description="La noche antes de la cita."
+                checked={remForm.dayBefore} disabled={!editarRem || !remForm.enabled}
+                onChange={(v) => setRemForm((f) => ({ ...f, dayBefore: v }))} />
+              <Interruptor label="2 horas antes" description="El mismo día de la cita."
+                checked={remForm.twoHours} disabled={!editarRem || !remForm.enabled}
+                onChange={(v) => setRemForm((f) => ({ ...f, twoHours: v }))} />
+              <Interruptor label="Otro aviso" description="Con la anticipación que tú elijas."
+                checked={remForm.customEnabled} disabled={!editarRem || !remForm.enabled}
+                onChange={(v) => setRemForm((f) => ({ ...f, customEnabled: v }))} />
+              {remForm.customEnabled && (
+                <div className="flex items-end gap-3 px-3 pb-2">
+                  <Field label="Horas antes de la cita" type="number" inputMode="numeric" min={1} max={168} className="w-28"
+                    value={remForm.customHours} disabled={!editarRem || !remForm.enabled}
+                    onChange={(e) => setRemForm((f) => ({ ...f, customHours: Math.max(1, Number(e.target.value)) }))} />
+                  <p className="pb-3 text-[13px] text-ink-muted tabular-nums">{textoHoras(remForm.customHours)}</p>
                 </div>
-                <div onClick={() => canToggle && setRemForm((f) => ({ ...f, [key]: !f[key as keyof ReminderConfig] }))}
-                  className={`w-10 h-6 rounded-full relative transition-colors ${remForm[key as keyof ReminderConfig] ? "bg-blue-600" : "bg-gray-200"}`}>
-                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${remForm[key as keyof ReminderConfig] ? "translate-x-5" : "translate-x-1"}`} />
-                </div>
-              </label>
-            );
-          })}
-          {/* Configurable reminder */}
-          {(() => {
-            const canToggle = remEditing && canEdit && remForm.enabled;
-            return (
-              <div className={`p-3 rounded-xl border transition-colors ${canToggle ? "hover:bg-gray-50" : "cursor-default"}`}
-                style={{ borderColor: "#f1f5f9" }}>
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">Recordatorio configurable</p>
-                    <p className="text-xs text-gray-400">Envía un aviso un número específico de horas antes</p>
-                  </div>
-                  <div onClick={() => canToggle && setRemForm((f) => ({ ...f, customEnabled: !f.customEnabled }))}
-                    className={`w-10 h-6 rounded-full relative transition-colors shrink-0 ${remForm.customEnabled ? "bg-blue-600" : "bg-gray-200"} ${canToggle ? "cursor-pointer" : ""}`}>
-                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${remForm.customEnabled ? "translate-x-5" : "translate-x-1"}`} />
-                  </div>
-                </div>
-                {remForm.customEnabled && (
-                  <div className="mt-3 flex items-center gap-3">
-                    <label className="text-xs text-gray-500 shrink-0">Horas antes de la cita</label>
-                    <input
-                      type="number" min={1} max={168} value={remForm.customHours}
-                      disabled={!canToggle}
-                      onChange={(e) => setRemForm((f) => ({ ...f, customHours: Math.max(1, Number(e.target.value)) }))}
-                      className="w-24 px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
-                    />
-                    <span className="text-xs text-gray-400">
-                      {remForm.customHours === 1 ? "1 hora" : remForm.customHours < 24 ? `${remForm.customHours} horas` : remForm.customHours === 24 ? "1 día" : `${Math.round(remForm.customHours / 24 * 10) / 10} días`}
-                    </span>
-                  </div>
-                )}
+              )}
+            </div>
+          </div>
+        </Seccion>
+
+        {/* ── Encuesta ── */}
+        <Seccion id="encuesta" titulo="Encuesta después de la cita"
+          descripcion="Un WhatsApp después de la cita para pedir su opinión o una reseña en Google."
+          estado={{ activo: surveyForm.enabled }}
+          mensaje={surveyMsg}
+          edicion={{ puede: canEdit, editando: surveyEditing, guardando: surveySaving,
+            onEditar: () => setSurveyEditing(true), onCancelar: () => { setSurveyEditing(false); syncSurveyForm(clinic); }, onGuardar: saveSurvey }}>
+          <div className="flex flex-col gap-4">
+            <Interruptor label="Mandar la encuesta" checked={surveyForm.enabled} disabled={!surveyEditing}
+              onChange={(v) => setSurveyForm((f) => ({ ...f, enabled: v }))} />
+            <div className={cx("grid gap-4 lg:grid-cols-2", !surveyForm.enabled && "opacity-50")}>
+              <div className="flex flex-col gap-4">
+                <Field label="Horas después de la cita" type="number" inputMode="numeric" min={1} max={72} className="w-28"
+                  value={surveyForm.hoursAfter} disabled={!surveyEditing || !surveyForm.enabled}
+                  onChange={(e) => setSurveyForm((f) => ({ ...f, hoursAfter: Math.max(1, Number(e.target.value)) }))} />
+                <Field multiline label="Mensaje" hint={AYUDA_VARIABLES} rows={3} value={surveyForm.message}
+                  disabled={!surveyEditing || !surveyForm.enabled}
+                  onChange={(e) => setSurveyForm((f) => ({ ...f, message: e.target.value }))} />
               </div>
-            );
-          })()}
-        </div>
-      </div>
-    </section>
-
-    {/* Encuesta post-cita */}
-    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h2 className="font-semibold text-gray-900">Encuesta post-cita</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Mensaje automático por WhatsApp tras cada cita completada.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {surveyMsg && <span className={`text-xs ${surveyMsg === "Guardado" ? "text-green-600" : "text-red-600"}`}>{surveyMsg}</span>}
-          {canEdit && !surveyEditing && <button onClick={() => setSurveyEditing(true)} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Editar</button>}
-          {canEdit && surveyEditing && (
-            <div className="flex gap-3">
-              <button onClick={() => { setSurveyEditing(false); if (clinic) syncSurveyForm(clinic); }} className="text-sm text-gray-500">Cancelar</button>
-              <button onClick={saveSurvey} disabled={surveySaving}
-                className="text-sm bg-blue-600 text-white font-medium px-4 py-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">
-                {surveySaving ? "Guardando..." : "Guardar"}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Widget */}
-      <div className={`flex flex-col gap-4 transition-opacity ${!surveyEditing ? "opacity-70 pointer-events-none" : ""}`}>
-        {/* Activar / desactivar */}
-        <div className="flex items-center justify-between p-3 rounded-xl border" style={{ borderColor: "#f1f5f9" }}>
-          <div>
-            <p className="text-sm font-medium text-gray-800">Encuesta activa</p>
-            <p className="text-xs text-gray-400">Ideal para conseguir reseñas en Google.</p>
-          </div>
-          <div onClick={() => setSurveyForm((f) => ({ ...f, enabled: !f.enabled }))}
-            className={`w-10 h-6 rounded-full relative transition-colors shrink-0 cursor-pointer ${surveyForm.enabled ? "bg-blue-600" : "bg-gray-200"}`}>
-            <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${surveyForm.enabled ? "translate-x-5" : "translate-x-1"}`} />
-          </div>
-        </div>
-
-        <div className={`flex flex-col gap-4 transition-opacity ${surveyForm.enabled ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
-          {/* Horas después */}
-          <div className="flex items-center gap-4 p-3 rounded-xl border" style={{ borderColor: "#f1f5f9" }}>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-gray-800">Enviar</p>
-              <p className="text-xs text-gray-400">Horas después de terminada la cita</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <input type="number" min={1} max={72} value={surveyForm.hoursAfter}
-                onChange={(e) => setSurveyForm((f) => ({ ...f, hoursAfter: Math.max(1, Number(e.target.value)) }))}
-                className="w-16 px-2 py-1.5 rounded-lg border border-gray-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              <span className="text-xs text-gray-500">hrs</span>
+              <VistaPreviaWhatsApp mensaje={surveyForm.message} clinica={clinic.name}
+                pie={`${textoHoras(surveyForm.hoursAfter)} después de la cita`} />
             </div>
           </div>
+        </Seccion>
 
-          {/* Mensaje */}
-          <div>
-            <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
-              Mensaje — usa {"{nombre}"} y {"{clinica}"}
-            </label>
-            <textarea rows={3} value={surveyForm.message}
-              onChange={(e) => setSurveyForm((f) => ({ ...f, message: e.target.value }))}
-              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
-          </div>
-
-          {/* Preview burbuja WhatsApp */}
-          <div>
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Vista previa</p>
-            <div className="bg-[#ECE5DD] rounded-2xl p-4">
-              <div className="flex justify-end">
-                <div className="bg-[#DCF8C6] rounded-2xl rounded-tr-sm px-4 py-2.5 max-w-[85%] shadow-sm">
-                  <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">
-                    {surveyForm.message
-                      .replace("{nombre}", "María")
-                      .replace("{clinica}", clinic?.name ?? "Clínica")}
-                  </p>
-                  <p className="text-[10px] text-gray-400 text-right mt-1">
-                    {surveyForm.hoursAfter === 1 ? "1 hr después" : `${surveyForm.hoursAfter} hrs después`}
-                  </p>
-                </div>
+        {/* ── Pacientes que no han vuelto ── */}
+        <Seccion id="inactivos" titulo="Pacientes que no han vuelto"
+          descripcion="Un WhatsApp para quienes llevan un tiempo sin atenderse."
+          estado={{ activo: recallForm.enabled }}
+          mensaje={recallMsg} mensajeOk={recallMsg === "Guardado" || recallMsg.startsWith("Enviado")}
+          edicion={{ puede: canEdit, editando: recallEditing, guardando: recallSaving,
+            onEditar: () => setRecallEditing(true), onCancelar: () => { setRecallEditing(false); syncRecallForm(clinic); }, onGuardar: saveRecall }}>
+          <div className="flex flex-col gap-4">
+            <Interruptor label="Campaña activa"
+              checked={recallForm.enabled} disabled={!recallEditing || !canEdit}
+              onChange={(v) => setRecallForm((f) => ({ ...f, enabled: v }))} />
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="flex flex-col gap-4">
+                <Field label="Días sin atenderse" hint="Entre 30 y 365 días." type="number" inputMode="numeric" min={30} max={365} className="w-28"
+                  value={recallForm.daysInactive} disabled={!recallEditing || !canEdit}
+                  onChange={(e) => setRecallForm((f) => ({ ...f, daysInactive: Number(e.target.value) }))} />
+                <Field multiline label="Mensaje" hint={AYUDA_VARIABLES} rows={3} value={recallForm.message}
+                  disabled={!recallEditing || !canEdit}
+                  onChange={(e) => setRecallForm((f) => ({ ...f, message: e.target.value }))} />
               </div>
+              <VistaPreviaWhatsApp mensaje={recallForm.message} clinica={clinic.name} />
             </div>
+            {canEdit && !recallEditing && (
+              <div className="border-t border-line-soft pt-4">
+                <Button variant="secondary" loading={recallTriggering} onClick={() => setConfirmarRecall(true)}>
+                  {recallTriggering ? "Enviando…" : "Mandar ahora"}
+                </Button>
+              </div>
+            )}
+          </div>
+        </Seccion>
+
+        {/* ── Controles por tratamiento (#27) ── */}
+        {canEdit && <RecallSection clinicId={clinic.id} />}
+
+        <h3 className="mt-2 text-sm font-bold text-ink-muted">Técnico y registro</h3>
+
+        {/* ── Webhook ── */}
+        <Seccion id="whatsapp" titulo="Conexión con WhatsApp"
+          descripcion="Dato técnico: pega esta dirección en Twilio para que los mensajes de WhatsApp lleguen al asistente.">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <code className="min-w-0 flex-1 rounded-control border border-line bg-ground px-3 py-2.5 font-mono text-[13px] break-all text-ink select-all">
+              {urlWebhook}
+            </code>
+            <Button variant="secondary" className="shrink-0" onClick={copiarWebhook}>{copiado ? "Copiada" : "Copiar"}</Button>
+          </div>
+          <p className="mt-3 text-[13px] text-ink-muted">
+            En Twilio: <span className="font-semibold text-ink">Sandbox Settings → When a message comes in</span>, pega la dirección y elige el método POST.
+          </p>
+        </Seccion>
+
+        {/* ── Registro de accesos (#34) ── */}
+        {canEdit && <AuditLogSection clinicId={clinic.id} />}
+      </div>
+    </div>
+
+    {confirmarRecall && (
+      <Dialogo titulo="¿Mandar el mensaje ahora?" ancho="sm" onClose={() => setConfirmarRecall(false)}>
+        <div className="flex flex-col gap-4 p-5">
+          <p className="text-sm text-ink">
+            Le llega por WhatsApp a cada paciente que lleva {recallForm.daysInactive} días o más sin atenderse. Una vez enviado no se puede deshacer.
+          </p>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="secondary" onClick={() => setConfirmarRecall(false)}>Cancelar</Button>
+            <Button onClick={triggerRecall}>Mandar ahora</Button>
           </div>
         </div>
-      </div>
-    </section>
-
-    {/* Campañas de recall */}
-    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="font-semibold text-gray-900">Campañas de recall</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Mensajes automáticos para pacientes que no han vuelto en X días.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {recallMsg && <span className={`text-xs ${recallMsg.startsWith("Enviado") || recallMsg === "Guardado" ? "text-green-600" : "text-red-600"}`}>{recallMsg}</span>}
-          {canEdit && !recallEditing && <button onClick={() => setRecallEditing(true)} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Editar</button>}
-          {canEdit && recallEditing && (
-            <div className="flex gap-3">
-              <button onClick={() => { setRecallEditing(false); if (clinic) syncRecallForm(clinic); }} className="text-sm text-gray-500">Cancelar</button>
-              <button onClick={saveRecall} disabled={recallSaving}
-                className="text-sm bg-blue-600 text-white font-medium px-4 py-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">
-                {recallSaving ? "Guardando..." : "Guardar"}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-      <div className="flex flex-col gap-4">
-        <label className={`flex items-center justify-between gap-4 p-3 rounded-xl border transition-colors ${recallEditing && canEdit ? "cursor-pointer hover:bg-gray-50" : "opacity-70 cursor-default"}`}
-          style={{ borderColor: "#f1f5f9" }}>
-          <div>
-            <p className="text-sm font-medium text-gray-800">Recall activado</p>
-            <p className="text-xs text-gray-400">Habilita las campañas de re-contacto por WhatsApp.</p>
-          </div>
-          <div onClick={() => recallEditing && canEdit && setRecallForm((f) => ({ ...f, enabled: !f.enabled }))}
-            className={`w-10 h-6 rounded-full relative transition-colors shrink-0 ${recallForm.enabled ? "bg-blue-600" : "bg-gray-200"}`}>
-            <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${recallForm.enabled ? "translate-x-5" : "translate-x-1"}`} />
-          </div>
-        </label>
-        <div>
-          <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
-            Días de inactividad para enviar
-          </label>
-          <input type="number" min={30} max={365} value={recallForm.daysInactive}
-            disabled={!recallEditing || !canEdit}
-            onChange={(e) => setRecallForm((f) => ({ ...f, daysInactive: Number(e.target.value) }))}
-            className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-70" />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
-            Mensaje — usa {"{nombre}"} y {"{clinica}"}
-          </label>
-          <textarea rows={3} value={recallForm.message}
-            disabled={!recallEditing || !canEdit}
-            onChange={(e) => setRecallForm((f) => ({ ...f, message: e.target.value }))}
-            className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:opacity-70" />
-        </div>
-        {canEdit && !recallEditing && (
-          <button onClick={triggerRecall} disabled={recallTriggering}
-            className="flex items-center gap-2 self-start text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors disabled:opacity-50"
-            style={{ backgroundColor: "#F7F5F1", border: "1.5px solid #E5E0D9", color: "#0C1B26" }}>
-            {recallTriggering ? "Enviando..." : "▶ Ejecutar campaña ahora"}
-          </button>
-        )}
-      </div>
-    </section>
-
-    {/* Webhook WhatsApp */}
-    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-      <h2 className="font-semibold text-gray-900 mb-1">Webhook WhatsApp (inbound)</h2>
-      <p className="text-xs text-gray-400 mb-4">
-        Configura esta URL en tu consola de Twilio para que los mensajes entrantes de WhatsApp lleguen al asistente.
-      </p>
-      <div className="bg-gray-50 rounded-xl border border-gray-200 px-4 py-3 font-mono text-xs text-gray-700 break-all select-all">
-        {typeof window !== "undefined" ? window.location.origin : "https://tu-dominio.com"}/api/webhooks/whatsapp/{clinic.slug}
-      </div>
-      <p className="text-xs text-gray-400 mt-3">
-        En Twilio: <strong>Sandbox Settings → When a message comes in</strong> → pega la URL → método POST.
-      </p>
-    </section>
-
-    {/* Recall automático (Issue #27) */}
-    {canEdit && <RecallSection clinicId={clinic.id} />}
-
-    {/* Audit log médico-legal (Issue #34) */}
-    {canEdit && <AuditLogSection clinicId={clinic.id} />}
+      </Dialogo>
+    )}
   </div>
   );
 }

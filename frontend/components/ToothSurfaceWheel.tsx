@@ -44,6 +44,13 @@ export function ToothSurfaceWheel({ toothFDI, selected, onToggle, size = 160, re
   const handleClick = (code: DentalSurface) => {
     if (!readOnly) onToggle(code);
   };
+  // Un <g role="button"> no responde al teclado por sí solo: sin esto, con
+  // Tab se llegaba a la cara pero Enter y Espacio no la marcaban.
+  const handleKey = (e: React.KeyboardEvent, code: DentalSurface) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    handleClick(code);
+  };
 
   return (
     <div className="inline-flex flex-col items-center gap-1">
@@ -53,10 +60,13 @@ export function ToothSurfaceWheel({ toothFDI, selected, onToggle, size = 160, re
           return (
             <g key={s.code}
               onClick={() => handleClick(s.code)}
+              onKeyDown={readOnly ? undefined : (e) => handleKey(e, s.code)}
               style={{ cursor: readOnly ? "default" : "pointer" }}
               role={readOnly ? undefined : "button"}
               tabIndex={readOnly ? undefined : 0}
-              aria-label={`${s.label} ${s.code}${isSelected ? " (seleccionada)" : ""}`}>
+              aria-pressed={readOnly ? undefined : isSelected}
+              aria-label={`${s.label} (${s.code})`}
+              className="outline-none [&:focus-visible>path]:stroke-brand [&:focus-visible>path]:[stroke-width:3]">
               <path
                 d={s.pathD(size)}
                 fill={isSelected ? "#1A5C7A" : ESMALTE}
@@ -81,9 +91,9 @@ export function ToothSurfaceWheel({ toothFDI, selected, onToggle, size = 160, re
       </svg>
 
       {/* Leyenda de superficies */}
-      <div className="flex flex-wrap justify-center gap-x-3 gap-y-0.5 text-[10px] text-gray-500 max-w-[200px]">
+      <div aria-hidden className="flex flex-wrap justify-center gap-x-3 gap-y-0.5 text-xs text-ink-muted max-w-[220px]">
         {sectors.map((s) => (
-          <span key={s.code} className={selected.includes(s.code) ? "text-[#1A5C7A] font-bold" : ""}>
+          <span key={s.code} className={selected.includes(s.code) ? "text-brand font-bold" : ""}>
             {s.code} · {s.label}
           </span>
         ))}

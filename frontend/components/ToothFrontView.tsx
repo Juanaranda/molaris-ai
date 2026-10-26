@@ -8,6 +8,8 @@
  * Para vista oclusal (desde arriba) usar los PNGs en /public/teeth/.
  */
 
+import { CONTORNO } from "@/lib/tooth";
+
 type ToothType = "incisor" | "canine" | "premolar" | "molar";
 
 interface Props {
@@ -35,14 +37,14 @@ export function ToothFrontView({
   const W = 60, H = 100;
   const finalFill   = fill   ?? "#FBF6EC";    // esmalte cálido marfil
   const finalRoot   = rootFill ?? "#F0E4CC";  // raíz beige
-  const finalStroke = stroke ?? "#94A3B8";
+  const finalStroke = stroke ?? CONTORNO;
 
   const isUpper = jaw === "upper";
   const flipY   = rootUp ?? isUpper;          // upper: raíz arriba, lower: raíz abajo
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width={size} height={size * (H / W)}
-      className={className}
+      className={className} aria-hidden
       style={{ display: "block", transform: flipY ? "scaleY(-1)" : undefined }}>
       <defs>
         {/* Gradiente esmalte: brillante arriba, sombra abajo */}

@@ -60,6 +60,14 @@ describe("Clinic.config — allowlist vs. lo que escribe el onboarding", () => {
     expect(ALLOWED_CONFIG_KEYS.has(key)).toBe(true);
   });
 
+  // Claves que escribe components/dashboard/ConfigTab.tsx. Faltaban: guardar
+  // la encuesta o la campaña respondía 400 y no se guardaba nada.
+  const CLAVES_QUE_ESCRIBE_CONFIGURACION = ["assistantName", "tone", "reminders", "postApptSurvey", "recallCampaign"];
+
+  it.each(CLAVES_QUE_ESCRIBE_CONFIGURACION)("permite '%s' (la escribe Configuración)", (key) => {
+    expect(ALLOWED_CONFIG_KEYS.has(key)).toBe(true);
+  });
+
   it("permite 'onboardingDone' — el dashboard la lee para saber si el setup terminó", () => {
     expect(ALLOWED_CONFIG_KEYS.has("onboardingDone")).toBe(true);
   });

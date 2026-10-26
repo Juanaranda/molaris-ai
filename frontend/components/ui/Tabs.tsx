@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type KeyboardEvent } from "react";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 import { cx } from "@/lib/cx";
 
 /**
@@ -30,6 +30,19 @@ export function Tabs({ items, value, onChange, label, className }: {
 }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
 
+  // En el celular las pestañas se deslizan: la activa se trae a la vista, si
+  // no queda elegida una que no se ve (pasaba con "Consentimientos" en la ficha).
+  const indiceActiva = items.findIndex((t) => t.id === value);
+  // Solo se mueve la fila de pestañas, nunca la página (scrollIntoView la movía).
+  useEffect(() => {
+    const b = refs.current[indiceActiva];
+    const fila = b?.parentElement;
+    if (!b || !fila) return;
+    if (b.offsetLeft < fila.scrollLeft) fila.scrollLeft = b.offsetLeft;
+    else if (b.offsetLeft + b.offsetWidth > fila.scrollLeft + fila.clientWidth)
+      fila.scrollLeft = b.offsetLeft + b.offsetWidth - fila.clientWidth;
+  }, [indiceActiva]);
+
   function mover(e: KeyboardEvent<HTMLButtonElement>, i: number) {
     const ultimo = items.length - 1;
     const destino =
@@ -45,7 +58,7 @@ export function Tabs({ items, value, onChange, label, className }: {
 
   return (
     <div role="tablist" aria-label={label}
-      className={cx("flex gap-1 overflow-x-auto border-b border-line", className)}>
+      className={cx("relative flex gap-0.5 overflow-x-auto border-b border-line", className)}>
       {items.map((t, i) => {
         const activa = t.id === value;
         return (
@@ -59,7 +72,7 @@ export function Tabs({ items, value, onChange, label, className }: {
             onClick={() => onChange(t.id)}
             onKeyDown={(e) => mover(e, i)}
             className={cx(
-              "inline-flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-3 text-sm font-semibold whitespace-nowrap transition-colors",
+              "inline-flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-2.5 text-sm font-semibold whitespace-nowrap transition-colors",
               "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand",
               activa ? "border-brand text-brand-strong" : "border-transparent text-ink-muted hover:text-brand",
             )}
