@@ -488,6 +488,9 @@ model Booking {
   date             DateTime
   time             String
   doctor           String
+  // Id del profesional en clinic.config.doctors (MOL-55). `doctor` queda como
+  // texto para mostrar y como respaldo: es historia clínica y no se reescribe.
+  doctorId         String?
   box              String?
   // Sede donde se atiende la cita (#69 Fase 4): para el doctor independiente
   // que trabaja en varias clínicas. Etiqueta libre desde config.sedes.
@@ -523,6 +526,7 @@ model Booking {
   payments Payment[]
   boletas  Boleta[]
 
+  @@index([clinicId, doctorId])
   @@map("bookings")
 }
 
