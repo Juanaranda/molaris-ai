@@ -5,6 +5,7 @@ import { cx } from "@/lib/cx";
 import { peldanoDeUrgencia, restanteHasta } from "@/lib/plazos";
 import { esperaConfirmacion } from "@/lib/solicitudes";
 import { DentalQuoteTab } from "../DentalQuoteTab";
+import { useAbrirPaciente } from "../pacientes/AbrirPaciente";
 import { formatDate } from "./fechas";
 import { MarcaEstado, TINTE, textoPago } from "./Marcas";
 import type { Booking } from "./tipos";
@@ -70,6 +71,7 @@ export function BookingModal({ booking, onClose, onSave, onCancel, onNewQuote, o
   const [decisionError, setDecisionError] = useState("");
   const idEstado = useId(), idMetodo = useId(), idTitulo = useId();
   const dialogo = useDialogo(onClose);
+  const abrirPaciente = useAbrirPaciente();
 
   async function decidir(accion: "confirmar" | "rechazar") {
     setDecidiendo(true); setDecisionError("");
@@ -121,6 +123,18 @@ export function BookingModal({ booking, onClose, onSave, onCancel, onNewQuote, o
               {!solicitud && booking.status === "confirmed" && <Badge tone="ok">Confirmada</Badge>}
               {pago && <Badge>{pago}</Badge>}
             </div>
+            {/* Desde la agenda se llega al paciente completo: ficha, cuenta,
+                planes y presupuestos. Los doctores buscan por la agenda, no
+                por nombre o RUT. */}
+            {abrirPaciente && booking.patientName && (
+              <Button size="sm" variant="secondary" className="mt-2 max-sm:min-h-11"
+                onClick={() => {
+                  onClose();
+                  abrirPaciente({ name: booking.patientName, rut: booking.patientRut, phone: booking.patientPhone, email: booking.patientEmail });
+                }}>
+                Ver paciente
+              </Button>
+            )}
           </div>
           <BotonCerrar onClick={onClose} />
         </div>
