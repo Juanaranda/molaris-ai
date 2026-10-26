@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   citasActivasDelDoctor,
-  esCitaDelDoctor,
   fechaLocal,
   fetchAgendaDelDia,
   minutosDeHora,
@@ -10,6 +9,7 @@ import {
   vistaDelPanel,
   type AgendaBooking,
 } from "@/lib/doctorView";
+import { esDelProfesional, profesionalDeUsuario } from "@/lib/doctores";
 
 describe("saludo", () => {
   const a = (h: number) => new Date(2026, 9, 17, h, 30);
@@ -91,19 +91,35 @@ describe("minutosDeHora", () => {
   });
 });
 
-describe("esCitaDelDoctor", () => {
-  it("reconoce al doctor aunque la cita lo escriba con tratamiento o sin tildes", () => {
-    expect(esCitaDelDoctor({ doctor: "Dr. Juan Garcés" }, "Juan Garces")).toBe(true);
-    expect(esCitaDelDoctor({ doctor: "Juan Garces" }, "Juan Garcés")).toBe(true);
+describe("esDelProfesional (MOL-55)", () => {
+  const rojas = { id: "rojas", name: "Nicolás Rojas" };
+
+  it("por id cuando la cita lo tiene: un cambio de nombre no la deja huérfana", () => {
+    expect(esDelProfesional({ doctor: "Nico Rojas (nombre viejo)", doctorId: "rojas" }, rojas)).toBe(true);
+    expect(esDelProfesional({ doctor: "Nicolás Rojas", doctorId: "otro" }, rojas)).toBe(false);
   });
 
-  it("no le muestra citas de otro profesional", () => {
-    expect(esCitaDelDoctor({ doctor: "Dr. Yamileth Zerpa" }, "Nicolás Rojas")).toBe(false);
+  it("las citas antiguas sin id, por el nombre completo aunque traigan \"Dr.\" o sin tildes", () => {
+    expect(esDelProfesional({ doctor: "Dr. Nicolas Rojas", doctorId: null }, rojas)).toBe(true);
   });
 
-  it("sin nombre no muestra nada, en vez de la agenda de toda la clínica", () => {
-    expect(esCitaDelDoctor({ doctor: "Dr. Nicolás Rojas" }, "")).toBe(false);
-    expect(esCitaDelDoctor({ doctor: "Dr. Nicolás Rojas" }, "   ")).toBe(false);
+  it("dos profesionales con el mismo apellido no se mezclan", () => {
+    expect(esDelProfesional({ doctor: "Catalina Rojas", doctorId: null }, rojas)).toBe(false);
+  });
+
+  it("sin nombre no calza con nada, en vez de mostrar la agenda de toda la clínica", () => {
+    expect(esDelProfesional({ doctor: "", doctorId: null }, { name: "" })).toBe(false);
+  });
+});
+
+describe("profesionalDeUsuario", () => {
+  const equipo = [{ id: "a", name: "Ivonne Poblete", userId: "u-ivonne" }, { id: "b", name: "Juan Garcés" }];
+  it("es el profesional unido a su cuenta, aunque se llamen distinto", () => {
+    expect(profesionalDeUsuario(equipo, { id: "u-ivonne", name: "Ivonne P." }).id).toBe("a");
+  });
+  it("sin cuenta unida, el de su mismo nombre; si no, solo su nombre", () => {
+    expect(profesionalDeUsuario(equipo, { id: "x", name: "Dr. Juan Garces" }).id).toBe("b");
+    expect(profesionalDeUsuario(equipo, { id: "x", name: "Otra Persona" })).toEqual({ name: "Otra Persona" });
   });
 });
 
@@ -115,7 +131,7 @@ describe("citasActivasDelDoctor", () => {
       cita({ time: "11:00", status: "cancelled" }),
       cita({ time: "10:00", doctor: "Dr. Ivonne Poblete" }),
       cita({ time: "12:00", status: "pending", requestedVia: "agent" }),
-    ], "Nicolás Rojas");
+    ], { name: "Nicolás Rojas" });
 
     expect(r.map((c) => c.time)).toEqual(["9:30", "12:00", "15:00"]);
   });

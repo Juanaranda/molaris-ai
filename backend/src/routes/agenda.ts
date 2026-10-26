@@ -47,6 +47,7 @@ function bookingSelect() {
   return {
     id: true,
     doctor: true,
+    doctorId: true,
     time: true,
     date: true,
     box: true,

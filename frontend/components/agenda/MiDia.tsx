@@ -9,6 +9,7 @@ import { MarcaEstado, TINTE } from "./Marcas";
 import { Button } from "@/components/ui";
 import { FilaPaciente, useAbrirPaciente } from "../pacientes/AbrirPaciente";
 import type { BookingConDia, DayData } from "./tipos";
+import { esDelProfesional, profesionalDeUsuario, type RefProfesional } from "@/lib/doctores";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 const aMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
@@ -60,7 +61,9 @@ const Vacio = ({ texto }: { texto: string }) => (
  * Vista del profesional (rol USER): su día. Arriba quién está en el box ahora
  * (o quién sigue), después lo que queda, lo que ya pasó y el resto de la semana.
  */
-export function DoctorAgenda({ user }: { user: AuthUser }) {
+export function DoctorAgenda({ user, equipo }: { user: AuthUser; equipo?: RefProfesional[] }) {
+  // Sus citas, por id del profesional unido a su cuenta (MOL-54/55).
+  const yo = profesionalDeUsuario(equipo, user);
   const abrirPaciente = useAbrirPaciente();
   const [days, setDays]       = useState<DayData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,7 +95,7 @@ export function DoctorAgenda({ user }: { user: AuthUser }) {
 
   const todayStr = toDateStr(ahora);
   const allBookings: BookingConDia[] = days.flatMap((d) => d.bookings.map((b) => ({ ...b, dateStr: d.date })));
-  const mine = allBookings.filter((b) => b.doctor === user.name && b.status !== "cancelled");
+  const mine = allBookings.filter((b) => b.status !== "cancelled" && esDelProfesional(b, yo));
   const todayMine    = mine.filter((b) => b.dateStr === todayStr).sort((a, b) => a.time.localeCompare(b.time));
   const upcomingMine = mine.filter((b) => b.dateStr > todayStr).sort((a, b) =>
     a.dateStr === b.dateStr ? a.time.localeCompare(b.time) : a.dateStr.localeCompare(b.dateStr)

@@ -1,5 +1,5 @@
 import { getToken, type AuthUser } from "./auth";
-import { normalizar } from "./patients";
+import { esDelProfesional, type RefProfesional } from "./doctores";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -21,6 +21,8 @@ export interface AgendaBooking {
   /** Hora de inicio, "HH:MM". */
   time: string;
   doctor: string;
+  /** Id del profesional en el equipo (MOL-55); null en citas antiguas. */
+  doctorId?: string | null;
   patientName: string | null;
   patientRut?: string | null;
   patientPhone?: string | null;
@@ -69,22 +71,13 @@ export function minutosDeHora(hora: string): number | null {
 }
 
 /**
- * ¿La cita es de este doctor? Se compara por apellido porque la cita guarda
- * el nombre como texto libre ("Dr. Nicolás Rojas", "Nicolas Rojas"), y sin
- * tildes para que "Garces" y "Garcés" sean el mismo profesional.
+ * Citas no canceladas del profesional, ordenadas por hora. Se reconocen por
+ * id (MOL-55); las antiguas sin id, por el nombre completo. Antes se comparaba
+ * por apellido, y a una Rojas le aparecían las citas de otro Rojas.
  */
-export function esCitaDelDoctor(cita: Pick<AgendaBooking, "doctor">, nombreDoctor: string): boolean {
-  const apellido = normalizar(nombreDoctor).split(/\s+/).pop() ?? "";
-  // Sin nombre no hay con qué comparar: mejor no mostrar nada que mostrarle
-  // la agenda de toda la clínica.
-  if (!apellido) return false;
-  return normalizar(cita.doctor ?? "").includes(apellido);
-}
-
-/** Citas no canceladas del doctor, ordenadas por hora. */
-export function citasActivasDelDoctor(citas: AgendaBooking[], nombreDoctor: string): AgendaBooking[] {
+export function citasActivasDelDoctor(citas: AgendaBooking[], prof: RefProfesional): AgendaBooking[] {
   return citas
-    .filter((c) => c.status !== "cancelled" && esCitaDelDoctor(c, nombreDoctor))
+    .filter((c) => c.status !== "cancelled" && esDelProfesional(c, prof))
     .sort((a, b) => (minutosDeHora(a.time) ?? 0) - (minutosDeHora(b.time) ?? 0));
 }
 

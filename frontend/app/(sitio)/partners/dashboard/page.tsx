@@ -309,7 +309,7 @@ export default function PartnersDashboard() {
                 <AgendaTab
                   user={user}
                   boxes={(clinic.config as ClinicConfig).boxes ?? 2}
-                  doctors={(clinic.config as ClinicConfig).doctors?.map((d) => d.name) ?? []}
+                  doctors={((clinic.config as ClinicConfig).doctors ?? []).filter((d) => d.name?.trim())}
                   sedes={(clinic.config as ClinicConfig).sedes ?? []}
                   scheduleConfig={(clinic.config as ClinicConfig).schedule as Record<string, string> | undefined}
                   openNewBookingOnMount={agendaAutoOpen}

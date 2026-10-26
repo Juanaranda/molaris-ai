@@ -18,6 +18,7 @@ import { PorResponder } from "./agenda/PorResponder";
 import { Profesionales } from "./agenda/Profesionales";
 import { Semana } from "./agenda/Semana";
 import type { Ahora, Booking, BookingConDia, DayData } from "./agenda/tipos";
+import { esDelProfesional, type RefProfesional } from "@/lib/doctores";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -82,17 +83,20 @@ function isInWorkHours(slot: string, wh: { start: number; end: number } | null):
    y el filtro por profesional. */
 function AdminAgenda({
   boxes,
-  doctors: doctorNames = [],
+  doctors: equipo = [],
   sedes = [],
   scheduleConfig,
   openNewBookingOnMount = false,
 }: {
   boxes: number;
-  doctors?: string[];
+  doctors?: RefProfesional[];
   sedes?: string[];
   scheduleConfig?: Record<string, string>;
   openNewBookingOnMount?: boolean;
 }) {
+  // El filtro y la nueva cita muestran nombres; la cita se reconoce por id.
+  const doctorNames = equipo.map((d) => d.name);
+  const profDe = (nombre: string): RefProfesional => equipo.find((d) => d.name === nombre) ?? { name: nombre };
   const workHours = parseWorkHours(scheduleConfig);
   const [weekStart, setWeekStart]     = useState(() => getMondayOf(new Date()));
   const [days, setDays]               = useState<DayData[]>([]);
@@ -160,7 +164,7 @@ function AdminAgenda({
 
   // Un booking pasa los filtros activos (doctor y/o sede).
   const matchesFilters = (b: Booking) =>
-    (!doctorFilter || b.doctor === doctorFilter) && (!sedeFilter || b.sede === sedeFilter);
+    (!doctorFilter || esDelProfesional(b, profDe(doctorFilter))) && (!sedeFilter || b.sede === sedeFilter);
 
   const selectedDay = days.find((d) => safeDateStr(d.date) === selectedDate);
   const dayAll = selectedDay?.bookings ?? [];
@@ -254,7 +258,7 @@ function AdminAgenda({
   // Conteo por profesional para el filtro: lo que se está viendo (el día o la semana).
   const enVista = viewMode === "day" ? dayAll : days.flatMap((d) => d.bookings);
   const conteo = (n: string | null) =>
-    enVista.filter((b) => b.status !== "cancelled" && (!n || b.doctor === n) && (!sedeFilter || b.sede === sedeFilter)).length;
+    enVista.filter((b) => b.status !== "cancelled" && (!n || esDelProfesional(b, profDe(n))) && (!sedeFilter || b.sede === sedeFilter)).length;
 
   const filtroProps = {
     nombres: doctorNames, conteo, filtro: doctorFilter, onFiltro: setDoctorFilter,
@@ -436,7 +440,7 @@ export function AgendaTab({
 }: {
   user: AuthUser;
   boxes?: number;
-  doctors?: string[];
+  doctors?: RefProfesional[];
   sedes?: string[];
   scheduleConfig?: Record<string, string>;
   openNewBookingOnMount?: boolean;
@@ -444,5 +448,5 @@ export function AgendaTab({
   const isAdmin = user.role === "ADMIN" || user.role === "SUPERADMIN";
   return isAdmin
     ? <AdminAgenda boxes={boxes} doctors={doctors} sedes={sedes} scheduleConfig={scheduleConfig} openNewBookingOnMount={openNewBookingOnMount} />
-    : <DoctorAgenda user={user} />;
+    : <DoctorAgenda user={user} equipo={doctors} />;
 }

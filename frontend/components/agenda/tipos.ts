@@ -1,6 +1,8 @@
 /** Cita tal como la entrega `GET /api/agenda/week`. */
 export interface Booking {
   id: string; doctor: string; time: string; date: string; box: string | null;
+  /** Id del profesional en el equipo (MOL-55); null en citas antiguas. */
+  doctorId: string | null;
   sede: string | null;
   patientName: string | null; patientRut: string | null;
   patientPhone: string | null; patientEmail: string | null;

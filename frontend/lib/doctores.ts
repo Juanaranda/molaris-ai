@@ -78,3 +78,36 @@ export const DIAS_SEMANA = [
   { clave: "thursday", corto: "Jue" }, { clave: "friday", corto: "Vie" }, { clave: "saturday", corto: "Sáb" },
   { clave: "sunday", corto: "Dom" },
 ] as const;
+
+/* ── A quién pertenece una cita (MOL-55) ─────────────────────────────────── */
+
+/** Un profesional del equipo: id estable, nombre, y su cuenta si la tiene. */
+export interface RefProfesional { id?: string | null; name: string; userId?: string | null }
+
+/** Para comparar nombres de citas antiguas: sin "Dr.", tildes, mayúsculas ni dobles espacios. */
+export function normalizarNombre(nombre: string): string {
+  return sinPrefijo(nombre).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/**
+ * ¿La cita es de este profesional? Por id cuando la cita y el profesional lo
+ * tienen. Si no (citas anteriores al id, o de alguien que ya no está), por el
+ * nombre completo: nunca por apellido, que juntaba a dos Rojas.
+ */
+export function esDelProfesional(cita: { doctor?: string | null; doctorId?: string | null }, prof: RefProfesional): boolean {
+  if (cita.doctorId && prof.id) return cita.doctorId === prof.id;
+  const a = normalizarNombre(cita.doctor ?? "");
+  return a !== "" && a === normalizarNombre(prof.name);
+}
+
+/**
+ * El profesional del equipo que corresponde a una cuenta: el unido a ella
+ * (MOL-54) o, si no hay, el de su mismo nombre. Sin ninguno, solo el nombre.
+ */
+export function profesionalDeUsuario(equipo: RefProfesional[] | undefined, user: { id: string; name?: string | null }): RefProfesional {
+  const lista = equipo ?? [];
+  const nombre = normalizarNombre(user.name ?? "");
+  return lista.find((p) => p.userId && p.userId === user.id)
+    ?? lista.find((p) => nombre !== "" && normalizarNombre(p.name) === nombre)
+    ?? { name: user.name ?? "" };
+}

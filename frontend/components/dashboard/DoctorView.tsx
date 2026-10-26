@@ -16,6 +16,7 @@ import { Button, Card } from "@/components/ui";
 import { RoleBadge, StatusPill } from "./widgets";
 import { PerfilProfesional } from "@/components/PerfilProfesional";
 import { FilaPaciente } from "@/components/pacientes/AbrirPaciente";
+import { profesionalDeUsuario, type RefProfesional } from "@/lib/doctores";
 
 /**
  * Vista reducida para quien tiene rol USER: ve sus propias citas y poco más.
@@ -46,14 +47,16 @@ export function DoctorView({ user, clinic, onShowFull }: { user: AuthUser; clini
       setLoadingBookings(true);
       try {
         const data = await fetchAgendaDelDia(todayStr, controller.signal);
-        setActiveBookings(citasActivasDelDoctor(data, user.name ?? ""));
+        // Sus citas, por el profesional unido a su cuenta (MOL-54/55).
+        const equipo = (clinic.config as { doctors?: RefProfesional[] } | null)?.doctors;
+        setActiveBookings(citasActivasDelDoctor(data, profesionalDeUsuario(equipo, user)));
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
       } finally { if (!controller.signal.aborted) setLoadingBookings(false); }
     }
     load();
     return () => controller.abort();
-  }, [todayStr, user.name]);
+  }, [todayStr, user, clinic.config]);
 
   const nextBooking = proximaCita(activeBookings);
 
