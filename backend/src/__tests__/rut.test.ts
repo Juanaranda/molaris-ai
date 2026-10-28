@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isValidRut, formatRut, cleanRut, computeDv } from "../lib/rut";
+import { isValidRut, formatRut, cleanRut, computeDv, rutCanonico } from "../lib/rut";
 
 describe("RUT chileno", () => {
   it("valida RUTs correctos (con y sin formato)", () => {
@@ -32,5 +32,21 @@ describe("RUT chileno", () => {
   it("formatea correctamente", () => {
     expect(formatRut("123456785")).toBe("12.345.678-5");
     expect(formatRut("20347878K")).toBe("20.347.878-K");
+  });
+});
+
+describe("RUT como se guarda (MOL-60)", () => {
+  it("un solo formato: sin puntos, con guion y la K en mayúscula", () => {
+    expect(rutCanonico("12.345.678-5")).toBe("12345678-5");
+    expect(rutCanonico("123456785")).toBe("12345678-5");
+    expect(rutCanonico("23323142k")).toBe("23323142-K");
+    expect(rutCanonico("9810819k-")).toBe("9810819-K");
+    expect(rutCanonico(" 12345678-5 ")).toBe("12345678-5");
+  });
+
+  it("vacío es null", () => {
+    expect(rutCanonico("")).toBeNull();
+    expect(rutCanonico(null)).toBeNull();
+    expect(rutCanonico(undefined)).toBeNull();
   });
 });

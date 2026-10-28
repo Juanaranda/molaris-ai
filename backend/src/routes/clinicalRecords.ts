@@ -20,7 +20,8 @@ import { buildPatientOdontogram } from "../services/dental/odontogramService";
 import { audit } from "../services/audit/auditService";
 import { redFlagsToAlerts, AnamnesisQuestion } from "../services/anamnesis/anamnesisService";
 import { canPerform } from "../services/auth/clinicalPermissions";
-import { otraClinicaUsaIdentidad, ERROR_IDENTIDAD_COMPARTIDA } from "../services/pacientes/identidad";
+import { otraClinicaUsaIdentidad, ERROR_IDENTIDAD_COMPARTIDA, elegirFicha } from "../services/pacientes/identidad";
+import { rutCanonico } from "../lib/rut";
 
 const REASON_CATEGORIES = ["urgencia", "dolor", "control", "estetica", "derivacion", "otro"] as const;
 const INSURANCE_PROVIDERS = ["fonasa", "isapre", "particular", "otro"] as const;
@@ -42,80 +43,82 @@ export async function clinicalRecordRoutes(app: FastifyInstance) {
       return reply.status(403).send({ error: "Acceso denegado" });
     }
 
-    const rut   = req.query.rut?.trim();
-    const phone = req.query.phone?.replace(/\D/g, "");
+    const rut   = rutCanonico(req.query.rut);
+    const phone = req.query.phone?.replace(/\D/g, "") || null;
     if (!rut && !phone) {
       return reply.status(400).send({ error: "Falta rut o phone" });
     }
+    const clinicId = req.params.clinicId;
+    const soloDigitos = (t: string | null | undefined) => t?.replace(/\D/g, "") || null;
 
-    // 1. Buscar Identity por rut (si está)
-    let identity = rut
-      ? await prisma.identity.findUnique({ where: { rut } })
-      : null;
-
-    // 2. La cita es la que conoce TODOS los identificadores del paciente. Se
-    //    busca primero para no quedarse solo con el dato que vino en la query:
-    //    llamando solo con RUT, si aún no hay Identity el OR quedaba vacío, no
-    //    encontraba al paciente que sí existía por teléfono y se creaba un
-    //    duplicado — con la historia clínica partida entre las dos fichas.
+    // La cita es la que conoce todos los datos del paciente en esta clínica.
+    // Con RUT se busca solo por RUT: un teléfono lo comparten familias enteras.
     const booking = await prisma.booking.findFirst({
-      where: {
-        clinicId: req.params.clinicId,
-        OR: [
-          ...(rut   ? [{ patientRut: rut }] : []),
-          ...(phone ? [{ patientPhone: phone }] : []),
-        ],
-      },
+      where: rut ? { clinicId, patientRut: rut } : { clinicId, patientPhone: phone! },
       orderBy: { date: "desc" },
     });
+    // Llegó solo el teléfono, pero la cita trae RUT: se sigue por el RUT.
+    const rutFinal = rut ?? rutCanonico(booking?.patientRut);
+    const telefonos = [...new Set([phone, soloDigitos(booking?.patientPhone)].filter((t): t is string => !!t))];
 
-    const telefonos = [phone, booking?.patientPhone?.replace(/\D/g, "")].filter(Boolean) as string[];
-    const criterios = [
-      ...(identity ? [{ identityId: identity.id }] : []),
-      ...(telefonos.length > 0 ? [{ phone: { in: telefonos } }] : []),
-      ...(booking?.patientName ? [{ name: booking.patientName }] : []),
-    ];
-
-    // 3. Buscar Patient existente. Sin criterios no se busca: un OR vacío no
-    //    matchea nada y llevaría a crear siempre uno nuevo.
-    let patient = criterios.length > 0
-      ? await prisma.patient.findFirst({
-          where: { clinicId: req.params.clinicId, OR: criterios },
-        })
+    // Elegir la ficha (MOL-60). Antes se buscaba por identidad O teléfono O
+    // nombre y se tomaba la primera: con un teléfono o un nombre compartido se
+    // abría la ficha de otra persona, y lo que se registraba quedaba en ella.
+    let identity = rutFinal ? await prisma.identity.findUnique({ where: { rut: rutFinal } }) : null;
+    let patient = identity
+      ? await prisma.patient.findFirst({ where: { clinicId, identityId: identity.id } })
       : null;
 
-    // 4. Si no existe Patient pero hay una cita con esos datos → crearlo
-    if (!patient) {
-      if (!booking) {
-        return reply.status(404).send({ error: "Paciente no encontrado en esta clínica" });
-      }
-
-      // Si no hay Identity pero tenemos RUT, crear una
-      if (!identity && rut && booking.patientName) {
-        const parts = booking.patientName.split(" ");
-        identity = await prisma.identity.create({
-          data: {
-            rut,
-            firstName: parts[0] ?? "Paciente",
-            lastName:  parts.slice(1).join(" ") || "—",
-            phone:     phone ?? null,
-          },
+    // Una ficha creada antes por teléfono, sin identidad. Con RUT se adopta
+    // solo si además calza el nombre; sin RUT, se exige el nombre si se sabe.
+    const puedeAdoptar = rutFinal ? Boolean(booking?.patientName?.trim()) : true;
+    if (!patient && telefonos.length > 0 && puedeAdoptar) {
+      const candidatas = await prisma.patient.findMany({
+        where: { clinicId, phone: { in: telefonos }, ...(rutFinal ? { identityId: null } : {}) },
+      });
+      const elegida = elegirFicha(candidatas, booking?.patientName);
+      if (elegida === "ambigua") {
+        return reply.status(409).send({
+          error: "Hay más de una ficha con ese teléfono. Ábrela desde una cita que tenga el RUT del paciente.",
         });
       }
+      patient = elegida;
+    }
 
+    if (!patient && !booking) {
+      return reply.status(404).send({ error: "Paciente no encontrado en esta clínica" });
+    }
+    // Con RUT y sin Identity, se crea: la ficha (nueva o adoptada) queda unida a ella.
+    if (!identity && rutFinal && booking?.patientName) {
+      const parts = booking.patientName.split(" ");
+      identity = await prisma.identity.create({
+        data: {
+          rut: rutFinal,
+          firstName: parts[0] ?? "Paciente",
+          lastName:  parts.slice(1).join(" ") || "—",
+          phone:     telefonos[0] ?? null,
+        },
+      });
+    }
+
+    if (!patient) {
+      if (!booking) return reply.status(404).send({ error: "Paciente no encontrado en esta clínica" });
       patient = await prisma.patient.create({
         data: {
-          clinicId:   req.params.clinicId,
+          clinicId,
           identityId: identity?.id ?? null,
           // Los paréntesis importan: "??" liga más fuerte que "? :", así que
           // sin ellos la condición era (patientName ?? identity) y un paciente
           // CON nombre terminaba guardado como "undefined undefined".
           name:       booking.patientName ?? (identity ? `${identity.firstName} ${identity.lastName}` : null),
-          phone:      phone ?? booking.patientPhone,
+          phone:      telefonos[0] ?? booking.patientPhone,
           email:      booking.patientEmail,
           channel:    "manual",
         },
       });
+    } else if (!patient.identityId && identity) {
+      // La ficha antigua (creada por teléfono) queda unida a su identidad.
+      patient = await prisma.patient.update({ where: { id: patient.id }, data: { identityId: identity.id } });
     }
 
     return reply.send({ patientId: patient.id });

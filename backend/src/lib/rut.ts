@@ -40,3 +40,17 @@ export function formatRut(rut: string): string {
   const withDots = body.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   return `${withDots}-${dv}`;
 }
+
+/**
+ * El RUT como se guarda en la base: "12345678-9", sin puntos, con guion y la K
+ * en mayúscula (MOL-60). Las citas, planes, abonos y la caja se unen por este
+ * texto; escrito de dos formas, el mismo paciente quedaba partido en dos.
+ * Devuelve null si viene vacío.
+ */
+export function rutCanonico(rut: string | null | undefined): string | null {
+  if (rut == null) return null;
+  const clean = cleanRut(rut);
+  if (clean.length === 0) return null;
+  if (clean.length < 2) return clean;
+  return `${clean.slice(0, -1)}-${clean.slice(-1)}`;
+}
