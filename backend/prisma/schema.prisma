@@ -1015,3 +1015,14 @@ model CierreCaja {
   @@unique([clinicId, dia])
   @@map("cierres_caja")
 }
+
+/// Correcciones de datos ya aplicadas en esta base (src/datos). El deploy
+/// corre las que falten, una vez cada una, después de `prisma db push`.
+model MigracionDatos {
+  id          String   @id
+  descripcion String
+  resumen     String? // solo cantidades: nada de datos de pacientes
+  aplicadaEn  DateTime @default(now())
+
+  @@map("migraciones_datos")
+}
