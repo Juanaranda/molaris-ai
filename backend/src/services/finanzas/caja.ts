@@ -65,3 +65,11 @@ export function resumirCaja(movimientos: { monto: number; medio: string }[]): Re
   for (const mv of movimientos) porMedio[medioDePago(mv.medio)] += mv.monto;
   return { porMedio, total: Object.values(porMedio).reduce((s, n) => s + n, 0), cantidad: movimientos.length };
 }
+
+/** La boleta cuenta como hecha cuando OpenFactura la recibió o el SII la aceptó. */
+export const tieneBoleta = (b: { status: string } | null | undefined) => b?.status === "issued" || b?.status === "accepted";
+
+/** Pagos que necesitan boleta y no la tienen. Las correcciones (montos negativos) no llevan. */
+export function pagosSinBoleta(movimientos: { monto: number; boleta: { status: string } | null }[]): number {
+  return movimientos.filter((m) => m.monto > 0 && !tieneBoleta(m.boleta)).length;
+}

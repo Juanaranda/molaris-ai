@@ -12,6 +12,8 @@ export interface IntegrationsStatus {
     giro:         string | null;
     documentType: number | null;
     exenta:       boolean;
+    /** OpenFactura en su ambiente de pruebas: las boletas no llegan al SII. */
+    pruebas?:     boolean;
   };
 }
 
@@ -67,13 +69,11 @@ export async function verifyMercadoPago(clinicId: string): Promise<{ id?: number
 
 /* ─── SII / OpenFactura ────────────────────────────────────────────────── */
 
+/** La razón social y el giro no se escriben: "Verificar" los trae de OpenFactura. */
 export interface SiiConfigUpdate {
-  apiKey?:       string | null;
-  rutEmisor?:    string | null;
-  razonSocial?:  string | null;
-  giro?:         string | null;
-  documentType?: 39 | 41;
-  exenta?:       boolean;
+  apiKey?:    string | null;
+  rutEmisor?: string | null;
+  exenta?:    boolean;
 }
 
 export async function updateSiiConfig(clinicId: string, data: SiiConfigUpdate): Promise<void> {

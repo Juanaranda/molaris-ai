@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   getPatientMe, patientLogin, patientRegister, clearPatientToken,
-  getMyBookings, cancelMyBooking, getMyBoletas, patientUpdateProfile,
+  getMyBookings, cancelMyBooking, getMyBoletas, abrirPdfMiBoleta, patientUpdateProfile,
   downloadMyData, requestMyDataDeletion, getPurposes,
   PatientData, MyBooking, PatientBoleta, DataPurpose,
 } from "@/lib/patient-auth";
@@ -398,6 +398,12 @@ function CitasSection({
 
 /* ─── Boletas ──────────────────────────────────────────────────────────── */
 function BoletasSection({ boletas }: { boletas: PatientBoleta[] }) {
+  const [error, setError] = useState("");
+  async function abrir(id: string) {
+    setError("");
+    try { await abrirPdfMiBoleta(id); }
+    catch (e) { setError(e instanceof Error ? e.message : "No pudimos abrir el PDF"); }
+  }
   if (boletas.length === 0) {
     return (
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm py-12 text-center">
@@ -421,14 +427,16 @@ function BoletasSection({ boletas }: { boletas: PatientBoleta[] }) {
             <p className="text-sm font-semibold text-gray-900 truncate">{b.description ?? "Atención dental"}</p>
             <p className="text-xs text-gray-500">${b.totalAmount.toLocaleString("es-CL")} CLP</p>
           </div>
-          {b.pdfUrl && (
-            <a href={b.pdfUrl} target="_blank" rel="noopener noreferrer"
+          {b.tienePdf && (
+            <button type="button" onClick={() => abrir(b.id)}
+              aria-label={`Abrir el PDF de la boleta${b.folio ? ` folio ${b.folio}` : ""}`}
               className="text-xs font-bold px-3 py-1.5 rounded-xl bg-violet-700 text-white hover:bg-violet-800 transition shrink-0">
               PDF
-            </a>
+            </button>
           )}
         </div>
       ))}
+      {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
     </div>
   );
 }

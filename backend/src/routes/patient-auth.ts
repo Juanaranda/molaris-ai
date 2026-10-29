@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../config/prisma";
+import { ErrorOpenFactura, pdfDe } from "../services/sii/openFacturaService";
 import { config } from "../config/env";
 import { audit } from "../services/audit/auditService";
 
@@ -274,10 +275,38 @@ export async function patientAuthRoutes(app: FastifyInstance) {
       take: 50,
       select: {
         id: true, folio: true, totalAmount: true, netAmount: true, iva: true,
-        description: true, pdfUrl: true, emittedAt: true,
+        description: true, emittedAt: true, providerRef: true,
       },
     });
-    return reply.send({ boletas });
+    // El PDF se pide aparte (GET …/boletas/:id/pdf); acá solo si tiene.
+    return reply.send({ boletas: boletas.map(({ providerRef, ...b }) => ({ ...b, tienePdf: !!providerRef })) });
+  });
+
+  // GET /api/auth/patient/boletas/:id/pdf — el PDF de una boleta del paciente
+  app.get<{ Params: { id: string } }>("/auth/patient/boletas/:id/pdf", async (req, reply) => {
+    let payload: PatientJwtPayload;
+    try { payload = verifyPatientToken(req.headers.authorization); }
+    catch { return reply.status(401).send({ error: "No autorizado" }); }
+    const identity = await prisma.identity.findUnique({ where: { id: payload.identityId }, select: { rut: true } });
+    if (!identity) return reply.status(404).send({ error: "Identidad no encontrada" });
+
+    // Solo una boleta emitida a su RUT, en su clínica.
+    const boleta = await prisma.boleta.findFirst({
+      where: { id: req.params.id, clinicId: payload.clinicId, rutReceptor: identity.rut, status: { in: ["issued", "accepted"] } },
+      select: { providerRef: true, folio: true, clinic: { select: { siiApiKey: true } } },
+    });
+    if (!boleta?.providerRef || !boleta.clinic.siiApiKey) return reply.status(404).send({ error: "Boleta no encontrada" });
+    try {
+      const pdf = await pdfDe(boleta.clinic.siiApiKey, boleta.providerRef);
+      return reply
+        .header("Content-Type", "application/pdf")
+        .header("Content-Disposition", `inline; filename="boleta-${boleta.folio ?? req.params.id}.pdf"`)
+        .header("Cache-Control", "private, no-store")
+        .send(pdf);
+    } catch (e) {
+      if (e instanceof ErrorOpenFactura) return reply.status(502).send({ error: e.message });
+      throw e;
+    }
   });
 
   // GET /api/auth/patient/me

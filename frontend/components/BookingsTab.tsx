@@ -3,10 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { getToken } from "@/lib/auth";
 import { createBookingPaymentLink } from "@/lib/payments";
-import { emitBoletaForBooking } from "@/lib/boletas";
 import { WaitlistManager } from "@/components/WaitlistManager";
 import { LabOrdersManager } from "@/components/LabOrdersManager";
-import { CircleCheck, CreditCard, Receipt, Smile, X } from "lucide-react";
+import { CircleCheck, CreditCard, Smile, X } from "lucide-react";
 import { useAbrirPaciente } from "./pacientes/AbrirPaciente";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -68,7 +67,6 @@ export function BookingsTab({ clinicId }: Props) {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [paymentModal, setPaymentModal] = useState<{ booking: BookingRow } | null>(null);
-  const [boletaModal,  setBoletaModal]  = useState<{ booking: BookingRow } | null>(null);
   const [showWaitlist, setShowWaitlist] = useState(false);
   const [showLab,      setShowLab]      = useState(false);
 
@@ -267,13 +265,6 @@ export function BookingsTab({ clinicId }: Props) {
                               <CreditCard className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Cobrar
                             </button>
                             <button
-                              onClick={() => setBoletaModal({ booking: b })}
-                              className="text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-100 px-2.5 py-1 rounded-full hover:bg-violet-100 transition-colors"
-                              title="Emitir boleta electrónica SII"
-                            >
-                              <Receipt className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Boleta
-                            </button>
-                            <button
                               onClick={() => updateStatus(b.id, "cancelled")}
                               disabled={updatingId === b.id}
                               className="text-xs font-semibold text-gray-500 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-full hover:bg-gray-100 disabled:opacity-40 transition-colors"
@@ -312,13 +303,6 @@ export function BookingsTab({ clinicId }: Props) {
         <PaymentLinkModal
           booking={paymentModal.booking}
           onClose={() => setPaymentModal(null)}
-        />
-      )}
-
-      {boletaModal && (
-        <BoletaModal
-          booking={boletaModal.booking}
-          onClose={() => setBoletaModal(null)}
         />
       )}
 
@@ -440,116 +424,6 @@ function PaymentLinkModal({ booking, onClose }: PaymentLinkModalProps) {
             </div>
             <button onClick={onClose}
               className="w-full py-2.5 rounded-xl bg-[#1A5C7A] text-white text-sm font-bold hover:bg-[#0e4560] transition">
-              Cerrar
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ─── Modal: emitir boleta electrónica SII ─────────────────────────────────── */
-interface BoletaModalProps {
-  booking: BookingRow;
-  onClose: () => void;
-}
-
-function BoletaModal({ booking, onClose }: BoletaModalProps) {
-  const [amount, setAmount]       = useState<string>("");
-  const [rut,    setRut]          = useState<string>("");
-  const [desc,   setDesc]         = useState<string>(booking.service ?? "Atención dental");
-  const [saving, setSaving]       = useState(false);
-  const [error,  setError]        = useState("");
-  const [result, setResult]       = useState<{ folio: number | null; pdfUrl: string | null; totalAmount: number } | null>(null);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    const value = Math.round(Number(amount));
-    if (!Number.isFinite(value) || value <= 0) {
-      setError("Monto inválido");
-      return;
-    }
-    setSaving(true); setError("");
-    try {
-      const boleta = await emitBoletaForBooking(booking.id, {
-        amount:      value,
-        rutReceptor: rut.trim() || undefined,
-        description: desc.trim() || undefined,
-      });
-      setResult({
-        folio:       boleta.folio,
-        pdfUrl:      boleta.pdfUrl,
-        totalAmount: boleta.totalAmount,
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Error emitiendo boleta");
-    } finally { setSaving(false); }
-  }
-
-  const name = patientDisplayName(booking);
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <h3 className="text-sm font-bold text-gray-800">Emitir boleta electrónica</h3>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 text-lg leading-none"><X className="w-4 h-4" aria-hidden /></button>
-        </div>
-
-        {!result ? (
-          <form onSubmit={submit} className="p-5 flex flex-col gap-4">
-            <div className="bg-gray-50 rounded-xl p-3">
-              <p className="text-xs text-gray-500">Paciente</p>
-              <p className="text-sm font-bold text-gray-800">{name}</p>
-              <p className="text-[11px] text-gray-400 mt-1">{booking.service ?? "—"} · {booking.doctor}</p>
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Descripción del servicio</label>
-              <input value={desc} onChange={(e) => setDesc(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5C7A]/30 focus:border-[#1A5C7A]" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Monto total (CLP)</label>
-              <input autoFocus type="number" min="1" value={amount} onChange={(e) => setAmount(e.target.value)}
-                placeholder="Ej: 35000"
-                className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5C7A]/30 focus:border-[#1A5C7A]" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">RUT receptor (opcional)</label>
-              <input value={rut} onChange={(e) => setRut(e.target.value)}
-                placeholder="11.111.111-1 — vacío = boleta consumidor final"
-                className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5C7A]/30 focus:border-[#1A5C7A]" />
-            </div>
-            {error && <p className="text-xs text-red-500 whitespace-pre-wrap">{error}</p>}
-            <div className="flex gap-2">
-              <button type="button" onClick={onClose}
-                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-500 text-sm font-bold hover:border-gray-300 transition">
-                Cancelar
-              </button>
-              <button type="submit" disabled={saving || !amount}
-                className="flex-1 py-2.5 rounded-xl bg-violet-700 text-white text-sm font-bold hover:bg-violet-800 transition disabled:opacity-50">
-                {saving ? "Emitiendo…" : "Emitir boleta"}
-              </button>
-            </div>
-          </form>
-        ) : (
-          <div className="p-5 flex flex-col gap-4">
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-sm text-emerald-800">
-              <CircleCheck className="w-4 h-4 inline-block align-[-3px]" aria-hidden /> Boleta emitida correctamente {result.folio ? `(folio #${result.folio})` : ""}
-            </div>
-            <div className="bg-gray-50 rounded-xl p-3 grid grid-cols-2 gap-3 text-sm">
-              <div><p className="text-[10px] text-gray-400">Folio</p><p className="font-bold text-gray-800">{result.folio ?? "—"}</p></div>
-              <div><p className="text-[10px] text-gray-400">Total</p><p className="font-bold text-gray-800">${result.totalAmount.toLocaleString("es-CL")}</p></div>
-            </div>
-            {result.pdfUrl && (
-              <a href={result.pdfUrl} target="_blank" rel="noopener noreferrer"
-                className="w-full text-center py-2.5 rounded-xl bg-violet-700 text-white text-sm font-bold hover:bg-violet-800 transition">
-                Descargar PDF
-              </a>
-            )}
-            <button onClick={onClose}
-              className="w-full py-2.5 rounded-xl border border-gray-200 text-gray-500 text-sm font-bold hover:border-gray-300 transition">
               Cerrar
             </button>
           </div>

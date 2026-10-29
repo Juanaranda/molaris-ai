@@ -831,11 +831,19 @@ model WaitlistEntry {
 
 // ─── BOLETAS / DTE (SII Chile) ────────────────────────────────────────────────
 model Boleta {
-  id        String   @id @default(cuid())
-  clinicId  String
-  clinic    Clinic   @relation(fields: [clinicId], references: [id])
-  bookingId String?
-  booking   Booking? @relation(fields: [bookingId], references: [id])
+  id           String          @id @default(cuid())
+  clinicId     String
+  clinic       Clinic          @relation(fields: [clinicId], references: [id])
+  bookingId    String?
+  booking      Booking?        @relation(fields: [bookingId], references: [id])
+  // El pago de la caja que respalda (MOL-63). Vigente hay una por pago; las
+  // demás son intentos fallidos o anuladas. No es @unique: agregar unicidad
+  // hace que `db push` pida --accept-data-loss y frena el deploy.
+  movimientoId String?
+  movimiento   MovimientoCaja? @relation(fields: [movimientoId], references: [id])
+  // Sube cuando OpenFactura rechazó la boleta, para reintentar con otra
+  // Idempotency-Key; si no hubo respuesta clara se reintenta con la misma.
+  intentos     Int             @default(0)
 
   documentType Int     @default(39) // 39 = afecta, 41 = exenta
   folio        Int? // asignado por SII tras emisión
@@ -849,8 +857,8 @@ model Boleta {
 
   status       String  @default("draft") // draft | issued | accepted | rejected | error
   provider     String  @default("openfactura")
-  providerRef  String? // ID interno del provider
-  pdfUrl       String? // URL al PDF
+  providerRef  String? // TOKEN del documento en OpenFactura: con él se pide el PDF
+  pdfUrl       String? // en desuso: OpenFactura entrega el PDF en base64, se pide al abrirlo
   xmlContent   String? // XML del DTE (puede ser largo)
   timbreUrl    String? // imagen del timbre electrónico
   errorMessage String?
@@ -861,6 +869,7 @@ model Boleta {
 
   @@index([clinicId, status])
   @@index([bookingId])
+  @@index([movimientoId])
   @@map("boletas")
 }
 
@@ -975,23 +984,24 @@ model InvitacionProfesional {
 /// podían separar por día. Un movimiento no se edita; una corrección es otro
 /// movimiento, negativo.
 model MovimientoCaja {
-  id          String   @id @default(cuid())
-  clinicId    String
-  clinic      Clinic   @relation(fields: [clinicId], references: [id])
-  monto       Float // CLP; negativo si corrige un pago registrado de más
-  medio       String // "cash" | "transfer" | "card" | "other" | "mercadopago"
-  origen      String // "cita" | "plan" | "abono" | "mercadopago"
-  bookingId   String?
-  planId      String?
+  id             String   @id @default(cuid())
+  clinicId       String
+  clinic         Clinic   @relation(fields: [clinicId], references: [id])
+  monto          Float // CLP; negativo si corrige un pago registrado de más
+  medio          String // "cash" | "transfer" | "card" | "other" | "mercadopago"
+  origen         String // "cita" | "plan" | "abono" | "mercadopago"
+  bookingId      String?
+  planId         String?
   // Un abono o un pago de Mercado Pago se registra una sola vez.
-  accountEntryId String? @unique
-  paymentId      String? @unique
-  patientRut  String?
-  patientName String?
-  doctorId    String?
-  doctor      String?
-  registradoPor String? // PartnerUser.id; null si llegó solo (Mercado Pago)
-  fecha       DateTime @default(now())
+  accountEntryId String?  @unique
+  paymentId      String?  @unique
+  patientRut     String?
+  patientName    String?
+  doctorId       String?
+  doctor         String?
+  registradoPor  String? // PartnerUser.id; null si llegó solo (Mercado Pago)
+  fecha          DateTime @default(now())
+  boletas        Boleta[]
 
   @@index([clinicId, fecha])
   @@map("movimientos_caja")
@@ -1011,6 +1021,8 @@ model CierreCaja {
   nota            String?
   cerradoPor      String // PartnerUser.id
   cerradoEn       DateTime @default(now())
+  // Pagos del día que quedaron sin boleta al cerrar; null si la clínica no emite boletas.
+  pagosSinBoleta  Int?
 
   @@unique([clinicId, dia])
   @@map("cierres_caja")

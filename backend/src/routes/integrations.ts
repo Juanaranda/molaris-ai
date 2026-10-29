@@ -4,6 +4,8 @@ import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
 import { config } from "../config/env";
 import { verificacionPendiente, RESPUESTA_VERIFICACION_PENDIENTE } from "../services/auth/contactoVerificado";
+import { AMBIENTE_PRUEBAS, ErrorOpenFactura, organizacion } from "../services/sii/openFacturaService";
+import { rutCanonico } from "../lib/rut";
 
 /**
  * Endpoints de configuración de integraciones externas por clínica.
@@ -59,6 +61,7 @@ export async function integrationRoutes(app: FastifyInstance) {
         giro:         c.siiGiro,
         documentType: c.siiDocumentType,
         exenta:       c.siiExenta,
+        pruebas:      AMBIENTE_PRUEBAS,
       },
     });
   });
@@ -214,51 +217,41 @@ export async function integrationRoutes(app: FastifyInstance) {
   // SII / OpenFactura
   // ════════════════════════════════════════════════════════════════════════════
 
-  // PATCH /api/clinics/:id/integrations/sii — guardar config SII
+  // PATCH /api/clinics/:id/integrations/sii — guardar la API key, el RUT y si
+  // la boleta es exenta. La razón social y el giro no se escriben a mano: los
+  // trae "Verificar" desde OpenFactura, tal como los tiene el SII.
   app.patch<{
     Params: { id: string };
-    Body: {
-      apiKey?:        string | null;
-      rutEmisor?:     string | null;
-      razonSocial?:   string | null;
-      giro?:          string | null;
-      documentType?:  number | null;
-      exenta?:        boolean;
-    };
+    Body: { apiKey?: string | null; rutEmisor?: string | null; exenta?: boolean };
   }>("/clinics/:id/integrations/sii", async (req, reply) => {
     const g = guard(req);
     if (!g.ok) return reply.status(g.status).send({ error: g.error });
 
-    const { apiKey, rutEmisor, razonSocial, giro, documentType, exenta } = req.body ?? {};
-
-    // Validaciones
+    const { apiKey, rutEmisor, exenta } = req.body ?? {};
     if (apiKey !== undefined && apiKey !== null && (typeof apiKey !== "string" || apiKey.trim().length < 10)) {
-      return reply.status(400).send({ error: "API key inválido" });
+      return reply.status(400).send({ error: "API key inválida" });
     }
-    if (rutEmisor !== undefined && rutEmisor !== null) {
-      if (typeof rutEmisor !== "string" || !/^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/.test(rutEmisor.trim())) {
-        return reply.status(400).send({ error: "RUT inválido — formato esperado: 76.123.456-7" });
-      }
+    const rut = typeof rutEmisor === "string" && rutEmisor.trim() ? rutCanonico(rutEmisor) : null;
+    if (typeof rutEmisor === "string" && rutEmisor.trim() && !rut) {
+      return reply.status(400).send({ error: "RUT inválido" });
     }
-    if (documentType !== undefined && documentType !== null && ![39, 41].includes(documentType)) {
-      return reply.status(400).send({ error: "Tipo de documento inválido (39 afecta, 41 exenta)" });
+    if (exenta !== undefined && typeof exenta !== "boolean") {
+      return reply.status(400).send({ error: "Indica si la boleta es exenta (sí o no)" });
     }
 
-    const data: Record<string, unknown> = { siiVerified: false }; // limpiar verificación
-    if (apiKey       !== undefined) data.siiApiKey       = apiKey === null ? null : apiKey.trim();
-    if (rutEmisor    !== undefined) data.siiRutEmisor    = rutEmisor === null ? null : rutEmisor.trim();
-    if (razonSocial  !== undefined) data.siiRazonSocial  = razonSocial === null ? null : razonSocial?.trim() || null;
-    if (giro         !== undefined) data.siiGiro         = giro === null ? null : giro?.trim() || null;
-    if (documentType !== undefined) data.siiDocumentType = documentType;
-    if (exenta       !== undefined) data.siiExenta       = Boolean(exenta);
+    const data: Record<string, unknown> = { siiVerified: false }; // hay que volver a verificar
+    if (apiKey !== undefined) data.siiApiKey = apiKey === null ? null : apiKey.trim();
+    if (rutEmisor !== undefined) data.siiRutEmisor = rut;
+    // Exenta → boleta 41; afecta → boleta 39. Un solo dato, para que no se contradigan.
+    if (exenta !== undefined) { data.siiExenta = exenta; data.siiDocumentType = exenta ? 41 : 39; }
 
     await prisma.clinic.update({ where: { id: req.params.id }, data });
     return reply.send({ ok: true });
   });
 
-  // POST /api/clinics/:id/integrations/sii/verify — validar config SII
-  // v1: validación de formato + presencia. Una verificación real requiere
-  // emitir un DTE de prueba lo cual gasta folios; lo dejamos al admin.
+  // POST /api/clinics/:id/integrations/sii/verify — prueba la API key contra
+  // OpenFactura (sin emitir nada) y trae los datos de la clínica como los
+  // tiene el SII: razón social, giro y RUT.
   app.post<{ Params: { id: string } }>(
     "/clinics/:id/integrations/sii/verify",
     async (req, reply) => {
@@ -267,34 +260,32 @@ export async function integrationRoutes(app: FastifyInstance) {
 
       const c = await prisma.clinic.findUnique({
         where: { id: req.params.id },
-        select: {
-          siiApiKey: true, siiRutEmisor: true, siiRazonSocial: true,
-          siiGiro: true, siiDocumentType: true,
-        },
+        select: { siiApiKey: true, siiRutEmisor: true },
       });
       if (!c) return reply.status(404).send({ error: "Clínica no encontrada" });
+      if (!c.siiApiKey?.trim()) return reply.status(400).send({ error: "Primero guarda la API key de OpenFactura" });
 
-      const missing: string[] = [];
-      if (!c.siiApiKey?.trim())     missing.push("apiKey");
-      if (!c.siiRutEmisor?.trim())  missing.push("rutEmisor");
-      if (!c.siiRazonSocial?.trim()) missing.push("razonSocial");
-      if (!c.siiGiro?.trim())       missing.push("giro");
-      if (!c.siiDocumentType)       missing.push("documentType");
-
-      if (missing.length > 0) {
+      let emisor;
+      try { emisor = await organizacion(c.siiApiKey); }
+      catch (e) {
+        if (e instanceof ErrorOpenFactura) return reply.status(400).send({ error: e.message });
+        throw e;
+      }
+      const rutDeLaKey = rutCanonico(emisor.rut);
+      if (c.siiRutEmisor && rutDeLaKey !== rutCanonico(c.siiRutEmisor)) {
         return reply.status(400).send({
-          error: "Faltan campos obligatorios",
-          missing,
+          error: `Esa API key es de otra empresa: ${emisor.razonSocial} (${emisor.rut}). Revisa la key o el RUT.`,
         });
       }
 
       await prisma.clinic.update({
         where: { id: req.params.id },
-        data:  { siiVerified: true },
+        data: { siiVerified: true, siiRutEmisor: rutDeLaKey, siiRazonSocial: emisor.razonSocial, siiGiro: emisor.giro },
       });
       return reply.send({
         ok: true,
-        message: "Configuración guardada como verificada. La primera emisión real testea el API key.",
+        message: `Conectado con OpenFactura como ${emisor.razonSocial} (${emisor.rut}).` +
+          (AMBIENTE_PRUEBAS ? " Es el ambiente de pruebas: las boletas no llegan al SII real." : ""),
       });
     }
   );

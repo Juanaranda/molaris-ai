@@ -164,12 +164,9 @@ function MercadoPagoCard({ clinicId, verified, oauthAvailable, onChange }: { cli
 function SiiCard({
   clinicId, sii, onChange,
 }: { clinicId: string; sii: IntegrationsStatus["sii"]; onChange: () => void }) {
-  const [apiKey,       setApiKey]      = useState("");
-  const [rutEmisor,    setRut]         = useState(sii.rutEmisor ?? "");
-  const [razonSocial,  setRazon]       = useState(sii.razonSocial ?? "");
-  const [giro,         setGiro]        = useState(sii.giro ?? "");
-  const [documentType, setDocType]     = useState<39 | 41>(sii.documentType === 39 ? 39 : 41);
-  const [exenta,       setExenta]      = useState(sii.exenta);
+  const [apiKey,    setApiKey] = useState("");
+  const [rutEmisor, setRut]    = useState(sii.rutEmisor ?? "");
+  const [exenta,    setExenta] = useState(sii.exenta);
   const [saving, setSaving]   = useState(false);
   const [verifying, setVerify] = useState(false);
   const [msg, setMsg]         = useState("");
@@ -178,16 +175,10 @@ function SiiCard({
   async function save() {
     setSaving(true); setError(""); setMsg("");
     try {
-      const data: SiiConfigUpdate = {
-        rutEmisor:    rutEmisor.trim() || null,
-        razonSocial:  razonSocial.trim() || null,
-        giro:         giro.trim() || null,
-        documentType,
-        exenta,
-      };
+      const data: SiiConfigUpdate = { rutEmisor: rutEmisor.trim() || null, exenta };
       if (apiKey.trim()) data.apiKey = apiKey.trim();
       await updateSiiConfig(clinicId, data);
-      setMsg("Guardado. Ahora verifica la configuración.");
+      setMsg("Guardado. Ahora verifica la conexión.");
       setApiKey("");
       onChange();
     } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
@@ -198,7 +189,7 @@ function SiiCard({
     setVerify(true); setError(""); setMsg("");
     try {
       const result = await verifySii(clinicId);
-      setMsg("" + result.message);
+      setMsg(result.message);
       onChange();
     } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
     finally     { setVerify(false); }
@@ -215,60 +206,54 @@ function SiiCard({
       </div>
       <div className="p-5 flex flex-col gap-3">
         <p className="text-[11px] text-gray-500">
-          Emisión de boletas vía OpenFactura (Haulmer). Requiere certificación SII previa.{" "}
+          Las boletas se emiten desde la caja del día, una por pago, con la cuenta de la clínica en OpenFactura (Haulmer).{" "}
           <a href="https://www.haulmer.com/" target="_blank" rel="noopener noreferrer"
              className="text-[#1A5C7A] underline hover:text-[#0e4560]">haulmer.com</a>.
         </p>
 
+        {sii.verified && sii.razonSocial && (
+          <p className="text-xs text-gray-700 bg-gray-50 rounded-xl px-3 py-2">
+            Emite como <strong>{sii.razonSocial}</strong>{sii.rutEmisor ? ` (${sii.rutEmisor})` : ""}{sii.giro ? ` · ${sii.giro}` : ""}
+          </p>
+        )}
+        {sii.verified && sii.pruebas && (
+          <p className="text-xs text-amber-800 bg-amber-50 rounded-xl px-3 py-2">
+            Conectado al ambiente de pruebas de OpenFactura: las boletas no llegan al SII real.
+          </p>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">API Key</label>
-            <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
-              placeholder={sii.verified ? "Ya configurado — ingresa uno nuevo para reemplazar" : "Pega tu API key"}
+            <label htmlFor="sii-apikey" className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">API Key</label>
+            <input id="sii-apikey" type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
+              placeholder={sii.verified ? "Ya configurada — ingresa una nueva para reemplazarla" : "Pega la API key de OpenFactura"}
               className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5C7A]/30 focus:border-[#1A5C7A]" />
           </div>
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">RUT emisor</label>
-            <input value={rutEmisor} onChange={(e) => setRut(e.target.value)}
+            <label htmlFor="sii-rut" className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">RUT de la clínica <span className="normal-case font-normal">(opcional)</span></label>
+            <input id="sii-rut" value={rutEmisor} onChange={(e) => setRut(e.target.value)}
               placeholder="76.123.456-7"
               className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5C7A]/30 focus:border-[#1A5C7A]" />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Razón social</label>
-            <input value={razonSocial} onChange={(e) => setRazon(e.target.value)}
-              placeholder="Galana Clínica Dental SpA"
-              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5C7A]/30 focus:border-[#1A5C7A]" />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Giro económico</label>
-            <input value={giro} onChange={(e) => setGiro(e.target.value)}
-              placeholder="Servicios odontológicos"
-              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1A5C7A]/30 focus:border-[#1A5C7A]" />
+            <p className="text-[11px] text-gray-400 mt-1">Si lo escribes, se revisa que la API key sea de esta empresa.</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 mt-1">
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Tipo documento</label>
-            <div className="flex gap-1">
-              {([39, 41] as const).map((t) => (
-                <button key={t} type="button" onClick={() => { setDocType(t); setExenta(t === 41); }}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition ${
-                    documentType === t
-                      ? "bg-[#1A5C7A] text-white border-[#1A5C7A]"
-                      : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
-                  }`}>
-                  {t === 39 ? "39 · Afecta" : "41 · Exenta"}
-                </button>
-              ))}
-            </div>
+        <fieldset className="mt-1">
+          <legend className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Tipo de boleta</legend>
+          <div className="flex gap-1">
+            {([true, false] as const).map((e) => (
+              <button key={String(e)} type="button" onClick={() => setExenta(e)} aria-pressed={exenta === e}
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition ${
+                  exenta === e
+                    ? "bg-[#1A5C7A] text-white border-[#1A5C7A]"
+                    : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                }`}>
+                {e ? "Exenta de IVA (41)" : "Afecta a IVA (39)"}
+              </button>
+            ))}
           </div>
-          <div className="flex-1">
-            <p className="text-[11px] text-gray-400 mt-5">
-              {exenta ? "Sin IVA (servicios médicos exentos)" : "Con IVA 19%"}
-            </p>
-          </div>
-        </div>
+          <p className="text-[11px] text-gray-400 mt-1">Confírmalo con el contador de la clínica.</p>
+        </fieldset>
 
         <div className="flex gap-2 flex-wrap mt-2">
           <button onClick={save} disabled={saving}
@@ -280,8 +265,8 @@ function SiiCard({
             {verifying ? "Verificando…" : "Verificar y activar"}
           </button>
         </div>
-        {msg   && <p className="text-xs text-emerald-600">{msg}</p>}
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {msg   && <p role="status" className="text-xs text-emerald-600">{msg}</p>}
+        {error && <p role="alert" className="text-xs text-red-500">{error}</p>}
       </div>
     </div>
   );

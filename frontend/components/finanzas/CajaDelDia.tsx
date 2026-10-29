@@ -6,8 +6,8 @@ import { fmtCLP } from "@/components/pacientes/formato";
 import { NombrePaciente } from "@/components/pacientes/AbrirPaciente";
 import { cx } from "@/lib/cx";
 import {
-  MEDIOS, NOMBRE_MEDIO, NOMBRE_ORIGEN, cerrarCaja, diaLocal, getCaja, moverDia, nombreDelDia, textoDiferencia,
-  type Caja,
+  MEDIOS, NOMBRE_MEDIO, NOMBRE_ORIGEN, abrirPdfBoleta, boletaEmitida, cerrarCaja, diaLocal, emitirBoleta, getCaja,
+  moverDia, nombreDelDia, textoDiferencia, type Caja, type MovimientoCaja,
 } from "@/lib/finanzas";
 
 const hora = (iso: string) => new Date(iso).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -15,6 +15,7 @@ const hora = (iso: string) => new Date(iso).toLocaleTimeString("es-CL", { hour: 
 /**
  * Caja del día (MOL-58): lo que entró, por medio de pago y quién lo
  * registró, y el cierre con el efectivo contado. El cierre no se edita.
+ * Cada pago puede llevar su boleta electrónica (MOL-63).
  */
 export function CajaDelDia() {
   const hoy = diaLocal();
@@ -74,12 +75,15 @@ export function CajaDelDia() {
             </div>
           </div>
 
-          <Card title={`Movimientos (${caja.resumen.cantidad})`} padded={false}>
+          <Card title={`Movimientos (${caja.resumen.cantidad})`} padded={false}
+            action={caja.boletaActiva && caja.sinBoleta > 0
+              ? <Badge tone="warn">{caja.sinBoleta === 1 ? "1 pago sin boleta" : `${caja.sinBoleta} pagos sin boleta`}</Badge>
+              : undefined}>
             {caja.movimientos.length === 0 ? (
               <p className="px-5 pb-5 text-sm text-ink-muted">No se registraron pagos este día.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[640px] text-sm">
+                <table className="w-full min-w-[760px] text-sm">
                   <caption className="sr-only">Pagos registrados el {nombreDelDia(dia)}</caption>
                   <thead>
                     <tr className="border-y border-line-soft text-left text-xs font-bold text-ink-muted">
@@ -88,7 +92,8 @@ export function CajaDelDia() {
                       <th scope="col" className="px-3 py-2">Concepto</th>
                       <th scope="col" className="px-3 py-2">Medio</th>
                       <th scope="col" className="px-3 py-2 text-right">Monto</th>
-                      <th scope="col" className="px-5 py-2">Registró</th>
+                      <th scope="col" className="px-3 py-2">Registró</th>
+                      <th scope="col" className="px-5 py-2">Boleta</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line-soft">
@@ -107,12 +112,18 @@ export function CajaDelDia() {
                           {m.monto < 0 ? `−${fmtCLP(-m.monto)}` : fmtCLP(m.monto)}
                           {m.monto < 0 && <span className="block text-xs font-normal">Corrección</span>}
                         </td>
-                        <td className="px-5 py-3 text-ink-muted">{m.registradoPor ?? "Automático"}</td>
+                        <td className="px-3 py-3 text-ink-muted">{m.registradoPor ?? "Automático"}</td>
+                        <td className="px-5 py-3"><CeldaBoleta mov={m} activa={caja.boletaActiva} onEmitida={recargar} /></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+            )}
+            {!caja.boletaActiva && caja.movimientos.length > 0 && (
+              <p className="border-t border-line-soft px-5 py-3 text-[13px] text-ink-muted">
+                Para emitir la boleta electrónica de cada pago, conecta OpenFactura en Configuración → Integraciones.
+              </p>
             )}
           </Card>
 
@@ -133,6 +144,7 @@ function CierreHecho({ caja }: { caja: Caja }) {
         <Dato etiqueta="Efectivo contado" valor={fmtCLP(c.efectivoContado)} />
         <Dato etiqueta="Total del cierre" valor={fmtCLP(c.esperado.total)} />
         <Dato etiqueta="Cerró" valor={`${c.cerradoPor ?? "—"} · ${hora(c.cerradoEn)}`} />
+        {c.pagosSinBoleta !== null && <Dato etiqueta="Pagos sin boleta al cerrar" valor={String(c.pagosSinBoleta)} />}
       </dl>
       {c.nota && <p className="mt-3 text-sm text-ink"><span className="text-ink-muted">Nota: </span>{c.nota}</p>}
       {despues && despues.cantidad > 0 && (
@@ -185,6 +197,11 @@ function CerrarCaja({ caja, onCerrada }: { caja: Caja; onCerrada: () => void }) 
           <input id={idNota} value={nota} onChange={(e) => setNota(e.target.value.slice(0, 500))} className={CLASE_CAMPO}
             placeholder="Ej: faltan $2.000 de vuelto" />
         </div>
+        {caja.boletaActiva && caja.sinBoleta > 0 && (
+          <p className="rounded-control bg-warn-soft px-3 py-2 text-[13px] text-ink">
+            {caja.sinBoleta === 1 ? "Queda 1 pago sin boleta" : `Quedan ${caja.sinBoleta} pagos sin boleta`}. Puedes cerrar igual: queda anotado en el cierre.
+          </p>
+        )}
         {error && <p role="alert" className="text-sm text-danger">{error}</p>}
         <div>
           <Button type="submit" loading={guardando} disabled={!valido}>
@@ -193,6 +210,51 @@ function CerrarCaja({ caja, onCerrada }: { caja: Caja; onCerrada: () => void }) 
         </div>
       </form>
     </Card>
+  );
+}
+
+/**
+ * La boleta de un pago: el folio (abre el PDF), o el botón para emitirla.
+ * Las correcciones (montos negativos) no llevan boleta.
+ */
+function CeldaBoleta({ mov, activa, onEmitida }: { mov: MovimientoCaja; activa: boolean; onEmitida: () => void }) {
+  const [ocupado, setOcupado] = useState(false);
+  const [error, setError] = useState("");
+  const b = mov.boleta;
+
+  async function emitir() {
+    setOcupado(true); setError("");
+    try { await emitirBoleta(mov.id); onEmitida(); }
+    catch (e) { setError(e instanceof Error ? e.message : "No pudimos emitir la boleta"); }
+    finally { setOcupado(false); }
+  }
+  async function abrir() {
+    setError("");
+    try { await abrirPdfBoleta(b!.id); }
+    catch (e) { setError(e instanceof Error ? e.message : "No pudimos abrir el PDF"); }
+  }
+
+  if (mov.monto <= 0) return <span className="text-ink-muted">—</span>;
+  const fallo = error || (b?.status === "error" ? b.errorMessage ?? "No se pudo emitir" : "");
+  return (
+    <div className="flex max-w-56 flex-col items-start gap-1">
+      {boletaEmitida(b) ? (
+        <button type="button" onClick={abrir}
+          className="font-semibold tabular-nums text-brand-strong underline-offset-2 hover:underline"
+          aria-label={`Abrir el PDF de la boleta${b!.folio ? ` folio ${b!.folio}` : ""}`}>
+          {b!.folio ? `N° ${b!.folio}` : "Emitida"}
+        </button>
+      ) : b?.status === "draft" && !ocupado ? (
+        <span className="text-ink-muted">Emitiendo…</span>
+      ) : activa ? (
+        <Button variant="secondary" size="sm" loading={ocupado} onClick={emitir}>
+          {ocupado ? "Emitiendo…" : b?.status === "error" ? "Reintentar" : "Emitir"}
+        </Button>
+      ) : (
+        <span className="text-ink-muted">—</span>
+      )}
+      {fallo && <p role="alert" className="text-xs text-danger">{fallo}</p>}
+    </div>
   );
 }
 

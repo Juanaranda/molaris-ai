@@ -80,15 +80,30 @@ export interface MovimientoCaja {
   patientName: string | null; patientRut: string | null; doctor: string | null;
   /** null si llegó solo (Mercado Pago). */
   registradoPor: string | null;
+  /** La boleta más reciente del pago (MOL-63); null si no se ha emitido. */
+  boleta: BoletaDePago | null;
+}
+
+export interface BoletaDePago {
+  id: string;
+  folio: number | null;
+  status: "draft" | "issued" | "accepted" | "rejected" | "error";
+  errorMessage: string | null;
 }
 
 export interface Caja {
   dia: string;
   resumen: ResumenCaja;
   movimientos: MovimientoCaja[];
+  /** La clínica emite boletas desde molari (OpenFactura verificado). */
+  boletaActiva: boolean;
+  /** Pagos del día que necesitan boleta y no la tienen. */
+  sinBoleta: number;
   cierre: {
     cerradoEn: string; cerradoPor: string | null; esperado: Record<Medio, number> & { total: number };
     efectivoContado: number; diferencia: number; nota: string | null;
+    /** null si la clínica no emitía boletas al cerrar. */
+    pagosSinBoleta: number | null;
   } | null;
   despuesDelCierre: ResumenCaja | null;
 }
@@ -132,4 +147,35 @@ export async function cerrarCaja(dia: string, efectivoContado: number, nota: str
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error ?? "No pudimos cerrar la caja");
+}
+
+/** La boleta cuenta como hecha cuando OpenFactura la recibió o el SII la aceptó. */
+export const boletaEmitida = (b: BoletaDePago | null) => b?.status === "issued" || b?.status === "accepted";
+
+export async function emitirBoleta(movimientoId: string): Promise<BoletaDePago> {
+  const res = await fetch(`${API}/api/finanzas/caja/movimientos/${movimientoId}/boleta`, {
+    method: "POST", headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? "No pudimos emitir la boleta");
+  return data.boleta;
+}
+
+/**
+ * Abre el PDF de una boleta en otra pestaña. La pestaña se abre antes de
+ * pedirlo (si no, el navegador la bloquea por no venir de un clic) y el PDF
+ * se pide con la sesión, porque no es un link público.
+ */
+export async function abrirPdfBoleta(boletaId: string): Promise<void> {
+  const ventana = window.open("", "_blank");
+  try {
+    const res = await fetch(`${API}/api/finanzas/boletas/${boletaId}/pdf`, { headers: { Authorization: `Bearer ${getToken()}` } });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "No pudimos abrir el PDF");
+    const url = URL.createObjectURL(await res.blob());
+    if (ventana) ventana.location.href = url; else window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (e) {
+    ventana?.close();
+    throw e;
+  }
 }

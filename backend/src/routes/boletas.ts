@@ -1,8 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import prisma from "../config/prisma";
 import { verifyToken } from "./auth";
-import { emitBoleta } from "../services/sii/openFacturaService";
-import { audit } from "../services/audit/auditService";
 
 export async function boletaRoutes(app: FastifyInstance) {
   function guardClinic(req: { headers: { authorization?: string }; params: { id: string } }):
@@ -19,108 +17,9 @@ export async function boletaRoutes(app: FastifyInstance) {
     return { ok: true, payload };
   }
 
-  // ── Emitir boleta para un booking ──────────────────────────────────────────
-  // POST /api/bookings/:bookingId/boleta
-  app.post<{
-    Params: { bookingId: string };
-    Body:   { amount?: number; rutReceptor?: string; description?: string };
-  }>("/bookings/:bookingId/boleta", async (req, reply) => {
-    let payload;
-    try { payload = verifyToken(req.headers.authorization); }
-    catch { return reply.status(401).send({ error: "No autorizado" }); }
-    if (payload.role === "USER") return reply.status(403).send({ error: "Sin permisos" });
-
-    const booking = await prisma.booking.findUnique({
-      where: { id: req.params.bookingId },
-      include: { clinic: true },
-    });
-    if (!booking) return reply.status(404).send({ error: "Cita no encontrada" });
-    if (payload.role !== "SUPERADMIN" && payload.clinicId !== booking.clinicId) {
-      return reply.status(403).send({ error: "Acceso denegado" });
-    }
-
-    const c = booking.clinic;
-    if (!c.siiVerified || !c.siiApiKey || !c.siiRutEmisor || !c.siiRazonSocial || !c.siiGiro) {
-      return reply.status(400).send({ error: "La clínica no tiene SII configurado (siiApiKey, RUT emisor, razón social, giro)" });
-    }
-
-    const amount = req.body?.amount ?? booking.amountTotal ?? 0;
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return reply.status(400).send({ error: "Monto inválido — define amount o booking.amountTotal" });
-    }
-    const description = req.body?.description ?? `${booking.service ?? "Atención dental"} — ${booking.doctor}`;
-    const rutReceptor = req.body?.rutReceptor ?? booking.patientRut ?? undefined;
-
-    // Crear registro local con status='draft' antes de llamar al provider
-    const boleta = await prisma.boleta.create({
-      data: {
-        clinicId:     booking.clinicId,
-        bookingId:    booking.id,
-        documentType: c.siiDocumentType ?? 39,
-        rutReceptor:  rutReceptor ?? null,
-        patientName:  booking.patientName,
-        description,
-        netAmount:    Math.round(amount),
-        iva:          0,             // se actualiza tras emisión
-        totalAmount:  Math.round(amount),
-        status:       "draft",
-        provider:     c.siiProvider ?? "openfactura",
-      },
-    });
-
-    const result = await emitBoleta({
-      apiKey:       c.siiApiKey,
-      documentType: c.siiDocumentType ?? 39,
-      rutEmisor:    c.siiRutEmisor,
-      razonSocial:  c.siiRazonSocial,
-      giro:         c.siiGiro,
-      rutReceptor,
-      receptorName: booking.patientName ?? undefined,
-      items:        [{ description, quantity: 1, unitPrice: Math.round(amount) }],
-      exenta:       c.siiExenta,
-    });
-
-    const updated = await prisma.boleta.update({
-      where: { id: boleta.id },
-      data: {
-        folio:        result.folio,
-        status:       result.status,
-        providerRef:  result.providerRef,
-        pdfUrl:       result.pdfUrl,
-        xmlContent:   result.xml,
-        timbreUrl:    result.timbreUrl,
-        netAmount:    result.netAmount,
-        iva:          result.iva,
-        totalAmount:  result.totalAmount,
-        emittedAt:    result.status === "issued" ? new Date() : null,
-        errorMessage: result.errorMessage,
-      },
-    });
-
-    audit({
-      req, actorId: payload.userId, clinicId: booking.clinicId,
-      action: "create", resourceType: "Boleta", resourceId: updated.id,
-      snapshotAfter: { folio: updated.folio, status: updated.status, totalAmount: updated.totalAmount, bookingId: booking.id },
-    });
-
-    if (result.status === "error") {
-      return reply.status(502).send({
-        error: "Error emitiendo boleta",
-        detail: result.errorMessage,
-        boletaId: updated.id,
-      });
-    }
-
-    return reply.send({
-      boleta: {
-        id:          updated.id,
-        folio:       updated.folio,
-        pdfUrl:      updated.pdfUrl,
-        totalAmount: updated.totalAmount,
-        status:      updated.status,
-      },
-    });
-  });
+  // La boleta se emite por pago, desde la caja del día (POST
+  // /finanzas/caja/movimientos/:id/boleta, MOL-63), no por cita: así sale
+  // por lo que se pagó y no por el monto de la cita.
 
   // ── Listar boletas de la clínica ───────────────────────────────────────────
   // GET /api/clinics/:id/boletas?status=&limit=

@@ -26,7 +26,8 @@ export interface PatientBoleta {
   netAmount: number;
   iva: number;
   description: string | null;
-  pdfUrl: string | null;
+  /** El PDF se pide aparte, con la sesión del paciente (abrirPdfMiBoleta). */
+  tienePdf: boolean;
   emittedAt: string | null;
 }
 
@@ -62,6 +63,23 @@ export async function getMyBoletas(): Promise<PatientBoleta[]> {
   if (!res.ok) throw new Error("Error cargando boletas");
   const json = await res.json();
   return json.boletas;
+}
+
+/** Abre el PDF de una boleta propia en otra pestaña (no es un link público). */
+export async function abrirPdfMiBoleta(boletaId: string): Promise<void> {
+  const ventana = window.open("", "_blank");
+  try {
+    const res = await fetch(`${API}/api/auth/patient/boletas/${boletaId}/pdf`, {
+      headers: { Authorization: `Bearer ${getPatientToken()}` },
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "No pudimos abrir el PDF");
+    const url = URL.createObjectURL(await res.blob());
+    if (ventana) ventana.location.href = url; else window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (e) {
+    ventana?.close();
+    throw e;
+  }
 }
 
 export interface PatientClinic {

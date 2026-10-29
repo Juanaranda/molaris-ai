@@ -86,7 +86,7 @@ Ahora que el backend tiene URL pública, se activan:
 | `META_VERIFY_TOKEN` · `META_APP_SECRET` | WhatsApp Meta |
 | `MP_CLIENT_ID` · `MP_CLIENT_SECRET` · `MP_NOTIFICATION_URL` | Mercado Pago OAuth |
 | `ALERT_WA_PHONE_ID` · `ALERT_WA_TOKEN` · `ALERT_WA_TO` | alertas por WhatsApp al admin (kill switch, fallos) |
-| `OPENFACTURA_BASE_URL` · `ZAPSIGN_BASE_URL` | boleta SII / firmas (tienen default) |
+| `OPENFACTURA_BASE_URL` · `ZAPSIGN_BASE_URL` | boleta SII / firmas. Sin `OPENFACTURA_BASE_URL` se usa el ambiente de pruebas de OpenFactura (las boletas no llegan al SII); en producción va `https://api.haulmer.com` |
 
 `PORT` lo setea Railway solo — no la toques.
 
